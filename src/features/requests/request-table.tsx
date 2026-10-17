@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatUtc } from "@/features/dashboards/format";
 import type { RequestRow } from "@/server/requests/queries";
+import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatDateOnly } from "./format";
 import { StatusBadge, TypeBadge } from "./status-badges";
 
@@ -38,6 +39,7 @@ export function RequestTable({ rows, emptyText = "No requests yet." }: { rows: R
             </TableCell>
             <TableCell>
               <TypeBadge type={row.type} />
+              {row.phase ? <span className="mt-1 block text-[11px] text-muted-foreground">{SOA_PHASE_LABELS[row.phase]}</span> : null}
             </TableCell>
             <TableCell className="max-w-56">
               <Link href={`/projects/${row.projectCode}`} className="block truncate hover:underline">

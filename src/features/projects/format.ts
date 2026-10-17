@@ -12,3 +12,10 @@ export function formatAmount(value: number | null): string {
 export function formatPercent(value: number | null): string {
   return value === null ? "–" : `${value}%`;
 }
+
+const COMPACT = new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 });
+
+/** A short amount for charts and tiles ("1,2 M", "500 jt"); the exact figure stays in the table and tooltip. */
+export function formatCompact(value: number | null): string {
+  return value === null ? "–" : COMPACT.format(value);
+}

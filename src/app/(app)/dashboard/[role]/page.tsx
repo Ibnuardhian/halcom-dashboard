@@ -6,17 +6,18 @@ import { AdminDashboard } from "@/features/dashboards/admin-dashboard";
 import { PlannedDashboard } from "@/features/dashboards/planned-dashboard";
 import { ROLE_DASHBOARDS } from "@/features/dashboards/definitions";
 import { RoleQueue } from "@/features/dashboards/role-queue";
+import { SalesPipeline } from "@/features/dashboards/sales-pipeline";
 import { requirePermission } from "@/server/auth/current-user";
 
-export default function RoleDashboardPage({ params }: PageProps<"/dashboard/[role]">) {
+export default function RoleDashboardPage({ params, searchParams }: PageProps<"/dashboard/[role]">) {
   return (
     <Suspense fallback={<PageFallback />}>
-      <RoleDashboard params={params} />
+      <RoleDashboard params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function RoleDashboard({ params }: Pick<PageProps<"/dashboard/[role]">, "params">) {
+async function RoleDashboard({ params, searchParams }: Pick<PageProps<"/dashboard/[role]">, "params" | "searchParams">) {
   const key = dashboardFromSlug((await params).role);
   if (!key) notFound();
 
@@ -25,6 +26,7 @@ async function RoleDashboard({ params }: Pick<PageProps<"/dashboard/[role]">, "p
   if (key === "admin" || key === "superadmin") {
     return <AdminDashboard viewer={viewer} scope={key} />;
   }
+  if (key === "sales") return <SalesPipeline viewer={viewer} view={(await searchParams).view === "charts" ? "charts" : "table"} />;
   return (
     <PlannedDashboard definition={ROLE_DASHBOARDS[key]}>
       <RoleQueue viewer={viewer} dashboard={key} />

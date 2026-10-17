@@ -307,3 +307,28 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   `md` breakpoint it becomes a drawer (menu button, closes on navigation and Escape). Colours: primary blue `#1173BA`
   from the logo, white background, grey `#F3F4F6` surfaces, light blue `#E0F2FE` accents, amber `#F59E0B` only for attention states.
   Users can change their own password on the Account page; the Audit log page is open to admins.
+
+## D-023 Sales Pipeline, Progress and Status, one form, notifications, SOA phase, MailTo and export
+
+- **Date:** 2026-10-18 · **Status:** Implemented
+- **Progress and Status replace the old Stage and Status.** Sales' sheet drop-downs are the model: Progress (5% Qualify, 15% Understand,
+  30% Propose, 60% Negotiate, 60% Negotiate (FU), 95% Agree, 100% Closed Won, 0% Closed Lost) and Status (On Track, On Hold, Done,
+  Block). Choosing a Progress step sets its probability unless the probability is changed by hand in the same save. Existing
+  projects were given a starting value from their stage and status (migration `20261018140000`; a guess, Sales correct it). Requests
+  can be added only to a project that is **On Track**. *The old `projects.stage` and `projects.status` columns are no longer read or
+  written; dropping them is a separate migration that needs the owner's approval, because it deletes the finer-grained old values.*
+- **Sales Pipeline** is the one Sales dashboard (Table or Charts view, `?view=`). Request lists leave the Sales menu; a new project and its
+  first BOQ, RFQ or PO are created in one form, in one transaction.
+- **Commercial fields** (Progress, Status, estimated PO value, probability, target margin %, quote released, target closing) are edited
+  by the Sales owner of the project (admins: any project), through a whitelist, with a change log and audit event.
+  Estimated gross profit = value (final value once known) × target margin; empty until both are known.
+- **Notifications** (`notifications` table, written in the transaction of the change): a new request reaches the team that owns its type;
+  status changes and handovers reach the requester and Sales owner; project updates (commercial, technical, current/next action,
+  SOA phase) reach the Sales owner, the technical PIC and the team with an open request on the project. The actor is never notified.
+  Finance and Management receive none (they own no requests).
+- **SOA phase:** a BOQ request is labelled Assessment, Sizing or POC by SOA (permission `requests.work.boq`); a database check keeps
+  the label off RFQ and PO. RFQ and PO belong to Purchasing; SOA sees the email text only for BOQ and for what it handed over itself.
+- **MailTo:** each request's email panel has a button that opens a draft in the person's mail program with To, Cc, subject and text.
+  The application still sends nothing (D-017). A text that would make the link longer than 1900 characters is left out of the link.
+- **Export:** the Overview offers a CSV export of the projects with the columns the person ticks (UTF-8 with BOM for Excel; text that
+  starts with `= + - @` is neutralised). Each export is written to the audit log. An .xlsx export can follow if Excel formatting is needed.

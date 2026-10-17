@@ -6,10 +6,13 @@ const COMPANY = "PT E2E Contoh";
 /** Creates a project as the signed-in Sales user and returns its Project ID. */
 async function createProject(page: Page, name: string): Promise<string> {
   await page.goto("/projects/new");
-  await page.getByLabel("End-user company").fill(COMPANY);
-  await page.getByLabel("Project name").fill(name);
-  await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/);
+  // The first visit to a page on a freshly started server compiles it; a click before it is interactive reloads the form.
+  await expect(async () => {
+    await page.getByLabel("End-user company").fill(COMPANY);
+    await page.getByLabel("Project name").fill(name);
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 4000 });
+  }).toPass({ timeout: 25_000 });
   return page.url().split("/").pop()!;
 }
 
@@ -18,10 +21,13 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
   await page.goto(`/projects/${projectCode}`);
   await page.getByRole("link", { name: `New ${type}`, exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue(type);
-  await page.getByLabel("Summary").fill(title);
-  await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
-  await page.getByRole("button", { name: "Create request" }).click();
-  await expect(page).toHaveURL(/\/request\/(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}$/);
+  // A click before the page is interactive reloads the form instead of submitting it, so the whole step is retried.
+  await expect(async () => {
+    await page.getByLabel("Summary").fill(title);
+    await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
+    await page.getByRole("button", { name: "Create request" }).click();
+    await expect(page).toHaveURL(/\/request\/(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}$/, { timeout: 4000 });
+  }).toPass({ timeout: 25_000 });
   return page.url().split("/").pop()!;
 }
 
@@ -51,24 +57,138 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("does not send email")).toBeVisible();
   });
 
-  test("the project list filters by stage and search, and the project page has its sections", async ({ page }) => {
+  test("Sales fill one form for the project and its BOQ, and land on the request with the email text", async ({ page }) => {
+    await signIn(page, "SALES");
+    await page.goto("/dashboard/sales");
+    await expect(page.getByRole("heading", { level: 1, name: "Sales Pipeline" })).toBeVisible();
+    await page.getByRole("link", { name: /New project & request/ }).click();
+    await expect(page).toHaveURL(/\/projects\/new$/);
+
+    await page.getByLabel("End-user company").fill(COMPANY);
+    await page.getByLabel("Project name").fill("One form demo");
+    await page.getByLabel("Estimated PO value").fill("2.000.000.000");
+    await page.getByLabel("Target margin (%)").fill("12,5");
+    await page.getByText(/^BOQ – /).click();
+    await page.getByLabel("Request summary").fill("BOQ from the combined form");
+    await page.getByRole("button", { name: "Create project and BOQ request" }).click();
+
+    await expect(page).toHaveURL(/\/request\/BOQ-SA-\d{2}\d{4,}$/);
+    const subject = await page.getByLabel("Subject", { exact: true }).inputValue();
+    expect(subject).toBe(`[HITBOQ] ${COMPANY} - One form demo`);
+    const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (PRJ-\d+)/)![1]!;
+
+    await page.goto(`/projects/${projectCode}`);
+    await expect(page.getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
+    await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
+  });
+
+  test("Sales set a target margin on their own project, the change is logged, and SOA cannot edit it", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Margin demo");
+
+    const commercial = page.locator("#commercial");
+    await commercial.getByLabel("Estimated PO value").fill("1000000");
+    await commercial.getByLabel("Progress").selectOption({ label: "60% - Negotiate" });
+    await commercial.getByLabel("Status").selectOption({ label: "On Hold" });
+    await commercial.getByLabel("Quote released").fill("2026-10-01");
+    await commercial.getByLabel("Target margin (%)").fill("15");
+    await page.getByRole("button", { name: "Save commercial details" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator("#commercial").getByLabel("Target margin (%)")).toHaveValue("15");
+    await expect(page.locator("#commercial").getByLabel("Probability (%)")).toHaveValue("60"); // follows the Progress step
+    await expect(page.locator("#commercial").getByLabel("Progress")).toHaveValue("NEGOTIATE");
+    await expect(page.getByText("Estimated gross profit", { exact: true }).locator("..")).toContainText("150.000");
+    await page.goto("/dashboard/sales");
+    await expect(page.getByRole("link", { name: "Margin demo" }).first()).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Estimated Gross Profit" })).toBeVisible();
+    await expect(page.getByText(projectCode).first()).toBeVisible();
+    await page.getByRole("link", { name: "Charts" }).click(); // the table is the default view
+    await expect(page).toHaveURL(/view=charts/);
+    await expect(page.getByRole("heading", { level: 3, name: "Pipeline by progress" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 3, name: "Projects by principal" })).toHaveCount(0); // not in the Sales view
+
+    const soa = await asRole(browser, "SOA");
+    await soa.goto(`/projects/${projectCode}`);
+    await expect(soa.getByRole("heading", { level: 2, name: "Commercial" })).toBeVisible();
+    await expect(soa.getByRole("button", { name: "Save commercial details" })).toHaveCount(0);
+    await soa.context().close();
+  });
+
+  test("an RFQ goes to Purchasing: Sales see its email text, SOA does not", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    await page.goto("/projects/new");
+    await page.getByLabel("End-user company").fill(COMPANY);
+    await page.getByLabel("Project name").fill("RFQ routing demo");
+    await page.getByText(/^RFQ – /).click();
+    await expect(page.getByText("Goes to Purchasing.", { exact: true })).toBeVisible();
+    await page.getByLabel("Request summary").fill("Price for 10 servers");
+    await page.getByRole("button", { name: "Create project and RFQ request" }).click();
+
+    await expect(page).toHaveURL(/\/request\/RFQ-SA-\d{2}\d{4,}$/);
+    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(`[HITRFQ] ${COMPANY} - RFQ routing demo`);
+    await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
+    const requestUrl = page.url();
+
+    const soa = await asRole(browser, "SOA");
+    await soa.goto(requestUrl);
+    await expect(soa.getByRole("heading", { level: 1, name: /^RFQ-SA-/ })).toBeVisible();
+    await expect(soa.getByRole("heading", { name: /Email text/ })).toHaveCount(0);
+    await expect(soa.getByRole("button", { name: "Update status" })).toHaveCount(0);
+    await soa.context().close();
+  });
+
+  test("a request notifies the owning team, and SOA's phase notifies Sales", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Notify demo");
+    const boq = await createRequest(page, projectCode, "BOQ", "BOQ to notify about");
+
+    const soa = await asRole(browser, "SOA");
+    await soa.goto("/notifications");
+    await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toBeVisible();
+    await expect(soa.getByRole("link", { name: /^Notifications, \d+ unread/ })).toBeVisible();
+
+    await soa.goto(`/request/${boq}`);
+    await soa.getByLabel("Phase").selectOption("SIZING");
+    await soa.getByRole("button", { name: "Save phase" }).click();
+    await expect(soa.getByRole("status").filter({ hasText: "Phase saved." })).toBeVisible();
+    await expect(soa.getByText("Sizing").first()).toBeVisible();
+    await soa.context().close();
+
+    await page.goto("/notifications");
+    await expect(page.getByRole("link", { name: `${boq} is now in Sizing` })).toBeVisible();
+    await page.getByRole("button", { name: "Mark all as read" }).click();
+    await expect(page.getByText("You are all caught up.")).toBeVisible();
+  });
+
+  test("the overview shows the pipeline charts to everyone", async ({ page }) => {
+    await signIn(page, "FINANCE");
+    await page.goto("/dashboard");
+
+    for (const title of ["Pipeline by progress", "Projects by principal", "Value by principal", "Solution mix", "Value by industry", "Weighted value by salesperson"]) {
+      await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
+    }
+  });
+
+  test("the project list filters by progress and search, and the project page has its sections", async ({ page }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Pipeline demo");
 
     for (const heading of ["Overview", "Technical", "Activity", "Requests"]) {
       await expect(page.getByRole("heading", { level: 2, name: heading, exact: true })).toBeVisible();
     }
-    await expect(page.getByText("New Opportunity")).toBeVisible(); // a new project starts at the first stage
+    await expect(page.getByText("5% - Qualify").first()).toBeVisible(); // a new project starts at the first step
     await expect(page.getByText("Sales PIC")).toBeVisible();
 
     await page.goto("/projects");
     await expect(page.getByRole("link", { name: projectCode })).toBeVisible();
-    await page.getByLabel("Stage").selectOption("QUOTATION");
+    await page.getByLabel("Progress").selectOption("PROPOSE");
     await page.getByRole("button", { name: "Filter" }).click();
-    await expect(page).toHaveURL(/stage=QUOTATION/);
+    await expect(page).toHaveURL(/progress=PROPOSE/);
     await expect(page.getByRole("link", { name: projectCode })).toHaveCount(0);
 
-    await page.getByLabel("Stage").selectOption("NEW_OPPORTUNITY");
+    await page.getByLabel("Progress").selectOption("QUALIFY");
     await page.getByLabel("Search projects").fill("pipeline demo");
     await page.getByRole("button", { name: "Filter" }).click();
     await expect(page.getByRole("link", { name: projectCode })).toBeVisible();
@@ -236,8 +356,7 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "List demo");
     const rfq = await createRequest(page, projectCode, "RFQ", "Listed RFQ");
 
-    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "RFQ requests" }).click();
-    await expect(page).toHaveURL(/\/requests\/rfq$/);
+    await page.goto("/requests/rfq");
     await expect(page.getByRole("link", { name: rfq })).toBeVisible();
 
     await page.getByRole("navigation", { name: "Filter by status" }).getByRole("link", { name: "Completed" }).click();
@@ -363,13 +482,8 @@ test.describe("responsive layout", () => {
     await expect(nav.getByRole("heading", { name: "Work" })).toBeVisible();
     await expect(nav.getByRole("link")).toHaveText([
       "Overview",
-      "My dashboard",
+      "Sales Pipeline",
       "Projects",
-      "All requests",
-      "BOQ requests",
-      "RFQ requests",
-      "PO requests",
-      "New request",
     ]);
     await expect(page).toHaveTitle("Halcom Dashboard");
   });

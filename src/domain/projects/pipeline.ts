@@ -1,6 +1,9 @@
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, type ProjectStatus } from "@/domain/requests/types";
 
-/** Keep in sync with `enum ProjectStage` in prisma/schema.prisma. */
+/**
+ * The stage and status columns of the older sales export. They are read only while importing a file, and become the
+ * project's Progress and Status (progress.ts); the project table no longer uses them.
+ */
 export const PROJECT_STAGES = [
   "NEW_OPPORTUNITY",
   "ASSESSMENT",
@@ -23,9 +26,6 @@ export const PROJECT_STAGE_LABELS: Record<ProjectStage, string> = {
   WON: "Won",
   LOST: "Lost",
 };
-
-/** Stages that count as still being worked toward a deal. */
-export const OPEN_STAGES: readonly ProjectStage[] = PROJECT_STAGES.filter((stage) => stage !== "WON" && stage !== "LOST");
 
 /** Older exports wrote "Sizing / BOM"; the stage is now called "Sizing / BOQ", and both are accepted. */
 export function parseStage(label: string): ProjectStage | null {
@@ -57,4 +57,14 @@ export function nameKey(name: string): string {
 
 export function cleanName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * The margin Sales aims for, in money: the sale value times the target margin percentage. The value is the final
+ * value once it is known, otherwise the estimate. Empty when either is missing, never a guess.
+ */
+export function targetMarginAmount(estimatedValue: number | null, finalValue: number | null, targetMarginPercent: number | null): number | null {
+  const basis = finalValue ?? estimatedValue;
+  if (basis === null || targetMarginPercent === null) return null;
+  return Math.round(basis * targetMarginPercent) / 100;
 }

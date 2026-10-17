@@ -25,7 +25,7 @@ async function makeProject() {
   if (!result.ok) throw new Error(result.message);
   await db.project.update({
     where: { id: result.value.id },
-    data: { estimatedValue: 1_000_000, probability: 40, stage: "QUOTATION", sizingStatus: "Waiting for the sizing form" },
+    data: { estimatedValue: 1_000_000, probability: 40, progress: "PROPOSE", sizingStatus: "Waiting for the sizing form" },
   });
   return { ...result.value, sales };
 }
@@ -129,6 +129,8 @@ describe("updateProjectDetails (technical fields)", () => {
       estimatedValue: "999",
       probability: "99",
       finalValue: "5",
+      progress: "CLOSED_WON",
+      trackStatus: "DONE",
       stage: "WON",
       status: "WON",
       salesOwnerId: other.id,
@@ -156,7 +158,7 @@ describe("updateProjectDetails (technical fields)", () => {
 
     const after = await db.project.findUniqueOrThrow({ where: { id: project.id } });
     expect(Number(after.estimatedValue)).toBe(1_000_000);
-    expect(after).toMatchObject({ probability: 40, stage: "QUOTATION", status: "ACTIVE", salesOwnerId: project.sales.id });
+    expect(after).toMatchObject({ probability: 40, progress: "PROPOSE", trackStatus: "ON_TRACK", salesOwnerId: project.sales.id });
   });
 
   it("rejects an over-long text, a bad project id and an unknown project", async () => {
@@ -286,7 +288,7 @@ describe("postProjectUpdate (current and next action feed)", () => {
 
     const after = await db.project.findUniqueOrThrow({ where: { id: project.id } });
     expect(Number(after.estimatedValue)).toBe(1_000_000);
-    expect(after).toMatchObject({ stage: "QUOTATION", probability: 40, salesOwnerId: project.sales.id });
+    expect(after).toMatchObject({ progress: "PROPOSE", probability: 40, salesOwnerId: project.sales.id });
   });
 
   it("keeps the project's latest text equal to the newest entry when two people post at the same time", async () => {

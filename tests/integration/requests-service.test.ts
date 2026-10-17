@@ -74,7 +74,8 @@ describe("createProject", () => {
       endUserCompany: "PT ABC",
       name: "CCTV AI",
       description: null,
-      status: "ACTIVE",
+      trackStatus: "ON_TRACK",
+      progress: "QUALIFY",
       salesOwnerId: sales.id,
     });
     expect(stored.targetDate?.toISOString().slice(0, 10)).toBe("2026-12-31");
@@ -185,7 +186,7 @@ describe("createRequest", () => {
       expect(await createRequest(db, await actorOf(role), { projectId: project.id, type: "BOQ", title: "x" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
 
-    await db.project.update({ where: { id: project.id }, data: { status: "CLOSED" } });
+    await db.project.update({ where: { id: project.id }, data: { trackStatus: "DONE" } });
     expect(await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "x" })).toMatchObject({ ok: false, code: "PROJECT_NOT_ACTIVE" });
   });
 });

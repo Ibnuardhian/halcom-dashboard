@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
-import { PROJECT_STAGE_LABELS, type ProjectStage } from "@/domain/projects/pipeline";
+import { PROGRESS_LABELS, TRACK_STATUS_LABELS, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
 import { REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
-import { PROJECT_STATUS_LABELS, type ProjectStatus, type RequestType } from "@/domain/requests/types";
+import type { RequestType } from "@/domain/requests/types";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLE: Record<RequestStatus, { variant: "default" | "secondary" | "outline"; className?: string }> = {
@@ -30,26 +30,33 @@ export function TypeBadge({ type }: { type: RequestType }) {
   );
 }
 
-export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
-  return <Badge variant={status === "ACTIVE" ? "default" : "outline"}>{PROJECT_STATUS_LABELS[status]}</Badge>;
-}
-
-const STAGE_STYLE: Record<ProjectStage, { variant: "default" | "secondary" | "outline"; className?: string }> = {
-  NEW_OPPORTUNITY: { variant: "outline" },
-  ASSESSMENT: { variant: "secondary" },
-  SIZING_BOQ: { variant: "secondary" },
-  POC: { variant: "secondary" },
-  QUOTATION: { variant: "default" },
-  NEGOTIATION: { variant: "default" },
-  WON: { variant: "secondary", className: "bg-accent text-accent-foreground" },
-  LOST: { variant: "outline", className: "text-muted-foreground" },
+const PROGRESS_STYLE: Record<ProjectProgress, { variant: "default" | "secondary" | "outline"; className?: string }> = {
+  QUALIFY: { variant: "outline" },
+  UNDERSTAND: { variant: "outline" },
+  PROPOSE: { variant: "secondary" },
+  NEGOTIATE: { variant: "default" },
+  NEGOTIATE_FU: { variant: "default" },
+  AGREE: { variant: "default" },
+  CLOSED_WON: { variant: "secondary", className: "bg-accent text-accent-foreground" },
+  CLOSED_LOST: { variant: "outline", className: "text-muted-foreground" },
 };
 
-export function StageBadge({ stage }: { stage: ProjectStage }) {
-  const style = STAGE_STYLE[stage];
+/** Sales' Progress, in the wording of their sheet ("30% - Propose"). */
+export function ProgressBadge({ progress }: { progress: ProjectProgress }) {
+  const style = PROGRESS_STYLE[progress];
   return (
-    <Badge variant={style.variant} className={cn(style.className)}>
-      {PROJECT_STAGE_LABELS[stage]}
+    <Badge variant={style.variant} className={cn("whitespace-nowrap", style.className)}>
+      {PROGRESS_LABELS[progress]}
+    </Badge>
+  );
+}
+
+/** Amber is kept for the states that need attention: a blocked project, or one on hold. */
+export function TrackStatusBadge({ status }: { status: TrackStatus }) {
+  const attention = status === "BLOCK" || status === "ON_HOLD";
+  return (
+    <Badge variant={attention ? "secondary" : status === "DONE" ? "outline" : "default"} className={cn("whitespace-nowrap", attention && "bg-warning text-warning-foreground")}>
+      {TRACK_STATUS_LABELS[status]}
     </Badge>
   );
 }

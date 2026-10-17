@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   cleanName,
   nameKey,
-  OPEN_STAGES,
   parseProjectStatus,
   parseStage,
   PROJECT_STAGES,
@@ -181,8 +180,6 @@ describe("pipeline helpers", () => {
     expect(parseStage("New Opportunity")).toBe("NEW_OPPORTUNITY");
     expect(parseStage("Closing")).toBeNull();
     expect(PROJECT_STAGES.every((stage) => parseStage(stage.replace("_", " ").replace("SIZING BOM", "Sizing / BOM")) !== undefined)).toBe(true);
-    expect(OPEN_STAGES).not.toContain("WON");
-    expect(OPEN_STAGES).not.toContain("LOST");
   });
 
   it("parses statuses case-insensitively", () => {

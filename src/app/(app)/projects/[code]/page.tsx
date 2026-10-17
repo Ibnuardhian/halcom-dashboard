@@ -6,20 +6,22 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
-import { weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, weightedValue } from "@/domain/projects/pipeline";
+import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatUtc } from "@/features/dashboards/format";
 import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
+import { CommercialForm } from "@/features/projects/commercial-form";
 import { ChangeLog } from "@/features/projects/change-log";
 import { ProjectFieldsForm } from "@/features/projects/edit-forms";
 import { formatAmount, formatPercent } from "@/features/projects/format";
 import { Fact } from "@/features/requests/fact";
 import { formatDateOnly } from "@/features/requests/format";
 import { RequestTable } from "@/features/requests/request-table";
-import { ProjectStatusBadge, StageBadge } from "@/features/requests/status-badges";
+import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
@@ -58,6 +60,7 @@ function Label({ children }: { children: React.ReactNode }) {
 
 const SECTIONS = [
   ["overview", "Overview"],
+  ["commercial", "Commercial"],
   ["technical", "Technical"],
   ["activity", "Activity"],
   ["requests", "Requests"],
@@ -72,11 +75,25 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
     listProjectChanges(getDb(), viewer, project.id),
     listProjectActions(getDb(), viewer, project.id),
   ]);
-  const mayCreate = can(viewer.role, "requests.create") && project.status === "ACTIVE";
+  const soaPhases = requests.filter((r) => r.type === "BOQ" && r.phase !== null && r.status !== "COMPLETED" && r.status !== "CANCELLED");
+  const mayCreate = can(viewer.role, "requests.create") && project.trackStatus === "ON_TRACK";
   // SOA (and admins) edit the technical fields and post updates; commercial fields stay read-only for them.
   const mayEditTechnical = can(viewer.role, "projects.edit.technical");
   const mayPostUpdate = can(viewer.role, "projects.post-update");
+  // Sales change their own projects; admins support any project (the service enforces the same rule).
+  const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || project.salesOwnerId === viewer.id);
   const estimated = project.estimatedValue?.toNumber() ?? null;
+  const finalValue = project.finalValue?.toNumber() ?? null;
+  const targetMargin = project.targetMargin?.toNumber() ?? null;
+  const commercialValues = {
+    progress: project.progress,
+    trackStatus: project.trackStatus,
+    quoteReleasedAt: project.quoteReleasedAt ? project.quoteReleasedAt.toISOString().slice(0, 10) : "",
+    estimatedValue: estimated === null ? "" : String(estimated),
+    probability: project.probability === null ? "" : String(project.probability),
+    targetMargin: targetMargin === null ? "" : String(targetMargin),
+    targetDate: project.targetDate ? project.targetDate.toISOString().slice(0, 10) : "",
+  };
 
   const values: Record<ProjectEditableField, string | null> = {
     requirement: project.requirement,
@@ -113,12 +130,14 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Project ID">
             <span className="font-mono">{project.code}</span>
           </Fact>
-          <Fact label="Stage">
-            <StageBadge stage={project.stage} />
+          <Fact label="Progress">
+            <ProgressBadge progress={project.progress} />
           </Fact>
           <Fact label="Status">
-            <ProjectStatusBadge status={project.status} />
+            <TrackStatusBadge status={project.trackStatus} />
           </Fact>
+          <Fact label="Last updated">{formatUtc(project.updatedAt)}</Fact>
+          <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
           <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
           <Fact label="End user">{project.customer?.name ?? project.endUserCompany}</Fact>
           <Fact label="Industry">{project.industry ?? "–"}</Fact>
@@ -128,10 +147,12 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Sales PIC">{project.salesOwner.name}</Fact>
           <Fact label="Technical PIC">{project.technicalPic?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
-          <Fact label="Estimated value">{formatAmount(estimated)}</Fact>
+          <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
           <Fact label="Probability">{formatPercent(project.probability)}</Fact>
           <Fact label="Weighted value">{formatAmount(weightedValue(estimated, project.probability))}</Fact>
-          <Fact label="Final value">{formatAmount(project.finalValue?.toNumber() ?? null)}</Fact>
+          <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
+          <Fact label="Estimated gross profit">{formatAmount(targetMarginAmount(estimated, finalValue, targetMargin))}</Fact>
+          <Fact label="Final value">{formatAmount(finalValue)}</Fact>
           {project.wonDate ? <Fact label="Won on">{formatDateOnly(project.wonDate)}</Fact> : null}
           {project.competitor ? <Fact label="Competitor">{project.competitor}</Fact> : null}
           {project.competitionStatus ? <Fact label="Competition status">{project.competitionStatus}</Fact> : null}
@@ -149,6 +170,37 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
             </>
           ) : null}
         </div>
+      </Section>
+
+      <Section
+        id="commercial"
+        title="Commercial"
+        description={
+          mayEditCommercial
+            ? "Progress, status, value, probability, target margin, quote release and target closing. Every change is written to the change log below."
+            : "Owned by the Sales PIC of the project. You can read it but not change it."
+        }
+      >
+        {mayEditCommercial ? (
+          <CommercialForm formKey={`commercial-${formKey}`} projectId={project.id} projectCode={project.code} values={commercialValues} />
+        ) : (
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Fact label="Progress">
+              <ProgressBadge progress={project.progress} />
+            </Fact>
+            <Fact label="Status">
+              <TrackStatusBadge status={project.trackStatus} />
+            </Fact>
+            <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
+            <Fact label="Probability">{formatPercent(project.probability)}</Fact>
+            <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
+            <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
+            <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
+          </dl>
+        )}
+        <p className="mt-4 text-xs text-muted-foreground">
+          Target margin is a percentage of the sale; the estimated gross profit is computed from the final value, or the estimate until it is known.
+        </p>
       </Section>
 
       <Section
@@ -184,6 +236,23 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
             </div>
           </>
         )}
+        <div className="mt-6 border-t pt-4">
+          <h3 className="mb-2 text-sm font-semibold">SOA phase</h3>
+          {soaPhases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No open BOQ request has a phase yet. SOA label it as the work moves from Assessment to Sizing to POC.</p>
+          ) : (
+            <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              {soaPhases.map((r) => (
+                <li key={r.code}>
+                  <Link href={`/request/${r.code}`} className="font-mono text-primary underline-offset-4 hover:underline">
+                    {r.code}
+                  </Link>{" "}
+                  · {SOA_PHASE_LABELS[r.phase!]}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="mt-6 border-t pt-4">
           <h3 className="mb-2 text-sm font-semibold">Change log</h3>
           <ChangeLog changes={changes} />

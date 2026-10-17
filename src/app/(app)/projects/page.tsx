@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/domain/access/permissions";
-import { PROJECT_STAGES, PROJECT_STAGE_LABELS } from "@/domain/projects/pipeline";
-import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from "@/domain/requests/types";
+import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatPercent } from "@/features/projects/format";
 import { formatDateOnly } from "@/features/requests/format";
-import { ProjectStatusBadge, StageBadge } from "@/features/requests/status-badges";
+import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listPrincipalOptions, listProjects, type ProjectFilter } from "@/server/requests/queries";
@@ -33,13 +32,13 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const viewer = await requirePermission("projects.view");
   const query = await searchParams;
   const search = one(query.q).slice(0, 100);
-  const stage = PROJECT_STAGES.find((s) => s === one(query.stage));
-  const status = PROJECT_STATUSES.find((s) => s === one(query.status));
+  const progress = PROJECT_PROGRESSES.find((p) => p === one(query.progress));
+  const trackStatus = TRACK_STATUSES.find((s) => s === one(query.status));
   const principals = await listPrincipalOptions(getDb(), viewer);
   const principalId = principals.find((p) => p.id === one(query.principal))?.id;
-  const filter: ProjectFilter = { search, stage, status, principalId };
+  const filter: ProjectFilter = { search, progress, trackStatus, principalId };
   const projects = await listProjects(getDb(), viewer, filter);
-  const filtered = Boolean(search || stage || status || principalId);
+  const filtered = Boolean(search || progress || trackStatus || principalId);
 
   return (
     <>
@@ -50,19 +49,19 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
       <div className="mb-4 flex flex-col gap-3">
         <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto]">
           <Input name="q" defaultValue={search} placeholder="Search code, customer, project, PIC or principal" aria-label="Search projects" maxLength={100} />
-          <NativeSelect name="stage" defaultValue={stage ?? ""} aria-label="Stage">
-            <option value="">All stages</option>
-            {PROJECT_STAGES.map((s) => (
-              <option key={s} value={s}>
-                {PROJECT_STAGE_LABELS[s]}
+          <NativeSelect name="progress" defaultValue={progress ?? ""} aria-label="Progress">
+            <option value="">All progress</option>
+            {PROJECT_PROGRESSES.map((p) => (
+              <option key={p} value={p}>
+                {PROGRESS_LABELS[p]}
               </option>
             ))}
           </NativeSelect>
-          <NativeSelect name="status" defaultValue={status ?? ""} aria-label="Status">
+          <NativeSelect name="status" defaultValue={trackStatus ?? ""} aria-label="Status">
             <option value="">All statuses</option>
-            {PROJECT_STATUSES.map((s) => (
+            {TRACK_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {PROJECT_STATUS_LABELS[s]}
+                {TRACK_STATUS_LABELS[s]}
               </option>
             ))}
           </NativeSelect>
@@ -109,7 +108,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               <TableHead>Project ID</TableHead>
               <TableHead>End user</TableHead>
               <TableHead>Project</TableHead>
-              <TableHead>Stage</TableHead>
+              <TableHead>Progress</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               <TableHead className="hidden lg:table-cell">Principal</TableHead>
               <TableHead className="hidden md:table-cell">Sales PIC</TableHead>
@@ -132,10 +131,10 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
                 <TableCell className="max-w-48 truncate">{project.endUserCompany}</TableCell>
                 <TableCell className="max-w-64 truncate">{project.name}</TableCell>
                 <TableCell>
-                  <StageBadge stage={project.stage} />
+                  <ProgressBadge progress={project.progress} />
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  <ProjectStatusBadge status={project.status} />
+                  <TrackStatusBadge status={project.trackStatus} />
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">{project.principalName ?? "–"}</TableCell>
                 <TableCell className="hidden md:table-cell">{project.salesOwnerName}</TableCell>

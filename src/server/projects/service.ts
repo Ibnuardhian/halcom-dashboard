@@ -4,11 +4,23 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import {
   diffFields,
+  fieldLabel,
   PROJECT_EDITABLE_KEYS,
   type FieldChange,
   type ProjectEditableField,
 } from "@/domain/projects/fields";
 import { ACTION_BODY_MAX_LENGTH, ACTION_KINDS } from "@/domain/projects/actions";
+import { notify, projectAudience } from "@/server/notifications/service";
+import { PROGRESS_PERCENT, isProgress } from "@/domain/projects/progress";
+import {
+  COMMERCIAL_FIELDS,
+  COMMERCIAL_KEYS,
+  commercialLogText,
+  diffCommercial,
+  parseCommercialValue,
+  type CommercialField,
+  type CommercialValue,
+} from "@/domain/projects/commercial";
 
 export type Actor = { id: string; role: Role };
 
@@ -94,6 +106,14 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
         after: Object.fromEntries(changes.map((change) => [change.field, change.to])) as Prisma.InputJsonValue,
       },
     });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: await projectAudience(tx, project.id),
+      kind: "project.updated",
+      title: `${project.code} technical details updated`,
+      body: `${project.endUserCompany}: ${changes.map((change) => fieldLabel(change.field)).join(", ")}`,
+      href: `/projects/${project.code}`,
+    });
     return { ok: true, changed: changes.map((change) => change.field) } satisfies UpdateResult;
   });
 }
@@ -128,7 +148,7 @@ export async function postProjectUpdate(db: PrismaClient, claimedActor: Actor, i
     }
     // Serialise updates of one project, so "the latest entry" and the project's copy of it never disagree.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
-    const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true } });
+    const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, code: true, endUserCompany: true } });
     if (!project) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies PostResult;
 
     const entry = await tx.projectAction.create({ data: { projectId, kind, body, authorId: actor.id }, select: { id: true } });
@@ -143,6 +163,123 @@ export async function postProjectUpdate(db: PrismaClient, claimedActor: Actor, i
         after: { kind, body } as Prisma.InputJsonValue,
       },
     });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: await projectAudience(tx, projectId),
+      kind: "project.updated",
+      title: `${project.code} ${kind === "CURRENT" ? "current action" : "next action"} updated`,
+      body: `${project.endUserCompany}: ${body}`,
+      href: `/projects/${project.code}`,
+    });
     return { ok: true, id: entry.id } satisfies PostResult;
+  });
+}
+
+const commercialSchema = z.object({
+  projectId: z.uuid(),
+  values: z
+    .object(Object.fromEntries(COMMERCIAL_KEYS.map((key) => [key, z.string().max(40).nullish()])) as Record<CommercialField, z.ZodOptional<z.ZodNullable<z.ZodString>>>)
+    .strict(),
+});
+
+export type CommercialResult = { ok: true; changed: CommercialField[] } | { ok: false; code: UpdateErrorCode; message: string };
+
+/**
+ * Changes the commercial fields of a project (value, probability, target margin, target closing). Sales may change
+ * only projects they own; admins and superadmins any project. Same guarantees as the technical edit: whitelist of
+ * keys, stored actor re-read in the transaction, row lock, one change-log row per changed field, one audit event.
+ */
+export async function updateCommercialDetails(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<CommercialResult> {
+  const parsed = commercialSchema.safeParse(input);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid.") };
+  }
+  if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  const { projectId, values } = parsed.data;
+
+  const submitted: Partial<Record<CommercialField, CommercialValue>> = {};
+  for (const field of COMMERCIAL_KEYS) {
+    if (!(field in values)) continue;
+    const result = parseCommercialValue(field, values[field]);
+    if (!result.ok) return { ok: false, code: "INVALID_INPUT", message: result.message };
+    // Progress and Status always have a value: choosing "nothing" is not a change but a mistake.
+    if ((field === "progress" || field === "trackStatus") && result.value === null) {
+      return { ok: false, code: "INVALID_INPUT", message: `${COMMERCIAL_FIELDS[field].label} is required.` };
+    }
+    submitted[field] = result.value;
+  }
+
+  return db.$transaction(async (tx) => {
+    const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
+    if (!actor?.isActive || !can(actor.role, "projects.edit.commercial")) {
+      return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies CommercialResult;
+    }
+    await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
+    const project = await tx.project.findUnique({ where: { id: projectId } });
+    if (!project) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
+    // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
+    if (actor.role === "SALES" && project.salesOwnerId !== actor.id) {
+      return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;
+    }
+
+    const dateText = (date: Date | null) => (date ? date.toISOString().slice(0, 10) : null);
+    const current = {
+      progress: project.progress,
+      trackStatus: project.trackStatus,
+      estimatedValue: project.estimatedValue?.toNumber() ?? null,
+      probability: project.probability,
+      targetMargin: project.targetMargin?.toNumber() ?? null,
+      quoteReleasedAt: dateText(project.quoteReleasedAt),
+      targetDate: dateText(project.targetDate),
+    };
+    // A new Progress carries its probability (30% - Propose means 30), unless the probability was also changed by hand.
+    if (isProgress(submitted.progress) && submitted.progress !== current.progress) {
+      const touched = "probability" in submitted && commercialLogText(submitted.probability ?? null) !== commercialLogText(current.probability);
+      if (!touched) submitted.probability = PROGRESS_PERCENT[submitted.progress];
+    }
+    const changes = diffCommercial(current, submitted);
+    if (changes.length === 0) return { ok: true, changed: [] } satisfies CommercialResult;
+
+    await tx.project.update({
+      where: { id: project.id },
+      data: Object.fromEntries(
+        changes.map((change) => {
+          const value = submitted[change.field] ?? null; // already a number, a date string or null
+          const isDate = change.field === "targetDate" || change.field === "quoteReleasedAt";
+          return [change.field, isDate && typeof value === "string" ? new Date(`${value}T00:00:00Z`) : value];
+        }),
+      ),
+    });
+    const now = new Date();
+    await tx.projectChange.createMany({
+      data: changes.map((change) => ({
+        projectId: project.id,
+        changedById: actor.id,
+        field: change.field,
+        fromValue: change.from,
+        toValue: change.to,
+        changedAt: now,
+      })),
+    });
+    await tx.auditEvent.create({
+      data: {
+        actorId: actor.id,
+        action: "project.commercial_updated",
+        entityType: "project",
+        entityId: project.id,
+        before: Object.fromEntries(changes.map((change) => [change.field, change.from])) as Prisma.InputJsonValue,
+        after: Object.fromEntries(changes.map((change) => [change.field, change.to])) as Prisma.InputJsonValue,
+      },
+    });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: await projectAudience(tx, project.id),
+      kind: "project.updated",
+      title: `${project.code} commercial details updated`,
+      body: `${project.endUserCompany}: ${changes.map((change) => fieldLabel(change.field)).join(", ")}`,
+      href: `/projects/${project.code}`,
+    });
+    return { ok: true, changed: changes.map((change) => change.field) } satisfies CommercialResult;
   });
 }

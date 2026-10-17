@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HANDOVER_TYPES, REQUEST_STATUSES } from "@/domain/requests/status";
+import { SOA_PHASES } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 
 /** Empty form fields arrive as "" or null; both mean "not provided". */
@@ -36,21 +37,43 @@ const required = (label: string, max: number) =>
 
 const submissionKey = z.string().trim().min(8).max(100).nullish().transform((value) => value || null);
 
+/** The request fields shared by the stand-alone request form and the "new project with a request" form. */
+const requestBody = {
+  type: z.enum(REQUEST_TYPES, "Choose a request type."),
+  title: required("Summary", 150),
+  description: optionalText(4000),
+  requiredBy: optionalDate,
+};
+
 export const createProjectSchema = z.object({
   endUserCompany: required("End-user company", 120),
   name: required("Project name", 120),
   description: optionalText(2000),
   targetDate: optionalDate,
+  // Commercial details Sales may already know; kept as text and parsed with the same rules as the project page.
+  progress: optionalText(40),
+  trackStatus: optionalText(40),
+  estimatedValue: optionalText(40),
+  probability: optionalText(40),
+  targetMargin: optionalText(40),
+  // A BOQ, RFQ or PO raised together with the project; null when Sales add no request yet.
+  request: z
+    .object(requestBody)
+    .nullish()
+    .transform((value) => value ?? null),
   submissionKey,
 });
 
 export const createRequestSchema = z.object({
   projectId: z.uuid("Choose a project."),
-  type: z.enum(REQUEST_TYPES, "Choose a request type."),
-  title: required("Summary", 150),
-  description: optionalText(4000),
-  requiredBy: optionalDate,
+  ...requestBody,
   submissionKey,
+});
+
+export const phaseSchema = z.object({
+  requestId: z.uuid(),
+  // "" clears the label (work has not reached a phase yet).
+  phase: z.enum(SOA_PHASES, "Choose Assessment, Sizing or POC.").or(z.literal("")).transform((value) => (value === "" ? null : value)),
 });
 
 export const handoverSchema = z.object({

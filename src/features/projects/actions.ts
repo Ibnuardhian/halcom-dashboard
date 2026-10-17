@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import type { FormState } from "@/components/ui/form-status";
+import { COMMERCIAL_KEYS } from "@/domain/projects/commercial";
 import { PROJECT_EDITABLE_KEYS, fieldLabel, type ProjectEditableField } from "@/domain/projects/fields";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
-import { postProjectUpdate, updateProjectDetails } from "@/server/projects/service";
+import { postProjectUpdate, updateCommercialDetails, updateProjectDetails } from "@/server/projects/service";
 
 /**
  * Saves the technical fields a form submitted. Only the known field names are passed on,
@@ -43,4 +44,22 @@ export async function postProjectUpdateAction(_previous: FormState, formData: Fo
   const code = formData.get("projectCode");
   if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   return { ok: true, message: "Update posted." };
+}
+
+/** Saves Sales' commercial fields (value, probability, target margin, target closing) of one project. */
+export async function updateCommercialDetailsAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const values: Record<string, string> = {};
+  for (const key of COMMERCIAL_KEYS) {
+    const value = formData.get(key);
+    if (typeof value === "string") values[key] = value;
+  }
+  const result = await updateCommercialDetails(getDb(), { id: user.id, role: user.role }, { projectId: formData.get("projectId"), values });
+  if (!result.ok) return { ok: false, message: result.message };
+
+  const code = formData.get("projectCode");
+  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  revalidatePath(PROJECTS_PATH);
+  if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
+  return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
 }

@@ -24,7 +24,7 @@ const EMPTY = Object.fromEntries(PROJECT_EDITABLE_KEYS.map((key) => [key, null])
 describe("editable project fields", () => {
   it("lists only technical fields, never a commercial one and never the current / next action feed", () => {
     expect(TECHNICAL_FIELDS).toEqual(PROJECT_EDITABLE_KEYS);
-    for (const forbidden of ["estimatedValue", "probability", "finalValue", "stage", "status", "salesOwnerId", "wonDate", "competitor", "currentAction", "nextAction"]) {
+    for (const forbidden of ["estimatedValue", "probability", "finalValue", "stage", "status", "progress", "trackStatus", "quoteReleasedAt", "targetMargin", "salesOwnerId", "wonDate", "competitor", "currentAction", "nextAction"]) {
       expect(isEditableField(forbidden), forbidden).toBe(false);
     }
   });

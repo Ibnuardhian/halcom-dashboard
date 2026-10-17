@@ -90,8 +90,8 @@ describe("importProjects", () => {
     expect(big).toMatchObject({
       endUserCompany: `Customer ${f.tag}`,
       name: "Server AI",
-      status: "ACTIVE",
-      stage: "NEGOTIATION",
+      progress: "NEGOTIATE", // from the export's Stage
+      trackStatus: "ON_TRACK", // from the export's Status
       probability: 40,
       currentAction: "Line one\nLine two",
       technicalNotes: "Sizing",
@@ -106,10 +106,10 @@ describe("importProjects", () => {
     expect(big.principal?.name).toBe(`HPE ${f.tag}`);
 
     const won = byCode[f.codes[1]!]!;
-    expect(won).toMatchObject({ status: "WON", stage: "WON", principalId: big.principalId, customerId: big.customerId });
+    expect(won).toMatchObject({ progress: "CLOSED_WON", trackStatus: "ON_TRACK", principalId: big.principalId, customerId: big.customerId });
     expect(Number(won.finalValue)).toBe(400_000_000);
     expect(won.wonDate?.toISOString().slice(0, 10)).toBe("2026-10-05");
-    expect(byCode[f.codes[2]!]).toMatchObject({ status: "LOST", lostReason: "Price", principalId: null, technicalPicId: null });
+    expect(byCode[f.codes[2]!]).toMatchObject({ progress: "CLOSED_LOST", trackStatus: "DONE", lostReason: "Price", principalId: null, technicalPicId: null });
 
     // The export's current / next action became the first entries of the project's feed, without an author.
     const feed = await db.projectAction.findMany({ where: { projectId: big.id }, orderBy: { kind: "asc" } });

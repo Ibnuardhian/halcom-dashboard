@@ -5,7 +5,7 @@ import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/domain/access/permissions";
-import { canWorkOn } from "@/domain/requests/access";
+import { canSeeEmail, canWorkOn } from "@/domain/requests/access";
 import { allowedTransitions, canHandOver, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
@@ -13,7 +13,8 @@ import { formatUtc } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { EmailPanel } from "@/features/requests/email-panel";
 import { Fact } from "@/features/requests/fact";
-import { HandoverForm, StatusForm } from "@/features/requests/forms";
+import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
+import { HandoverForm, PhaseForm, StatusForm } from "@/features/requests/forms";
 import { formatDateOnly } from "@/features/requests/format";
 import { StatusBadge, TypeBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
@@ -37,7 +38,7 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
   const mayWork = canWorkOn(viewer.role, request.type);
   const transitions = allowedTransitions(request.status);
   const mayHandOver = can(viewer.role, "requests.handover") && canHandOver(request.type, request.status);
-  const email = can(viewer.role, "requests.email") ? buildRequestEmail(request) : null;
+  const email = canSeeEmail(viewer.role, request.type, request.source !== null) ? buildRequestEmail(request) : null;
 
   return (
     <>
@@ -56,6 +57,9 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
               <StatusBadge status={request.status} />
             </Fact>
             <Fact label="Owning team">{OWNING_TEAM_LABELS[request.type]}</Fact>
+            {request.type === "BOQ" ? (
+              <Fact label="SOA phase">{request.phase ? SOA_PHASE_LABELS[request.phase] : <span className="text-muted-foreground">Not started</span>}</Fact>
+            ) : null}
             <Fact label="Assignee">{request.assignee?.name ?? <span className="text-muted-foreground">Unassigned</span>}</Fact>
             <Fact label="Project">
               <Link href={`${PROJECTS_PATH}/${request.project.code}`} className="text-primary underline-offset-4 hover:underline">
@@ -104,6 +108,20 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
           </CardHeader>
           <CardContent>
             <StatusForm requestId={request.id} from={request.status} options={transitions} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {mayWork && request.type === "BOQ" && request.status !== "COMPLETED" && request.status !== "CANCELLED" ? (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>SOA phase</h2>
+            </CardTitle>
+            <CardDescription>Label the part of the work you are on: Assessment, Sizing or POC. Sales and Purchasing are notified.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PhaseForm requestId={request.id} current={request.phase} />
           </CardContent>
         </Card>
       ) : null}

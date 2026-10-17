@@ -6,7 +6,7 @@ import { seedEmailFor } from "../../prisma/seed-users";
 const OWN_DASHBOARD_HEADING: Record<Role, string> = {
   SUPERADMIN: "Superadmin dashboard",
   ADMIN: "Admin dashboard",
-  SALES: "Sales dashboard",
+  SALES: "Sales Pipeline",
   SOA: "SOA dashboard",
   PURCHASING: "Purchasing dashboard",
   FINANCE: "Finance dashboard",
@@ -58,7 +58,7 @@ test.describe("access control", () => {
 
   test("an operational role cannot open another role's dashboard or the user list", async ({ page }) => {
     await signIn(page, "SALES");
-    await expectOnDashboard(page, "/dashboard/sales", "Sales dashboard");
+    await expectOnDashboard(page, "/dashboard/sales", "Sales Pipeline");
 
     await expectNotFound(page, "/dashboard/finance", "Cross-check list");
     await expectNotFound(page, "/dashboard/admin", "Recent administrative activity");
@@ -156,7 +156,7 @@ test.describe("user management", () => {
     const victim = await browser.newContext();
     const victimPage = await victim.newPage();
     await signInAs(victimPage, email, password);
-    await expectOnDashboard(victimPage, "/dashboard/sales", "Sales dashboard");
+    await expectOnDashboard(victimPage, "/dashboard/sales", "Sales Pipeline");
 
     await page.getByRole("button", { name: `Deactivate ${email}` }).click();
     await expect(page.getByRole("status").filter({ hasText: "User deactivated." })).toBeVisible();

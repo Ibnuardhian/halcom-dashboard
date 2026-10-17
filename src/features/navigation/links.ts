@@ -36,15 +36,16 @@ export const PROJECTS_PATH = "/projects";
 export const REQUESTS_PATH = "/requests";
 export const NEW_REQUEST_PATH = "/requests/new";
 export const ACCOUNT_PATH = "/account";
+export const NOTIFICATIONS_PATH = "/notifications";
 
 /** A fixed module link and the permission that shows it. The page enforces the same permission. */
-const MODULE_LINKS: readonly (NavLinkItem & { permission: Permission })[] = [
+const MODULE_LINKS: readonly (NavLinkItem & { permission: Permission; hiddenFor?: readonly Role[] })[] = [
   { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view" },
-  { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view" },
-  { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view" },
-  { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view" },
-  { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view" },
-  { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create" },
+  { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SALES"] },
+  { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES"] },
+  { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES"] },
+  { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES"] },
+  { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES"] },
   { href: USERS_PATH, label: "Users", group: "administration", icon: "users", permission: "users.view" },
   { href: AUDIT_PATH, label: "Audit log", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
@@ -59,15 +60,16 @@ export function navLinksFor(role: Role): NavLinkItem[] {
   }
   const own = dashboardForRole(role);
   if (can(role, `dashboard.${own}.view`)) {
-    links.push({ href: dashboardPath(own), label: "My dashboard", group: "dashboards", icon: "dashboard" });
+    // Sales work from one page: the pipeline holds their projects, margins and every kind of request.
+    links.push({ href: dashboardPath(own), label: role === "SALES" ? "Sales Pipeline" : "My dashboard", group: "dashboards", icon: "dashboard" });
   }
   for (const key of DASHBOARD_KEYS) {
     if (key === own || !can(role, `dashboard.${key}.view`)) continue;
     const owner = ROLES.find((r) => dashboardForRole(r) === key)!;
     links.push({ href: dashboardPath(key), label: `${ROLE_LABELS[owner]} dashboard`, group: "dashboards", icon: "dashboard" });
   }
-  for (const { permission, ...link } of MODULE_LINKS) {
-    if (can(role, permission)) links.push(link);
+  for (const { permission, hiddenFor, ...link } of MODULE_LINKS) {
+    if (can(role, permission) && !hiddenFor?.includes(role)) links.push(link);
   }
   return links;
 }

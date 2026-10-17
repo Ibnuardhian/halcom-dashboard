@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { can } from "@/domain/access/permissions";
 import { ROLE_LABELS } from "@/domain/access/roles";
 import { logoutAction } from "@/features/auth/actions";
-import { ACCOUNT_PATH, navSectionsFor } from "@/features/navigation/links";
+import { ACCOUNT_PATH, NOTIFICATIONS_PATH, navSectionsFor } from "@/features/navigation/links";
 import { ThemeSwitcher } from "@/features/theme/theme-switcher";
+import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
+import { countUnread } from "@/server/notifications/service";
 
 // Every page under (app) is per-user and needs a live session check (a deactivated
 // user must lose access immediately, so the session cannot be cached ahead of time).
@@ -26,12 +28,14 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
 
 async function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const unread = await countUnread(getDb(), user.id);
 
   return (
     <AppShell
       sections={navSectionsFor(user.role)}
       user={{ name: user.name, roleLabel: ROLE_LABELS[user.role] }}
       accountHref={ACCOUNT_PATH}
+      notifications={{ href: NOTIFICATIONS_PATH, unread }}
       controls={can(user.role, "theme.switch") ? <ThemeSwitcher /> : null}
       signOut={
         <form action={logoutAction}>

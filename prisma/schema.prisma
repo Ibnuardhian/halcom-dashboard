@@ -44,6 +44,7 @@ model User {
   technicalProjects Project[]              @relation("ProjectTechnicalPic")
   projectChanges    ProjectChange[]
   projectActions    ProjectAction[]
+  notifications     Notification[]
 
   @@map("users")
 }
@@ -104,6 +105,34 @@ enum ProjectStatus {
   WON
   LOST
   COMPLETED
+}
+
+// Sales' own progress scale and status (their tracking sheet's Progress and Status columns).
+// Keep in sync with src/domain/projects/progress.ts.
+enum ProjectProgress {
+  QUALIFY
+  UNDERSTAND
+  PROPOSE
+  NEGOTIATE
+  NEGOTIATE_FU
+  AGREE
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum TrackStatus {
+  ON_TRACK
+  ON_HOLD
+  DONE
+  BLOCK
+}
+
+// The part of the BOQ work SOA is on: they label a BOQ request Assessment, Sizing or POC as it moves along.
+// Keep in sync with src/domain/requests/phase.ts.
+enum SoaPhase {
+  ASSESSMENT
+  SIZING
+  POC
 }
 
 // Pipeline stage of a project, as used in the sales export (docs/requirements/PIPELINE.md).
@@ -174,6 +203,7 @@ model Project {
   endUserCompany String        @map("end_user_company")
   name           String
   description    String?
+  // Deprecated: replaced by `trackStatus`. No longer read or written by the application; a later migration drops it.
   status         ProjectStatus @default(ACTIVE)
   // Target closing date.
   targetDate     DateTime?     @map("target_date") @db.Date
@@ -181,10 +211,17 @@ model Project {
 
   // Commercial fields (Sales-owned; assumption docs/requirements/RBAC.md A-10). Currency is not stored: the
   // sales export holds plain numbers, assumed to be IDR.
+  // Deprecated: replaced by `progress`. No longer read or written by the application; a later migration drops it.
   stage             ProjectStage @default(NEW_OPPORTUNITY)
+  // Sales' Progress (each step stands for a win probability) and Status, and when the quote went out.
+  progress          ProjectProgress @default(QUALIFY)
+  trackStatus       TrackStatus     @default(ON_TRACK) @map("track_status")
+  quoteReleasedAt   DateTime?       @map("quote_released_at") @db.Date
   estimatedValue    Decimal?     @map("estimated_value") @db.Decimal(18, 2)
   probability       Int?
   finalValue        Decimal?     @map("final_value") @db.Decimal(18, 2)
+  // Sales' target margin as a percentage of the sale (0 to 100); the margin amount is computed from the value.
+  targetMargin      Decimal?     @map("target_margin") @db.Decimal(5, 2)
   wonDate           DateTime?    @map("won_date") @db.Date
   lostReason        String?      @map("lost_reason")
   lostNotes         String?      @map("lost_notes")
@@ -240,6 +277,7 @@ model Project {
 
   @@index([status])
   @@index([stage])
+  @@index([progress])
   @@index([salesOwnerId])
   @@index([technicalPicId])
   @@index([customerId])
@@ -263,6 +301,8 @@ model Request {
   assigneeId      String?       @map("assignee_id") @db.Uuid
   // Set on an RFQ or PO that was handed over from a completed BOQ.
   sourceRequestId String?       @map("source_request_id") @db.Uuid
+  // Set by SOA on a BOQ request only (a database check keeps it off RFQ and PO).
+  phase           SoaPhase?
   submissionKey   String?       @unique @map("submission_key")
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -345,4 +385,24 @@ model ProjectAction {
   @@index([projectId, createdAt])
   @@index([projectId, kind, createdAt])
   @@map("project_actions")
+}
+
+// Something a person should look at: a request that reached their team, or a project change made by another
+// division. Rows are written in the same transaction as the change they describe.
+model Notification {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
+  // For example "request.created", "request.status_changed", "project.updated".
+  kind        String
+  title       String
+  body        String?
+  // Where the notification leads, a path inside the application.
+  href        String
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
+  @@map("notifications")
 }

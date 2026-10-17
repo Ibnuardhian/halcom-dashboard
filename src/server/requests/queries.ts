@@ -2,8 +2,10 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { isOpen, REQUEST_STATUSES, type RequestStatus } from "@/domain/requests/status";
-import { weightedValue, type ProjectStage } from "@/domain/projects/pipeline";
-import { REQUEST_TYPES, type ProjectStatus, type RequestType } from "@/domain/requests/types";
+import { weightedValue } from "@/domain/projects/pipeline";
+import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
+import type { SoaPhase } from "@/domain/requests/phase";
+import { REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
 
 type Viewer = { id: string; role: Role };
 
@@ -20,8 +22,8 @@ export type ProjectRow = {
   code: string;
   endUserCompany: string;
   name: string;
-  status: ProjectStatus;
-  stage: ProjectStage;
+  progress: ProjectProgress;
+  trackStatus: TrackStatus;
   principalName: string | null;
   solutionName: string | null;
   salesOwnerName: string;
@@ -37,7 +39,7 @@ export type ProjectRow = {
   updatedAt: Date;
 };
 
-export type ProjectFilter = { search?: string; stage?: ProjectStage; status?: ProjectStatus; principalId?: string };
+export type ProjectFilter = { search?: string; progress?: ProjectProgress; trackStatus?: TrackStatus; principalId?: string };
 
 const numberOrNull = (value: { toNumber(): number } | null): number | null => (value === null ? null : value.toNumber());
 
@@ -51,8 +53,8 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
   const search = filter.search?.trim();
   const projects = await db.project.findMany({
     where: {
-      stage: filter.stage,
-      status: filter.status,
+      progress: filter.progress,
+      trackStatus: filter.trackStatus,
       principalId: filter.principalId,
       ...(search
         ? {
@@ -83,8 +85,8 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       code: project.code,
       endUserCompany: project.endUserCompany,
       name: project.name,
-      status: project.status,
-      stage: project.stage,
+      progress: project.progress,
+      trackStatus: project.trackStatus,
       principalName: project.principal?.name ?? null,
       solutionName: project.solutionCategory?.name ?? null,
       salesOwnerName: project.salesOwner.name,
@@ -108,11 +110,11 @@ export async function listPrincipalOptions(db: PrismaClient, viewer: Viewer) {
   return db.principal.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 
-/** Projects a request can be added to. */
+/** Projects a request can be added to: the ones that are On Track. */
 export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.project.findMany({
-    where: { status: "ACTIVE" },
+    where: { trackStatus: "ON_TRACK" },
     orderBy: { createdAt: "desc" },
     take: LIST_LIMIT,
     select: { id: true, code: true, endUserCompany: true, name: true },
@@ -124,6 +126,8 @@ export type RequestRow = {
   code: string;
   type: RequestType;
   status: RequestStatus;
+  /** The part of the BOQ work SOA is on (BOQ requests only). */
+  phase: SoaPhase | null;
   title: string;
   projectCode: string;
   endUserCompany: string;
@@ -167,6 +171,7 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
     code: request.code,
     type: request.type,
     status: request.status,
+    phase: request.phase,
     title: request.title,
     projectCode: request.project.code,
     endUserCompany: request.project.endUserCompany,
@@ -218,7 +223,7 @@ export type WorkStats = {
 export async function getWorkStats(db: PrismaClient, viewer: Viewer): Promise<WorkStats> {
   assertPermitted(can(viewer.role, "requests.view"));
   const [projectsActive, groups, unassignedOpen] = await Promise.all([
-    db.project.count({ where: { status: "ACTIVE" } }),
+    db.project.count({ where: { trackStatus: "ON_TRACK" } }),
     db.request.groupBy({ by: ["type", "status"], _count: { _all: true } }),
     db.request.count({ where: { assigneeId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
   ]);

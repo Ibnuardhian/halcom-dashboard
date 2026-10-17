@@ -32,9 +32,9 @@ describe("navLinksFor", () => {
     ]);
   });
 
-  it("offers New request only to roles that can create requests", () => {
+  it("offers New request in the menu to admins only; Sales start requests from the Sales Pipeline page", () => {
     for (const role of ROLES) {
-      expect(hrefsFor(role).includes("/requests/new")).toBe(["SUPERADMIN", "ADMIN", "SALES"].includes(role));
+      expect(hrefsFor(role).includes("/requests/new")).toBe(["SUPERADMIN", "ADMIN"].includes(role));
     }
   });
 

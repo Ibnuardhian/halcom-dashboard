@@ -19,6 +19,7 @@ export type Permission =
   | "projects.view"
   | "projects.create"
   | "projects.edit.technical"
+  | "projects.edit.commercial"
   | "projects.post-update"
   | "requests.view"
   | "requests.create"
@@ -40,6 +41,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.view",
   "projects.create",
   "projects.edit.technical",
+  "projects.edit.commercial",
   "projects.post-update",
   "requests.view",
   "requests.create",
@@ -51,7 +53,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
 
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
-const SALES_WORK: readonly Permission[] = ["projects.create", "requests.create", "requests.email"];
+const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "requests.create", "requests.email"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;

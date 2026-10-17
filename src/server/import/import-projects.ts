@@ -1,3 +1,4 @@
+import { progressFromStage, trackStatusFromStatus } from "@/domain/projects/progress";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { hashPassword } from "@/server/auth/password";
 import { ensureCustomer, ensurePrincipal, ensureSolutionCategory } from "@/server/requests/master-data";
@@ -96,8 +97,8 @@ export async function importProjects(
             endUserCompany: row.customer,
             name: row.name,
             description: row.description,
-            status: row.status,
-            stage: row.stage,
+            progress: progressFromStage(row.stage),
+            trackStatus: trackStatusFromStatus(row.status),
             targetDate: row.targetClosing,
             salesOwnerId: userIds.get(accountEmailFor(row.salesPic))!,
             technicalPicId: row.technicalPic ? userIds.get(accountEmailFor(row.technicalPic)) : null,

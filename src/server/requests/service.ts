@@ -3,9 +3,15 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { allowedTransitions, canHandOver, canTransition, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { workPermission } from "@/domain/requests/access";
+import { parseCommercialValue } from "@/domain/projects/commercial";
+import { PROGRESS_PERCENT, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
+import type { RequestType } from "@/domain/requests/types";
+import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
+import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
+import { OWNING_ROLE } from "@/domain/requests/types";
 import { nextProjectCode, nextRequestCode } from "./codes";
 import { ensureCustomer } from "./master-data";
-import { createProjectSchema, createRequestSchema, handoverSchema, statusChangeSchema } from "./schemas";
+import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, statusChangeSchema } from "./schemas";
 
 export type Actor = { id: string; role: Role };
 
@@ -14,7 +20,7 @@ const ERROR_MESSAGES = {
   NOT_FOUND: "The record was not found.",
   INVALID_INPUT: "The submitted data is invalid.",
   INVALID_STATE: "This is not possible in the current status.",
-  PROJECT_NOT_ACTIVE: "Requests can only be added to an active project.",
+  PROJECT_NOT_ACTIVE: "Requests can only be added to a project that is On Track.",
 } as const;
 
 export type WorkErrorCode = keyof typeof ERROR_MESSAGES;
@@ -72,11 +78,63 @@ function isUniqueViolation(error: unknown): boolean {
 
 export type CreatedRecord = { id: string; code: string; created: boolean };
 
-export async function createProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<CreatedRecord>> {
+/** Result of creating a project, with the code of the request that was raised together with it, if any. */
+export type CreatedProject = CreatedRecord & { requestCode: string | null };
+
+type NewRequest = { type: RequestType; title: string; description: string | null; requiredBy: Date | null };
+
+/** Inserts a request with its first status-history row and audit event, inside the caller's transaction. */
+async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, request: NewRequest, submissionKey: string | null) {
+  const code = await nextRequestCode(tx, request.type, actor.email, new Date());
+  const created = await tx.request.create({
+    data: {
+      code,
+      type: request.type,
+      projectId,
+      title: request.title,
+      description: request.description ?? "",
+      requiredBy: request.requiredBy,
+      requesterId: actor.id,
+      submissionKey,
+    },
+  });
+  await tx.requestStatusHistory.create({ data: { requestId: created.id, fromStatus: null, toStatus: "SUBMITTED", changedById: actor.id } });
+  await audit(tx, actor.id, "request", "request.created", created.id, null, { code, type: request.type, projectId });
+  // The team that owns this kind of request (SOA for a BOQ, Purchasing for an RFQ or a PO) is told it arrived.
+  const project = await tx.project.findUnique({ where: { id: projectId }, select: { endUserCompany: true, name: true } });
+  await notify(tx, {
+    actorId: actor.id,
+    recipientIds: await usersWithRole(tx, OWNING_ROLE[request.type]),
+    kind: "request.created",
+    title: `New ${request.type} request ${code}`,
+    body: `${project?.endUserCompany} – ${project?.name}: ${request.title}`,
+    href: `/request/${code}`,
+  });
+  return { id: created.id, code };
+}
+
+/**
+ * Creates a project and, when asked, its first BOQ, RFQ or PO request in the same transaction, so Sales fill in one
+ * form and either both exist or neither does. A repeated submit (same key) returns the first project and raises no
+ * second request.
+ */
+export async function createProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<CreatedProject>> {
   const parsed = createProjectSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
   if (!can(claimedActor.role, "projects.create")) return fail("FORBIDDEN");
-  const { endUserCompany, name, description, targetDate, submissionKey } = parsed.data;
+  const { endUserCompany, name, description, targetDate, request, submissionKey } = parsed.data;
+  if (request && !can(claimedActor.role, "requests.create")) return fail("FORBIDDEN");
+
+  const commercial: Record<string, number | string | null> = {};
+  for (const field of ["estimatedValue", "probability", "targetMargin", "progress", "trackStatus"] as const) {
+    const result = parseCommercialValue(field, parsed.data[field]);
+    if (!result.ok) return fail("INVALID_INPUT", result.message);
+    commercial[field] = result.value;
+  }
+  // New projects start at Qualify and On Track; the probability is the one the chosen progress stands for.
+  const progress = (commercial["progress"] ?? "QUALIFY") as ProjectProgress;
+  const trackStatus = (commercial["trackStatus"] ?? "ON_TRACK") as TrackStatus;
+  const probability = (commercial["probability"] as number | null) ?? PROGRESS_PERCENT[progress];
 
   const existing = () => db.project.findUnique({ where: { submissionKey: submissionKey! }, select: { id: true, code: true } });
   try {
@@ -85,22 +143,41 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
       if (!actor || !can(actor.role, "projects.create")) return fail("FORBIDDEN");
       if (submissionKey) {
         const again = await tx.project.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
-        if (again) return succeed({ ...again, created: false });
+        if (again) return succeed({ ...again, created: false, requestCode: null });
       }
 
       const code = await nextProjectCode(tx);
       const customerId = await ensureCustomer(tx, endUserCompany);
       const project = await tx.project.create({
-        data: { code, endUserCompany, name, description, targetDate, salesOwnerId: actor.id, customerId, submissionKey },
+        data: {
+          code,
+          endUserCompany,
+          name,
+          description,
+          targetDate,
+          estimatedValue: commercial["estimatedValue"] as number | null,
+          probability,
+          progress,
+          trackStatus,
+          targetMargin: commercial["targetMargin"] as number | null,
+          salesOwnerId: actor.id,
+          customerId,
+          submissionKey,
+        },
       });
       await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name });
-      return succeed({ id: project.id, code, created: true });
+      let requestCode: string | null = null;
+      if (request) {
+        if (!can(actor.role, "requests.create")) return fail("FORBIDDEN");
+        requestCode = (await insertRequest(tx, actor, project.id, request, submissionKey ? `${submissionKey}:request` : null)).code;
+      }
+      return succeed({ id: project.id, code, created: true, requestCode });
     });
   } catch (error) {
     // A concurrent submit with the same key won the race: return its project.
     if (submissionKey && isUniqueViolation(error)) {
       const winner = await existing();
-      if (winner) return succeed({ ...winner, created: false });
+      if (winner) return succeed({ ...winner, created: false, requestCode: null });
     }
     throw error;
   }
@@ -121,19 +198,12 @@ export async function createRequest(db: PrismaClient, claimedActor: Actor, input
         const again = await tx.request.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
         if (again) return succeed({ ...again, created: false });
       }
-      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, status: true } });
+      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true } });
       if (!project) return fail("NOT_FOUND", "Project not found.");
-      if (project.status !== "ACTIVE") return fail("PROJECT_NOT_ACTIVE");
+      if (project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
 
-      const code = await nextRequestCode(tx, type, actor.email, new Date());
-      const request = await tx.request.create({
-        data: { code, type, projectId, title, description: description ?? "", requiredBy, requesterId: actor.id, submissionKey },
-      });
-      await tx.requestStatusHistory.create({
-        data: { requestId: request.id, fromStatus: null, toStatus: "SUBMITTED", changedById: actor.id },
-      });
-      await audit(tx, actor.id, "request", "request.created", request.id, null, { code, type, projectId });
-      return succeed({ id: request.id, code, created: true });
+      const request = await insertRequest(tx, actor, projectId, { type, title, description, requiredBy }, submissionKey);
+      return succeed({ id: request.id, code: request.code, created: true });
     });
   } catch (error) {
     if (submissionKey && isUniqueViolation(error)) {
@@ -170,7 +240,7 @@ export async function handOverToPurchasing(
       if (!actor || !can(actor.role, "requests.handover")) return fail("FORBIDDEN");
 
       await tx.$executeRaw`SELECT id FROM requests WHERE id = ${sourceId}::uuid FOR UPDATE`;
-      const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { status: true } } } });
+      const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { trackStatus: true } } } });
       if (!source) return fail("NOT_FOUND", "BOQ request not found.");
       if (!canHandOver(source.type, source.status)) {
         return fail("INVALID_STATE", "Only a completed BOQ can be handed over to Purchasing.");
@@ -180,7 +250,7 @@ export async function handOverToPurchasing(
         select: { id: true, code: true },
       });
       if (again) return succeed({ ...again, created: false });
-      if (source.project.status !== "ACTIVE") return fail("PROJECT_NOT_ACTIVE");
+      if (source.project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
 
       const code = await nextRequestCode(tx, targetType, actor.email, new Date());
       const request = await tx.request.create({
@@ -203,6 +273,14 @@ export async function handOverToPurchasing(
         type: targetType,
         sourceId: source.id,
         sourceCode: source.code,
+      });
+      await notify(tx, {
+        actorId: actor.id,
+        recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[targetType])), source.requesterId],
+        kind: "request.handed_over",
+        title: `${source.code} was handed over as ${targetType} ${code}`,
+        body: source.title,
+        href: `/request/${code}`,
       });
       return succeed({ id: request.id, code, created: true });
     });
@@ -259,6 +337,51 @@ export async function changeRequestStatus(
       data: { requestId: request.id, fromStatus: request.status, toStatus: to, changedById: actor.id, changedAt: now, reason },
     });
     await audit(tx, actor.id, "request", "request.status_changed", request.id, { status: request.status }, { status: to, reason });
+    const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true } });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : [])],
+      kind: "request.status_changed",
+      title: to === "WAITING_FOR_SALES" ? `${request.code} needs your input` : `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
+      body: reason,
+      href: `/request/${request.code}`,
+    });
     return succeed({ code: request.code, status: to });
+  });
+}
+
+/**
+ * SOA labels a BOQ request with the part of the work it is on: Assessment, Sizing or POC (or clears the label).
+ * Only people who work on BOQ requests may do it, and only on a BOQ that is still open. The change is audited and
+ * the project's Sales owner and teams are told.
+ */
+export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
+  const parsed = phaseSchema.safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
+  if (!can(claimedActor.role, "requests.work.boq")) return fail("FORBIDDEN");
+  const { requestId, phase } = parsed.data;
+
+  return db.$transaction(async (tx) => {
+    const actor = await loadActor(tx, claimedActor);
+    if (!actor || !can(actor.role, "requests.work.boq")) return fail("FORBIDDEN");
+
+    await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
+    const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { code: true, endUserCompany: true } } } });
+    if (!request) return fail("NOT_FOUND", "Request not found.");
+    if (request.type !== "BOQ") return fail("INVALID_STATE", "Only a BOQ request has an SOA phase.");
+    if (request.status === "COMPLETED" || request.status === "CANCELLED") return fail("INVALID_STATE", "This request is already closed.");
+    if (request.phase === phase) return succeed({ code: request.code });
+
+    await tx.request.update({ where: { id: request.id }, data: { phase } });
+    await audit(tx, actor.id, "request", "request.phase_changed", request.id, { phase: request.phase }, { phase });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: await projectAudience(tx, request.projectId),
+      kind: "request.phase_changed",
+      title: phase ? `${request.code} is now in ${SOA_PHASE_LABELS[phase]}` : `${request.code}: phase cleared`,
+      body: `${request.project.endUserCompany} (${request.project.code})`,
+      href: `/request/${request.code}`,
+    });
+    return succeed({ code: request.code });
   });
 }

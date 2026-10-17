@@ -35,6 +35,11 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
   priority/comments/attachments/dependencies, Sales targets and pipeline dashboards, KPI charts with drill-down, Finance
   crosscheck, Excel export, Sales editing of commercial fields, customers/principals pages. They need decisions in OPEN_QUESTIONS T-16.
 
+- **Added 2026-10-18 (D-023, not yet committed):** Sales Pipeline dashboard (Table/Charts), Progress and Status (replacing the old stage and
+  status, whose columns are deprecated but not dropped), target margin and commercial editing by Sales, one form for project plus
+  first request, notifications (bell and `/notifications`), SOA phase on BOQ requests, MailTo button, CSV export with column picker.
+  Migrations `20261018100000`, `20261018140000`, `20261018180000` (all additive).
+
 ## Architecture decisions
 
 D-012 interim auth, D-013 RBAC, D-014 handover email (delivery part superseded by D-017), D-015 Cache Components rules,

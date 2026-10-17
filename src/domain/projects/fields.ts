@@ -1,3 +1,5 @@
+import { COMMERCIAL_FIELDS, isCommercialField } from "./commercial";
+
 /**
  * Project fields a technical person (SOA) may change, and the label each one shows in the interface
  * and in the change log. Commercial fields (values, probability, stage, status) are deliberately not
@@ -32,7 +34,8 @@ export function isEditableField(key: string): key is ProjectEditableField {
 
 /** A field label for a stored change; an unknown key (a field removed later) is shown as it was stored. */
 export function fieldLabel(key: string): string {
-  return isEditableField(key) ? PROJECT_EDITABLE_FIELDS[key].label : key;
+  if (isEditableField(key)) return PROJECT_EDITABLE_FIELDS[key].label;
+  return isCommercialField(key) ? COMMERCIAL_FIELDS[key].label : key;
 }
 
 /** Trimmed text; blank means "no value" (null), so clearing a field is a real change. */
