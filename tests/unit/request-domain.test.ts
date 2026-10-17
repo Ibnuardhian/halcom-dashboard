@@ -60,7 +60,8 @@ describe("request statuses", () => {
     expect(canTransition("SUBMITTED", "IN_PROGRESS")).toBe(true);
     expect(canTransition("IN_PROGRESS", "COMPLETED")).toBe(true);
     expect(canTransition("COMPLETED", "IN_PROGRESS")).toBe(true);
-    expect(canTransition("SUBMITTED", "COMPLETED")).toBe(false);
+    expect(canTransition("SUBMITTED", "COMPLETED")).toBe(true); // no manual In progress step in between
+    expect(canTransition("SUBMITTED", "WAITING_FOR_SALES")).toBe(true);
     expect(canTransition("WAITING_FOR_SALES", "COMPLETED")).toBe(false);
     expect(canTransition("COMPLETED", "CANCELLED")).toBe(false);
   });

@@ -344,3 +344,21 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   (no request yet, open, waiting for me, all done). No timing rule is applied; SLA is still open (T-16).
 - **Charts:** Pipeline by progress names the steps without their percentages; the percentage only feeds the weighted pipeline.
 - **Export:** the column picker is a modal that opens from an Export data button on the Overview.
+
+## D-025 PIC reassignment, margin amount, SLA range, email templates and the request flow
+
+- **Date:** 2026-10-19 · **Status:** Implemented
+- **Flow:** BOQ -> RFQ -> PO. The BOQ can be skipped (a project may start with an RFQ); **a PO needs a completed RFQ on the project**
+  (confirmed by the product owner). A BOQ continues as an RFQ and an RFQ as a PO; the Sales owner of the project, an admin, or SOA (after
+  a BOQ) decides. "Do not continue" is recorded with a note and can be undone. A new project cannot start with a PO.
+- **Waiting for Sales:** the Sales owner answers (back to In progress, the answer is the reason) or cancels the request; nothing else.
+- **SLA:** per receiving team (SOA for BOQ, Purchasing for RFQ and PO), written by the superadmin as one number or a range of days, `2-3`,
+  `1-4`, at most 7 (default `2-3`). The first number is when an answer is expected, the last the deadline. **Days are working days**
+  (Monday to Friday, Jakarta time, no holiday calendar; confirmed). The clock starts at creation, stands still while the request waits for
+  Sales (the dates move by the waiting time) and stops at Completed. States: On track, Due now (from the expected date), Overdue, Paused, Met, Late.
+- **Email templates:** per team, subject and text with `{{variables}}`; the subject must contain `{{request_id}}` so a reply carries it. The
+  application still sends nothing (D-017). Subject format is now `[HITBOQ] Company - Project [Request ID]`.
+- **Superadmin:** can move a project to other Sales, SOA and Purchasing PICs (details, requests and history untouched; the move is logged)
+  and can delete a project. Deleting is a soft delete: history tables are append-only, so the project is hidden everywhere instead.
+- **Commercial:** probability is no longer entered; it is the percentage of the Progress step. Target margin is an amount (default) or a
+  percentage, never both. Money inputs group thousands with dots as they are typed.

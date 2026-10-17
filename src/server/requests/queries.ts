@@ -118,6 +118,8 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
           }
         : {}),
     },
+    // Newest first before the cap, so the cap never drops the newest projects (the list is then ordered by project number).
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: LIST_LIMIT,
     include: {
       salesOwner: { select: { name: true } },
@@ -279,6 +281,12 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
   });
 }
 
+/** True when the project has a completed RFQ, which a PO needs. */
+export async function hasCompletedRfq(db: PrismaClient, viewer: Viewer, projectId: string): Promise<boolean> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  return (await db.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED" } })) > 0;
+}
+
 export type DecisionRow = { code: string; type: RequestType; title: string; projectCode: string; endUserCompany: string; projectName: string; completedAt: Date | null };
 
 /**
@@ -302,21 +310,30 @@ export async function listPendingDecisions(db: PrismaClient, viewer: Viewer, own
   return rows.map((row) => ({ code: row.code, type: row.type, title: row.title, projectCode: row.project.code, endUserCompany: row.project.endUserCompany, projectName: row.project.name, completedAt: row.completedAt }));
 }
 
+const REQUEST_DETAIL = {
+  project: true,
+  requester: { select: { name: true, role: true, email: true } },
+  assignee: { select: { name: true } },
+  source: { select: { code: true } },
+  handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
+  flowStoppedBy: { select: { name: true } },
+  statusHistory: { orderBy: { changedAt: "asc" }, include: { changedBy: { select: { name: true } } } },
+} as const;
+
 export async function getRequestByCode(db: PrismaClient, viewer: Viewer, code: string) {
   assertPermitted(can(viewer.role, "requests.view"));
-  return db.request.findUnique({
-    where: { code, project: { deletedAt: null } },
-    include: {
-      project: true,
-      requester: { select: { name: true, role: true, email: true } },
-      assignee: { select: { name: true } },
-      source: { select: { code: true } },
-      handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
-      flowStoppedBy: { select: { name: true } },
-      statusHistory: { orderBy: { changedAt: "asc" }, include: { changedBy: { select: { name: true } } } },
-    },
-  });
+  return db.request.findUnique({ where: { code, project: { deletedAt: null } }, include: REQUEST_DETAIL });
 }
+
+/** Every request of a project with the detail the request panel shows, in the order of the flow (BOQ, RFQ, PO), then by age. */
+export async function listProjectRequestDetails(db: PrismaClient, viewer: Viewer, projectId: string) {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const rows = await db.request.findMany({ where: { projectId, project: { deletedAt: null } }, include: REQUEST_DETAIL, orderBy: { createdAt: "asc" } });
+  const order = (type: RequestType) => REQUEST_TYPES.indexOf(type);
+  return rows.sort((a, b) => order(a.type) - order(b.type) || a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+export type RequestDetail = NonNullable<Awaited<ReturnType<typeof getRequestByCode>>>;
 
 export type WorkStats = {
   projectsActive: number;

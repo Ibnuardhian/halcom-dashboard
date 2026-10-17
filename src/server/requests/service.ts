@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { allowedTransitions, canHandOver, canTransition, nextRequestType, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
@@ -124,6 +124,8 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
   if (!can(claimedActor.role, "projects.create")) return fail("FORBIDDEN");
   const { endUserCompany, name, description, targetDate, request, submissionKey } = parsed.data;
   if (request && !can(claimedActor.role, "requests.create")) return fail("FORBIDDEN");
+  // A new project has no RFQ yet, so it cannot start with a PO (BOQ -> RFQ -> PO; only the BOQ can be skipped).
+  if (request?.type === "PO") return fail("INVALID_STATE", PO_NEEDS_RFQ);
 
   const commercial: Record<string, number | string | null> = {};
   for (const field of ["estimatedValue", "targetMargin", "targetMarginValue", "progress", "trackStatus"] as const) {
@@ -201,6 +203,7 @@ export async function createRequest(db: PrismaClient, claimedActor: Actor, input
       const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true, deletedAt: true } });
       if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
       if (project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
+      if (type === "PO" && (await tx.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED" } })) === 0) return fail("INVALID_STATE", PO_NEEDS_RFQ);
 
       const request = await insertRequest(tx, actor, projectId, { type, title, description, requiredBy }, submissionKey);
       return succeed({ id: request.id, code: request.code, created: true });
@@ -258,10 +261,12 @@ export async function handOverToPurchasing(
       if (source.project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
 
       const code = await nextRequestCode(tx, targetType, actor.email, new Date());
+      // A handed-over request arrives In progress: the team does not have to accept it first.
       const request = await tx.request.create({
         data: {
           code,
           type: targetType,
+          status: "IN_PROGRESS",
           projectId: source.projectId,
           title: source.title,
           description: source.description,
@@ -271,7 +276,7 @@ export async function handOverToPurchasing(
         },
       });
       await tx.requestStatusHistory.create({
-        data: { requestId: request.id, fromStatus: null, toStatus: "SUBMITTED", changedById: actor.id, reason: `Handed over from ${source.code}` },
+        data: { requestId: request.id, fromStatus: null, toStatus: "IN_PROGRESS", changedById: actor.id, reason: `Handed over from ${source.code}` },
       });
       await tx.request.update({ where: { id: source.id }, data: { flowStoppedAt: null, flowStoppedById: null, flowStoppedNote: null } });
       await audit(tx, actor.id, "request", "request.handed_over", request.id, null, {
@@ -379,7 +384,7 @@ export async function changeRequestStatus(
         status: to,
         completedAt: to === "COMPLETED" ? now : null,
         // Whoever first starts the work owns it, so "unassigned" does not linger on active requests.
-        assigneeId: request.assigneeId ?? (to === "IN_PROGRESS" ? actor.id : null),
+        assigneeId: request.assigneeId ?? (can(actor.role, workPermission(request.type)) ? actor.id : null),
       },
     });
     await tx.requestStatusHistory.create({
@@ -421,7 +426,17 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     if (request.status === "COMPLETED" || request.status === "CANCELLED") return fail("INVALID_STATE", "This request is already closed.");
     if (request.phase === phase) return succeed({ code: request.code });
 
-    await tx.request.update({ where: { id: request.id }, data: { phase } });
+    // Labelling the work with a phase means SOA has started it: a request nobody had touched goes to In progress by itself.
+    const starts = phase !== null && request.status === "SUBMITTED";
+    await tx.request.update({
+      where: { id: request.id },
+      data: { phase, ...(starts ? { status: "IN_PROGRESS" as const } : {}), assigneeId: request.assigneeId ?? actor.id },
+    });
+    if (starts) {
+      await tx.requestStatusHistory.create({
+        data: { requestId: request.id, fromStatus: "SUBMITTED", toStatus: "IN_PROGRESS", changedById: actor.id, reason: `Started: phase set to ${SOA_PHASE_LABELS[phase]}` },
+      });
+    }
     await audit(tx, actor.id, "request", "request.phase_changed", request.id, { phase: request.phase }, { phase });
     await notify(tx, {
       actorId: actor.id,

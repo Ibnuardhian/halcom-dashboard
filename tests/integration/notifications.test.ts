@@ -59,7 +59,7 @@ describe("requests reach the team that owns them", () => {
     const sales = await actorOf("SALES");
     const purchasing = await actorOf("PURCHASING");
 
-    const result = await createProject(db, sales, { ...base(), request: { type: "PO", title: "Order the cameras" } });
+    const result = await createProject(db, sales, { ...base(), request: { type: "RFQ", title: "Price the cameras" } });
 
     expect(result.ok).toBe(true);
     const requestCode = result.ok ? (result.value.requestCode ?? "") : "";

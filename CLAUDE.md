@@ -40,6 +40,8 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
   first request, notifications (bell and `/notifications`), SOA phase on BOQ requests, MailTo button, CSV export with column picker.
   Migrations `20261018100000`, `20261018140000`, `20261018180000` (all additive).
 
+- **Added 2026-10-19 (D-025):** project soft delete (superadmin), XLSX export, sales funnel, clickable pipeline tiles, PIC reassignment, margin as amount or percent, SLA range and email templates per team (`/admin/settings`), Waiting-for-Sales answer, BOQ -> RFQ -> PO decisions (a PO needs a completed RFQ). Migrations through `20261020140000_sla_range`. The Turbopack dev cache is off for dev servers (it caused endless reloads).
+
 ## Architecture decisions
 
 D-012 interim auth, D-013 RBAC, D-014 handover email (delivery part superseded by D-017), D-015 Cache Components rules,

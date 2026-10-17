@@ -2,13 +2,13 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { REQUEST_TYPES, isRequestType } from "@/domain/requests/types";
+import { REQUEST_TYPES, isRequestType, type RequestType } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { RequestForm } from "@/features/requests/forms";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
-import { listActiveProjectOptions } from "@/server/requests/queries";
+import { hasCompletedRfq, listActiveProjectOptions } from "@/server/requests/queries";
 
 export default function NewRequestPage({ searchParams }: PageProps<"/requests/new">) {
   return (
@@ -24,12 +24,15 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
   const projects = await listActiveProjectOptions(getDb(), viewer);
   const wantedProject = typeof query.project === "string" ? projects.find((p) => p.code === query.project) : undefined;
   const wantedType = typeof query.type === "string" ? query.type.toUpperCase() : "";
+  // A PO needs a completed RFQ on its project, so it is offered only for a project that has one.
+  const poAllowed = wantedProject ? await hasCompletedRfq(getDb(), viewer, wantedProject.id) : false;
+  const types: readonly RequestType[] = poAllowed ? REQUEST_TYPES : REQUEST_TYPES.filter((type) => type !== "PO");
 
   return (
     <>
       <DashboardHeader
         title="New request"
-        summary="Ask SOA for a BOQ, or ask Purchasing for an RFQ (quotation / pricing) or a PO (purchase). Every request belongs to a project."
+        summary="Ask SOA for a BOQ, or ask Purchasing for an RFQ (quotation / pricing). The flow is BOQ, RFQ, PO: a BOQ can be skipped, and a PO is raised once the RFQ of the project is completed. Every request belongs to a project."
       />
       <Card>
         <CardHeader>
@@ -53,8 +56,8 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
           <RequestForm
             projects={projects}
             defaultProjectId={wantedProject?.id ?? ""}
-            defaultType={isRequestType(wantedType) ? wantedType : "BOQ"}
-            types={REQUEST_TYPES}
+            defaultType={isRequestType(wantedType) && types.includes(wantedType) ? wantedType : "BOQ"}
+            types={types}
             submissionKey={crypto.randomUUID()}
           />
         </CardContent>
