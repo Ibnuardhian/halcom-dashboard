@@ -58,9 +58,22 @@ services:
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Public address of the application, used for links inside generated email text.
+      APP_BASE_URL: ${APP_BASE_URL:?Set APP_BASE_URL in the deployment .env}
+      BACKUP_DIR: /backups
+      # Distribution lists shown in the email text. Real addresses belong in the deployment .env only.
+      EMAIL_TO_HITBOQ: ${EMAIL_TO_HITBOQ:-}
+      EMAIL_CC_HITBOQ: ${EMAIL_CC_HITBOQ:-}
+      EMAIL_TO_HITRFQ: ${EMAIL_TO_HITRFQ:-}
+      EMAIL_CC_HITRFQ: ${EMAIL_CC_HITRFQ:-}
+      EMAIL_TO_HITPO: ${EMAIL_TO_HITPO:-}
+      EMAIL_CC_HITPO: ${EMAIL_CC_HITPO:-}
     ports:
       # Publish on loopback by default; put a TLS-terminating reverse proxy in front.
       - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
+    volumes:
+      # Host folder for database backups; it must be writable by uid 1000 (the node user).
+      - ${BACKUP_HOST_DIR:?Set BACKUP_HOST_DIR (a host folder) in the deployment .env}:/backups
     depends_on:
       db:
         condition: service_healthy

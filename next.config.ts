@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   watchOptions: devPollIntervalMs ? { pollIntervalMs: devPollIntervalMs } : undefined,
+  // The disposable test server (compose profile `test`) starts from a clean state every time: Turbopack's on-disk
+  // dev cache went stale between runs there and made pages reload endlessly, so it is switched off for APP_ENV=test.
+  experimental: process.env.APP_ENV === "test" ? { turbopackFileSystemCacheForDev: false } : undefined,
   turbopack: {
     rules: {
       "*.css": {

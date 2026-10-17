@@ -17,8 +17,12 @@ export async function submitLogin(page: Page, email: string, password: string): 
  * navigated away from the login page. Navigating earlier would cut the login short.
  */
 export async function signInAs(page: Page, email: string, password: string): Promise<void> {
-  await submitLogin(page, email, password);
-  await expect(page).not.toHaveURL(/\/login$/);
+  // A submit that lands before React has hydrated the form is a plain page reload, so the whole
+  // attempt is repeated until the app navigates away from the login page (cold dev compiles are slow).
+  await expect(async () => {
+    await submitLogin(page, email, password);
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: 10_000 });
+  }).toPass({ timeout: 60_000 });
 }
 
 export async function signIn(page: Page, role: Role, password: string = SEED_PASSWORD): Promise<void> {
@@ -28,4 +32,15 @@ export async function signIn(page: Page, role: Role, password: string = SEED_PAS
 export async function expectOnDashboard(page: Page, path: string, heading: string): Promise<void> {
   await expect(page).toHaveURL(new RegExp(`${path}$`));
   await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+}
+
+/**
+ * A forbidden or unknown page renders the not-found UI and none of its content. The HTTP status
+ * stays 200 because Cache Components streams the response before the permission check runs,
+ * so the test inspects the delivered HTML instead of the status code.
+ */
+export async function expectNotFound(page: Page, path: string, mustNotContain: string): Promise<void> {
+  await page.goto(path);
+  await expect(page.getByText("This page could not be found.")).toBeVisible();
+  expect(await page.content(), path).not.toContain(mustNotContain);
 }

@@ -38,6 +38,17 @@ both call `can()`; the menu is derived from it, and
 | `users.manage` (create, change role, deactivate, reset password) | ✔ | ✔ | – | – | – | – | – |
 | `users.manage-privileged` (act on ADMIN and SUPERADMIN accounts) | ✔ | – | – | – | – | – | – |
 | `audit.view` | ✔ | ✔ | – | – | – | – | – |
+| `system.monitor` (System page: performance monitoring) | ✔ | – | – | – | – | – | – |
+| `system.backup` (Backups page: create a database dump in the host folder) | ✔ | – | – | – | – | – | – |
+| `theme.switch` (theme switcher in the header) | ✔ | – | – | – | – | – | – |
+| `projects.view`, `requests.view` | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| `projects.create`, `requests.create` (project and BOQ / RFQ / PO request) | ✔ | ✔ | ✔ | – | – | – | – |
+| `requests.email` (email text for copy and paste) | ✔ | ✔ | ✔ | ✔ | – | – | – |
+| `requests.work.boq` (change status of BOQ requests) | ✔ | ✔ | – | ✔ | – | – | – |
+| `requests.work.purchasing` (change status of RFQ and PO requests) | ✔ | ✔ | – | – | ✔ | – | – |
+| `requests.handover` (hand a completed BOQ over to Purchasing as RFQ or PO) | ✔ | ✔ | – | ✔ | – | – | – |
+| `projects.edit.technical` (technical fields; each change logged with from and to) | ✔ | ✔ | – | ✔ | – | – | – |
+| `projects.post-update` (add current-action and next-action entries to the project feed) | ✔ | ✔ | – | ✔ | – | – | – |
 
 Rules enforced in [service.ts](../../src/server/users/service.ts), inside one transaction with the audit event:
 
@@ -59,6 +70,14 @@ Rules enforced in [service.ts](../../src/server/users/service.ts), inside one tr
 | Admin | `/dashboard/admin` | **Real data:** same widgets |
 | Sales, SOA, Purchasing, Finance, Management | `/dashboard/<role>` | Planned widgets, "no data yet" |
 
+Superadmin only (D-016):
+
+| Tool | Route or control | Content |
+|---|---|---|
+| System monitoring (`system.monitor`) | `/admin/system` | Application figures (uptime, memory, event loop, VM load) and database figures (size, round trip, cache hit ratio, commits and rollbacks, connections, largest tables). Counts, sizes and timings only; no query text or row data. |
+| Theme switcher (`theme.switch`) | Header selector | Light, Dark or System, stored per browser. The permission only controls who sees the control. |
+| Database backup (`system.backup`) | `/admin/backups` | Creates a `pg_dump` in the host folder and lists existing ones; never deletes or restores (D-021). |
+
 The planned widgets come from brief §5 and §9 ([definitions.ts](../../src/features/dashboards/definitions.ts)).
 They show no numbers, because projects and tickets do not exist yet and the brief forbids fabricated
 analytics (§18). They fill in when the project and ticket modules are built.
@@ -68,13 +87,16 @@ analytics (§18). They fill in when the project and ticket modules are built.
 | ID | Assumption | Alternative |
 |---|---|---|
 | A-1 | One role per user. | Multiple roles per user (brief §11 `user_roles`). |
-| A-2 | Admin may view every operational dashboard (read-only oversight) but not the superadmin dashboard. | Admin sees only its own dashboard. |
-| A-3 | Only a superadmin manages admin accounts. | Admins may manage each other. |
+| A-2 | **Confirmed 2026-10-17.** Admin may view every operational dashboard (read-only oversight) but not the superadmin dashboard. | Admin sees only its own dashboard. |
+| A-3 | **Confirmed 2026-10-17.** Only a superadmin manages admin accounts; admins add and manage the other operational users. | Admins may manage each other. |
 | A-4 | All roles may open the shared overview. Which figures it may show to Sales or Finance is undecided (brief §17: visibility). | Restrict by role or by project ownership. |
 | A-5 | Sessions last 12 hours from sign-in and are not extended by activity. | Idle timeout, or SSO session lifetime. |
 | A-6 | Passwords need 12 to 128 characters; there is no complexity rule or rotation. | Company password policy, or SSO only. |
 | A-7 | Management is included as an optional read-only role. | Remove it. |
 | A-8 | The UI language is English, matching the brief. | Indonesian, or both. |
+| A-9 | Every role can read every project and request (no row-level visibility policy yet; brief §17). | Restrict by role, team or project ownership. |
+| A-10 | Every role can read commercial values (estimated and final value, probability). SOA and Purchasing see them read-only. | Hide values from some roles; the `projects.view` check would gain a commercial variant. |
+| A-11 | Admin and superadmin may support Sales (create projects and requests) and work on both BOQ and purchasing requests. | Admins read only. |
 
 ## Proposed permissions for the next modules (not implemented)
 

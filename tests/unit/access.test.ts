@@ -71,7 +71,15 @@ describe("permission matrix", () => {
 
   it("denies operational roles all user and audit permissions", () => {
     for (const role of OPERATIONAL_ROLES) {
-      for (const permission of ["users.view", "users.manage", "users.manage-privileged", "audit.view"] as const) {
+      for (const permission of [
+        "users.view",
+        "users.manage",
+        "users.manage-privileged",
+        "audit.view",
+        "system.monitor",
+        "system.backup",
+        "theme.switch",
+      ] as const) {
         expect(can(role, permission)).toBe(false);
       }
     }
@@ -88,6 +96,48 @@ describe("permission matrix", () => {
     expect(can("ADMIN", "users.view")).toBe(true);
     expect(can("ADMIN", "users.manage")).toBe(true);
     expect(can("ADMIN", "audit.view")).toBe(true);
+  });
+
+  it("reserves the superadmin tools (monitoring, backup, theme switch) for superadmin", () => {
+    for (const role of ROLES) {
+      expect(can(role, "system.monitor")).toBe(role === "SUPERADMIN");
+      expect(can(role, "system.backup")).toBe(role === "SUPERADMIN");
+      expect(can(role, "theme.switch")).toBe(role === "SUPERADMIN");
+    }
+  });
+
+  it("lets every role read projects and requests", () => {
+    for (const role of ROLES) {
+      expect(can(role, "projects.view")).toBe(true);
+      expect(can(role, "requests.view")).toBe(true);
+    }
+  });
+
+  it("lets only Sales (and admin support) create projects and requests, and keeps Finance and Management read-only", () => {
+    const creators: Role[] = ["SUPERADMIN", "ADMIN", "SALES"];
+    for (const role of ROLES) {
+      expect(can(role, "projects.create")).toBe(creators.includes(role));
+      expect(can(role, "requests.create")).toBe(creators.includes(role));
+    }
+    for (const permission of ALL_PERMISSIONS) {
+      if (permission.endsWith(".view")) continue;
+      expect(can("FINANCE", permission)).toBe(false);
+      expect(can("MANAGEMENT", permission)).toBe(false);
+    }
+  });
+
+  it("gives each team the work permission for its own request types only", () => {
+    for (const role of ROLES) {
+      expect(can(role, "requests.work.boq")).toBe(["SUPERADMIN", "ADMIN", "SOA"].includes(role));
+      expect(can(role, "requests.work.purchasing")).toBe(["SUPERADMIN", "ADMIN", "PURCHASING"].includes(role));
+      expect(can(role, "requests.handover")).toBe(["SUPERADMIN", "ADMIN", "SOA"].includes(role));
+    }
+  });
+
+  it("shows the email text only to the roles that send these emails", () => {
+    for (const role of ROLES) {
+      expect(can(role, "requests.email")).toBe(["SUPERADMIN", "ADMIN", "SALES", "SOA"].includes(role));
+    }
   });
 
   it("reserves privileged account management for superadmin", () => {

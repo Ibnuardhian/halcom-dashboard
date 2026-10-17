@@ -5,6 +5,7 @@ import { dashboardFromSlug } from "@/domain/access/dashboards";
 import { AdminDashboard } from "@/features/dashboards/admin-dashboard";
 import { PlannedDashboard } from "@/features/dashboards/planned-dashboard";
 import { ROLE_DASHBOARDS } from "@/features/dashboards/definitions";
+import { RoleQueue } from "@/features/dashboards/role-queue";
 import { requirePermission } from "@/server/auth/current-user";
 
 export default function RoleDashboardPage({ params }: PageProps<"/dashboard/[role]">) {
@@ -24,5 +25,9 @@ async function RoleDashboard({ params }: Pick<PageProps<"/dashboard/[role]">, "p
   if (key === "admin" || key === "superadmin") {
     return <AdminDashboard viewer={viewer} scope={key} />;
   }
-  return <PlannedDashboard definition={ROLE_DASHBOARDS[key]} />;
+  return (
+    <PlannedDashboard definition={ROLE_DASHBOARDS[key]}>
+      <RoleQueue viewer={viewer} dashboard={key} />
+    </PlannedDashboard>
+  );
 }

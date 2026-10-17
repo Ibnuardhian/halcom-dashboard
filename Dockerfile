@@ -18,11 +18,16 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl \
  && rm -rf /var/lib/apt/lists/*
 
-FROM tooling AS dev
+# Development image: tooling plus the PostgreSQL client tools used by the superadmin backup.
+FROM tooling AS pgclient
+COPY --chmod=0755 docker/install-pg-client.sh /usr/local/bin/install-pg-client
+RUN install-pg-client
+
+FROM pgclient AS dev
 COPY --chmod=0755 docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint
 # Volume mount points are created here so new named volumes inherit node ownership.
-RUN mkdir -p /app/node_modules /app/.next /home/node/.npm \
- && chown -R node:node /app /home/node/.npm
+RUN mkdir -p /app/node_modules /app/.next /home/node/.npm /backups \
+ && chown -R node:node /app /home/node/.npm /backups
 USER node
 EXPOSE 3000
 ENTRYPOINT ["dev-entrypoint"]
@@ -43,6 +48,9 @@ USER node
 CMD ["npx", "prisma", "migrate", "deploy"]
 
 FROM base AS runner
+# PostgreSQL client tools for the superadmin backup (pg_dump).
+COPY --chmod=0755 docker/install-pg-client.sh /usr/local/bin/install-pg-client
+RUN install-pg-client && rm /usr/local/bin/install-pg-client
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
@@ -51,7 +59,7 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-RUN mkdir -p .next/cache && chown node:node .next/cache
+RUN mkdir -p .next/cache /backups && chown node:node .next/cache /backups
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

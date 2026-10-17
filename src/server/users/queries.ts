@@ -68,3 +68,46 @@ export async function recentAuditEvents(db: PrismaClient, actor: Actor, limit = 
     createdAt: event.createdAt,
   }));
 }
+
+export type AuditLogRow = AuditRow & { summary: string };
+
+const AUDIT_PAGE_SIZE = 200;
+const SUMMARY_LIMIT = 160;
+
+function summarise(before: unknown, after: unknown): string {
+  const text = [before, after]
+    .map((value) => (value === null || value === undefined ? null : JSON.stringify(value)))
+    .filter((value): value is string => value !== null && value !== "null")
+    .join(" → ");
+  return text.length > SUMMARY_LIMIT ? `${text.slice(0, SUMMARY_LIMIT - 1)}…` : text;
+}
+
+/** The audit trail, newest first, optionally narrowed to one kind of entity. Payloads never hold passwords by design. */
+export async function listAuditEvents(
+  db: PrismaClient,
+  actor: Actor,
+  filter: { entityType?: string } = {},
+): Promise<AuditLogRow[]> {
+  assertPermitted(can(actor.role, "audit.view"));
+  const events = await db.auditEvent.findMany({
+    where: filter.entityType ? { entityType: filter.entityType } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: AUDIT_PAGE_SIZE,
+    include: { actor: { select: { name: true } } },
+  });
+  return events.map((event) => ({
+    id: event.id,
+    action: event.action,
+    entityType: event.entityType,
+    entityId: event.entityId,
+    actorName: event.actor?.name ?? null,
+    createdAt: event.createdAt,
+    summary: summarise(event.before, event.after),
+  }));
+}
+
+export async function listAuditEntityTypes(db: PrismaClient, actor: Actor): Promise<string[]> {
+  assertPermitted(can(actor.role, "audit.view"));
+  const groups = await db.auditEvent.groupBy({ by: ["entityType"], orderBy: { entityType: "asc" } });
+  return groups.map((group) => group.entityType);
+}

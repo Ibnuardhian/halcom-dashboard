@@ -3,13 +3,15 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { DashboardHeader } from "./dashboard-header";
 import type { DashboardDefinition } from "./definitions";
 
-/** Renders a dashboard whose data source (projects and tickets) is not built yet, without inventing numbers. */
-export function PlannedDashboard({ definition }: { definition: DashboardDefinition }) {
+/** Renders the widgets whose data source is not built yet without inventing numbers, below any real-data `children`. */
+export function PlannedDashboard({ definition, children }: { definition: DashboardDefinition; children?: React.ReactNode }) {
   return (
     <>
       <DashboardHeader title={definition.title} summary={definition.summary} />
+      {children}
+      <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Planned widgets</h2>
       <p role="status" className="mb-4 rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-        No data yet. The project and ticket modules are not built, so these widgets stay empty instead of showing made-up numbers.
+        These widgets need data that is not captured yet (SLA targets, milestones, comments). They stay empty instead of showing made-up numbers.
       </p>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {definition.widgets.map((widget) => (

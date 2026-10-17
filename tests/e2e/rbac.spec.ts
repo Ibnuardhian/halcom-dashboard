@@ -1,6 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { ROLES, type Role } from "@/domain/access/roles";
-import { expectOnDashboard, signIn, signInAs, submitLogin } from "./helpers";
+import { expectNotFound, expectOnDashboard, signIn, signInAs, submitLogin } from "./helpers";
 import { seedEmailFor } from "../../prisma/seed-users";
 
 const OWN_DASHBOARD_HEADING: Record<Role, string> = {
@@ -12,17 +12,6 @@ const OWN_DASHBOARD_HEADING: Record<Role, string> = {
   FINANCE: "Finance dashboard",
   MANAGEMENT: "Management dashboard",
 };
-
-/**
- * A forbidden or unknown page renders the not-found UI and none of its content. The HTTP status
- * stays 200 because Cache Components streams the response before the permission check runs,
- * so the test inspects the delivered HTML instead of the status code.
- */
-async function expectNotFound(page: Page, path: string, mustNotContain: string): Promise<void> {
-  await page.goto(path);
-  await expect(page.getByText("This page could not be found.")).toBeVisible();
-  expect(await page.content(), path).not.toContain(mustNotContain);
-}
 
 test.beforeAll(() => {
   expect(process.env["SEED_USER_PASSWORD"], "SEED_USER_PASSWORD must be set for E2E").toBeTruthy();
@@ -81,7 +70,15 @@ test.describe("access control", () => {
     await signIn(page, "FINANCE");
     const nav = page.getByRole("navigation", { name: "Main" });
 
-    await expect(nav.getByRole("link")).toHaveText(["Overview", "My dashboard"]);
+    await expect(nav.getByRole("link")).toHaveText([
+      "Overview",
+      "My dashboard",
+      "Projects",
+      "All requests",
+      "BOQ requests",
+      "RFQ requests",
+      "PO requests",
+    ]);
   });
 
   test("an unknown dashboard name shows not-found even for a superadmin", async ({ page }) => {

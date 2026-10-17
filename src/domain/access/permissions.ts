@@ -12,7 +12,20 @@ export type Permission =
   | "users.view"
   | "users.manage"
   | "users.manage-privileged"
-  | "audit.view";
+  | "audit.view"
+  | "system.monitor"
+  | "system.backup"
+  | "theme.switch"
+  | "projects.view"
+  | "projects.create"
+  | "projects.edit.technical"
+  | "projects.post-update"
+  | "requests.view"
+  | "requests.create"
+  | "requests.email"
+  | "requests.work.boq"
+  | "requests.work.purchasing"
+  | "requests.handover";
 
 export const ALL_PERMISSIONS: readonly Permission[] = [
   "dashboard.shared.view",
@@ -21,7 +34,24 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "users.manage",
   "users.manage-privileged",
   "audit.view",
+  "system.monitor",
+  "system.backup",
+  "theme.switch",
+  "projects.view",
+  "projects.create",
+  "projects.edit.technical",
+  "projects.post-update",
+  "requests.view",
+  "requests.create",
+  "requests.email",
+  "requests.work.boq",
+  "requests.work.purchasing",
+  "requests.handover",
 ];
+
+/** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
+const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
+const SALES_WORK: readonly Permission[] = ["projects.create", "requests.create", "requests.email"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;
@@ -37,12 +67,33 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "users.view",
     "users.manage",
     "audit.view",
+    ...READ_WORK,
+    ...SALES_WORK,
+    "projects.edit.technical",
+    "projects.post-update",
+    "requests.work.boq",
+    "requests.work.purchasing",
+    "requests.handover",
   ]),
-  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES")]),
-  SOA: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SOA")]),
-  PURCHASING: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("PURCHASING")]),
-  FINANCE: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("FINANCE")]),
-  MANAGEMENT: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("MANAGEMENT")]),
+  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK]),
+  SOA: new Set<Permission>([
+    "dashboard.shared.view",
+    ownDashboardPermission("SOA"),
+    ...READ_WORK,
+    "projects.edit.technical",
+    "projects.post-update",
+    "requests.email",
+    "requests.work.boq",
+    "requests.handover",
+  ]),
+  PURCHASING: new Set<Permission>([
+    "dashboard.shared.view",
+    ownDashboardPermission("PURCHASING"),
+    ...READ_WORK,
+    "requests.work.purchasing",
+  ]),
+  FINANCE: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("FINANCE"), ...READ_WORK]),
+  MANAGEMENT: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("MANAGEMENT"), ...READ_WORK]),
 };
 
 export function permissionsFor(role: Role): ReadonlySet<Permission> {

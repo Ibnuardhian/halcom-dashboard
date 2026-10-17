@@ -1,2 +1,5 @@
-/** Product name shown in the UI. The name is provisional (brief §1); change it here only. */
-export const APP_NAME = "Project Request & Fulfillment Tracker";
+/** Product name shown in the UI and the browser tab. Change it here only. */
+export const APP_NAME = "Halcom Dashboard";
+
+/** What the application does, shown under the name where there is room. */
+export const APP_TAGLINE = "Project Request & Fulfillment Tracker";

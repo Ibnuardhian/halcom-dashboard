@@ -19,7 +19,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:import-projects": "tsx prisma/import-projects.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

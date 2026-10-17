@@ -187,14 +187,30 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   the project and ticket modules exist. They show no numbers, because the brief forbids fabricated
   analytics.
 
-## D-014 SOA handover email (business decision from the product owner)
+## D-014 SOA handover email (business decisions from the product owner)
 
-- **Date:** 2026-10-17 · **Status:** Confirmed by the user; not implemented yet
+- **Date:** 2026-10-17 · **Status:** Confirmed by the user; the delivery part is superseded by D-017
 - **Decision:** After SOA replies to the `[HITBOQ]` email sent to the SOA team, the outgoing message becomes
-  `[HITRFQ] {EndUserCompany} - {ProjectName}` addressed to the Purchasing team.
-- **Open details (OPEN_QUESTIONS B-1, B-2):** whether `PO` can still be chosen at handover (brief §6.4 says
-  the actor must choose), and whether the reply must stay in the same mail thread. A `mailto:` link cannot
-  set threading headers; Microsoft Graph can.
+  `[HITRFQ] {EndUserCompany} - {ProjectName}` or `[HITPO] ...`, addressed to the Purchasing team.
+  - SOA may choose either `[HITRFQ]` or `[HITPO]` at handover, as the brief requires (§6.4); neither is assumed.
+  - The reply **must stay in the same mail thread** as the `[HITBOQ]` email.
+- **Consequence:** a `mailto:` link cannot set threading headers, so `outlook_draft` mode cannot meet the
+  threading requirement for this step. A thread-preserving reply needs Microsoft Graph (reply to the original
+  message, then address it to Purchasing and change the subject). That depends on tenant consent, mailbox
+  identity and the stored original message ID (OPEN_QUESTIONS B-3). Whether Outlook keeps a thread when the
+  subject prefix changes must be verified against the real tenant.
+
+## D-016 Superadmin tooling
+
+- **Date:** 2026-10-17 · **Status:** Confirmed by the user; partly implemented
+- **Decision:** Admins may add other operational users (already implemented). Superadmin additionally gets
+  development and operations tools: switching the UI theme, monitoring application performance, and database
+  backup, "and more".
+  - Theme switcher and the System monitoring page are implemented, restricted to `SUPERADMIN`
+    (permissions `theme.switch` and `system.monitor`).
+  - Backup is implemented as D-021 (host folder). Password change for other users already existed (Users page, reset).
+- **Notes:** the theme switch is a per-browser preference, so the permission only controls who sees the
+  control. The monitoring page reads counts, sizes and timings only; it never shows query text or row data.
 
 ## D-015 Next.js rendering rules for signed-in pages
 
@@ -209,3 +225,85 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   - A forbidden or unknown URL renders the not-found UI with none of the page content, but the HTTP
     status stays 200, because Cache Components streams the response before the check runs. E2E tests
     therefore assert on the delivered HTML. `forbidden()` was not used because it is experimental.
+
+## D-017 Email is copy-and-paste only (supersedes the delivery part of D-014)
+
+- **Date:** 2026-10-17 · **Status:** Confirmed by the user; implemented
+- **Decision:** The application never sends mail and never opens Outlook. A request page shows **To, Cc,
+  Subject and a default text** (containing the request ID) for the user to copy into Outlook.
+  - Recipients come from `EMAIL_TO_HITBOQ` / `EMAIL_CC_HITBOQ` (and `HITRFQ`, `HITPO`) in the server
+    environment. A missing or invalid list shows a configuration error, never another group's list.
+  - Subject: `[HITBOQ|HITRFQ|HITPO] {EndUserCompany} - {ProjectName}` (brief §6.4). The text carries the request
+    ID, project ID, requester, needed-by date, the source BOQ on a handover, and a link (`APP_BASE_URL`).
+  - Shown only to roles that send these emails (Sales, SOA, admins).
+- **Consequence:** the same-thread requirement of D-014 is met by the user replying inside the original
+  `[HITBOQ]` thread in Outlook; the handover page tells them to do so. **Microsoft Graph is not needed**, so
+  OPEN_QUESTIONS B-3 is withdrawn and the `microsoft_graph_send` mode and the email outbox are not built.
+  There is no delivery log, because the application cannot know what was sent.
+
+## D-018 Request and project numbering
+
+- **Date:** 2026-10-17 · **Status:** Confirmed by the user (format); counter scope is an assumption
+- **Decision:**
+  - Requests: `BOQ-<initials>-YY0001`, `RFQ-<initials>-YY0001`, `PO-<initials>-YY0001`, for example `RFQ-IA-260001`.
+    The sequence restarts per type, per initials and per year (assumption, OPEN_QUESTIONS T-13). Initials come from the
+    requester's email address: `ibnu.ardhian@x` gives `IA`, `sales@x` gives `SA`. The two-digit year uses the Asia/Jakarta time zone.
+  - Projects: `PRJ-001`, `PRJ-002`, ... one unbroken sequence, matching the sales export. The counter continues after the
+    highest imported number.
+  - Numbers come from the `code_counters` table, taken atomically inside the creating transaction, so concurrent
+    creations never share a code.
+  - Repeated submits of one form create one record (a per-page-view submission key), and a repeated handover click
+    returns the existing RFQ or PO (unique source and type).
+
+## D-019 Project pipeline model, master data and the sales-export import
+
+- **Date:** 2026-10-17 · **Status:** Implemented
+- **Decision:** A project carries commercial fields (stage, estimated value, probability, final value, won date, lost
+  reason, competitor), general information (customer, principal, solution category, industry, location, stakeholders),
+  technical fields (technical PIC, requirement, assessment, solution proposed, architecture, sizing, BOQ, quotation,
+  proposal, POC, scope, challenge, blocker, notes) and progress notes (current and next action).
+  - `Customer`, `Principal` (brand) and `SolutionCategory` are master tables keyed by a normalised name, so "HPE" and
+    " hpe " are one record. Weighted value is computed (value times probability), never stored.
+  - Stage and status are separate: stage is where the deal is, status says whether it is live, on hold, won, lost or completed.
+  - `npm run db:import-projects` loads the sales-export CSV into the development or test database. It only adds, runs in one
+    transaction, skips projects that already exist, never changes an existing user, and refuses other environments.
+    The CSV holds real customer data and is git-ignored (`prisma/data/`).
+  - The wording BOM became BOQ everywhere (stage "Sizing / BOQ", field "BOQ"); the import still accepts the old "BOM" headings.
+
+## D-020 Project updates (current and next action) and technical fields
+
+- **Date:** 2026-10-17 · **Status:** Implemented for SOA; Sales commercial editing not built yet
+- **Decision (current and next action):** these are a **comment-like feed**, not an edited field (clarified by the user).
+  - *Current action* is what has been done (this week); the page highlights the **last two**. *Next action* is what will be done
+    after the current action; the page highlights the latest one.
+  - The log is only **when** each entry was added and by whom: each post is one append-only row in `project_actions`
+    (kind, text, author, time). Entries are never edited or deleted; a correction is a new entry. The project keeps the text of
+    the latest entry of each kind (`current_action`, `next_action`), written in the same transaction as the entry and an audit event.
+  - Permission `projects.post-update`: SOA, admin, superadmin. The export's existing actions became the first entries (no author).
+- **Decision (technical fields):** SOA (and admins) may also change the technical fields (requirement, assessment, solution,
+  architecture, sizing, BOQ, quotation, proposal, POC, scope, challenge, blocker, notes), permission `projects.edit.technical`,
+  per the field-level rules of the spec (SOA edits technical specifications, BOQ details and technical notes). *This goes slightly
+  beyond what was asked for Next action; remove the permission from SOA in `permissions.ts` to switch it off.*
+  Commercial fields (value, probability, stage, status, owner) are read-only for them.
+  - Enforced on the server: the service accepts only the listed field names and rejects any other key, re-reads the actor
+    inside the transaction, and locks the project row.
+  - Every changed technical field writes one row to the append-only `project_changes` log (who, field, from, to, when) plus an
+    audit event, in the same transaction. A save that changes nothing writes nothing.
+
+## D-021 Database backup to a host folder
+
+- **Date:** 2026-10-17 · **Status:** Implemented (answer to OPEN_QUESTIONS T-11: host folder)
+- **Decision:** Superadmin creates a custom-format `pg_dump` from the Backups page. The file goes to the folder mounted at
+  `/backups` (host folder `BACKUP_HOST_DIR`, default `./backups`, git-ignored). It is written as `.partial`, verified with
+  `pg_restore --list`, then renamed; existing files are never overwritten or deleted. Restore stays manual and approved
+  (README, Backups). The image carries the PostgreSQL 18 client from the official PGDG repository (signing key fingerprint checked).
+- **Not decided:** retention, encryption and off-machine copies; downloading a dump from the UI is not offered.
+
+## D-022 Application shell, branding and responsive layout
+
+- **Date:** 2026-10-17 · **Status:** Implemented
+- **Decision:** The product is named **Halcom Dashboard** (tagline: Project Request & Fulfillment Tracker). The sidebar carries the
+  Halcom logo and the modules grouped as Dashboards, Work and Administration, derived from the permission matrix. Below the
+  `md` breakpoint it becomes a drawer (menu button, closes on navigation and Escape). Colours: primary blue `#1173BA`
+  from the logo, white background, grey `#F3F4F6` surfaces, light blue `#E0F2FE` accents, amber `#F59E0B` only for attention states.
+  Users can change their own password on the Account page; the Audit log page is open to admins.

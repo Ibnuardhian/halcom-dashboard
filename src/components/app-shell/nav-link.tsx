@@ -2,20 +2,61 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  Activity,
+  DatabaseBackup,
+  FileSearch,
+  FileSpreadsheet,
+  FolderKanban,
+  Gauge,
+  LayoutDashboard,
+  ListChecks,
+  PlusCircle,
+  ScrollText,
+  ShoppingCart,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import type { NavIcon } from "@/features/navigation/links";
 import { cn } from "@/lib/utils";
 
-export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const active = usePathname() === href;
+const ICONS: Record<NavIcon, LucideIcon> = {
+  overview: LayoutDashboard,
+  dashboard: Gauge,
+  projects: FolderKanban,
+  requests: ListChecks,
+  boq: FileSpreadsheet,
+  rfq: FileSearch,
+  po: ShoppingCart,
+  new: PlusCircle,
+  users: Users,
+  audit: ScrollText,
+  backups: DatabaseBackup,
+  system: Activity,
+};
+
+/** These two are parents of other menu entries, so only an exact match marks them active. */
+const EXACT_ONLY = new Set(["/dashboard", "/requests"]);
+
+export function isActivePath(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  return !EXACT_ONLY.has(href) && pathname.startsWith(`${href}/`);
+}
+
+export function NavLink({ href, icon, children }: { href: string; icon: NavIcon; children: React.ReactNode }) {
+  const active = isActivePath(usePathname(), href);
+  const Icon = ICONS[icon];
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-        active && "bg-muted text-foreground",
+        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        active && "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_3px_0_0_var(--sidebar-primary)]",
       )}
     >
-      {children}
+      <Icon aria-hidden className="size-4 shrink-0" />
+      <span className="truncate">{children}</span>
     </Link>
   );
 }

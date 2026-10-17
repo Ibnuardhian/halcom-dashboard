@@ -17,12 +17,10 @@ export const SHARED_DASHBOARD: DashboardDefinition = {
   title: "Overview",
   summary: "Project progress and request statistics visible to everyone who signs in.",
   widgets: [
-    { title: "Active projects", description: "Projects with work still open." },
     {
       title: "Project progress",
       description: "Milestone status per project. Never inferred from the number of closed tickets alone.",
     },
-    { title: "Open tickets by type and team", description: "BOQ, RFQ and PO requests split by owning team." },
     { title: "Incoming vs completed", description: "Trend of new and finished requests over time." },
     { title: "SLA state", description: "On track, at risk and overdue counts. Shows “not configured” until SLA targets are approved." },
     { title: "Handover SOA → Purchasing", description: "How long completed BOQs wait before reaching Purchasing as an RFQ." },
@@ -36,17 +34,14 @@ export const ROLE_DASHBOARDS: Record<RoleDashboardKey, DashboardDefinition> = {
     title: "Sales dashboard",
     summary: "Your projects and requests to SOA and Purchasing.",
     widgets: [
-      { title: "My requests", description: "BOQ, RFQ and PO requests you submitted, with current status and owner." },
       { title: "Waiting for Sales", description: "Clarifications requested from you, oldest first." },
       { title: "My project progress", description: "Milestones of the projects you own." },
-      { title: "Email actions", description: "[HITBOQ], [HITRFQ] and [HITPO] emails prepared but not yet opened or sent." },
     ],
   },
   soa: {
     title: "SOA dashboard",
     summary: "BOQ requests from Sales and their handover to Purchasing.",
     widgets: [
-      { title: "Incoming BOQ requests", description: "[HITBOQ] requests waiting for triage." },
       { title: "Assigned to me", description: "BOQ work you own, with age and SLA state." },
       { title: "Waiting for Sales", description: "BOQs paused for missing information." },
       {
@@ -59,7 +54,6 @@ export const ROLE_DASHBOARDS: Record<RoleDashboardKey, DashboardDefinition> = {
     title: "Purchasing dashboard",
     summary: "RFQ and PO requests from Sales and from SOA handovers.",
     widgets: [
-      { title: "Incoming requests", description: "[HITRFQ] and [HITPO] requests not yet picked up." },
       { title: "Handed over from SOA", description: "Requests that arrived with a completed BOQ." },
       { title: "Waiting for vendor", description: "Requests blocked on external input, with the reason." },
       { title: "PO references", description: "Purchasing and PO numbers recorded on requests." },

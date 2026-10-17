@@ -1,17 +1,20 @@
-# Project Request & Fulfillment Tracker
+# Halcom Dashboard
 
-Internal web application for project requests, ticketing and SLA monitoring:
-Sales → SOA (BOQ) → Purchasing (RFQ/PO), with read-only visibility for Finance.
+*Project Request & Fulfillment Tracker.* Internal web application for project requests, ticketing and SLA
+monitoring: Sales → SOA (BOQ) → Purchasing (RFQ/PO), with read-only visibility for Finance.
 
 - Product requirements: [PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md](PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md)
 - Engineering rules for people and AI agents: [AGENTS.md](AGENTS.md)
 - Decisions: [docs/decisions/DECISIONS.md](docs/decisions/DECISIONS.md) · Open questions: [docs/requirements/OPEN_QUESTIONS.md](docs/requirements/OPEN_QUESTIONS.md)
 
-> **Status: foundation plus access control.** The Docker environment, database, sign-in, roles
-> (RBAC), a dashboard per role and a shared overview exist. The business modules (projects,
-> tickets, email, SLA, exports) are **not built yet**, so most dashboard widgets show
-> "No data yet" on purpose. The sign-in is an interim solution (see
-> [DECISIONS.md D-012](docs/decisions/DECISIONS.md)) and is not ready for production.
+> **Status: projects, requests and email text exist; SLA, tasks, charts and exports do not yet.**
+> Built: Docker environment, sign-in, roles (RBAC), a responsive sidebar app, projects with a sales
+> pipeline view (importable from the sales export), BOQ / RFQ / PO requests with numbered IDs and
+> status history, the SOA to Purchasing handover, copy-and-paste email text, a current / next action update
+> feed per project, SOA editing of technical fields with a change log, user management, audit log, own-password change and database backup.
+> Not built: SLA tracking, SOA tasks and Kanban, Sales targets, KPI charts, Finance cross-check, Excel
+> export, attachments. The sign-in is an interim solution ([D-012](docs/decisions/DECISIONS.md)) and is
+> not ready for production.
 
 Everything runs in Docker. You do **not** need Node.js, npm or PostgreSQL on the host.
 
@@ -60,7 +63,8 @@ except `Copy-Item` (use `cp`).
    The first start installs dependencies into a Docker volume, which takes 1–2 minutes.
    Follow it with `docker compose logs -f app`.
 
-3. Create the database tables and the sample accounts (both safe to repeat):
+3. Create the database tables and the sample accounts (both safe to repeat; the sales-export import is optional, see
+   [Importing the sales export](#importing-the-sales-export)):
 
    ```powershell
    docker compose run --rm app npm run db:migrate:deploy
@@ -79,34 +83,80 @@ Both keep your data.
 ## Signing in and what you will see
 
 The seed creates one synthetic account per role. All use the password in `SEED_USER_PASSWORD` in
-your `.env` (`dev-only-change-me` unless you changed it).
+your `.env` (`dev-only-change-me` unless you changed it). Each time the development seed or the project
+import runs it writes **`DEV_ACCOUNTS.md`** in the repository root: a cheat sheet with every email, the
+password and the page each account lands on, including the named accounts created by the import. That file is
+listed in `.gitignore` and `.dockerignore` because it contains a password, so it is never committed or copied
+into an image. It is written only for the development database, never for the test database.
+
+Always open the app at **http://localhost:3000**. The development server refuses scripts from other
+host names, so a different address can render the page without making it interactive.
 
 | Email | Role | Lands on | Can also open |
 |---|---|---|---|
-| `superadmin@example.invalid` | Superadmin | `/dashboard/superadmin` | every dashboard, Users |
-| `admin@example.invalid` | Admin | `/dashboard/admin` | all dashboards except Superadmin's, Users |
-| `sales@example.invalid` | Sales | `/dashboard/sales` | Overview |
-| `soa@example.invalid` | SOA | `/dashboard/soa` | Overview |
-| `purchasing@example.invalid` | Purchasing | `/dashboard/purchasing` | Overview |
-| `finance@example.invalid` | Finance | `/dashboard/finance` | Overview |
-| `management@example.invalid` | Management | `/dashboard/management` | Overview |
+| `superadmin@example.invalid` | Superadmin | `/dashboard/superadmin` | every dashboard, Users, Audit log, Backups, System |
+| `admin@example.invalid` | Admin | `/dashboard/admin` | all dashboards except Superadmin's, Users, Audit log |
+| `sales@example.invalid` | Sales | `/dashboard/sales` | Overview, Projects, requests, New request |
+| `soa@example.invalid` | SOA | `/dashboard/soa` | Overview, Projects (edits technical fields), requests |
+| `purchasing@example.invalid` | Purchasing | `/dashboard/purchasing` | Overview, Projects, requests |
+| `finance@example.invalid` | Finance | `/dashboard/finance` | Overview, Projects, requests (read-only) |
+| `management@example.invalid` | Management | `/dashboard/management` | Overview, Projects, requests (read-only) |
 
-Things to try:
+### The modules in the sidebar
 
-1. Sign in as `sales@example.invalid`. You see **Overview** and **My dashboard** only. Typing
-   `/dashboard/finance` in the address bar shows "This page could not be found".
-2. Sign out, then sign in as `admin@example.invalid` and open **Users**. Create a user, change a role,
-   reset a password or deactivate someone. The **Admin dashboard** lists each change under
-   "Recent administrative activity".
-3. Sign in as `superadmin@example.invalid`. The role list in **Users** now also offers Admin and Superadmin.
+The sidebar groups what a role may open (it is derived from the permission matrix in
+[RBAC.md](docs/requirements/RBAC.md), so it never offers a page the server would refuse). On a phone it
+becomes a drawer behind the menu button.
 
-What is real today: sign-in, roles and permissions, user management, the audit trail, and the account
-statistics on the Admin and Superadmin dashboards. What is a placeholder: every other widget, which
-shows "No data yet" until the project and ticket modules exist. The rules are in
-[docs/requirements/RBAC.md](docs/requirements/RBAC.md).
+| Module | What it does |
+|---|---|
+| **Projects** | Pipeline list with filters (stage, status, principal, search) and a project page with Overview, Technical, Activity and Requests sections. |
+| **BOQ / RFQ / PO requests**, **New request** | Numbered requests (`BOQ-SA-260001`, `RFQ-IA-260001`, `PO-...`) with filters by status. The request page has the email text and the status history. |
+| **Account** (your name, bottom of the sidebar) | Change your own password. |
+| **Users**, **Audit log** (admins) | Accounts and roles; every administrative and workflow change. |
+| **Backups**, **System** (superadmin) | Database dump to the host folder; live application and database figures. |
 
-To change the password the seed uses, edit `SEED_USER_PASSWORD` for **new** accounts only: the seed never
-overwrites existing users. Reset an existing account's password from the **Users** page.
+### Things to try
+
+1. Sign in as `sales@example.invalid`, open **Projects → New project**, then **New BOQ** on the project page.
+   After saving you get **To, Cc, Subject and the default text** (with the request ID) to copy into Outlook.
+   The application never sends mail. The lists in `EMAIL_TO_HITBOQ` and the others in `.env` fill To and Cc.
+2. Sign in as `soa@example.invalid`, open that BOQ and move it to *In progress*, then *Completed*. A **Hand over to
+   Purchasing** card appears: choose **RFQ** or **PO**. The new request keeps the project and points back to the BOQ;
+   its page tells you to reply inside the original `[HITBOQ]` thread in Outlook.
+3. As SOA open a project and go to **Activity**: write an update, choose *Current action* (what was done) or *Next action* (what comes
+   after it) and **Post update**. It works like comments: the feed shows each entry with who wrote it and when, newest first, the
+   page highlights the last two current actions and the latest next action, and entries are never edited. Under **Technical** SOA
+   can also save the technical fields; each change is logged with its old and new value. Sales sees the same page but no forms.
+   There is no way to edit values, probability, stage or status as SOA.
+4. Sign in as `admin@example.invalid` and open **Users** and **Audit log**. Create a user, change a role, reset a
+   password or deactivate someone; the Audit log lists each change.
+5. Sign in as `superadmin@example.invalid`: **Backups** writes a dump to the host folder, **System** shows live figures,
+   and the **Theme** selector in the sidebar switches Light, Dark or System (stored in that browser only).
+
+Typing a URL your role may not open (for example `/admin/backups` as Sales) shows "This page could not be found".
+
+What is real today: everything above. What is still a placeholder: dashboard widgets that need SLA targets, milestones
+or tasks, which show "No data yet" instead of invented numbers.
+
+Editing `SEED_USER_PASSWORD` only affects accounts created afterwards: the seed never overwrites existing
+users, so `DEV_ACCOUNTS.md` can then be out of date. Change an existing account's password from the **Account** page,
+or reset it from the **Users** page.
+
+### Importing the sales export
+
+`prisma/data/projects_export_2026-10-17.csv` (git-ignored: it holds real customer names and values) is loaded with:
+
+```powershell
+docker compose run --rm app npm run db:import-projects -- --dry-run   # report only, writes nothing
+docker compose run --rm app npm run db:import-projects               # import
+```
+
+It maps every column, creates the customers, principals (brands) and solution categories, and one account per person
+named as Sales PIC (role Sales) or Technical PIC (role SOA), with the password of `SEED_USER_PASSWORD`. It only adds:
+projects that already exist, existing users and their passwords are never changed, so it is safe to run again. The whole
+file is imported in one transaction or not at all, and any problem in the file is listed before anything is written.
+It refuses to run outside development and test. A different file can be given as the first argument.
 
 ## Everyday commands
 
@@ -205,8 +255,10 @@ credentials from `.env`.
   tmpfs `db-test`; every run creates its own empty database there and applies all migrations to it.
 - **E2E** (`tests/e2e`): Playwright with Chromium. Runs in `e2e`, which shares the network of `app-test`,
   so the browser uses `http://localhost:3000`. `app-test` migrates and seeds the disposable database each
-  time it starts. The suite signs in as every role and checks menus, forbidden pages (by delivered HTML,
-  not status code, see D-015) and user management. Reports go to `playwright-report/` (open
+  time it starts and has polling turned off (with polling, Next dev restart-looped under Docker Desktop and
+  pages reloaded endlessly). The suite signs in as every role and checks menus, forbidden pages (by delivered HTML,
+  not status code, see D-015), user management, the project and request flow, the email text, the handover,
+  SOA editing with the change log, backups, the account page and the phone layout. Reports go to `playwright-report/` (open
   `playwright-report/index.html`) and traces to `test-results/`, both git-ignored.
 - Retries are disabled, so a flaky test fails visibly.
 
@@ -248,6 +300,15 @@ curl -fsS http://127.0.0.1:3000/api/health
 
 ## Backups
 
+**From the application (superadmin):** **Backups** in the sidebar writes a full `pg_dump` (custom format) to the
+folder mounted at `/backups`, which is the host folder `BACKUP_HOST_DIR` (default `./backups`, git-ignored). A file is
+written as `.partial`, checked with `pg_restore --list`, then renamed `halcom-YYYYMMDD-HHMMSSZ.dump` (UTC). The application
+never overwrites, deletes or restores a backup, and there is no download button, because the dump holds all business
+data. Retention and off-machine copies are not decided yet (OPEN_QUESTIONS T-11): copy the folder somewhere safe yourself.
+On Linux the host folder must be writable by uid 1000 (the `node` user in the image).
+
+**From the command line** (works without the application):
+
 These commands avoid shell redirection, which corrupts binary dumps in PowerShell. For production,
 add `-f compose.prod.yaml` after `docker compose`.
 
@@ -276,6 +337,8 @@ and off-site storage are still open decisions.
 | `ports are not available ... An attempt was made to access a socket in a way forbidden by its access permissions` | The host port is in use (often a locally installed PostgreSQL on 5432) or reserved by Windows. Change `APP_HOST_PORT` or `POSTGRES_HOST_PORT` in `.env`. List reserved ranges with `netsh interface ipv4 show excludedportrange protocol=tcp`. Do not stop a local PostgreSQL service unless you know what it holds. |
 | `app` stays `starting` | The first start runs `npm ci`. Check `docker compose logs -f app`. |
 | `password authentication failed` after editing `.env` | PostgreSQL stores the credentials when the volume is first created; editing `.env` later does not change them. Restore the previous values in `.env`, or change the password inside the database: `docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB'`, then `ALTER USER <user> WITH PASSWORD '<new>';`. |
+| New columns or tables exist but pages fail with `Cannot read properties of undefined (reading 'findMany')` | After a migration the running dev server still holds the old Prisma client. Run `docker compose restart app`. |
+| `pg_dump is not installed in this container` on the Backups page | The image predates the PostgreSQL client. Run `docker compose build app` and `docker compose up -d`. |
 | Edits do not hot-reload | Make sure `NEXT_DEV_POLL_INTERVAL_MS` is set (default 1000) and restart: `docker compose up -d`. |
 | `Cannot find module` after pulling changes | The lockfile changed. Run `docker compose restart app`. |
 | `npm error code ECONNRESET` during a build or install | A transient network failure. Retry the command; behind a proxy, configure npm and Docker proxy settings. |

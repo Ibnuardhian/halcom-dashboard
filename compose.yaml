@@ -53,7 +53,16 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
+      APP_HOST_PORT: ${APP_HOST_PORT:-3000}
       NEXT_DEV_POLL_INTERVAL_MS: ${NEXT_DEV_POLL_INTERVAL_MS-1000}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${APP_HOST_PORT:-3000}}
+      BACKUP_DIR: /backups
+      EMAIL_TO_HITBOQ: ${EMAIL_TO_HITBOQ:-}
+      EMAIL_CC_HITBOQ: ${EMAIL_CC_HITBOQ:-}
+      EMAIL_TO_HITRFQ: ${EMAIL_TO_HITRFQ:-}
+      EMAIL_CC_HITRFQ: ${EMAIL_CC_HITRFQ:-}
+      EMAIL_TO_HITPO: ${EMAIL_TO_HITPO:-}
+      EMAIL_CC_HITPO: ${EMAIL_CC_HITPO:-}
     ports:
       - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
     volumes:
@@ -61,6 +70,8 @@ services:
       - node_modules:/app/node_modules
       - npm_cache:/home/node/.npm
       - next_dev:/app/.next
+      # Database backups land in this host folder (superadmin > Backups). Never deleted by the app.
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
     depends_on:
       db:
         condition: service_healthy
@@ -93,12 +104,23 @@ services:
       APP_ENV: test
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db-test:5432/halcom_test
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
-      NEXT_DEV_POLL_INTERVAL_MS: ${NEXT_DEV_POLL_INTERVAL_MS-1000}
+      # The test server never needs hot reload, and polling made Next dev restart-loop under Docker Desktop.
+      NEXT_DEV_POLL_INTERVAL_MS: ""
+      APP_BASE_URL: http://localhost:3000
+      # Fixed fake distribution lists, so E2E tests never depend on the developer's .env.
+      EMAIL_TO_HITBOQ: soa-group@example.invalid
+      EMAIL_CC_HITBOQ: soa-cc@example.invalid
+      EMAIL_TO_HITRFQ: purchasing-group@example.invalid
+      EMAIL_CC_HITRFQ: ""
+      EMAIL_TO_HITPO: purchasing-group@example.invalid
+      EMAIL_CC_HITPO: purchasing-cc@example.invalid
     volumes:
       - .:/app
       - node_modules:/app/node_modules
       - npm_cache:/home/node/.npm
       - next_test:/app/.next
+      # Disposable folder: test backups must not land in the developer's real backup folder.
+      - test_backups:/backups
     depends_on:
       db-test:
         condition: service_healthy
@@ -133,3 +155,4 @@ volumes:
   npm_cache:
   next_dev:
   next_test:
+  test_backups:

@@ -1,7 +1,7 @@
-// Prisma schema. Project/ticket models are intentionally not defined yet: they
-// depend on open business decisions (docs/requirements/OPEN_QUESTIONS.md) and
-// on the conceptual model in PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md §11.
-// Add them through reviewed migrations (README › Database).
+// Prisma schema. Models follow the conceptual model in
+// PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md §11. SLA, comments and attachments are not
+// modelled yet (open decisions in docs/requirements/OPEN_QUESTIONS.md).
+// Change it only through reviewed migrations (README › Database).
 
 generator client {
   provider = "prisma-client"
@@ -35,8 +35,15 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions Session[]
-  audits   AuditEvent[]
+  sessions          Session[]
+  audits            AuditEvent[]
+  ownedProjects     Project[]              @relation("ProjectSalesOwner")
+  requestsCreated   Request[]              @relation("RequestRequester")
+  requestsHandled   Request[]              @relation("RequestAssignee")
+  statusChanges     RequestStatusHistory[]
+  technicalProjects Project[]              @relation("ProjectTechnicalPic")
+  projectChanges    ProjectChange[]
+  projectActions    ProjectAction[]
 
   @@map("users")
 }
@@ -73,4 +80,269 @@ model AuditEvent {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_events")
+}
+
+// Keep in sync with REQUEST_TYPES, REQUEST_STATUSES and PROJECT_STATUSES in src/domain/requests.
+enum RequestType {
+  BOQ
+  RFQ
+  PO
+}
+
+enum RequestStatus {
+  SUBMITTED
+  IN_PROGRESS
+  WAITING_FOR_SALES
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  CLOSED
+  WON
+  LOST
+  COMPLETED
+}
+
+// Pipeline stage of a project, as used in the sales export (docs/requirements/PIPELINE.md).
+// Stage is where the opportunity is; status is whether work on it is live, paused, won or lost.
+enum ProjectStage {
+  NEW_OPPORTUNITY
+  ASSESSMENT
+  SIZING_BOQ
+  POC
+  QUOTATION
+  NEGOTIATION
+  WON
+  LOST
+}
+
+// Master data. `nameKey` is the trimmed, lower-cased, single-spaced name: it makes "HPE" and "hpe "
+// the same record and is what the unique index guards.
+model Customer {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  nameKey   String   @unique @map("name_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  projects Project[]
+
+  @@map("customers")
+}
+
+// A brand or vendor whose products a project is built on (HPE, Dell, Hikvision...).
+model Principal {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  nameKey   String   @unique @map("name_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  projects Project[]
+
+  @@map("principals")
+}
+
+model SolutionCategory {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  nameKey   String   @unique @map("name_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  projects Project[]
+
+  @@map("solution_categories")
+}
+
+// Human-readable codes come from this counter: one row per scope (for example "RFQ-IA-26"
+// or "PRJ-26"), incremented atomically inside the creating transaction.
+model CodeCounter {
+  scope     String @id
+  lastValue Int    @map("last_value")
+
+  @@map("code_counters")
+}
+
+model Project {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  // PRJ-001, PRJ-002... (the numbering of the sales export; the counter continues after the highest).
+  code           String        @unique
+  endUserCompany String        @map("end_user_company")
+  name           String
+  description    String?
+  status         ProjectStatus @default(ACTIVE)
+  // Target closing date.
+  targetDate     DateTime?     @map("target_date") @db.Date
+  salesOwnerId   String        @map("sales_owner_id") @db.Uuid
+
+  // Commercial fields (Sales-owned; assumption docs/requirements/RBAC.md A-10). Currency is not stored: the
+  // sales export holds plain numbers, assumed to be IDR.
+  stage             ProjectStage @default(NEW_OPPORTUNITY)
+  estimatedValue    Decimal?     @map("estimated_value") @db.Decimal(18, 2)
+  probability       Int?
+  finalValue        Decimal?     @map("final_value") @db.Decimal(18, 2)
+  wonDate           DateTime?    @map("won_date") @db.Date
+  lostReason        String?      @map("lost_reason")
+  lostNotes         String?      @map("lost_notes")
+  competitor        String?
+  competitionStatus String?      @map("competition_status")
+
+  // General information.
+  customerId         String? @map("customer_id") @db.Uuid
+  principalId        String? @map("principal_id") @db.Uuid
+  solutionCategoryId String? @map("solution_category_id") @db.Uuid
+  industry           String?
+  location           String?
+  // Free text from the export: who is involved on the Halcom and customer side.
+  stakeholders       String?
+
+  // Technical fields (SOA-owned).
+  technicalPicId     String? @map("technical_pic_id") @db.Uuid
+  requirement        String?
+  assessmentStatus   String? @map("assessment_status")
+  solutionProposed   String? @map("solution_proposed")
+  architectureStatus String? @map("architecture_status")
+  sizingStatus       String? @map("sizing_status")
+  boqStatus          String? @map("boq_status")
+  quotationStatus    String? @map("quotation_status")
+  proposalStatus     String? @map("proposal_status")
+  pocStatus          String? @map("poc_status")
+  technicalChallenge String? @map("technical_challenge")
+  technicalBlocker   String? @map("technical_blocker")
+  technicalNotes     String? @map("technical_notes")
+  scopeEstimate      String? @map("scope_estimate")
+
+  // Progress notes.
+  currentAction String? @map("current_action")
+  nextAction    String? @map("next_action")
+
+  customFields Json?   @map("custom_fields")
+  // Where an imported project came from (file name); null for projects created in the application.
+  importedFrom String? @map("imported_from")
+
+  // Lets a repeated submit of the same form return the first project instead of a duplicate.
+  submissionKey String?  @unique @map("submission_key")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  salesOwner       User              @relation("ProjectSalesOwner", fields: [salesOwnerId], references: [id], onDelete: Restrict)
+  technicalPic     User?             @relation("ProjectTechnicalPic", fields: [technicalPicId], references: [id], onDelete: Restrict)
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  principal        Principal?        @relation(fields: [principalId], references: [id], onDelete: Restrict)
+  solutionCategory SolutionCategory? @relation(fields: [solutionCategoryId], references: [id], onDelete: Restrict)
+  requests         Request[]
+  changes          ProjectChange[]
+  actions          ProjectAction[]
+
+  @@index([status])
+  @@index([stage])
+  @@index([salesOwnerId])
+  @@index([technicalPicId])
+  @@index([customerId])
+  @@index([principalId])
+  @@map("projects")
+}
+
+// A unit of work for one team: a BOQ for SOA, or an RFQ / PO for Purchasing.
+model Request {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  // BOQ-IA-260001, RFQ-IA-260001, PO-IA-260001.
+  code            String        @unique
+  type            RequestType
+  projectId       String        @map("project_id") @db.Uuid
+  status          RequestStatus @default(SUBMITTED)
+  title           String
+  description     String        @default("")
+  requiredBy      DateTime?     @map("required_by") @db.Date
+  requesterId     String        @map("requester_id") @db.Uuid
+  // Null means "unassigned", which is shown explicitly (brief §6.3).
+  assigneeId      String?       @map("assignee_id") @db.Uuid
+  // Set on an RFQ or PO that was handed over from a completed BOQ.
+  sourceRequestId String?       @map("source_request_id") @db.Uuid
+  submissionKey   String?       @unique @map("submission_key")
+  completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  requester     User                   @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  assignee      User?                  @relation("RequestAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  source        Request?               @relation("Handover", fields: [sourceRequestId], references: [id], onDelete: Restrict)
+  handovers     Request[]              @relation("Handover")
+  statusHistory RequestStatusHistory[]
+
+  // A repeated handover click cannot create a second RFQ (or PO) from the same BOQ.
+  @@unique([sourceRequestId, type])
+  @@index([projectId])
+  @@index([type, status])
+  @@index([status])
+  @@index([createdAt])
+  @@map("requests")
+}
+
+// Append-only: the migration installs triggers that reject UPDATE, DELETE and TRUNCATE.
+model RequestStatusHistory {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  requestId   String         @map("request_id") @db.Uuid
+  fromStatus  RequestStatus? @map("from_status")
+  toStatus    RequestStatus  @map("to_status")
+  changedById String         @map("changed_by_id") @db.Uuid
+  changedAt   DateTime       @default(now()) @map("changed_at") @db.Timestamptz(3)
+  reason      String?
+
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  changedBy User    @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([requestId, changedAt])
+  @@map("request_status_history")
+}
+
+// One row per field changed on a project by a person, kept as a log shown on the project page
+// ("who changed what, from what, to what, when"). Append-only: the migration installs triggers that
+// reject UPDATE, DELETE and TRUNCATE. Values are the text the field held, so history stays readable.
+model ProjectChange {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  changedById String   @map("changed_by_id") @db.Uuid
+  // A key of PROJECT_EDITABLE_FIELDS (src/domain/projects/fields.ts).
+  field       String
+  fromValue   String?  @map("from_value")
+  toValue     String?  @map("to_value")
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  changedBy User    @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, changedAt])
+  @@map("project_changes")
+}
+
+enum ProjectActionKind {
+  CURRENT
+  NEXT
+}
+
+// A short update on a project, written like a comment: what was done (CURRENT) or what will be done after it
+// (NEXT). The feed records when each one was added and by whom; entries are never edited or deleted (the
+// migration installs triggers), a correction is a new entry. `projects.current_action` and `next_action` keep the
+// text of the latest entry of each kind, written in the same transaction. A null author means the entry came
+// from an import.
+model ProjectAction {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  projectId String            @map("project_id") @db.Uuid
+  kind      ProjectActionKind
+  body      String
+  authorId  String?           @map("author_id") @db.Uuid
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  author  User?   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, kind, createdAt])
+  @@map("project_actions")
 }

@@ -11,8 +11,10 @@ playwright-report
 blob-report
 src/generated
 backups
+DEV_ACCOUNTS.md
 *.tsbuildinfo
 npm-debug.log*
 .devcontainer
 .vscode
 docs
+prisma/data

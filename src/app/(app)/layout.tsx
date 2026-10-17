@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { NavLink } from "@/components/app-shell/nav-link";
-import { Badge } from "@/components/ui/badge";
+import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
-import { APP_NAME } from "@/config/app";
+import { can } from "@/domain/access/permissions";
 import { ROLE_LABELS } from "@/domain/access/roles";
 import { logoutAction } from "@/features/auth/actions";
-import { navLinksFor } from "@/features/navigation/links";
+import { ACCOUNT_PATH, navSectionsFor } from "@/features/navigation/links";
+import { ThemeSwitcher } from "@/features/theme/theme-switcher";
 import { requireUser } from "@/server/auth/current-user";
 
 // Every page under (app) is per-user and needs a live session check (a deactivated
@@ -27,34 +26,22 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
 
 async function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const links = navLinksFor(user.role);
 
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/" className="font-heading text-base font-semibold">
-            {APP_NAME}
-          </Link>
-          <nav aria-label="Main" className="flex flex-wrap items-center gap-1">
-            {links.map((link) => (
-              <NavLink key={link.href} href={link.href}>
-                {link.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm">{user.name}</span>
-            <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
-            <form action={logoutAction}>
-              <Button type="submit" variant="outline" size="sm">
-                Sign out
-              </Button>
-            </form>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
-    </div>
+    <AppShell
+      sections={navSectionsFor(user.role)}
+      user={{ name: user.name, roleLabel: ROLE_LABELS[user.role] }}
+      accountHref={ACCOUNT_PATH}
+      controls={can(user.role, "theme.switch") ? <ThemeSwitcher /> : null}
+      signOut={
+        <form action={logoutAction}>
+          <Button type="submit" variant="outline" className="w-full">
+            Sign out
+          </Button>
+        </form>
+      }
+    >
+      {children}
+    </AppShell>
   );
 }
