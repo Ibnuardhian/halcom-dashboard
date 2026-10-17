@@ -40,6 +40,7 @@ test.describe("sign in", () => {
     await signIn(page, "SOA");
     await expectOnDashboard(page, "/dashboard/soa", "SOA dashboard");
 
+    await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
 
     await expect(page).toHaveURL(/\/login$/);
