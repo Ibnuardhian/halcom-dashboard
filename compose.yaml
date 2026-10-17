@@ -1,0 +1,127 @@
+# Development stack: the default for `docker compose ...`. See README.md.
+#
+# Data safety: the development database lives in the `postgres_data` volume.
+# `docker compose down -v` and `docker volume rm` delete it permanently; never
+# run them without an explicit, approved decision.
+
+name: halcom-dashboard
+
+x-postgres-image: &postgres-image postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
+
+# Shared by the dev server (`app`) and the isolated test server (`app-test`).
+x-node-dev: &node-dev
+  build:
+    context: .
+    target: dev
+  image: halcom-dashboard-dev:local
+  init: true
+
+x-db-healthcheck: &db-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+  interval: 5s
+  timeout: 5s
+  retries: 12
+  start_period: 10s
+
+x-app-healthcheck: &app-healthcheck
+  test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+  interval: 15s
+  timeout: 10s
+  retries: 3
+  # The first start may run `npm ci` into the volume before the server compiles.
+  start_period: 300s
+  start_interval: 5s
+
+services:
+  db:
+    image: *postgres-image
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env (copy .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env (copy .env.example)}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
+    volumes:
+      # PostgreSQL 18+ images keep PGDATA under /var/lib/postgresql/<major>/docker.
+      - postgres_data:/var/lib/postgresql
+    healthcheck: *db-healthcheck
+
+  app:
+    <<: *node-dev
+    command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      NEXT_DEV_POLL_INTERVAL_MS: ${NEXT_DEV_POLL_INTERVAL_MS-1000}
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - npm_cache:/home/node/.npm
+      - next_dev:/app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck: *app-healthcheck
+
+  # --- Test profile (`docker compose --profile test ...`) ---------------------
+  # Disposable database for integration and E2E tests. Its data lives in tmpfs,
+  # disappears when the container stops, and never touches `postgres_data`.
+  db-test:
+    image: *postgres-image
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env (copy .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
+      POSTGRES_DB: halcom_test
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck: *db-healthcheck
+
+  app-test:
+    <<: *node-dev
+    profiles: ["test"]
+    command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db-test:5432/halcom_test
+      NEXT_DEV_POLL_INTERVAL_MS: ${NEXT_DEV_POLL_INTERVAL_MS-1000}
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - npm_cache:/home/node/.npm
+      - next_test:/app/.next
+    depends_on:
+      db-test:
+        condition: service_healthy
+    healthcheck: *app-healthcheck
+
+  e2e:
+    # Keep in lockstep with the @playwright/test version in package.json.
+    image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+    profiles: ["test"]
+    working_dir: /app
+    init: true
+    ipc: host
+    user: pwuser
+    # Share app-test's network namespace so the browser loads the dev server from
+    # its own origin (localhost); Next.js blocks cross-origin dev requests.
+    network_mode: "service:app-test"
+    environment:
+      CI: "true"
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    depends_on:
+      app-test:
+        condition: service_healthy
+    command: ["npx", "playwright", "test"]
+
+volumes:
+  postgres_data:
+  node_modules:
+  npm_cache:
+  next_dev:
+  next_test:

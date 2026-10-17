@@ -1,0 +1,72 @@
+# Production stack for a self-hosted Docker host. See README.md › Production.
+#   docker compose -f compose.prod.yaml build
+#   docker compose -f compose.prod.yaml run --rm migrate   # explicit, reviewed step
+#   docker compose -f compose.prod.yaml up -d
+#
+# Migrations never run on app start. The project name differs from development
+# so production volumes can never be mixed with development data.
+
+name: halcom-dashboard-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the deployment .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the deployment .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in the deployment .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    # The 64 MB Docker default is too small for parallel queries on reports.
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    profiles: ["migrate"]
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    ports:
+      # Publish on loopback by default; put a TLS-terminating reverse proxy in front.
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+volumes:
+  postgres_data:

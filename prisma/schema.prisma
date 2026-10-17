@@ -1,0 +1,13 @@
+// Prisma schema. Domain models are intentionally not defined yet: they depend
+// on open business decisions (docs/requirements/OPEN_QUESTIONS.md) and on the
+// conceptual model in PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md §11. Add them
+// through reviewed migrations (README › Database).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

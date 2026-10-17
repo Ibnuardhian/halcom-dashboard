@@ -1,0 +1,16 @@
+// Optional: "Dev Containers: Reopen in Container" attaches VS Code to the `app`
+// service so TypeScript, ESLint and Prisma resolve the node_modules volume.
+// Not required to run the app; see README › How the development environment works.
+{
+  "name": "halcom-dashboard",
+  "dockerComposeFile": ["../compose.yaml"],
+  "service": "app",
+  "workspaceFolder": "/app",
+  "remoteUser": "node",
+  "shutdownAction": "none",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "bradlc.vscode-tailwindcss", "Prisma.prisma"]
+    }
+  }
+}

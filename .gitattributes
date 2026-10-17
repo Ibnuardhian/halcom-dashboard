@@ -1,0 +1,10 @@
+# Keep LF line endings on every platform: shell scripts and config files are
+# executed inside Linux containers, where CRLF breaks them.
+* text=auto eol=lf
+
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff2 binary
