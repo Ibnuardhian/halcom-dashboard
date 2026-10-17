@@ -198,8 +198,8 @@ export async function createRequest(db: PrismaClient, claimedActor: Actor, input
         const again = await tx.request.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
         if (again) return succeed({ ...again, created: false });
       }
-      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true } });
-      if (!project) return fail("NOT_FOUND", "Project not found.");
+      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true, deletedAt: true } });
+      if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
       if (project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
 
       const request = await insertRequest(tx, actor, projectId, { type, title, description, requiredBy }, submissionKey);

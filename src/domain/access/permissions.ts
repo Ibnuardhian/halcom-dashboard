@@ -20,6 +20,7 @@ export type Permission =
   | "projects.create"
   | "projects.edit.technical"
   | "projects.edit.commercial"
+  | "projects.delete"
   | "targets.edit"
   | "projects.post-update"
   | "requests.view"
@@ -43,6 +44,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.create",
   "projects.edit.technical",
   "projects.edit.commercial",
+  "projects.delete",
   "targets.edit",
   "projects.post-update",
   "requests.view",

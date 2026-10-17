@@ -15,6 +15,7 @@ import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
 import { CommercialForm } from "@/features/projects/commercial-form";
+import { DeleteProject } from "@/features/projects/delete-project";
 import { ChangeLog } from "@/features/projects/change-log";
 import { ProjectFieldsForm } from "@/features/projects/edit-forms";
 import { formatAmount, formatPercent } from "@/features/projects/format";
@@ -151,7 +152,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
           <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
           <Fact label="Probability">{formatPercent(project.probability)}</Fact>
-          <Fact label="Weighted value">{formatAmount(weightedValue(estimated, project.probability))}</Fact>
+          <Fact label="Weighted value">{formatAmount(weightedValue(estimated, project.probability, project.progress))}</Fact>
           <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
           <Fact label="Estimated gross profit">{formatAmount(targetMarginAmount(estimated, finalValue, targetMargin))}</Fact>
           <Fact label="Final value">{formatAmount(finalValue)}</Fact>
@@ -295,6 +296,13 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <RequestTable rows={requests} emptyText="No requests for this project yet." />
         </div>
       </Section>
+
+      {can(viewer.role, "projects.delete") ? (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4">
+          <p className="text-sm text-muted-foreground">Superadmin: remove this project from the dashboards. Its history stays in the audit log.</p>
+          <DeleteProject projectId={project.id} projectCode={project.code} />
+        </div>
+      ) : null}
     </>
   );
 }

@@ -11,6 +11,7 @@ type Viewer = { id: string; role: Role };
 export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): Promise<ExportProject[]> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
   const rows = await db.project.findMany({
+    where: { deletedAt: null },
     include: {
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
@@ -35,7 +36,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
         quoteReleasedAt: row.quoteReleasedAt,
         estimatedValue,
         probability: row.probability,
-        weightedValue: weightedValue(estimatedValue, row.probability),
+        weightedValue: weightedValue(estimatedValue, row.probability, row.progress),
         targetMargin,
         estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, targetMargin),
         finalValue,

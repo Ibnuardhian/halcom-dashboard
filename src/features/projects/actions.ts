@@ -7,6 +7,8 @@ import { PROJECT_EDITABLE_KEYS, fieldLabel, type ProjectEditableField } from "@/
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
+import { redirect } from "next/navigation";
+import { deleteProject } from "@/server/projects/delete";
 import { postProjectUpdate, updateCommercialDetails, updateProjectDetails } from "@/server/projects/service";
 
 /**
@@ -62,4 +64,14 @@ export async function updateCommercialDetailsAction(_previous: FormState, formDa
   revalidatePath(PROJECTS_PATH);
   if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
   return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
+}
+
+/** Deletes (hides) a project; superadmin only. On success the person goes back to the project list. */
+export async function deleteProjectAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const result = await deleteProject(getDb(), { id: user.id, role: user.role }, { projectId: formData.get("projectId"), confirmCode: formData.get("confirmCode") });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath(PROJECTS_PATH);
+  revalidatePath("/dashboard", "layout");
+  redirect(PROJECTS_PATH);
 }

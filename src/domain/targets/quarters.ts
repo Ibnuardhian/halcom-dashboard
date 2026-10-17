@@ -94,7 +94,7 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
       }
       const when = quarterOf(project.targetDate);
       if (when.year !== year) continue;
-      const weighted = weightedValue(project.estimatedValue, project.probability);
+      const weighted = weightedValue(project.estimatedValue, project.probability, project.progress);
       if (weighted === null) {
         if (project.estimatedValue !== null) notes.openWithoutProbability += 1;
         continue;

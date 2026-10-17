@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { strFromU8, unzipSync } from "fflate";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { expectNotFound, signIn, signInAs } from "./helpers";
 
@@ -222,10 +223,46 @@ test.describe("projects and requests", () => {
     await signIn(page, "SALES");
     await page.goto("/dashboard/sales?view=charts");
 
-    const chart = page.locator("section[aria-label='Pipeline charts'] > div").first();
+    const chart = page.locator("section[aria-label='Pipeline charts'] > div").filter({ has: page.getByRole("heading", { name: "Pipeline by progress" }) });
     await expect(chart.getByText("Propose", { exact: true })).toBeVisible();
     await expect(chart.getByText("Negotiate (FU)", { exact: true })).toBeVisible();
     await expect(chart.getByText(/\d+% - /)).toHaveCount(0);
+  });
+
+  test("the pipeline tiles open the project table filtered", async ({ page }) => {
+    await signIn(page, "SALES");
+    await page.goto("/dashboard/sales");
+    const tiles = page.getByRole("region", { name: "Pipeline numbers" });
+
+    for (const [name, show] of [["Open pipeline", "pipeline"], ["Estimated gross profit", "margin"], ["Won", "won"]] as const) {
+      await expect(async () => {
+        await page.goto("/dashboard/sales");
+        await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();
+        await expect(page).toHaveURL(new RegExp(`/projects\\?show=${show}&mine=1$`), { timeout: 3000 });
+      }).toPass();
+      await expect(page.getByRole("status")).toContainText("yours");
+    }
+  });
+
+  test("only the superadmin can delete a project, and it then disappears", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Delete me");
+    await expect(page.getByRole("button", { name: "Delete project" })).toHaveCount(0);
+
+    const root = await asRole(browser, "SUPERADMIN");
+    await root.goto(`/projects/${projectCode}`);
+    await expect(async () => {
+      await root.getByRole("button", { name: "Delete project" }).first().click();
+      await expect(root.getByLabel(`Type ${projectCode} to confirm`)).toBeVisible({ timeout: 1000 });
+    }).toPass();
+    await root.getByLabel(`Type ${projectCode} to confirm`).fill(projectCode);
+    await root.getByRole("dialog").getByRole("button", { name: "Delete project" }).click();
+    await expect(root).toHaveURL(/\/projects$/);
+    await expect(root.getByRole("link", { name: projectCode, exact: true })).toHaveCount(0);
+
+    await page.goto(`/projects/${projectCode}`);
+    await expect(page.getByText("Delete me")).toHaveCount(0);
+    await root.context().close();
   });
 
   test("the overview exports the projects with only the ticked columns", async ({ page }) => {
@@ -243,13 +280,15 @@ test.describe("projects and requests", () => {
     await form.getByLabel("Project ID").check();
     await form.getByLabel("Estimated PO Value").check();
     const downloading = page.waitForEvent("download");
-    await form.getByRole("button", { name: "Export CSV" }).click();
+    await form.getByRole("button", { name: /Export Excel/ }).click();
     const download = await downloading;
 
-    expect(download.suggestedFilename()).toMatch(/^halcom-projects-\d{4}-\d{2}-\d{2}\.csv$/);
-    const csv = readFileSync((await download.path())!, "utf8");
-    expect(csv.startsWith("﻿Project ID,Estimated PO Value\r\n")).toBe(true);
-    expect(csv.split("\r\n").length).toBeGreaterThan(2); // the header and at least one project
+    expect(download.suggestedFilename()).toMatch(/^halcom-projects-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const sheet = strFromU8(unzipSync(new Uint8Array(readFileSync((await download.path())!)))["xl/worksheets/sheet1.xml"]!);
+    expect(sheet).toContain("Project ID");
+    expect(sheet).toContain("Estimated PO Value");
+    expect(sheet).not.toContain("Account Name"); // only the ticked columns
+    expect(sheet.match(/<row /g)!.length).toBeGreaterThan(1); // the header and at least one project
   });
 
   test("the overview shows the pipeline charts to everyone", async ({ page }) => {

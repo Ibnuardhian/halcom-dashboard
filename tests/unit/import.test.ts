@@ -193,6 +193,9 @@ describe("pipeline helpers", () => {
     expect(weightedValue(13_000_000, 25)).toBe(3_250_000);
     expect(weightedValue(null, 50)).toBeNull();
     expect(weightedValue(100, null)).toBeNull();
+    expect(weightedValue(1000, null, "PROPOSE")).toBe(300);
+    expect(weightedValue(1000, 50, "PROPOSE")).toBe(500);
+    expect(weightedValue(1000, null, "CLOSED_LOST")).toBe(0);
     expect(weightedValue(0, 50)).toBe(0);
   });
 

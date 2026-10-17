@@ -76,7 +76,7 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
     // Serialise concurrent edits of one project, so each log row's "from" is the value really replaced.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
-    if (!project) return fail("NOT_FOUND", "Project not found.");
+    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
 
     const changes: FieldChange[] = diffFields(project, values);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies UpdateResult;
@@ -148,8 +148,8 @@ export async function postProjectUpdate(db: PrismaClient, claimedActor: Actor, i
     }
     // Serialise updates of one project, so "the latest entry" and the project's copy of it never disagree.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
-    const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, code: true, endUserCompany: true } });
-    if (!project) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies PostResult;
+    const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, code: true, endUserCompany: true, deletedAt: true } });
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies PostResult;
 
     const entry = await tx.projectAction.create({ data: { projectId, kind, body, authorId: actor.id }, select: { id: true } });
     await tx.project.update({ where: { id: projectId }, data: kind === "CURRENT" ? { currentAction: body } : { nextAction: body } });
@@ -217,7 +217,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     }
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
-    if (!project) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
     if (actor.role === "SALES" && project.salesOwnerId !== actor.id) {
       return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;

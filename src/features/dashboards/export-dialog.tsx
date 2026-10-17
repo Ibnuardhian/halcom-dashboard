@@ -38,7 +38,7 @@ export function ExportDialog() {
               <h2 id="export-title" className="text-base font-semibold">
                 Export projects
               </h2>
-              <p className="text-sm text-muted-foreground">Tick the columns you want, then download a CSV file that opens in Excel. Every project is included.</p>
+              <p className="text-sm text-muted-foreground">Tick the columns you want, then download an Excel file (.xlsx), or a CSV. Every project is included.</p>
             </div>
             <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => dialog.current?.close()}>
               <X aria-hidden />
@@ -58,9 +58,12 @@ export function ExportDialog() {
             </fieldset>
           ))}
           <div className="flex flex-wrap gap-2 border-t pt-4">
-            <Button type="submit">
+            <Button type="submit" name="format" value="xlsx">
               <Download aria-hidden data-icon="inline-start" />
-              Export CSV
+              Export Excel (.xlsx)
+            </Button>
+            <Button type="submit" name="format" value="csv" variant="outline">
+              CSV
             </Button>
             <Button type="button" variant="outline" onClick={() => setAll(true)}>
               Select all

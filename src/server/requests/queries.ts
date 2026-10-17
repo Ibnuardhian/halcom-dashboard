@@ -39,7 +39,49 @@ export type ProjectRow = {
   updatedAt: Date;
 };
 
-export type ProjectFilter = { search?: string; progress?: ProjectProgress; trackStatus?: TrackStatus; principalId?: string };
+/**
+ * The lists behind the pipeline tiles: open projects, open projects with an estimated value (the open pipeline),
+ * open projects with a value and a target margin (the estimated gross profit) and Closed Won projects.
+ */
+export const PROJECT_SHOWS = ["open", "pipeline", "weighted", "margin", "won"] as const;
+export type ProjectShow = (typeof PROJECT_SHOWS)[number];
+export const PROJECT_SHOW_LABELS: Record<ProjectShow, string> = {
+  open: "Open projects",
+  pipeline: "Open pipeline (open projects with an estimated value)",
+  weighted: "Weighted pipeline (open projects with a value and a win probability)",
+  margin: "Estimated gross profit (open projects with a value and a target margin)",
+  won: "Won projects",
+};
+
+export type ProjectFilter = {
+  search?: string;
+  progress?: ProjectProgress;
+  trackStatus?: TrackStatus;
+  principalId?: string;
+  show?: ProjectShow;
+  salesOwnerId?: string;
+};
+
+function showWhere(show: ProjectShow | undefined) {
+  switch (show) {
+    case "open":
+      return { progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] }, trackStatus: { not: "DONE" as TrackStatus } };
+    case "pipeline":
+    case "weighted":
+      return { progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] }, trackStatus: { not: "DONE" as TrackStatus }, estimatedValue: { not: null } };
+    case "margin":
+      return {
+        progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] },
+        trackStatus: { not: "DONE" as TrackStatus },
+        estimatedValue: { not: null },
+        targetMargin: { not: null },
+      };
+    case "won":
+      return { progress: "CLOSED_WON" as ProjectProgress };
+    default:
+      return {};
+  }
+}
 
 const numberOrNull = (value: { toNumber(): number } | null): number | null => (value === null ? null : value.toNumber());
 
@@ -53,9 +95,13 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
   const search = filter.search?.trim();
   const projects = await db.project.findMany({
     where: {
-      progress: filter.progress,
-      trackStatus: filter.trackStatus,
+      deletedAt: null,
+      ...showWhere(filter.show),
+      // An explicit progress or status from the filter boxes narrows further and wins over the tile's own range.
+      ...(filter.progress ? { progress: filter.progress } : {}),
+      ...(filter.trackStatus ? { trackStatus: filter.trackStatus } : {}),
       principalId: filter.principalId,
+      salesOwnerId: filter.salesOwnerId,
       ...(search
         ? {
             OR: [
@@ -78,7 +124,7 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       requests: { select: { status: true } },
     },
   });
-  return projects.sort(byCodeDescending).map((project) => {
+  const rows = projects.sort(byCodeDescending).map((project) => {
     const estimatedValue = numberOrNull(project.estimatedValue);
     return {
       id: project.id,
@@ -93,7 +139,7 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       technicalPicName: project.technicalPic?.name ?? null,
       estimatedValue,
       probability: project.probability,
-      weightedValue: weightedValue(estimatedValue, project.probability),
+      weightedValue: weightedValue(estimatedValue, project.probability, project.progress),
       finalValue: numberOrNull(project.finalValue),
       targetDate: project.targetDate,
       nextAction: project.nextAction,
@@ -102,6 +148,7 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       updatedAt: project.updatedAt,
     };
   });
+  return filter.show === "weighted" ? rows.filter((row) => (row.weightedValue ?? 0) > 0) : rows;
 }
 
 /** Principals that at least one project uses, for the filter. */
@@ -114,7 +161,7 @@ export async function listPrincipalOptions(db: PrismaClient, viewer: Viewer) {
 export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.project.findMany({
-    where: { trackStatus: "ON_TRACK" },
+    where: { trackStatus: "ON_TRACK", deletedAt: null },
     orderBy: { createdAt: "desc" },
     take: LIST_LIMIT,
     select: { id: true, code: true, endUserCompany: true, name: true },
@@ -153,6 +200,7 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
   assertPermitted(can(viewer.role, "requests.view"));
   const requests = await db.request.findMany({
     where: {
+      project: { deletedAt: null },
       type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
       status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
       projectId: filter.projectId,
@@ -186,7 +234,7 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
 export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: string) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.project.findUnique({
-    where: { code },
+    where: { code, deletedAt: null },
     include: {
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
@@ -200,7 +248,7 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
 export async function getRequestByCode(db: PrismaClient, viewer: Viewer, code: string) {
   assertPermitted(can(viewer.role, "requests.view"));
   return db.request.findUnique({
-    where: { code },
+    where: { code, project: { deletedAt: null } },
     include: {
       project: true,
       requester: { select: { name: true, role: true, email: true } },
@@ -223,9 +271,9 @@ export type WorkStats = {
 export async function getWorkStats(db: PrismaClient, viewer: Viewer): Promise<WorkStats> {
   assertPermitted(can(viewer.role, "requests.view"));
   const [projectsActive, groups, unassignedOpen] = await Promise.all([
-    db.project.count({ where: { trackStatus: "ON_TRACK" } }),
-    db.request.groupBy({ by: ["type", "status"], _count: { _all: true } }),
-    db.request.count({ where: { assigneeId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
+    db.project.count({ where: { trackStatus: "ON_TRACK", deletedAt: null } }),
+    db.request.groupBy({ by: ["type", "status"], where: { project: { deletedAt: null } }, _count: { _all: true } }),
+    db.request.count({ where: { project: { deletedAt: null }, assigneeId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
   ]);
   const zero = () => Object.fromEntries(REQUEST_STATUSES.map((status) => [status, 0])) as Record<RequestStatus, number>;
   const statusCounts = Object.fromEntries(REQUEST_TYPES.map((type) => [type, zero()])) as WorkStats["statusCounts"];

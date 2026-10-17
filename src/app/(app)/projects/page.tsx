@@ -14,7 +14,7 @@ import { formatDateOnly } from "@/features/requests/format";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
-import { listPrincipalOptions, listProjects, type ProjectFilter } from "@/server/requests/queries";
+import { listPrincipalOptions, listProjects, PROJECT_SHOW_LABELS, PROJECT_SHOWS, type ProjectFilter } from "@/server/requests/queries";
 
 export default function ProjectsPage({ searchParams }: PageProps<"/projects">) {
   return (
@@ -36,9 +36,12 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const trackStatus = TRACK_STATUSES.find((s) => s === one(query.status));
   const principals = await listPrincipalOptions(getDb(), viewer);
   const principalId = principals.find((p) => p.id === one(query.principal))?.id;
-  const filter: ProjectFilter = { search, progress, trackStatus, principalId };
+  const show = PROJECT_SHOWS.find((s) => s === one(query.show));
+  // "mine" is the salesperson's view of the tiles; it only ever narrows to the signed-in user's own projects.
+  const mine = one(query.mine) === "1";
+  const filter: ProjectFilter = { search, progress, trackStatus, principalId, show, salesOwnerId: mine ? viewer.id : undefined };
   const projects = await listProjects(getDb(), viewer, filter);
-  const filtered = Boolean(search || progress || trackStatus || principalId);
+  const filtered = Boolean(search || progress || trackStatus || principalId || show || mine);
 
   return (
     <>
@@ -48,6 +51,8 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
       />
       <div className="mb-4 flex flex-col gap-3">
         <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto]">
+          {show ? <input type="hidden" name="show" value={show} /> : null}
+          {mine ? <input type="hidden" name="mine" value="1" /> : null}
           <Input name="q" defaultValue={search} placeholder="Search code, customer, project, PIC or principal" aria-label="Search projects" maxLength={100} />
           <NativeSelect name="progress" defaultValue={progress ?? ""} aria-label="Progress">
             <option value="">All progress</option>
@@ -80,6 +85,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="text-sm text-muted-foreground">
             {projects.length} project{projects.length === 1 ? "" : "s"}
+            {show ? <> · {PROJECT_SHOW_LABELS[show]}{mine ? ", yours" : ""}</> : null}
             {filtered ? (
               <>
                 {" "}

@@ -82,7 +82,7 @@ export function isOpenProject(progress: ProjectProgress, trackStatus: TrackStatu
 export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, options: { salesOwnerId?: string } = {}): Promise<PipelineAnalytics> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
   const projects = await db.project.findMany({
-    where: options.salesOwnerId ? { salesOwnerId: options.salesOwnerId } : {},
+    where: { deletedAt: null, ...(options.salesOwnerId ? { salesOwnerId: options.salesOwnerId } : {}) },
     select: {
       progress: true,
       trackStatus: true,
@@ -108,7 +108,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   for (const project of projects) {
     const estimated = project.estimatedValue?.toNumber() ?? null;
     const finalValue = project.finalValue?.toNumber() ?? null;
-    const weighted = weightedValue(estimated, project.probability);
+    const weighted = weightedValue(estimated, project.probability, project.progress);
 
     add(progresses, project.progress, PROGRESS_LABELS[project.progress], estimated, weighted);
     add(statuses, project.trackStatus, TRACK_STATUS_LABELS[project.trackStatus], estimated, weighted);
@@ -169,7 +169,7 @@ export type PipelineProjectRow = {
  */
 export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, salesOwnerId?: string): Promise<PipelineProjectRow[]> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
-  const rows = await db.project.findMany({ where: salesOwnerId ? { salesOwnerId } : {} });
+  const rows = await db.project.findMany({ where: { deletedAt: null, ...(salesOwnerId ? { salesOwnerId } : {}) } });
   const mapped = rows.map((row): PipelineProjectRow => {
     const estimatedValue = row.estimatedValue?.toNumber() ?? null;
     const targetMargin = row.targetMargin?.toNumber() ?? null;

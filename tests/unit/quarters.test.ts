@@ -78,14 +78,14 @@ describe("summariseTargets", () => {
         project({ progress: "CLOSED_WON", estimatedValue: 100 }), // no won date
         project({ progress: "CLOSED_WON", estimatedValue: 100, wonDate: day("2026-01-05") }), // no margin
         project({ estimatedValue: 100, probability: 50 }), // no target date
-        project({ estimatedValue: 100, targetDate: day("2026-06-01") }), // no probability
+        project({ estimatedValue: 100, targetDate: day("2026-06-01") }), // no probability: the Progress step (Propose, 30%) stands in
         project({ targetDate: day("2026-06-01"), probability: 50 }), // no value at all: nothing to report
       ],
       [],
     );
 
-    expect(summary.notes).toEqual({ wonWithoutDate: 1, wonWithoutMargin: 1, openWithoutTargetDate: 1, openWithoutProbability: 1 });
-    expect(summary.total.revenue).toEqual({ target: null, won: 100, forecast: 0 });
+    expect(summary.notes).toEqual({ wonWithoutDate: 1, wonWithoutMargin: 1, openWithoutTargetDate: 1, openWithoutProbability: 0 });
+    expect(summary.total.revenue).toEqual({ target: null, won: 100, forecast: 30 });
     expect(summary.total.grossProfit.won).toBe(0);
   });
 

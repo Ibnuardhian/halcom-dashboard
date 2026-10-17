@@ -1,3 +1,4 @@
+import { PROGRESS_PERCENT, type ProjectProgress } from "@/domain/projects/progress";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, type ProjectStatus } from "@/domain/requests/types";
 
 /**
@@ -45,9 +46,11 @@ export function parseProjectStatus(label: string): ProjectStatusValue | null {
  * Weighted pipeline value: estimated value times the win probability. Both must be known; a project
  * with no estimate or no probability contributes nothing instead of a guessed number.
  */
-export function weightedValue(estimatedValue: number | null, probability: number | null): number | null {
-  if (estimatedValue === null || probability === null) return null;
-  return Math.round(estimatedValue * probability) / 100;
+export function weightedValue(estimatedValue: number | null, probability: number | null, progress?: ProjectProgress): number | null {
+  // A probability Sales never set follows the Progress step (30% at Propose); one set by hand wins.
+  const percent = probability ?? (progress ? PROGRESS_PERCENT[progress] : null);
+  if (estimatedValue === null || percent === null) return null;
+  return Math.round(estimatedValue * percent) / 100;
 }
 
 /** Master-data key: trimmed, single-spaced, lower-cased, so "HPE" and " hpe " are one record. */

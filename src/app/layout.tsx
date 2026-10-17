@@ -30,7 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* suppressHydrationWarning: browser extensions add attributes to <body> (for example cz-shortcut-listen) before React hydrates. */}
+      <body suppressHydrationWarning className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
