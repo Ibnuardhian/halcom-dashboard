@@ -11,11 +11,9 @@ import {
 } from "@/domain/projects/fields";
 import { ACTION_BODY_MAX_LENGTH, ACTION_KINDS } from "@/domain/projects/actions";
 import { notify, projectAudience } from "@/server/notifications/service";
-import { PROGRESS_PERCENT, isProgress } from "@/domain/projects/progress";
 import {
   COMMERCIAL_FIELDS,
   COMMERCIAL_KEYS,
-  commercialLogText,
   diffCommercial,
   parseCommercialValue,
   type CommercialField,
@@ -185,7 +183,7 @@ const commercialSchema = z.object({
 export type CommercialResult = { ok: true; changed: CommercialField[] } | { ok: false; code: UpdateErrorCode; message: string };
 
 /**
- * Changes the commercial fields of a project (value, probability, target margin, target closing). Sales may change
+ * Changes the commercial fields of a project (value, target margin, target closing). Sales may change
  * only projects they own; admins and superadmins any project. Same guarantees as the technical edit: whitelist of
  * keys, stored actor re-read in the transaction, row lock, one change-log row per changed field, one audit event.
  */
@@ -209,6 +207,11 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     }
     submitted[field] = result.value;
   }
+  // The target margin is a percentage or an amount, never both: filling one clears the other.
+  const [pct, amount] = [submitted.targetMargin ?? null, submitted.targetMarginValue ?? null];
+  if (pct !== null && amount !== null) return { ok: false, code: "INVALID_INPUT", message: "Enter the target margin as a percentage or as an amount, not both." };
+  if (pct !== null && !("targetMarginValue" in submitted)) submitted.targetMarginValue = null;
+  if (amount !== null && !("targetMargin" in submitted)) submitted.targetMargin = null;
 
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
@@ -228,18 +231,13 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
       progress: project.progress,
       trackStatus: project.trackStatus,
       estimatedValue: project.estimatedValue?.toNumber() ?? null,
-      probability: project.probability,
       targetMargin: project.targetMargin?.toNumber() ?? null,
+      targetMarginValue: project.targetMarginValue?.toNumber() ?? null,
       quoteReleasedAt: dateText(project.quoteReleasedAt),
       targetDate: dateText(project.targetDate),
       finalValue: project.finalValue?.toNumber() ?? null,
       wonDate: dateText(project.wonDate),
     };
-    // A new Progress carries its probability (30% - Propose means 30), unless the probability was also changed by hand.
-    if (isProgress(submitted.progress) && submitted.progress !== current.progress) {
-      const touched = "probability" in submitted && commercialLogText(submitted.probability ?? null) !== commercialLogText(current.probability);
-      if (!touched) submitted.probability = PROGRESS_PERCENT[submitted.progress];
-    }
     // Closing a project as won with no won date puts it in the quarter it was closed in (today), so it counts toward the target.
     if (submitted.progress === "CLOSED_WON" && current.progress !== "CLOSED_WON" && current.wonDate === null && (submitted.wonDate ?? null) === null) {
       submitted.wonDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());

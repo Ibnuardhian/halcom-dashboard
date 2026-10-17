@@ -45,12 +45,20 @@ export function isOpen(status: RequestStatus): boolean {
 }
 
 /**
- * A completed BOQ may be handed over to Purchasing. Policy assumption: handover starts after
- * the BOQ is Completed (brief §17 leaves "complete at handover or after acknowledgement" open).
+ * The flow is BOQ -> RFQ -> PO. A request is continued once it is Completed (brief §17 leaves "complete at handover or
+ * after acknowledgement" open). Completion never implies a purchase: someone has to decide to continue (brief §6.1).
+ * A BOQ can be skipped: Sales may start with an RFQ.
  */
+export const NEXT_IN_FLOW: Record<RequestType, RequestType | null> = { BOQ: "RFQ", RFQ: "PO", PO: null };
+
 export function canHandOver(type: RequestType, status: RequestStatus): boolean {
-  return type === "BOQ" && status === "COMPLETED";
+  return NEXT_IN_FLOW[type] !== null && status === "COMPLETED";
 }
 
-/** Handover targets: SOA picks RFQ or PO explicitly; completion never implies a purchase (brief §6.1). */
+/** The step that follows in the flow, or null after a PO. */
+export function nextRequestType(type: RequestType): RequestType | null {
+  return NEXT_IN_FLOW[type];
+}
+
+/** Types a request can be continued as: an RFQ after a BOQ, a PO after an RFQ. */
 export const HANDOVER_TYPES = ["RFQ", "PO"] as const satisfies readonly RequestType[];

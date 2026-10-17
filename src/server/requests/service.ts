@@ -1,17 +1,17 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { allowedTransitions, canHandOver, canTransition, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
-import { workPermission } from "@/domain/requests/access";
+import { allowedTransitions, canHandOver, canTransition, nextRequestType, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
-import { PROGRESS_PERCENT, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
+import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { nextProjectCode, nextRequestCode } from "./codes";
 import { ensureCustomer } from "./master-data";
-import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, statusChangeSchema } from "./schemas";
+import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
 
 export type Actor = { id: string; role: Role };
 
@@ -126,15 +126,15 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
   if (request && !can(claimedActor.role, "requests.create")) return fail("FORBIDDEN");
 
   const commercial: Record<string, number | string | null> = {};
-  for (const field of ["estimatedValue", "probability", "targetMargin", "progress", "trackStatus"] as const) {
+  for (const field of ["estimatedValue", "targetMargin", "targetMarginValue", "progress", "trackStatus"] as const) {
     const result = parseCommercialValue(field, parsed.data[field]);
     if (!result.ok) return fail("INVALID_INPUT", result.message);
     commercial[field] = result.value;
   }
-  // New projects start at Qualify and On Track; the probability is the one the chosen progress stands for.
+  if (commercial["targetMargin"] !== null && commercial["targetMarginValue"] !== null) return fail("INVALID_INPUT", "Enter the target margin as a percentage or as an amount, not both.");
+  // New projects start at Qualify and On Track; the win probability comes from the chosen progress.
   const progress = (commercial["progress"] ?? "QUALIFY") as ProjectProgress;
   const trackStatus = (commercial["trackStatus"] ?? "ON_TRACK") as TrackStatus;
-  const probability = (commercial["probability"] as number | null) ?? PROGRESS_PERCENT[progress];
 
   const existing = () => db.project.findUnique({ where: { submissionKey: submissionKey! }, select: { id: true, code: true } });
   try {
@@ -156,10 +156,10 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
           description,
           targetDate,
           estimatedValue: commercial["estimatedValue"] as number | null,
-          probability,
           progress,
           trackStatus,
           targetMargin: commercial["targetMargin"] as number | null,
+          targetMarginValue: commercial["targetMarginValue"] as number | null,
           salesOwnerId: actor.id,
           customerId,
           submissionKey,
@@ -215,9 +215,10 @@ export async function createRequest(db: PrismaClient, claimedActor: Actor, input
 }
 
 /**
- * SOA hands a completed BOQ over to Purchasing as an RFQ or a PO (brief §6.1). The actor chooses
- * the type; completing a BOQ never implies a purchase. Idempotent: the database allows one request
- * of each type per source BOQ, so a repeated click returns the request that already exists.
+ * Continues the flow BOQ -> RFQ -> PO: a completed BOQ becomes an RFQ, a completed RFQ becomes a PO (brief §6.1). Completing a
+ * request never implies the next step; someone decides: the Sales owner of the project, an admin, or SOA after a BOQ. A BOQ can
+ * be skipped by starting with an RFQ. Idempotent: the database allows one request of each type per source request, so a
+ * repeated click returns the request that already exists. Continuing undoes an earlier "do not continue".
  */
 export async function handOverToPurchasing(
   db: PrismaClient,
@@ -226,7 +227,7 @@ export async function handOverToPurchasing(
 ): Promise<WorkResult<CreatedRecord>> {
   const parsed = handoverSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
-  if (!can(claimedActor.role, "requests.handover")) return fail("FORBIDDEN");
+  if (!can(claimedActor.role, "requests.handover") && claimedActor.role !== "SALES") return fail("FORBIDDEN");
   const { sourceId, targetType } = parsed.data;
 
   const existing = () =>
@@ -237,13 +238,17 @@ export async function handOverToPurchasing(
   try {
     return await db.$transaction(async (tx) => {
       const actor = await loadActor(tx, claimedActor);
-      if (!actor || !can(actor.role, "requests.handover")) return fail("FORBIDDEN");
+      if (!actor) return fail("FORBIDDEN");
 
       await tx.$executeRaw`SELECT id FROM requests WHERE id = ${sourceId}::uuid FOR UPDATE`;
-      const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { trackStatus: true } } } });
-      if (!source) return fail("NOT_FOUND", "BOQ request not found.");
+      const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { trackStatus: true, salesOwnerId: true, deletedAt: true } } } });
+      if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+      if (!canContinueFlow(actor.role, source.type, source.project.salesOwnerId === actor.id)) return fail("FORBIDDEN");
       if (!canHandOver(source.type, source.status)) {
-        return fail("INVALID_STATE", "Only a completed BOQ can be handed over to Purchasing.");
+        return fail("INVALID_STATE", "Only a completed BOQ or RFQ can be continued to the next step.");
+      }
+      if (targetType !== nextRequestType(source.type)) {
+        return fail("INVALID_STATE", "The flow is BOQ, then RFQ, then PO: a BOQ continues as an RFQ and an RFQ as a PO.");
       }
       const again = await tx.request.findUnique({
         where: { sourceRequestId_type: { sourceRequestId: source.id, type: targetType } },
@@ -268,6 +273,7 @@ export async function handOverToPurchasing(
       await tx.requestStatusHistory.create({
         data: { requestId: request.id, fromStatus: null, toStatus: "SUBMITTED", changedById: actor.id, reason: `Handed over from ${source.code}` },
       });
+      await tx.request.update({ where: { id: source.id }, data: { flowStoppedAt: null, flowStoppedById: null, flowStoppedNote: null } });
       await audit(tx, actor.id, "request", "request.handed_over", request.id, null, {
         code,
         type: targetType,
@@ -276,7 +282,7 @@ export async function handOverToPurchasing(
       });
       await notify(tx, {
         actorId: actor.id,
-        recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[targetType])), source.requesterId],
+        recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[targetType])), source.requesterId, source.project.salesOwnerId],
         kind: "request.handed_over",
         title: `${source.code} was handed over as ${targetType} ${code}`,
         body: source.title,
@@ -291,6 +297,44 @@ export async function handOverToPurchasing(
     }
     throw error;
   }
+}
+
+/**
+ * Sales decide not to continue to the next step after a completed BOQ or RFQ (no RFQ after the BOQ, no PO after the RFQ). The
+ * decision is recorded on the request with a note and audited; the teams are told. It can be undone by continuing later.
+ */
+export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
+  const parsed = stopFlowSchema.safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
+  if (!can(claimedActor.role, "requests.handover") && claimedActor.role !== "SALES") return fail("FORBIDDEN");
+  const { sourceId, note } = parsed.data;
+
+  return db.$transaction(async (tx) => {
+    const actor = await loadActor(tx, claimedActor);
+    if (!actor) return fail("FORBIDDEN");
+    await tx.$executeRaw`SELECT id FROM requests WHERE id = ${sourceId}::uuid FOR UPDATE`;
+    const source = await tx.request.findUnique({
+      where: { id: sourceId },
+      include: { project: { select: { salesOwnerId: true, deletedAt: true } }, handovers: { select: { id: true } } },
+    });
+    if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (!canContinueFlow(actor.role, source.type, source.project.salesOwnerId === actor.id)) return fail("FORBIDDEN");
+    if (!canHandOver(source.type, source.status)) return fail("INVALID_STATE", "Only a completed BOQ or RFQ has a next step to decide on.");
+    if (source.handovers.length > 0) return fail("INVALID_STATE", "This request has already been continued.");
+
+    await tx.request.update({ where: { id: source.id }, data: { flowStoppedAt: new Date(), flowStoppedById: actor.id, flowStoppedNote: note } });
+    await audit(tx, actor.id, "request", "request.flow_stopped", source.id, null, { code: source.code, note });
+    const next = nextRequestType(source.type)!;
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(source.assigneeId ? [source.assigneeId] : [])],
+      kind: "request.flow_stopped",
+      title: `${source.code}: not continuing to ${next}`,
+      body: note,
+      href: `/request/${source.code}`,
+    });
+    return succeed({ code: source.code });
+  });
 }
 
 /** Moves a request to a new status. The status change, its history row and the audit event commit together. */
@@ -311,7 +355,12 @@ export async function changeRequestStatus(
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId } });
     if (!request) return fail("NOT_FOUND", "Request not found.");
-    if (!can(actor.role, workPermission(request.type))) return fail("FORBIDDEN");
+    const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true } });
+    // The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. Nothing else.
+    const salesResponding =
+      actor.role === "SALES" && project?.salesOwnerId === actor.id && request.status === "WAITING_FOR_SALES" && (to === "IN_PROGRESS" || to === "CANCELLED");
+    if (!can(actor.role, workPermission(request.type)) && !salesResponding) return fail("FORBIDDEN");
+    if (salesResponding && !reason) return fail("INVALID_INPUT", "Write your answer or the reason for cancelling.");
 
     if (!canTransition(request.status, to)) {
       const options = allowedTransitions(request.status).map((s) => REQUEST_STATUS_LABELS[s]);
@@ -337,12 +386,12 @@ export async function changeRequestStatus(
       data: { requestId: request.id, fromStatus: request.status, toStatus: to, changedById: actor.id, changedAt: now, reason },
     });
     await audit(tx, actor.id, "request", "request.status_changed", request.id, { status: request.status }, { status: to, reason });
-    const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true } });
+    const team = salesResponding ? (request.assigneeId ? [request.assigneeId] : await usersWithRole(tx, OWNING_ROLE[request.type])) : [];
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : [])],
+      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : []), ...team],
       kind: "request.status_changed",
-      title: to === "WAITING_FOR_SALES" ? `${request.code} needs your input` : `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
+      title: to === "WAITING_FOR_SALES" ? `${request.code} needs your input` : salesResponding && to === "IN_PROGRESS" ? `${request.code}: Sales answered` : `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
       body: reason,
       href: `/request/${request.code}`,
     });

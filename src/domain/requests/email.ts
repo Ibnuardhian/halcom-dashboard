@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TemplateValues } from "./template";
 import { REQUEST_TYPE_LABELS, SUBJECT_TAGS, type RequestType } from "./types";
 
 /**
@@ -16,19 +17,8 @@ export function singleLine(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-export type SubjectInput = { type: RequestType; endUserCompany: string; projectName: string };
-
-/** `[HITBOQ] PT ABC - CCTV AI`. Company and project name must both be present (brief §6.4). */
-export function composeSubject({ type, endUserCompany, projectName }: SubjectInput): string {
-  const company = singleLine(endUserCompany);
-  const project = singleLine(projectName);
-  if (company === "" || project === "") {
-    throw new Error("End-user company and project name are required to compose an email subject.");
-  }
-  return `${SUBJECT_TAGS[type]} ${company} - ${project}`;
-}
-
-const INTENT: Record<RequestType, { team: string; ask: string; next: string }> = {
+/** What the team is asked to do and what it should do next, by type of request: the {{ask}} and {{next_action}} variables. */
+export const INTENT: Record<RequestType, { team: string; ask: string; next: string }> = {
   BOQ: {
     team: "SOA team",
     ask: "Please prepare a BOQ / technical solution for the project below.",
@@ -62,6 +52,9 @@ export type BodyInput = {
   sourceCode: string | null;
   /** Authenticated link to the request in the application. */
   link: string;
+  /** The team's SLA as written for the team ("2-3") and the date the reply is due (`YYYY-MM-DD`). */
+  sla: string;
+  dueDate: string | null;
 };
 
 export function formatDateText(isoDate: string | null): string {
@@ -70,31 +63,32 @@ export function formatDateText(isoDate: string | null): string {
   return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1] ?? match[2]} ${match[1]}`;
 }
 
-export function composeBody(input: BodyInput): string {
+/**
+ * The values a team's email template is filled with. Names and titles are put on one line; the details keep their line
+ * breaks; a source BOQ that does not exist is an empty value, which makes the template drop that line.
+ */
+export function templateValues(input: BodyInput): TemplateValues {
   const intent = INTENT[input.type];
-  const lines = [
-    `Dear ${intent.team},`,
-    "",
-    intent.ask,
-    "",
-    `Request ID   : ${input.code}`,
-    `Project ID   : ${input.projectCode}`,
-    `End user     : ${singleLine(input.endUserCompany)}`,
-    `Project      : ${singleLine(input.projectName)}`,
-    `Request type : ${REQUEST_TYPE_LABELS[input.type]}`,
-    `Requested by : ${singleLine(input.requesterName)} (${input.requesterTeam})`,
-    `Needed by    : ${formatDateText(input.requiredBy)}`,
-  ];
-  if (input.sourceCode) lines.push(`Source BOQ   : ${input.sourceCode} (completed)`);
-  lines.push("", "Summary", singleLine(input.title), "", "Details", input.description.trim() || "-", "");
-  lines.push(
-    `Expected next action: ${intent.next}`,
-    `Request link: ${input.link}`,
-    "",
-    "Thank you,",
-    singleLine(input.requesterName),
-  );
-  return lines.join("\n");
+  return {
+    request_id: input.code,
+    request_type: REQUEST_TYPE_LABELS[input.type],
+    type_tag: SUBJECT_TAGS[input.type],
+    team: intent.team,
+    ask: intent.ask,
+    next_action: intent.next,
+    project_id: input.projectCode,
+    end_user: singleLine(input.endUserCompany),
+    project_name: singleLine(input.projectName),
+    summary: singleLine(input.title),
+    details: input.description.trim() || "-",
+    requested_by: singleLine(input.requesterName),
+    requester_team: input.requesterTeam,
+    needed_by: formatDateText(input.requiredBy),
+    sla_days: input.sla,
+    due_date: formatDateText(input.dueDate),
+    source_request: input.sourceCode ? `${input.sourceCode} (completed)` : "",
+    link: input.link,
+  };
 }
 
 /** Splits a comma/semicolon separated list, normalises, de-duplicates and validates addresses (brief §6.4). */

@@ -16,6 +16,7 @@ function permissionFor(href: string): Permission {
   if (href === "/admin/audit") return "audit.view";
   if (href === "/admin/backups") return "system.backup";
   if (href === "/admin/system") return "system.monitor";
+  if (href === "/admin/settings") return "settings.manage";
   throw new Error(`No permission mapped for ${href}`);
 }
 
@@ -57,14 +58,15 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    expect(hrefs).toHaveLength(2 + 6 + 6 + 4); // overview + own + 6 other dashboards, 6 work links, 4 administration links
-    for (const expected of ["/dashboard/admin", "/projects", "/requests/new", "/admin/users", "/admin/audit", "/admin/backups", "/admin/system"]) {
+    expect(hrefs).toHaveLength(2 + 6 + 6 + 5); // overview + own + 6 other dashboards, 6 work links, 5 administration links
+    for (const expected of ["/dashboard/admin", "/projects", "/requests/new", "/admin/users", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings"]) {
       expect(hrefs).toContain(expected);
     }
   });
 
-  it("offers Backups and System to superadmin only", () => {
+  it("offers Backups, System and Team settings to superadmin only", () => {
     for (const role of ROLES) {
+      expect(hrefsFor(role).includes("/admin/settings")).toBe(role === "SUPERADMIN");
       expect(hrefsFor(role).includes("/admin/backups")).toBe(role === "SUPERADMIN");
       expect(hrefsFor(role).includes("/admin/system")).toBe(role === "SUPERADMIN");
     }

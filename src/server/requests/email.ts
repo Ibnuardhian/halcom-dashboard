@@ -1,5 +1,7 @@
 import { ROLE_LABELS, type Role } from "@/domain/access/roles";
-import { composeBody, composeSubject, resolveRecipients, type RecipientsResult } from "@/domain/requests/email";
+import { resolveRecipients, templateValues, type RecipientsResult } from "@/domain/requests/email";
+import { formatSlaRange, type SlaRange } from "@/domain/requests/sla";
+import { renderBody, renderSubject } from "@/domain/requests/template";
 import type { RequestType } from "@/domain/requests/types";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -36,33 +38,37 @@ export type RequestEmail = {
   linkConfigured: boolean;
 };
 
+/** The receiving team's template and SLA, and the date a reply is due; they fill the template's variables. */
+export type EmailTemplateSource = { subject: string; body: string; sla: SlaRange; dueAt: Date };
+
 /**
- * The To, Cc, subject and body for a request, for the copy-and-paste panel. Nothing is sent and
- * nothing is stored: the text is derived from the request each time it is shown.
+ * The To, Cc, subject and body for a request, for the copy-and-paste panel. The subject and text come from the template
+ * of the team that receives the request (set by the superadmin). Nothing is sent and nothing is stored: the text is
+ * derived from the request each time it is shown.
  */
-export function buildRequestEmail(request: EmailSource, env: Env = process.env): RequestEmail {
+export function buildRequestEmail(request: EmailSource, template: EmailTemplateSource, env: Env = process.env): RequestEmail {
   const base = appBaseUrl(env);
+  const values = templateValues({
+    type: request.type,
+    code: request.code,
+    projectCode: request.project.code,
+    endUserCompany: request.project.endUserCompany,
+    projectName: request.project.name,
+    title: request.title,
+    description: request.description,
+    requiredBy: request.requiredBy ? request.requiredBy.toISOString().slice(0, 10) : null,
+    requesterName: request.requester.name,
+    requesterTeam: ROLE_LABELS[request.requester.role],
+    sourceCode: request.source?.code ?? null,
+    link: base ? `${base}/request/${request.code}` : "(not available: APP_BASE_URL is not configured)",
+    sla: formatSlaRange(template.sla),
+    // The SLA date is a date in Jakarta time, written the way the rest of the mail writes dates.
+    dueDate: new Date(template.dueAt.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  });
   return {
     recipients: resolveRecipients(request.type, env),
-    subject: composeSubject({
-      type: request.type,
-      endUserCompany: request.project.endUserCompany,
-      projectName: request.project.name,
-    }),
-    body: composeBody({
-      type: request.type,
-      code: request.code,
-      projectCode: request.project.code,
-      endUserCompany: request.project.endUserCompany,
-      projectName: request.project.name,
-      title: request.title,
-      description: request.description,
-      requiredBy: request.requiredBy ? request.requiredBy.toISOString().slice(0, 10) : null,
-      requesterName: request.requester.name,
-      requesterTeam: ROLE_LABELS[request.requester.role],
-      sourceCode: request.source?.code ?? null,
-      link: base ? `${base}/request/${request.code}` : "(not available: APP_BASE_URL is not configured)",
-    }),
+    subject: renderSubject(template.subject, values),
+    body: renderBody(template.body, values),
     linkConfigured: base !== null,
   };
 }

@@ -109,16 +109,16 @@ describe("getTargetSummary", () => {
     const won = await make("won");
     await db.project.update({ where: { id: won }, data: { progress: "CLOSED_WON", estimatedValue: 700, finalValue: 600, targetMargin: 20, wonDate: new Date(`${year}-05-10T00:00:00Z`) } });
     const open = await make("open");
-    await db.project.update({ where: { id: open }, data: { estimatedValue: 400, probability: 50, targetMargin: 10, targetDate: new Date(`${year}-06-20T00:00:00Z`) } });
+    await db.project.update({ where: { id: open }, data: { estimatedValue: 400, targetMargin: 10, targetDate: new Date(`${year}-06-20T00:00:00Z`) } });
     const stranger = await actorOf("SALES");
     const theirs = await createProject(db, stranger, { endUserCompany: `PT ${tag}`, name: "not mine" });
     if (theirs.ok) await db.project.update({ where: { id: theirs.value.id }, data: { progress: "CLOSED_WON", estimatedValue: 99_999, wonDate: new Date(`${year}-05-10T00:00:00Z`) } });
 
     const summary = await getTargetSummary(db, sales, { year, salesOwnerId: sales.id });
 
-    expect(summary.quarters[1]!.revenue).toEqual({ target: 1000, won: 600, forecast: 200 });
-    expect(summary.quarters[1]!.grossProfit).toEqual({ target: 100, won: 120, forecast: 20 });
-    expect(summary.total.revenue).toEqual({ target: 1000, won: 600, forecast: 200 });
+    expect(summary.quarters[1]!.revenue).toEqual({ target: 1000, won: 600, forecast: 20 }); // 400 × 5% (Qualify, the starting step)
+    expect(summary.quarters[1]!.grossProfit).toEqual({ target: 100, won: 120, forecast: 2 });
+    expect(summary.total.revenue).toEqual({ target: 1000, won: 600, forecast: 20 });
   });
 
   it("closing a project as won without a won date puts it in today's quarter", async () => {
@@ -133,7 +133,7 @@ describe("getTargetSummary", () => {
     const stored = await db.project.findUniqueOrThrow({ where: { id: created.value.id } });
     expect(stored.wonDate?.toISOString().slice(0, 10)).toBe(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date()));
     const log = await db.projectChange.findMany({ where: { projectId: created.value.id } });
-    expect(log.map((row) => row.field).sort()).toEqual(["probability", "progress", "wonDate"]);
+    expect(log.map((row) => row.field).sort()).toEqual(["progress", "wonDate"]);
 
     const kept = await createProject(db, sales, { endUserCompany: `PT ${randomBytes(3).toString("hex")}`, name: "own date" });
     if (!kept.ok) throw new Error(kept.message);

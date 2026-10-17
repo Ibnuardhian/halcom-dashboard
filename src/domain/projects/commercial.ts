@@ -9,8 +9,8 @@ export const COMMERCIAL_FIELDS = {
   progress: { label: "Progress", kind: "progress" },
   trackStatus: { label: "Status", kind: "track-status" },
   estimatedValue: { label: "Estimated PO value", kind: "amount" },
-  probability: { label: "Probability (%)", kind: "percent-int" },
   targetMargin: { label: "Target margin (%)", kind: "percent" },
+  targetMarginValue: { label: "Target margin (amount)", kind: "amount" },
   quoteReleasedAt: { label: "Quote released", kind: "date" },
   targetDate: { label: "Target closing", kind: "date" },
   finalValue: { label: "Final PO value", kind: "amount" },
@@ -51,10 +51,6 @@ export function parseCommercialValue(field: CommercialField, raw: string | null 
       return isTrackStatus(text) ? { ok: true, value: text } : { ok: false, message: `Choose a ${label.toLowerCase()} from the list.` };
     case "amount":
       return parseAmount(label, text);
-    case "percent-int": {
-      if (!/^\d{1,3}$/.test(text) || Number(text) > 100) return { ok: false, message: `${label} must be a whole number from 0 to 100.` };
-      return { ok: true, value: Number(text) };
-    }
     case "percent": {
       const normal = text.replace(",", ".");
       if (!/^\d{1,3}(\.\d{1,2})?$/.test(normal) || Number(normal) > 100) return { ok: false, message: `${label} must be from 0 to 100 (up to two decimals).` };

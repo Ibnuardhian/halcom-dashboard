@@ -18,7 +18,7 @@ async function actorOf(role: Role) {
   return { id: user.id, role: user.role };
 }
 
-async function makeProject(owner: { id: string; role: Role }, values: { estimatedValue?: number; probability?: number } = {}) {
+async function makeProject(owner: { id: string; role: Role }, values: { estimatedValue?: number } = {}) {
   const result = await createProject(db, owner, { endUserCompany: `PT ${randomBytes(3).toString("hex")}`, name: "CCTV AI" });
   if (!result.ok) throw new Error(result.message);
   await db.project.update({ where: { id: result.value.id }, data: { ...values } });
@@ -28,11 +28,11 @@ async function makeProject(owner: { id: string; role: Role }, values: { estimate
 describe("updateCommercialDetails", () => {
   it("lets the Sales owner set a target margin, and logs and audits it", async () => {
     const sales = await actorOf("SALES");
-    const project = await makeProject(sales, { estimatedValue: 1_000_000, probability: 40 });
+    const project = await makeProject(sales, { estimatedValue: 1_000_000 });
 
-    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetMargin: "12,5", probability: "40" } });
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetMargin: "12,5" } });
 
-    expect(result).toEqual({ ok: true, changed: ["targetMargin"] }); // probability did not change
+    expect(result).toEqual({ ok: true, changed: ["targetMargin"] });
     const stored = await db.project.findUniqueOrThrow({ where: { id: project.id } });
     expect(stored.targetMargin?.toNumber()).toBe(12.5);
     const log = await db.projectChange.findMany({ where: { projectId: project.id } });
@@ -41,18 +41,47 @@ describe("updateCommercialDetails", () => {
     await expect(db.auditEvent.count({ where: { entityId: project.id, action: "project.commercial_updated", actorId: sales.id } })).resolves.toBe(1);
   });
 
-  it("changes value, probability and target closing together, and can clear a value", async () => {
+  it("changes value and target closing together, and can clear a value", async () => {
     const sales = await actorOf("SALES");
-    const project = await makeProject(sales, { estimatedValue: 500, probability: 10 });
+    const project = await makeProject(sales, { estimatedValue: 500 });
 
-    await updateCommercialDetails(db, sales, { projectId: project.id, values: { estimatedValue: "2.500.000.000", probability: "60", targetDate: "2027-01-31" } });
-    const cleared = await updateCommercialDetails(db, sales, { projectId: project.id, values: { probability: "" } });
-
-    expect(cleared).toEqual({ ok: true, changed: ["probability"] });
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { estimatedValue: "2.500.000.000", targetDate: "2027-01-31" } });
     const stored = await db.project.findUniqueOrThrow({ where: { id: project.id } });
     expect(stored.estimatedValue?.toNumber()).toBe(2_500_000_000);
-    expect(stored.probability).toBeNull();
     expect(stored.targetDate?.toISOString().slice(0, 10)).toBe("2027-01-31");
+
+    const cleared = await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetDate: "" } });
+    expect(cleared).toEqual({ ok: true, changed: ["targetDate"] });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ targetDate: null });
+  });
+
+  it("takes the target margin as an amount or as a percentage, never both", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales, { estimatedValue: 1_000 });
+    const read = () => db.project.findUniqueOrThrow({ where: { id: project.id } });
+
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetMarginValue: "150" } });
+    expect(await read()).toMatchObject({ targetMargin: null });
+    expect((await read()).targetMarginValue?.toNumber()).toBe(150);
+
+    // Switching to a percentage clears the amount, and both changes are logged.
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetMargin: "10" } });
+    expect(result).toEqual({ ok: true, changed: ["targetMargin", "targetMarginValue"] });
+    expect(await read()).toMatchObject({ targetMarginValue: null });
+    expect((await read()).targetMargin?.toNumber()).toBe(10);
+
+    const both = await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetMargin: "5", targetMarginValue: "9" } });
+    expect(both).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect((await read()).targetMargin?.toNumber()).toBe(10);
+  });
+
+  it("no longer accepts a hand-set probability: it comes from Progress", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { probability: "80" } });
+
+    expect(result).toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 
   it("refuses a Sales user on someone else's project, and the other roles that may not edit", async () => {
@@ -99,49 +128,38 @@ describe("updateCommercialDetails", () => {
 });
 
 describe("Progress, Status and Quote released", () => {
-  it("sets the probability a Progress step stands for, and logs the labels", async () => {
+  it("changes Progress and Status, and logs the labels of the sheet", async () => {
     const sales = await actorOf("SALES");
-    const project = await makeProject(sales, { estimatedValue: 1_000, probability: 5 });
+    const project = await makeProject(sales, { estimatedValue: 1_000 });
 
     const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "NEGOTIATE_FU", trackStatus: "BLOCK", quoteReleasedAt: "2026-10-01" } });
 
     expect(result).toMatchObject({ ok: true });
     const stored = await db.project.findUniqueOrThrow({ where: { id: project.id } });
-    expect(stored).toMatchObject({ progress: "NEGOTIATE_FU", trackStatus: "BLOCK", probability: 60 });
+    expect(stored).toMatchObject({ progress: "NEGOTIATE_FU", trackStatus: "BLOCK" });
     expect(stored.quoteReleasedAt?.toISOString().slice(0, 10)).toBe("2026-10-01");
     const log = await db.projectChange.findMany({ where: { projectId: project.id }, orderBy: { field: "asc" } });
     expect(log.map((row) => [row.field, row.fromValue, row.toValue])).toEqual([
-      ["probability", "5", "60"],
       ["progress", "5% - Qualify", "60% - Negotiate (FU)"],
       ["quoteReleasedAt", null, "2026-10-01"],
       ["trackStatus", "On Track", "Block"],
     ]);
   });
 
-  it("keeps a probability that was changed by hand together with the new Progress", async () => {
+  it("writes nothing when Progress is unchanged, and refuses an empty Progress or Status", async () => {
     const sales = await actorOf("SALES");
-    const project = await makeProject(sales, { probability: 5 });
+    const project = await makeProject(sales);
 
-    await updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "AGREE", probability: "80" } });
-
-    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "AGREE", probability: 80 });
-  });
-
-  it("does not touch the probability when Progress is unchanged, and refuses an empty Progress or Status", async () => {
-    const sales = await actorOf("SALES");
-    const project = await makeProject(sales, { probability: 42 });
-
-    await updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "QUALIFY", probability: "42" } });
-    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ probability: 42 });
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "QUALIFY" } })).resolves.toEqual({ ok: true, changed: [] });
     await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { trackStatus: "Late" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 
   it("closed or done projects are not in the open pipeline", async () => {
     const sales = await actorOf("SALES");
-    await makeProject(sales, { estimatedValue: 100, probability: 50 });
-    const done = await makeProject(sales, { estimatedValue: 200, probability: 50 });
-    const lost = await makeProject(sales, { estimatedValue: 400, probability: 0 });
+    await makeProject(sales, { estimatedValue: 100 });
+    const done = await makeProject(sales, { estimatedValue: 200 });
+    const lost = await makeProject(sales, { estimatedValue: 400 });
     await updateCommercialDetails(db, sales, { projectId: done.id, values: { trackStatus: "DONE" } });
     await updateCommercialDetails(db, sales, { projectId: lost.id, values: { progress: "CLOSED_LOST" } });
 
@@ -154,16 +172,16 @@ describe("Progress, Status and Quote released", () => {
 describe("pipeline analytics", () => {
   it("sums the open pipeline of one salesperson, with margin and weighted values, and ranks the Sales Pipeline list", async () => {
     const sales = await actorOf("SALES");
-    const a = await makeProject(sales, { estimatedValue: 1_000, probability: 50 });
-    const b = await makeProject(sales, { estimatedValue: 4_000, probability: 25 });
+    const a = await makeProject(sales, { estimatedValue: 1_000 });
+    const b = await makeProject(sales, { estimatedValue: 4_000 });
     const noValue = await makeProject(sales);
     await updateCommercialDetails(db, sales, { projectId: a.id, values: { targetMargin: "10" } });
-    const won = await makeProject(sales, { estimatedValue: 9_000, probability: 100 });
+    const won = await makeProject(sales, { estimatedValue: 9_000 });
     await db.project.update({ where: { id: won.id }, data: { progress: "CLOSED_WON", finalValue: 8_000 } });
 
     const analytics = await getPipelineAnalytics(db, sales, { salesOwnerId: sales.id });
 
-    expect(analytics.totals).toMatchObject({ projects: 4, open: 3, openValue: 5_000, openWeighted: 1_500, openTargetMargin: 100, openWithMargin: 1, wonCount: 1, wonValue: 8_000 });
+    expect(analytics.totals).toMatchObject({ projects: 4, open: 3, openValue: 5_000, openWeighted: 250, openTargetMargin: 100, openWithMargin: 1, wonCount: 1, wonValue: 8_000 });
     expect(analytics.byProgress.find((s) => s.key === "QUALIFY")).toMatchObject({ count: 3, value: 5_000 });
     expect(analytics.byProgress.find((s) => s.key === "CLOSED_WON")).toMatchObject({ count: 1, value: 9_000 });
     expect(analytics.byPrincipal).toMatchObject([{ label: "Not set", count: 4 }]);

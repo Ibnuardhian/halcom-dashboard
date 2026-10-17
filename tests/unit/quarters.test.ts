@@ -8,8 +8,8 @@ const project = (overrides: Partial<TargetProject>): TargetProject => ({
   trackStatus: "ON_TRACK",
   estimatedValue: null,
   finalValue: null,
-  probability: null,
   targetMargin: null,
+  targetMarginValue: null,
   wonDate: null,
   targetDate: null,
   ...overrides,
@@ -58,10 +58,10 @@ describe("summariseTargets", () => {
     const summary = summariseTargets(
       2026,
       [
-        project({ estimatedValue: 1_000, probability: 30, targetMargin: 10, targetDate: day("2026-08-15") }),
-        project({ estimatedValue: 2_000, probability: 60, targetMargin: 5, targetDate: day("2026-09-01"), progress: "NEGOTIATE" }),
-        project({ estimatedValue: 9_999, probability: 95, targetDate: day("2026-08-01"), trackStatus: "DONE" }),
-        project({ estimatedValue: 9_999, probability: 0, targetDate: day("2026-08-01"), progress: "CLOSED_LOST" }),
+        project({ estimatedValue: 1_000, targetMargin: 10, targetDate: day("2026-08-15") }),
+        project({ estimatedValue: 2_000, targetMargin: 5, targetDate: day("2026-09-01"), progress: "NEGOTIATE" }),
+        project({ estimatedValue: 9_999, targetDate: day("2026-08-01"), trackStatus: "DONE" }),
+        project({ estimatedValue: 9_999, targetDate: day("2026-08-01"), progress: "CLOSED_LOST" }),
       ],
       [],
     );
@@ -77,16 +77,31 @@ describe("summariseTargets", () => {
       [
         project({ progress: "CLOSED_WON", estimatedValue: 100 }), // no won date
         project({ progress: "CLOSED_WON", estimatedValue: 100, wonDate: day("2026-01-05") }), // no margin
-        project({ estimatedValue: 100, probability: 50 }), // no target date
-        project({ estimatedValue: 100, targetDate: day("2026-06-01") }), // no probability: the Progress step (Propose, 30%) stands in
-        project({ targetDate: day("2026-06-01"), probability: 50 }), // no value at all: nothing to report
+        project({ estimatedValue: 100 }), // no target date
+        project({ estimatedValue: 100, targetDate: day("2026-06-01") }), // counted at the probability of Propose (30%)
+        project({ targetDate: day("2026-06-01") }), // no value at all: nothing to report
       ],
       [],
     );
 
-    expect(summary.notes).toEqual({ wonWithoutDate: 1, wonWithoutMargin: 1, openWithoutTargetDate: 1, openWithoutProbability: 0 });
+    expect(summary.notes).toEqual({ wonWithoutDate: 1, wonWithoutMargin: 1, openWithoutTargetDate: 1 });
     expect(summary.total.revenue).toEqual({ target: null, won: 100, forecast: 30 });
     expect(summary.total.grossProfit.won).toBe(0);
+  });
+
+  it("uses a fixed margin amount as it is, and scales it by the Progress probability for the forecast", () => {
+    const summary = summariseTargets(
+      2026,
+      [
+        project({ progress: "CLOSED_WON", estimatedValue: 1_000, targetMarginValue: 150, targetMargin: 50, wonDate: day("2026-02-10") }),
+        project({ estimatedValue: 2_000, targetMarginValue: 400, targetDate: day("2026-05-01") }), // Propose: 30%
+      ],
+      [],
+    );
+
+    expect(summary.quarters[0]!.grossProfit.won).toBe(150);
+    expect(summary.quarters[1]!.revenue.forecast).toBe(600);
+    expect(summary.quarters[1]!.grossProfit.forecast).toBe(120); // 400 × 30%
   });
 
   it("adds a year's targets up and leaves a blank gross-profit target blank", () => {

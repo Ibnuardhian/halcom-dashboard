@@ -32,8 +32,12 @@ export function isEditableField(key: string): key is ProjectEditableField {
   return Object.prototype.hasOwnProperty.call(PROJECT_EDITABLE_FIELDS, key);
 }
 
+/** The change-log names of the three PIC slots, which only a superadmin moves. */
+const OWNER_LABELS: Record<string, string> = { salesOwner: "Sales PIC", technicalPic: "Technical PIC (SOA)", purchasingPic: "Purchasing PIC" };
+
 /** A field label for a stored change; an unknown key (a field removed later) is shown as it was stored. */
 export function fieldLabel(key: string): string {
+  if (key in OWNER_LABELS) return OWNER_LABELS[key]!;
   if (isEditableField(key)) return PROJECT_EDITABLE_FIELDS[key].label;
   return isCommercialField(key) ? COMMERCIAL_FIELDS[key].label : key;
 }

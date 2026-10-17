@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { targetMarginAmount, weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
 import {
   CLOSED_PROGRESSES,
   PROGRESS_LABELS,
@@ -88,8 +88,8 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       trackStatus: true,
       estimatedValue: true,
       finalValue: true,
-      probability: true,
       targetMargin: true,
+      targetMarginValue: true,
       industry: true,
       principal: { select: { id: true, name: true } },
       solutionCategory: { select: { id: true, name: true } },
@@ -108,7 +108,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   for (const project of projects) {
     const estimated = project.estimatedValue?.toNumber() ?? null;
     const finalValue = project.finalValue?.toNumber() ?? null;
-    const weighted = weightedValue(estimated, project.probability, project.progress);
+    const weighted = weightedValue(estimated, project.progress);
 
     add(progresses, project.progress, PROGRESS_LABELS[project.progress], estimated, weighted);
     add(statuses, project.trackStatus, TRACK_STATUS_LABELS[project.trackStatus], estimated, weighted);
@@ -122,7 +122,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       totals.open += 1;
       totals.openValue += estimated ?? 0;
       totals.openWeighted += weighted ?? 0;
-      const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null);
+      const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null, project.targetMarginValue?.toNumber() ?? null);
       if (margin !== null) {
         totals.openTargetMargin += margin;
         totals.openWithMargin += 1;
@@ -172,7 +172,9 @@ export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, sal
   const rows = await db.project.findMany({ where: { deletedAt: null, ...(salesOwnerId ? { salesOwnerId } : {}) } });
   const mapped = rows.map((row): PipelineProjectRow => {
     const estimatedValue = row.estimatedValue?.toNumber() ?? null;
-    const targetMargin = row.targetMargin?.toNumber() ?? null;
+    const finalValue = row.finalValue?.toNumber() ?? null;
+    const percent = row.targetMargin?.toNumber() ?? null;
+    const fixed = row.targetMarginValue?.toNumber() ?? null;
     return {
       code: row.code,
       progress: row.progress,
@@ -182,11 +184,11 @@ export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, sal
       accountName: row.endUserCompany,
       projectTitle: row.name,
       estimatedValue,
-      targetMargin,
-      estimatedGrossProfit: targetMarginAmount(estimatedValue, row.finalValue?.toNumber() ?? null, targetMargin),
+      targetMargin: targetMarginPercentOf(estimatedValue, finalValue, percent, fixed),
+      estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, percent, fixed),
       isOpen: isOpenProject(row.progress, row.trackStatus),
     };
   });
-  const rank = (row: PipelineProjectRow) => (!row.isOpen ? 2 : row.estimatedValue !== null && row.targetMargin === null ? 0 : 1);
+  const rank = (row: PipelineProjectRow) => (!row.isOpen ? 2 : row.estimatedValue !== null && row.estimatedGrossProfit === null ? 0 : 1);
   return mapped.sort((a, b) => rank(a) - rank(b) || (b.estimatedValue ?? -1) - (a.estimatedValue ?? -1) || a.code.localeCompare(b.code));
 }

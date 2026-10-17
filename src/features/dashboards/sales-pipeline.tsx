@@ -12,7 +12,7 @@ import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
 import { getPipelineAnalytics, listPipelineProjects } from "@/server/projects/analytics";
 import { getOwnTargets, getTargetSummary } from "@/server/targets/service";
-import { getWorkStats, listRequests } from "@/server/requests/queries";
+import { getWorkStats, listPendingDecisions, listRequests } from "@/server/requests/queries";
 import { DashboardHeader } from "./dashboard-header";
 import { PipelineCharts, PipelineTiles } from "./pipeline-charts";
 import { TargetTracking } from "./target-tracking";
@@ -28,16 +28,17 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
   const db = getDb();
   // Sales see their own pipeline; an admin opening this dashboard sees everyone's.
   const ownerId = viewer.role === "SALES" ? viewer.id : undefined;
-  const [analytics, projects, requests, stats, targetSummary] = await Promise.all([
+  const [analytics, projects, requests, stats, targetSummary, decisions] = await Promise.all([
     getPipelineAnalytics(db, viewer, { salesOwnerId: ownerId }),
     listPipelineProjects(db, viewer, ownerId),
-    listRequests(db, viewer, { requesterId: ownerId, limit: 10 }),
+    listRequests(db, viewer, { projectOwnerId: ownerId, limit: 10 }),
     getWorkStats(db, viewer),
     view === "tracking" ? getTargetSummary(db, viewer, { year, salesOwnerId: ownerId }) : Promise.resolve(null),
+    listPendingDecisions(db, viewer, ownerId),
   ]);
   const ownTargets = view === "tracking" && ownerId ? await getOwnTargets(db, viewer, year) : null;
   const scope = ownerId ? "mine" : "all";
-  const needMargin = projects.filter((p) => p.isOpen && p.estimatedValue !== null && p.targetMargin === null);
+  const needMargin = projects.filter((p) => p.isOpen && p.estimatedValue !== null && p.estimatedGrossProfit === null);
   const waiting = requests.filter((r) => r.status === "WAITING_FOR_SALES").length;
 
   return (
@@ -57,6 +58,31 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
         ))}
         <StatTile label="Waiting for you" value={waiting} href={`${REQUESTS_PATH}?status=WAITING_FOR_SALES`} note="In your latest requests" />
       </section>
+
+      {decisions.length > 0 ? (
+        <Card className="mb-6 border-primary/40">
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>Decide the next step</h2>
+            </CardTitle>
+            <CardDescription>
+              {decisions.length} completed BOQ or RFQ {decisions.length === 1 ? "is" : "are"} waiting for you to decide: continue to the next step (BOQ, then RFQ, then PO), or not.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-wrap gap-2">
+              {decisions.slice(0, NEEDS_MARGIN_SHOWN).map((d) => (
+                <li key={d.code}>
+                  <Link href={`/request/${d.code}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    {d.code} · {d.endUserCompany} → {d.type === "BOQ" ? "RFQ?" : "PO?"}
+                  </Link>
+                </li>
+              ))}
+              {decisions.length > NEEDS_MARGIN_SHOWN ? <li className="self-center text-xs text-muted-foreground">and {decisions.length - NEEDS_MARGIN_SHOWN} more</li> : null}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {needMargin.length > 0 ? (
         <Card className="mb-6 border-amber-500/40">

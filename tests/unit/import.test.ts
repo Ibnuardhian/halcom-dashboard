@@ -188,15 +188,13 @@ describe("pipeline helpers", () => {
     expect(parseProjectStatus("Dormant")).toBeNull();
   });
 
-  it("weights a value only when both the value and the probability are known", () => {
-    expect(weightedValue(400_000_000, 100)).toBe(400_000_000);
-    expect(weightedValue(13_000_000, 25)).toBe(3_250_000);
-    expect(weightedValue(null, 50)).toBeNull();
-    expect(weightedValue(100, null)).toBeNull();
-    expect(weightedValue(1000, null, "PROPOSE")).toBe(300);
-    expect(weightedValue(1000, 50, "PROPOSE")).toBe(500);
-    expect(weightedValue(1000, null, "CLOSED_LOST")).toBe(0);
-    expect(weightedValue(0, 50)).toBe(0);
+  it("weights a value by the probability of its Progress step, and only when the value is known", () => {
+    expect(weightedValue(400_000_000, "CLOSED_WON")).toBe(400_000_000);
+    expect(weightedValue(13_000_000, "UNDERSTAND")).toBe(1_950_000);
+    expect(weightedValue(1000, "PROPOSE")).toBe(300);
+    expect(weightedValue(1000, "CLOSED_LOST")).toBe(0);
+    expect(weightedValue(null, "AGREE")).toBeNull();
+    expect(weightedValue(0, "AGREE")).toBe(0);
   });
 
   it("normalises master-data names", () => {

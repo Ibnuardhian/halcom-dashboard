@@ -2,7 +2,8 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import type { ExportProject } from "@/domain/projects/export";
-import { targetMarginAmount, weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { isOpen } from "@/domain/requests/status";
 
 type Viewer = { id: string; role: Role };
@@ -25,7 +26,8 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
     .map((row) => {
       const estimatedValue = row.estimatedValue?.toNumber() ?? null;
       const finalValue = row.finalValue?.toNumber() ?? null;
-      const targetMargin = row.targetMargin?.toNumber() ?? null;
+      const percent = row.targetMargin?.toNumber() ?? null;
+      const fixed = row.targetMarginValue?.toNumber() ?? null;
       return {
         code: row.code,
         accountName: row.endUserCompany,
@@ -35,10 +37,10 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
         lastUpdated: row.updatedAt,
         quoteReleasedAt: row.quoteReleasedAt,
         estimatedValue,
-        probability: row.probability,
-        weightedValue: weightedValue(estimatedValue, row.probability, row.progress),
-        targetMargin,
-        estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, targetMargin),
+        probability: PROGRESS_PERCENT[row.progress],
+        weightedValue: weightedValue(estimatedValue, row.progress),
+        targetMargin: targetMarginPercentOf(estimatedValue, finalValue, percent, fixed),
+        estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, percent, fixed),
         finalValue,
         targetDate: row.targetDate,
         wonDate: row.wonDate,

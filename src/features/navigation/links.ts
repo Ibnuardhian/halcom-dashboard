@@ -32,6 +32,7 @@ export const USERS_PATH = "/admin/users";
 export const SYSTEM_PATH = "/admin/system";
 export const AUDIT_PATH = "/admin/audit";
 export const BACKUPS_PATH = "/admin/backups";
+export const SETTINGS_PATH = "/admin/settings";
 export const PROJECTS_PATH = "/projects";
 export const REQUESTS_PATH = "/requests";
 export const NEW_REQUEST_PATH = "/requests/new";
@@ -49,6 +50,7 @@ const MODULE_LINKS: readonly (NavLinkItem & { permission: Permission; hiddenFor?
   { href: USERS_PATH, label: "Users", group: "administration", icon: "users", permission: "users.view" },
   { href: AUDIT_PATH, label: "Audit log", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
+  { href: SETTINGS_PATH, label: "Team settings", group: "administration", icon: "system", permission: "settings.manage" },
   { href: SYSTEM_PATH, label: "System", group: "administration", icon: "system", permission: "system.monitor" },
 ];
 

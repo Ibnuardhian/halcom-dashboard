@@ -40,11 +40,12 @@ export async function usersWithRole(tx: Tx, ...roles: Role[]): Promise<string[]>
 export async function projectAudience(tx: Tx, projectId: string): Promise<string[]> {
   const project = await tx.project.findUnique({
     where: { id: projectId },
-    select: { salesOwnerId: true, technicalPicId: true, requests: { select: { type: true, status: true } } },
+    select: { salesOwnerId: true, technicalPicId: true, purchasingPicId: true, requests: { select: { type: true, status: true } } },
   });
   if (!project) return [];
   const ids = new Set<string>([project.salesOwnerId]);
   if (project.technicalPicId) ids.add(project.technicalPicId);
+  if (project.purchasingPicId) ids.add(project.purchasingPicId);
   const teams = new Set<Role>(project.requests.filter((request) => isOpen(request.status)).map((request) => OWNING_ROLE[request.type]));
   if (teams.size > 0) for (const id of await usersWithRole(tx, ...teams)) ids.add(id);
   return [...ids];

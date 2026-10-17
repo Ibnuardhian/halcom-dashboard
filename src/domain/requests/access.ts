@@ -18,6 +18,16 @@ export function canSeeEmail(role: Role, type: RequestType, isHandover: boolean):
   return true;
 }
 
+/**
+ * Who decides what follows a completed BOQ or RFQ: the Sales owner of the project (the customer relationship is
+ * theirs), admins, and SOA for the step after a BOQ. `ownsProject` is true for the Sales user who owns the project.
+ */
+export function canContinueFlow(role: Role, type: RequestType, ownsProject: boolean): boolean {
+  if (role === "SALES") return ownsProject;
+  if (role === "SOA") return type === "BOQ" && can(role, "requests.handover");
+  return can(role, "requests.handover");
+}
+
 export function canWorkOn(role: Role, type: RequestType): boolean {
   return can(role, workPermission(type));
 }

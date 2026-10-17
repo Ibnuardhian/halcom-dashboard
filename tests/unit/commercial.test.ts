@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { diffCommercial, parseAmount, parseCommercialValue } from "@/domain/projects/commercial";
 import { fieldLabel } from "@/domain/projects/fields";
-import { targetMarginAmount } from "@/domain/projects/pipeline";
+import { marginFields } from "@/domain/projects/margin";
+import { targetMarginAmount, targetMarginPercentOf } from "@/domain/projects/pipeline";
 import { PROGRESS_LABELS, PROGRESS_NAMES, PROGRESS_PERCENT, progressFromStage, trackStatusFromStatus } from "@/domain/projects/progress";
 import { PROJECT_STAGES } from "@/domain/projects/pipeline";
 import { canSeeEmail } from "@/domain/requests/access";
@@ -25,10 +26,9 @@ describe("parseCommercialValue", () => {
     expect(parseCommercialValue("targetMargin", "12.345").ok).toBe(false);
   });
 
-  it("accepts a whole-number probability and a real calendar date only", () => {
-    expect(parseCommercialValue("probability", "40")).toEqual({ ok: true, value: 40 });
-    expect(parseCommercialValue("probability", "101").ok).toBe(false);
-    expect(parseCommercialValue("probability", "4.5").ok).toBe(false);
+  it("reads a target margin amount like any amount, and accepts a real calendar date only", () => {
+    expect(parseCommercialValue("targetMarginValue", "150.000.000")).toEqual({ ok: true, value: 150_000_000 });
+    expect(parseCommercialValue("targetMarginValue", "-5").ok).toBe(false);
     expect(parseCommercialValue("targetDate", "2026-12-10")).toEqual({ ok: true, value: "2026-12-10" });
     expect(parseCommercialValue("targetDate", "2026-13-40").ok).toBe(false);
     expect(parseCommercialValue("targetDate", "10/12/2026").ok).toBe(false);
@@ -84,11 +84,10 @@ describe("parseAmount", () => {
 });
 
 describe("diffCommercial", () => {
-  const current = { progress: "PROPOSE", trackStatus: "ON_TRACK", estimatedValue: 100, probability: 40, targetMargin: null, quoteReleasedAt: null, targetDate: "2026-12-10", finalValue: null, wonDate: null };
+  const current = { progress: "PROPOSE", trackStatus: "ON_TRACK", estimatedValue: 100, targetMargin: null, targetMarginValue: null, quoteReleasedAt: null, targetDate: "2026-12-10", finalValue: null, wonDate: null };
 
   it("lists only real changes, including clearing a value", () => {
-    expect(diffCommercial(current, { estimatedValue: 100, probability: 50, targetMargin: 12.5, targetDate: null })).toEqual([
-      { field: "probability", from: "40", to: "50" },
+    expect(diffCommercial(current, { estimatedValue: 100, targetMargin: 12.5, targetDate: null })).toEqual([
       { field: "targetMargin", from: null, to: "12.5" },
       { field: "targetDate", from: "2026-12-10", to: null },
     ]);
@@ -112,6 +111,20 @@ describe("targetMarginAmount", () => {
     expect(targetMarginAmount(1_000, 2_000, 10)).toBe(200);
     expect(targetMarginAmount(null, null, 10)).toBeNull();
     expect(targetMarginAmount(1_000, null, null)).toBeNull();
+  });
+
+  it("uses a fixed amount as it is, and shows it as a percentage of the sale", () => {
+    expect(targetMarginAmount(1_000, 2_000, 10, 150)).toBe(150);
+    expect(targetMarginAmount(null, null, null, 150)).toBe(150);
+    expect(targetMarginPercentOf(1_000, 2_000, null, 150)).toBe(7.5);
+    expect(targetMarginPercentOf(null, null, null, 150)).toBeNull();
+    expect(targetMarginPercentOf(1_000, null, 12.5, null)).toBe(12.5);
+  });
+
+  it("puts the margin box into one stored field and clears the other", () => {
+    expect(marginFields("amount", "150")).toEqual({ targetMargin: "", targetMarginValue: "150" });
+    expect(marginFields("percent", "12,5")).toEqual({ targetMargin: "12,5", targetMarginValue: "" });
+    expect(marginFields(undefined, "9")).toEqual({ targetMargin: "", targetMarginValue: "9" });
   });
 
   it("labels the new fields in the change log", () => {

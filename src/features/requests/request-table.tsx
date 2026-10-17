@@ -4,6 +4,7 @@ import { formatUtc } from "@/features/dashboards/format";
 import type { RequestRow } from "@/server/requests/queries";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatDateOnly } from "./format";
+import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
 
 /** Request list. Less important columns drop out on narrow screens; the table scrolls sideways if it still does not fit. */
@@ -24,6 +25,7 @@ export function RequestTable({ rows, emptyText = "No requests yet." }: { rows: R
           <TableHead>Project</TableHead>
           <TableHead className="hidden md:table-cell">Summary</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead className="hidden sm:table-cell">SLA</TableHead>
           <TableHead className="hidden lg:table-cell">Owner</TableHead>
           <TableHead className="hidden lg:table-cell">Needed by</TableHead>
           <TableHead className="hidden xl:table-cell">Created</TableHead>
@@ -49,6 +51,9 @@ export function RequestTable({ rows, emptyText = "No requests yet." }: { rows: R
             <TableCell className="hidden max-w-64 truncate md:table-cell">{row.title}</TableCell>
             <TableCell>
               <StatusBadge status={row.status} />
+            </TableCell>
+            <TableCell className="hidden sm:table-cell">
+              <SlaBadge sla={row.sla} />
             </TableCell>
             <TableCell className="hidden lg:table-cell">{row.assigneeName ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
             <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDateOnly(row.requiredBy)}</TableCell>

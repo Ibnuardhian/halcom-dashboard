@@ -43,14 +43,12 @@ export function parseProjectStatus(label: string): ProjectStatusValue | null {
 }
 
 /**
- * Weighted pipeline value: estimated value times the win probability. Both must be known; a project
- * with no estimate or no probability contributes nothing instead of a guessed number.
+ * Weighted pipeline value: estimated value times the win probability the Progress step stands for (30% at Propose).
+ * A project with no estimate contributes nothing instead of a guessed number.
  */
-export function weightedValue(estimatedValue: number | null, probability: number | null, progress?: ProjectProgress): number | null {
-  // A probability Sales never set follows the Progress step (30% at Propose); one set by hand wins.
-  const percent = probability ?? (progress ? PROGRESS_PERCENT[progress] : null);
-  if (estimatedValue === null || percent === null) return null;
-  return Math.round(estimatedValue * percent) / 100;
+export function weightedValue(estimatedValue: number | null, progress: ProjectProgress): number | null {
+  if (estimatedValue === null) return null;
+  return Math.round(estimatedValue * PROGRESS_PERCENT[progress]) / 100;
 }
 
 /** Master-data key: trimmed, single-spaced, lower-cased, so "HPE" and " hpe " are one record. */
@@ -63,11 +61,30 @@ export function cleanName(name: string): string {
 }
 
 /**
- * The margin Sales aims for, in money: the sale value times the target margin percentage. The value is the final
- * value once it is known, otherwise the estimate. Empty when either is missing, never a guess.
+ * The margin Sales aims for, in money. A fixed amount entered by Sales is used as it is; otherwise it is the sale value times
+ * the target margin percentage. The value is the final value once it is known, otherwise the estimate. Empty when neither
+ * an amount nor a percentage with a value is there, never a guess.
  */
-export function targetMarginAmount(estimatedValue: number | null, finalValue: number | null, targetMarginPercent: number | null): number | null {
+export function targetMarginAmount(
+  estimatedValue: number | null,
+  finalValue: number | null,
+  targetMarginPercent: number | null,
+  fixedAmount: number | null = null,
+): number | null {
+  if (fixedAmount !== null) return fixedAmount;
   const basis = finalValue ?? estimatedValue;
   if (basis === null || targetMarginPercent === null) return null;
   return Math.round(basis * targetMarginPercent) / 100;
+}
+
+/** The target margin as a percentage of the sale: the entered percentage, or the fixed amount over the sale value. */
+export function targetMarginPercentOf(
+  estimatedValue: number | null,
+  finalValue: number | null,
+  targetMarginPercent: number | null,
+  fixedAmount: number | null = null,
+): number | null {
+  if (fixedAmount === null) return targetMarginPercent;
+  const basis = finalValue ?? estimatedValue;
+  return basis === null || basis === 0 ? null : Math.round((fixedAmount / basis) * 10_000) / 100;
 }

@@ -54,8 +54,8 @@ export const createProjectSchema = z.object({
   progress: optionalText(40),
   trackStatus: optionalText(40),
   estimatedValue: optionalText(40),
-  probability: optionalText(40),
   targetMargin: optionalText(40),
+  targetMarginValue: optionalText(40),
   // A BOQ, RFQ or PO raised together with the project; null when Sales add no request yet.
   request: z
     .object(requestBody)
@@ -80,6 +80,8 @@ export const handoverSchema = z.object({
   sourceId: z.uuid(),
   targetType: z.enum(HANDOVER_TYPES, "Choose RFQ or PO."),
 });
+
+export const stopFlowSchema = z.object({ sourceId: z.uuid(), note: optionalText(500) });
 
 export const statusChangeSchema = z.object({
   requestId: z.uuid(),

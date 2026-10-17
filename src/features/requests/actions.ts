@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { FormState } from "@/components/ui/form-status";
+import { marginFields } from "@/domain/projects/margin";
 import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requirePermission, requireUser } from "@/server/auth/current-user";
-import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setRequestPhase } from "@/server/requests/service";
+import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setRequestPhase, stopFlow } from "@/server/requests/service";
 
 // Each action checks the sign-in (and, where one permission fits, that permission) on the server;
 // the service then re-checks the actor and the record-specific rules inside its transaction.
@@ -27,8 +28,7 @@ export async function createProjectAction(_previous: FormState, formData: FormDa
     progress: text(formData, "progress"),
     trackStatus: text(formData, "trackStatus"),
     estimatedValue: text(formData, "estimatedValue"),
-    probability: text(formData, "probability"),
-    targetMargin: text(formData, "targetMargin"),
+    ...marginFields(formData.get("marginMode"), formData.get("marginInput")),
     // "" means no request; otherwise the project is created together with its first BOQ, RFQ or PO.
     request: requestType
       ? {
@@ -79,7 +79,15 @@ export async function changeStatusAction(_previous: FormState, formData: FormDat
 
 export async function handOverAction(_previous: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const result = await handOverToPurchasing(getDb(), { id: user.id, role: user.role }, {
+  const actor = { id: user.id, role: user.role };
+  if (text(formData, "decision") === "stop") {
+    const stopped = await stopFlow(getDb(), actor, { sourceId: text(formData, "sourceId"), note: text(formData, "note") });
+    if (!stopped.ok) return { ok: false, message: stopped.message };
+    revalidatePath(`/request/${stopped.value.code}`);
+    revalidatePath(REQUESTS_PATH);
+    return { ok: true, message: "Recorded: this request does not continue to the next step. You can still continue later." };
+  }
+  const result = await handOverToPurchasing(getDb(), actor, {
     sourceId: text(formData, "sourceId"),
     targetType: text(formData, "targetType"),
   });

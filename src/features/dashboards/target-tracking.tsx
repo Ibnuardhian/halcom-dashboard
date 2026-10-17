@@ -118,17 +118,16 @@ export function TargetTracking({
         ))}
       </div>
 
-      <Section title="Revenue" description="Won is the final PO value of projects closed as won in the quarter. Forecast is estimated value × probability of open projects expected to close in it." summary={summary} pick="revenue" />
+      <Section title="Revenue" description="Won is the final PO value of projects closed as won in the quarter. Forecast is estimated value × the probability of the Progress step, for open projects expected to close in it." summary={summary} pick="revenue" />
       <Section title="Gross profit" description="Value × the project's target margin, counted the same way." summary={summary} pick="grossProfit" />
 
-      {notes.wonWithoutDate + notes.wonWithoutMargin + notes.openWithoutTargetDate + notes.openWithoutProbability > 0 ? (
+      {notes.wonWithoutDate + notes.wonWithoutMargin + notes.openWithoutTargetDate > 0 ? (
         <div role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
           <p className="font-medium">Not counted yet, because the project is missing something:</p>
           <ul className="mt-1 list-disc pl-5">
             {notes.wonWithoutDate > 0 ? <li>{notes.wonWithoutDate} won project(s) without a won date.</li> : null}
             {notes.wonWithoutMargin > 0 ? <li>{notes.wonWithoutMargin} won project(s) without a target margin (they count in revenue, not in gross profit).</li> : null}
             {notes.openWithoutTargetDate > 0 ? <li>{notes.openWithoutTargetDate} open project(s) with a value but no target closing date.</li> : null}
-            {notes.openWithoutProbability > 0 ? <li>{notes.openWithoutProbability} open project(s) with a value but no probability.</li> : null}
           </ul>
         </div>
       ) : null}

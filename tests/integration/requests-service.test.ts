@@ -321,20 +321,19 @@ describe("handOverToPurchasing", () => {
     const boq = await completedBoq(sales, soa, project.id);
 
     const results = await Promise.all([
-      handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "PO" }),
-      handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "PO" }),
-      handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "PO" }),
+      handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "RFQ" }),
+      handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "RFQ" }),
+      handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "RFQ" }),
     ]);
 
     expect(results.every((result) => result.ok)).toBe(true);
     const values = results.map((result) => (result.ok ? result.value : null));
     expect(new Set(values.map((value) => value!.id)).size).toBe(1);
     expect(values.filter((value) => value!.created)).toHaveLength(1);
-    await expect(db.request.count({ where: { sourceRequestId: boq.id, type: "PO" } })).resolves.toBe(1);
+    await expect(db.request.count({ where: { sourceRequestId: boq.id, type: "RFQ" } })).resolves.toBe(1);
 
-    // RFQ and PO are separate choices and may both exist for one BOQ.
-    const rfq = await handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "RFQ" });
-    expect(rfq).toMatchObject({ ok: true, value: { created: true } });
+    // The flow is BOQ -> RFQ -> PO: a BOQ does not go straight to a PO.
+    expect(await handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "PO" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
   });
 
   it("refuses a BOQ that is not completed, a non-BOQ source, a bad type and unauthorised roles", async () => {
@@ -346,7 +345,7 @@ describe("handOverToPurchasing", () => {
     const done = await completedBoq(sales, soa, project.id);
 
     expect(await handOverToPurchasing(db, soa, { sourceId: openBoq.id, targetType: "RFQ" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
-    expect(await handOverToPurchasing(db, soa, { sourceId: rfq.id, targetType: "PO" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect(await handOverToPurchasing(db, sales, { sourceId: rfq.id, targetType: "PO" })).toMatchObject({ ok: false, code: "INVALID_STATE" }); // the RFQ is not completed
     expect(await handOverToPurchasing(db, soa, { sourceId: done.id, targetType: "BOQ" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await handOverToPurchasing(db, soa, { sourceId: crypto.randomUUID(), targetType: "RFQ" })).toMatchObject({ ok: false, code: "NOT_FOUND" });
     for (const role of ["SALES", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {

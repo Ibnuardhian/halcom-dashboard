@@ -4,9 +4,8 @@ import { notFound } from "next/navigation";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { can } from "@/domain/access/permissions";
-import { canSeeEmail, canWorkOn } from "@/domain/requests/access";
-import { allowedTransitions, canHandOver, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { canContinueFlow, canSeeEmail, canWorkOn } from "@/domain/requests/access";
+import { allowedTransitions, canHandOver, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatUtc } from "@/features/dashboards/format";
@@ -14,9 +13,12 @@ import { PROJECTS_PATH } from "@/features/navigation/links";
 import { EmailPanel } from "@/features/requests/email-panel";
 import { Fact } from "@/features/requests/fact";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
-import { HandoverForm, PhaseForm, StatusForm } from "@/features/requests/forms";
+import { NextStepForm, PhaseForm, StatusForm, WaitingResponseForm } from "@/features/requests/forms";
 import { formatDateOnly } from "@/features/requests/format";
+import { SlaBadge } from "@/features/requests/sla-badge";
 import { StatusBadge, TypeBadge } from "@/features/requests/status-badges";
+import { formatSlaRange, slaOf } from "@/domain/requests/sla";
+import { getTeamSetting } from "@/server/settings/team-settings";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { buildRequestEmail } from "@/server/requests/email";
@@ -37,8 +39,19 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
 
   const mayWork = canWorkOn(viewer.role, request.type);
   const transitions = allowedTransitions(request.status);
-  const mayHandOver = can(viewer.role, "requests.handover") && canHandOver(request.type, request.status);
-  const email = canSeeEmail(viewer.role, request.type, request.source !== null) ? buildRequestEmail(request) : null;
+  const next = nextRequestType(request.type);
+  const ownsProject = request.project.salesOwnerId === viewer.id;
+  const decided = request.handovers.length > 0;
+  const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
+  // The Sales owner answers a request that waits for Sales. The team's question is the reason of the last change to that status.
+  const question = request.status === "WAITING_FOR_SALES" ? [...request.statusHistory].reverse().find((entry) => entry.toStatus === "WAITING_FOR_SALES")?.reason ?? null : null;
+  const maySalesAnswer = request.status === "WAITING_FOR_SALES" && viewer.role === "SALES" && ownsProject;
+  // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
+  const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
+  const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
+  const email = canSeeEmail(viewer.role, request.type, request.source !== null)
+    ? buildRequestEmail(request, { subject: setting.emailSubject, body: setting.emailBody, sla: setting.sla, dueAt: sla.dueAt })
+    : null;
 
   return (
     <>
@@ -57,6 +70,9 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
               <StatusBadge status={request.status} />
             </Fact>
             <Fact label="Owning team">{OWNING_TEAM_LABELS[request.type]}</Fact>
+            <Fact label={`SLA (${formatSlaRange(setting.sla)} working days)`}>
+              <SlaBadge sla={sla} />
+            </Fact>
             {request.type === "BOQ" ? (
               <Fact label="SOA phase">{request.phase ? SOA_PHASE_LABELS[request.phase] : <span className="text-muted-foreground">Not started</span>}</Fact>
             ) : null}
@@ -126,21 +142,46 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
         </Card>
       ) : null}
 
-      {mayHandOver ? (
+      {maySalesAnswer ? (
+        <Card className="mb-6 border-warning">
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>The team is waiting for your answer</h2>
+            </CardTitle>
+            <CardDescription>{question ? `They asked: ${question}` : "They need more information from Sales."}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <WaitingResponseForm requestId={request.id} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {mayDecide && next ? (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>Hand over to Purchasing</h2>
+              <h2>What happens next?</h2>
             </CardTitle>
             <CardDescription>
-              Choose what Purchasing should do. A completed BOQ does not authorise a purchase by itself. The new request keeps the project and
-              points back to this BOQ.
+              The flow is BOQ, then RFQ, then PO. Decide whether this {request.type} continues to {next === "RFQ" ? "an RFQ (quotation / pricing)" : "a PO (purchase)"}. The new request
+              keeps the project and points back to this one. Completing a {request.type} does not authorise anything by itself.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <HandoverForm sourceId={request.id} />
+            {request.flowStoppedAt ? (
+              <p className="mb-3 text-sm">
+                <span className="font-medium">Not continuing</span> – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatUtc(request.flowStoppedAt)}
+                {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
+              </p>
+            ) : null}
+            <NextStepForm sourceId={request.id} nextType={next} hasDecision={request.flowStoppedAt !== null} />
           </CardContent>
         </Card>
+      ) : request.flowStoppedAt ? (
+        <p className="mb-6 text-sm text-muted-foreground">
+          Not continuing to {next ?? "the next step"} – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatUtc(request.flowStoppedAt)}
+          {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
+        </p>
       ) : null}
 
       {email ? (

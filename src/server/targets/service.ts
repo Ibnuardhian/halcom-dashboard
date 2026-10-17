@@ -18,7 +18,7 @@ export async function getTargetSummary(db: PrismaClient, viewer: Viewer, options
   const [projects, targets] = await Promise.all([
     db.project.findMany({
       where: { ...owner, deletedAt: null },
-      select: { progress: true, trackStatus: true, estimatedValue: true, finalValue: true, probability: true, targetMargin: true, wonDate: true, targetDate: true },
+      select: { progress: true, trackStatus: true, estimatedValue: true, finalValue: true, targetMargin: true, targetMarginValue: true, wonDate: true, targetDate: true },
     }),
     db.salesTarget.findMany({ where: { year: options.year, ...(options.salesOwnerId ? { salesUserId: options.salesOwnerId } : {}) } }),
   ]);
@@ -38,8 +38,8 @@ export async function getTargetSummary(db: PrismaClient, viewer: Viewer, options
       trackStatus: project.trackStatus,
       estimatedValue: project.estimatedValue?.toNumber() ?? null,
       finalValue: project.finalValue?.toNumber() ?? null,
-      probability: project.probability,
       targetMargin: project.targetMargin?.toNumber() ?? null,
+      targetMarginValue: project.targetMarginValue?.toNumber() ?? null,
       wonDate: project.wonDate,
       targetDate: project.targetDate,
     })),

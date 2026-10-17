@@ -9,14 +9,14 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { COMMERCIAL_FIELDS, type CommercialField } from "@/domain/projects/commercial";
 import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { updateCommercialDetailsAction } from "./actions";
+import { MarginInput } from "./margin-input";
+import { MoneyInput } from "./money-input";
 
 type Values = Record<CommercialField, string>;
 
 const HINTS: Partial<Record<CommercialField, string>> = {
-  progress: "Choosing a step also sets the probability it stands for.",
-  estimatedValue: "Plain number, for example 1200000000",
-  probability: "Whole number, 0 to 100",
-  targetMargin: "Percentage of the sale, for example 12.5",
+  progress: "Each step stands for a win probability, which the weighted pipeline uses.",
+  estimatedValue: "Dots are added as you type, for example 1.200.000.000",
   quoteReleasedAt: "Date the quotation was sent to the customer",
   targetDate: "Date the deal should close",
   finalValue: "The agreed PO value once known; counts toward your revenue target",
@@ -33,6 +33,12 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
       {(Object.keys(COMMERCIAL_FIELDS) as CommercialField[]).map((field) => {
         const id = `${projectCode}-${field}`;
         const { kind } = COMMERCIAL_FIELDS[field];
+        // The two margin fields share one box: an amount (the default) or a percentage.
+        if (field === "targetMarginValue") return null;
+        if (field === "targetMargin") {
+          const percentOnly = values.targetMargin !== "" && values.targetMarginValue === "";
+          return <MarginInput key={field} id={id} defaultMode={percentOnly ? "percent" : "amount"} defaultValue={percentOnly ? values.targetMargin : values.targetMarginValue} />;
+        }
         return (
           <div key={field} className="flex flex-col gap-1.5">
             <Label htmlFor={id}>{COMMERCIAL_FIELDS[field].label}</Label>
@@ -52,6 +58,8 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
                   </option>
                 ))}
               </NativeSelect>
+            ) : kind === "amount" ? (
+              <MoneyInput id={id} name={field} defaultValue={values[field]} />
             ) : (
               <Input id={id} name={field} type={kind === "date" ? "date" : "text"} inputMode={kind === "date" ? undefined : "decimal"} defaultValue={values[field]} maxLength={40} />
             )}

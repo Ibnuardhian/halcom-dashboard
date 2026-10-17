@@ -30,7 +30,7 @@ describe("createProject with a first request", () => {
     expect(result.value.requestCode).toMatch(/^BOQ-[A-Z0-9]+-\d{6,}$/);
     const project = await db.project.findUniqueOrThrow({ where: { id: result.value.id }, include: { requests: { include: { statusHistory: true } } } });
     expect(project.estimatedValue?.toNumber()).toBe(1_500_000_000);
-    expect(project).toMatchObject({ progress: "PROPOSE", trackStatus: "ON_HOLD", probability: 30 }); // probability follows the progress step
+    expect(project).toMatchObject({ progress: "PROPOSE", trackStatus: "ON_HOLD" });
     expect(project.targetMargin?.toNumber()).toBe(11.5);
     expect(project.requests).toHaveLength(1);
     expect(project.requests[0]).toMatchObject({ code: result.value.requestCode, type: "BOQ", requesterId: sales.id, status: "SUBMITTED", title: "BOQ for 40 cameras" });
@@ -46,7 +46,7 @@ describe("createProject with a first request", () => {
     const rfq = await createProject(db, actor, { ...base(), request: { type: "RFQ", title: "Price for 10 servers" } });
 
     expect(plain).toMatchObject({ ok: true, value: { requestCode: null } });
-    if (plain.ok) await expect(db.project.findUniqueOrThrow({ where: { id: plain.value.id } })).resolves.toMatchObject({ progress: "QUALIFY", trackStatus: "ON_TRACK", probability: 5 });
+    if (plain.ok) await expect(db.project.findUniqueOrThrow({ where: { id: plain.value.id } })).resolves.toMatchObject({ progress: "QUALIFY", trackStatus: "ON_TRACK" });
     expect(rfq.ok && rfq.value.requestCode).toMatch(/^RFQ-/);
   });
 

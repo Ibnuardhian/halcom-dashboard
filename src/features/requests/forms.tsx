@@ -11,6 +11,8 @@ import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABEL
 import { SOA_PHASES, SOA_PHASE_LABELS, type SoaPhase } from "@/domain/requests/phase";
 import { reasonRequired, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
+import { MarginInput } from "@/features/projects/margin-input";
+import { MoneyInput } from "@/features/projects/money-input";
 import { changeStatusAction, createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
@@ -43,7 +45,7 @@ export function ProjectForm({ submissionKey, defaultType = "" }: { submissionKey
       <Field id="project-target" label="Target closing" hint="Optional.">
         <Input id="project-target" name="targetDate" type="date" />
       </Field>
-      <Field id="project-progress" label="Progress" hint="Each step stands for a win probability.">
+      <Field id="project-progress" label="Progress" hint="Each step stands for a win probability, used for the weighted pipeline.">
         <NativeSelect id="project-progress" name="progress" defaultValue="QUALIFY">
           {PROJECT_PROGRESSES.map((option) => (
             <option key={option} value={option}>
@@ -61,12 +63,10 @@ export function ProjectForm({ submissionKey, defaultType = "" }: { submissionKey
           ))}
         </NativeSelect>
       </Field>
-      <Field id="project-value" label="Estimated PO value" hint="Optional. Plain number, for example 1200000000.">
-        <Input id="project-value" name="estimatedValue" inputMode="decimal" maxLength={40} />
+      <Field id="project-value" label="Estimated PO value" hint="Optional. Dots are added as you type, for example 1.200.000.000.">
+        <MoneyInput id="project-value" name="estimatedValue" />
       </Field>
-      <Field id="project-margin" label="Target margin (%)" hint="Optional. Percentage of the sale, for example 12.5.">
-        <Input id="project-margin" name="targetMargin" inputMode="decimal" maxLength={6} />
-      </Field>
+      <MarginInput id="project-margin" />
       <div className="sm:col-span-2">
         <Field id="project-description" label="Description" hint="Optional. Context for the team, up to 2000 characters.">
           <Textarea id="project-description" name="description" maxLength={2000} />
@@ -219,18 +219,48 @@ export function StatusForm({ requestId, from, options }: { requestId: string; fr
 }
 
 /** SOA picks RFQ or PO explicitly; a completed BOQ never implies a purchase (brief §6.1). */
-export function HandoverForm({ sourceId }: { sourceId: string }) {
+/** What follows a completed BOQ or RFQ: continue to the next step (RFQ after a BOQ, PO after an RFQ), or record that it does not continue. */
+export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: string; nextType: RequestType; hasDecision: boolean }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(handOverAction, null);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="sourceId" value={sourceId} />
+      <input type="hidden" name="targetType" value={nextType} />
+      <Field id={`next-note-${sourceId}`} label="Note (optional)" hint={`Kept with the decision. Say why when you do not continue to ${nextType}.`}>
+        <Input id={`next-note-${sourceId}`} name="note" maxLength={500} />
+      </Field>
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" name="targetType" value="RFQ" disabled={pending}>
-          Hand over as RFQ (quotation / pricing)
+        <Button type="submit" name="decision" value="continue" disabled={pending}>
+          {hasDecision ? `Continue to ${nextType} anyway` : `Continue to ${nextType}`}
         </Button>
-        <Button type="submit" name="targetType" value="PO" variant="outline" disabled={pending}>
-          Hand over as PO (purchase)
+        {hasDecision ? null : (
+          <Button type="submit" name="decision" value="stop" variant="outline" disabled={pending}>
+            Do not continue
+          </Button>
+        )}
+      </div>
+      <FormStatus state={state} />
+    </form>
+  );
+}
+
+/** The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. */
+export function WaitingResponseForm({ requestId }: { requestId: string }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(changeStatusAction, null);
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="requestId" value={requestId} />
+      <Field id={`answer-${requestId}`} label="Your answer *" hint="The team is told and the request goes back to In progress.">
+        <Textarea id={`answer-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" name="to" value="IN_PROGRESS" disabled={pending}>
+          Send answer and continue
+        </Button>
+        <Button type="submit" name="to" value="CANCELLED" variant="outline" disabled={pending}>
+          Cancel this request
         </Button>
       </div>
       <FormStatus state={state} />

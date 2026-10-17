@@ -5,6 +5,12 @@ import { expectNotFound, signIn, signInAs } from "./helpers";
 
 const COMPANY = "PT E2E Contoh";
 
+/** The email subject: [HITBOQ] Company - Project [Request ID]. The Request ID is in it so that a reply carries it. */
+function subjectPattern(type: "BOQ" | "RFQ" | "PO", project: string): RegExp {
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^\\[HIT${type}\\] ${escape(COMPANY)} - ${escape(project)} \\[${type}-[A-Z0-9]+-\\d+\\]$`);
+}
+
 /** Creates a project as the signed-in Sales user and returns its Project ID. */
 async function createProject(page: Page, name: string): Promise<string> {
   await page.goto("/projects/new");
@@ -14,7 +20,7 @@ async function createProject(page: Page, name: string): Promise<string> {
     await page.getByLabel("Project name").fill(name);
     await page.getByRole("button", { name: "Create project" }).click();
     await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 4000 });
-  }).toPass({ timeout: 25_000 });
+  }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
 
@@ -29,7 +35,7 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
     await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/request\/(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}$/, { timeout: 4000 });
-  }).toPass({ timeout: 25_000 });
+  }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
 
@@ -42,19 +48,23 @@ async function asRole(browser: Browser, role: Parameters<typeof signIn>[1]): Pro
 
 test.describe("projects and requests", () => {
   test("Sales creates a project and a BOQ request and gets the email text to copy", async ({ page }) => {
+    test.setTimeout(90_000); // the first test on a freshly started server also compiles every page it visits
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "CCTV AI");
     const code = await createRequest(page, projectCode, "BOQ", "BOQ for 40 cameras");
 
     expect(code).toMatch(/^BOQ-SA-\d{2}\d{4,}$/); // initials of sales@example.invalid
     await expect(page.getByRole("heading", { level: 1, name: code })).toBeVisible();
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(`[HITBOQ] ${COMPANY} - CCTV AI`);
+    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("BOQ", "CCTV AI"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("soa-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("soa-cc@example.invalid");
     const body = await page.getByLabel("Text", { exact: true }).inputValue();
     expect(body).toContain(`Request ID   : ${code}`);
     expect(body).toContain(`Project ID   : ${projectCode}`);
     expect(body).toContain("Dear SOA team,");
+    expect(body).toMatch(/Reply by     : \d+ \w+ \d{4} \(SLA [\d-]+ working days\)/);
+    expect(body).toContain(`keep the Request ID ${code} in the subject`);
+    await expect(page.getByText(/^SLA \([\d-]+ working days\)$/)).toBeVisible();
     expect(body).toContain(`/request/${code}`);
     await expect(page.getByText("does not send email")).toBeVisible();
   });
@@ -69,6 +79,8 @@ test.describe("projects and requests", () => {
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill("One form demo");
     await page.getByLabel("Estimated PO value").fill("2.000.000.000");
+    await expect(page.getByLabel("Target margin (amount)")).toBeVisible(); // an amount is the default
+    await page.getByRole("radio", { name: "Percent" }).check();
     await page.getByLabel("Target margin (%)").fill("12,5");
     await page.getByText(/^BOQ – /).click();
     await page.getByLabel("Request summary").fill("BOQ from the combined form");
@@ -76,11 +88,11 @@ test.describe("projects and requests", () => {
 
     await expect(page).toHaveURL(/\/request\/BOQ-SA-\d{2}\d{4,}$/);
     const subject = await page.getByLabel("Subject", { exact: true }).inputValue();
-    expect(subject).toBe(`[HITBOQ] ${COMPANY} - One form demo`);
+    expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
     const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (PRJ-\d+)/)![1]!;
 
     await page.goto(`/projects/${projectCode}`);
-    await expect(page.getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
+    await expect(page.getByRole("table").getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
     await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
   });
 
@@ -93,13 +105,13 @@ test.describe("projects and requests", () => {
     await commercial.getByLabel("Progress").selectOption({ label: "60% - Negotiate" });
     await commercial.getByLabel("Status").selectOption({ label: "On Hold" });
     await commercial.getByLabel("Quote released").fill("2026-10-01");
-    await commercial.getByLabel("Target margin (%)").fill("15");
+    await expect(commercial.getByLabel(/Probability/)).toHaveCount(0); // the probability comes from Progress
+    await commercial.getByLabel("Target margin (amount)").fill("150000");
     await page.getByRole("button", { name: "Save commercial details" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
 
     await page.reload();
-    await expect(page.locator("#commercial").getByLabel("Target margin (%)")).toHaveValue("15");
-    await expect(page.locator("#commercial").getByLabel("Probability (%)")).toHaveValue("60"); // follows the Progress step
+    await expect(page.locator("#commercial").getByLabel("Target margin (amount)")).toHaveValue("150.000");
     await expect(page.locator("#commercial").getByLabel("Progress")).toHaveValue("NEGOTIATE");
     await expect(page.getByText("Estimated gross profit", { exact: true }).locator("..")).toContainText("150.000");
     await page.goto("/dashboard/sales");
@@ -129,7 +141,7 @@ test.describe("projects and requests", () => {
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
     await expect(page).toHaveURL(/\/request\/RFQ-SA-\d{2}\d{4,}$/);
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(`[HITRFQ] ${COMPANY} - RFQ routing demo`);
+    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "RFQ routing demo"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     const requestUrl = page.url();
 
@@ -151,7 +163,7 @@ test.describe("projects and requests", () => {
     expect(href).toMatch(/^mailto:soa-group@example\.invalid\?/);
     const url = new URL(href!);
     expect(url.searchParams.get("cc")).toBe("soa-cc@example.invalid");
-    expect(url.searchParams.get("subject")).toBe(`[HITBOQ] ${COMPANY} - MailTo demo`);
+    expect(url.searchParams.get("subject")).toMatch(subjectPattern("BOQ", "MailTo demo"));
     expect(url.searchParams.get("body")).toContain("Dear SOA team,");
     expect(url.searchParams.get("body")).toContain(`Project ID   : ${projectCode}`);
   });
@@ -189,6 +201,7 @@ test.describe("projects and requests", () => {
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
     await commercial.getByLabel("Final PO value").fill("400");
+    await commercial.getByRole("radio", { name: "Percent" }).check();
     await commercial.getByLabel("Target margin (%)").fill("10");
     await commercial.getByLabel("Won date").fill(`${year}-02-10`);
     await page.getByRole("button", { name: "Save commercial details" }).click();
@@ -196,10 +209,11 @@ test.describe("projects and requests", () => {
 
     await page.goto(`/dashboard/sales?view=tracking&year=${year}`);
     await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
-    await page.getByLabel("Q1 revenue target").fill("1.000");
-    await page.getByLabel("Q1 gross profit target").fill("100");
-    await page.getByLabel("Q2 revenue target").fill("2000");
     await expect(async () => {
+      // The boxes reset when the page becomes interactive, so they are filled again on every try.
+      await page.getByLabel("Q1 revenue target").fill("1.000");
+      await page.getByLabel("Q1 gross profit target").fill("100");
+      await page.getByLabel("Q2 revenue target").fill("2000");
       await page.getByRole("button", { name: `Save my ${year} targets` }).click();
       await expect(page.getByRole("status").filter({ hasText: "Saved targets for Q1, Q2." })).toBeVisible({ timeout: 4000 });
     }).toPass({ timeout: 20_000 });
@@ -216,7 +230,7 @@ test.describe("projects and requests", () => {
     await expect(profit.getByRole("row", { name: /Q2/ })).toContainText("Not set");
 
     await page.reload(); // the saved targets come back into the form
-    await expect(page.getByLabel("Q1 revenue target")).toHaveValue("1000");
+    await expect(page.getByLabel("Q1 revenue target")).toHaveValue("1.000");
   });
 
   test("the progress chart names the steps without their percentages", async ({ page }) => {
@@ -242,6 +256,47 @@ test.describe("projects and requests", () => {
       }).toPass();
       await expect(page.getByRole("status")).toContainText("yours");
     }
+  });
+
+  test("only the superadmin sees the team settings, and a template without the Request ID is refused", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    await expectNotFound(page, "/admin/settings", "Email subject");
+
+    const root = await asRole(browser, "SUPERADMIN");
+    await root.goto("/admin/settings");
+    await expect(root.getByRole("heading", { level: 1, name: "Team settings" })).toBeVisible();
+    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Save SOA settings" }) });
+    await expect(form.getByLabel(/^SLA of the SOA team/)).toHaveValue("2-3"); // the default range
+    await expect(async () => {
+      await form.getByLabel("Email subject").fill("A subject without the id");
+      await form.getByRole("button", { name: "Save SOA settings" }).click();
+      await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
+    }).toPass();
+    await expect(root.getByText("Preview with sample data").first()).toBeVisible();
+    await root.context().close();
+  });
+
+  test("only the superadmin can move a project to other PICs, and nothing else changes", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Move me");
+    await expect(page.getByRole("button", { name: "Move project" })).toHaveCount(0);
+
+    const root = await asRole(browser, "SUPERADMIN");
+    await root.goto(`/projects/${projectCode}`);
+    const soa = root.getByLabel("SOA PIC (technical)");
+    await expect(soa).toBeVisible();
+    // A click before the page is interactive reloads it and resets the box, so the choice is made again on every try.
+    await expect(async () => {
+      const options = await soa.locator("option").evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value).filter(Boolean));
+      await soa.selectOption(options[options.length - 1]!);
+      await root.getByRole("button", { name: "Move project" }).click();
+      await expect(root.getByRole("status").filter({ hasText: /was moved/ })).toBeVisible({ timeout: 1500 });
+    }).toPass();
+
+    await root.reload();
+    await expect(root.locator("#overview").getByText("Technical PIC (SOA)", { exact: true }).locator("..")).not.toContainText("–");
+    await expect(root.getByRole("heading", { name: "Move me – ", exact: false }).or(root.getByText("Move me").first())).toBeVisible();
+    await root.context().close();
   });
 
   test("only the superadmin can delete a project, and it then disappears", async ({ page, browser }) => {
@@ -400,12 +455,12 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "Access control");
 
     const rfq = await createRequest(page, projectCode, "RFQ", "Quote 10 readers");
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(`[HITRFQ] ${COMPANY} - Access control`);
+    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Access control"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("");
 
     const po = await createRequest(page, projectCode, "PO", "Buy 10 readers");
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(`[HITPO] ${COMPANY} - Access control`);
+    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("PO", "Access control"));
     expect(rfq).toMatch(/^RFQ-SA-/);
     expect(po).toMatch(/^PO-SA-/);
   });
@@ -418,7 +473,7 @@ test.describe("projects and requests", () => {
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/request/${boq}`);
-    await expect(soa.getByRole("button", { name: "Hand over as RFQ (quotation / pricing)" })).toHaveCount(0); // not completed yet
+    await expect(soa.getByRole("button", { name: "Continue to RFQ" })).toHaveCount(0); // not completed yet
     await soa.getByLabel("Change status to").selectOption("In progress");
     await soa.getByRole("button", { name: "Update status" }).click();
     await expect(soa.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible();
@@ -428,21 +483,20 @@ test.describe("projects and requests", () => {
     await expect(soa.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible();
 
     await soa.reload();
-    await soa.getByRole("button", { name: "Hand over as RFQ (quotation / pricing)" }).click();
+    await soa.getByRole("button", { name: "Continue to RFQ" }).click();
     await expect(soa).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/);
     const rfq = soa.url().split("/").pop()!;
 
-    await expect(soa.getByLabel("Subject", { exact: true })).toHaveValue(`[HITRFQ] ${COMPANY} - Handover demo`);
+    await expect(soa.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
     await expect(soa.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     expect(await soa.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
     await expect(soa.getByText("Reply inside the original [HITBOQ] email thread")).toBeVisible();
     await expect(soa.getByRole("link", { name: boq })).toBeVisible();
 
-    // The BOQ now lists its RFQ, and the handover buttons can no longer create a second one.
+    // The BOQ now lists its RFQ, and the next-step buttons are gone: it has been continued.
     await soa.goto(`/request/${boq}`);
     await expect(soa.getByRole("link", { name: rfq })).toBeVisible();
-    await soa.getByRole("button", { name: "Hand over as RFQ (quotation / pricing)" }).click();
-    await expect(soa).toHaveURL(new RegExp(`/request/${rfq}$`));
+    await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0);
 
     // Purchasing sees it and works on it; Finance sees it read-only.
     const purchasing = await asRole(browser, "PURCHASING");
@@ -460,6 +514,64 @@ test.describe("projects and requests", () => {
     await soa.context().close();
     await purchasing.context().close();
     await finance.context().close();
+  });
+
+  test("Sales answer a request that waits for them and decide the next step of BOQ, RFQ and PO", async ({ page, browser }) => {
+    test.setTimeout(180_000); // two signed-in users and several cold page compiles
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Flow demo");
+    const boq = await createRequest(page, projectCode, "BOQ", "BOQ for the flow");
+
+    const soa = await asRole(browser, "SOA");
+    const setStatus = async (to: string, reason?: string) => {
+      await soa.goto(`/request/${boq}`);
+      await expect(async () => {
+        await soa.getByLabel("Change status to").selectOption(to);
+        if (reason) await soa.getByLabel(/^Reason/).fill(reason);
+        await soa.getByRole("button", { name: "Update status" }).click();
+        await expect(soa.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible({ timeout: 2500 });
+      }).toPass({ timeout: 40_000 });
+    };
+    await setStatus("In progress");
+    await setStatus("Waiting for Sales", "Which camera brand?");
+
+    // Sales see the question and answer it, which puts the request back In progress.
+    await page.goto(`/request/${boq}`);
+    await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toBeVisible();
+    await expect(page.getByText("They asked: Which camera brand?")).toBeVisible();
+    await expect(async () => {
+      await page.getByLabel("Your answer *").fill("Hikvision, 40 pieces");
+      await page.getByRole("button", { name: "Send answer and continue" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible({ timeout: 2500 });
+    }).toPass({ timeout: 40_000 });
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toHaveCount(0);
+
+    await setStatus("Completed");
+
+    // The BOQ is done: Sales decide whether it continues to an RFQ. They say no, and the project's flow shows it.
+    await page.goto(`/request/${boq}`);
+    await expect(page.getByRole("heading", { name: "What happens next?" })).toBeVisible();
+    await expect(async () => {
+      await page.getByLabel("Note (optional)").fill("Customer postponed");
+      await page.getByRole("button", { name: "Do not continue" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "does not continue" })).toBeVisible({ timeout: 2500 });
+    }).toPass({ timeout: 40_000 });
+    await page.goto(`/projects/${projectCode}`);
+    await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("Not continuing");
+    await page.goto("/dashboard/sales");
+    await expect(page.getByRole("heading", { name: "Decide the next step" })).toHaveCount(0); // decided, so nothing is waiting
+
+    // They change their mind: continue to the RFQ anyway.
+    await page.goto(`/request/${boq}`);
+    await expect(page.getByText("Not continuing – decided by")).toBeVisible();
+    await expect(async () => {
+      await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
+      await expect(page).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/, { timeout: 4000 });
+    }).toPass({ timeout: 40_000 });
+    await page.goto(`/projects/${projectCode}`);
+    await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQDone");
+    await soa.context().close();
   });
 
   test("a status change that needs a reason cannot be saved without one", async ({ page, browser }) => {

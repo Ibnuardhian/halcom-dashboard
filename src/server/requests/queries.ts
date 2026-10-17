@@ -3,9 +3,11 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { isOpen, REQUEST_STATUSES, type RequestStatus } from "@/domain/requests/status";
 import { weightedValue } from "@/domain/projects/pipeline";
-import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
+import { PROGRESS_PERCENT, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
 import type { SoaPhase } from "@/domain/requests/phase";
-import { REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
+import { slaOf, type Sla } from "@/domain/requests/sla";
+import { OWNING_ROLE, REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
+import { getTeamSettings } from "@/server/settings/team-settings";
 
 type Viewer = { id: string; role: Role };
 
@@ -29,7 +31,8 @@ export type ProjectRow = {
   salesOwnerName: string;
   technicalPicName: string | null;
   estimatedValue: number | null;
-  probability: number | null;
+  /** The win probability of the project's Progress step. */
+  probability: number;
   weightedValue: number | null;
   finalValue: number | null;
   targetDate: Date | null;
@@ -48,7 +51,7 @@ export type ProjectShow = (typeof PROJECT_SHOWS)[number];
 export const PROJECT_SHOW_LABELS: Record<ProjectShow, string> = {
   open: "Open projects",
   pipeline: "Open pipeline (open projects with an estimated value)",
-  weighted: "Weighted pipeline (open projects with a value and a win probability)",
+  weighted: "Weighted pipeline (open projects with an estimated value)",
   margin: "Estimated gross profit (open projects with a value and a target margin)",
   won: "Won projects",
 };
@@ -74,7 +77,7 @@ function showWhere(show: ProjectShow | undefined) {
         progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] },
         trackStatus: { not: "DONE" as TrackStatus },
         estimatedValue: { not: null },
-        targetMargin: { not: null },
+        AND: [{ OR: [{ targetMargin: { not: null } }, { targetMarginValue: { not: null } }] }],
       };
     case "won":
       return { progress: "CLOSED_WON" as ProjectProgress };
@@ -138,8 +141,8 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       salesOwnerName: project.salesOwner.name,
       technicalPicName: project.technicalPic?.name ?? null,
       estimatedValue,
-      probability: project.probability,
-      weightedValue: weightedValue(estimatedValue, project.probability, project.progress),
+      probability: PROGRESS_PERCENT[project.progress],
+      weightedValue: weightedValue(estimatedValue, project.progress),
       finalValue: numberOrNull(project.finalValue),
       targetDate: project.targetDate,
       nextAction: project.nextAction,
@@ -152,6 +155,18 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
 }
 
 /** Principals that at least one project uses, for the filter. */
+/** The accounts a superadmin can move a project to, by role. */
+export async function listPicOptions(db: PrismaClient, viewer: Viewer) {
+  assertPermitted(can(viewer.role, "projects.reassign"));
+  const users = await db.user.findMany({
+    where: { isActive: true, role: { in: ["SALES", "SOA", "PURCHASING"] } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, role: true },
+  });
+  const of = (role: Role) => users.filter((user) => user.role === role).map(({ id, name }) => ({ id, name }));
+  return { sales: of("SALES"), soa: of("SOA"), purchasing: of("PURCHASING") };
+}
+
 export async function listPrincipalOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.principal.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
@@ -183,6 +198,10 @@ export type RequestRow = {
   assigneeName: string | null;
   requiredBy: Date | null;
   createdAt: Date;
+  /** When the owning team should have answered by, and where the request stands against it. */
+  sla: Sla;
+  /** Sales decided not to continue to the next step after this request. */
+  flowStopped: boolean;
 };
 
 export type RequestFilter = {
@@ -193,6 +212,8 @@ export type RequestFilter = {
   openOnly?: boolean;
   projectId?: string;
   requesterId?: string;
+  /** Requests on the projects a person owns (Sales PIC), whoever raised them: a moved project brings its requests along. */
+  projectOwnerId?: string;
   limit?: number;
 };
 
@@ -200,7 +221,7 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
   assertPermitted(can(viewer.role, "requests.view"));
   const requests = await db.request.findMany({
     where: {
-      project: { deletedAt: null },
+      project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
       type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
       status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
       projectId: filter.projectId,
@@ -212,8 +233,11 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
       project: { select: { code: true, endUserCompany: true, name: true } },
       requester: { select: { name: true } },
       assignee: { select: { name: true } },
+      statusHistory: { select: { toStatus: true, changedAt: true } },
     },
   });
+  const settings = await getTeamSettings(db);
+  const now = new Date();
   return requests.map((request) => ({
     id: request.id,
     code: request.code,
@@ -228,6 +252,15 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
     assigneeName: request.assignee?.name ?? null,
     requiredBy: request.requiredBy,
     createdAt: request.createdAt,
+    flowStopped: request.flowStoppedAt !== null,
+    sla: slaOf({
+      createdAt: request.createdAt,
+      status: request.status,
+      completedAt: request.completedAt,
+      history: request.statusHistory,
+      range: settings[OWNING_ROLE[request.type] as "SOA" | "PURCHASING"].sla,
+      now,
+    }),
   }));
 }
 
@@ -238,11 +271,35 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
     include: {
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
+      purchasingPic: { select: { name: true } },
       customer: { select: { name: true } },
       principal: { select: { name: true } },
       solutionCategory: { select: { name: true } },
     },
   });
+}
+
+export type DecisionRow = { code: string; type: RequestType; title: string; projectCode: string; endUserCompany: string; projectName: string; completedAt: Date | null };
+
+/**
+ * Completed BOQs and RFQs whose next step nobody has decided yet: not continued, not stopped. A salesperson sees the ones on
+ * their projects; `ownerId` omitted lists everyone's.
+ */
+export async function listPendingDecisions(db: PrismaClient, viewer: Viewer, ownerId?: string): Promise<DecisionRow[]> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const rows = await db.request.findMany({
+    where: {
+      type: { in: ["BOQ", "RFQ"] },
+      status: "COMPLETED",
+      flowStoppedAt: null,
+      handovers: { none: {} },
+      project: { deletedAt: null, ...(ownerId ? { salesOwnerId: ownerId } : {}) },
+    },
+    orderBy: { completedAt: "asc" },
+    take: LIST_LIMIT,
+    include: { project: { select: { code: true, endUserCompany: true, name: true } } },
+  });
+  return rows.map((row) => ({ code: row.code, type: row.type, title: row.title, projectCode: row.project.code, endUserCompany: row.project.endUserCompany, projectName: row.project.name, completedAt: row.completedAt }));
 }
 
 export async function getRequestByCode(db: PrismaClient, viewer: Viewer, code: string) {
@@ -255,6 +312,7 @@ export async function getRequestByCode(db: PrismaClient, viewer: Viewer, code: s
       assignee: { select: { name: true } },
       source: { select: { code: true } },
       handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
+      flowStoppedBy: { select: { name: true } },
       statusHistory: { orderBy: { changedAt: "asc" }, include: { changedBy: { select: { name: true } } } },
     },
   });

@@ -6,7 +6,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
-import { targetMarginAmount, weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
@@ -16,6 +17,8 @@ import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
 import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
+import { FlowTracker } from "@/features/requests/flow-tracker";
+import { ReassignPics } from "@/features/projects/reassign-pics";
 import { ChangeLog } from "@/features/projects/change-log";
 import { ProjectFieldsForm } from "@/features/projects/edit-forms";
 import { formatAmount, formatPercent } from "@/features/projects/format";
@@ -26,7 +29,7 @@ import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badg
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
-import { getProjectByCode, listRequests } from "@/server/requests/queries";
+import { getProjectByCode, listPicOptions, listRequests } from "@/server/requests/queries";
 
 export default function ProjectPage({ params }: PageProps<"/projects/[code]">) {
   return (
@@ -71,6 +74,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
   const viewer = await requirePermission("projects.view");
   const project = await getProjectByCode(getDb(), viewer, (await params).code);
   if (!project) notFound();
+  const picOptions = can(viewer.role, "projects.reassign") ? await listPicOptions(getDb(), viewer) : null;
   const [requests, changes, actions] = await Promise.all([
     listRequests(getDb(), viewer, { projectId: project.id }),
     listProjectChanges(getDb(), viewer, project.id),
@@ -85,14 +89,16 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
   const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || project.salesOwnerId === viewer.id);
   const estimated = project.estimatedValue?.toNumber() ?? null;
   const finalValue = project.finalValue?.toNumber() ?? null;
-  const targetMargin = project.targetMargin?.toNumber() ?? null;
+  const marginPercent = project.targetMargin?.toNumber() ?? null;
+  const marginValue = project.targetMarginValue?.toNumber() ?? null;
+  const targetMargin = targetMarginPercentOf(estimated, finalValue, marginPercent, marginValue);
   const commercialValues = {
     progress: project.progress,
     trackStatus: project.trackStatus,
     quoteReleasedAt: project.quoteReleasedAt ? project.quoteReleasedAt.toISOString().slice(0, 10) : "",
     estimatedValue: estimated === null ? "" : String(estimated),
-    probability: project.probability === null ? "" : String(project.probability),
-    targetMargin: targetMargin === null ? "" : String(targetMargin),
+    targetMargin: marginPercent === null ? "" : String(marginPercent),
+    targetMarginValue: marginValue === null ? "" : String(marginValue),
     targetDate: project.targetDate ? project.targetDate.toISOString().slice(0, 10) : "",
     finalValue: finalValue === null ? "" : String(finalValue),
     wonDate: project.wonDate ? project.wonDate.toISOString().slice(0, 10) : "",
@@ -148,13 +154,14 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Principal">{project.principal?.name ?? "–"}</Fact>
           <Fact label="Solution">{project.solutionCategory?.name ?? "–"}</Fact>
           <Fact label="Sales PIC">{project.salesOwner.name}</Fact>
-          <Fact label="Technical PIC">{project.technicalPic?.name ?? "–"}</Fact>
+          <Fact label="Technical PIC (SOA)">{project.technicalPic?.name ?? "–"}</Fact>
+          <Fact label="Purchasing PIC">{project.purchasingPic?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
           <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
-          <Fact label="Probability">{formatPercent(project.probability)}</Fact>
-          <Fact label="Weighted value">{formatAmount(weightedValue(estimated, project.probability, project.progress))}</Fact>
+          <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
+          <Fact label="Weighted value">{formatAmount(weightedValue(estimated, project.progress))}</Fact>
           <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
-          <Fact label="Estimated gross profit">{formatAmount(targetMarginAmount(estimated, finalValue, targetMargin))}</Fact>
+          <Fact label="Estimated gross profit">{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue))}</Fact>
           <Fact label="Final value">{formatAmount(finalValue)}</Fact>
           {project.wonDate ? <Fact label="Won on">{formatDateOnly(project.wonDate)}</Fact> : null}
           {project.competitor ? <Fact label="Competitor">{project.competitor}</Fact> : null}
@@ -180,7 +187,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
         title="Commercial"
         description={
           mayEditCommercial
-            ? "Progress, status, value, probability, target margin, quote release and target closing. Every change is written to the change log below."
+            ? "Progress, status, value, target margin, quote release and target closing. Every change is written to the change log below."
             : "Owned by the Sales PIC of the project. You can read it but not change it."
         }
       >
@@ -195,7 +202,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
               <TrackStatusBadge status={project.trackStatus} />
             </Fact>
             <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
-            <Fact label="Probability">{formatPercent(project.probability)}</Fact>
+            <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
             <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
             <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
             <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
@@ -280,6 +287,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
 
       <Section id="requests" title="Requests" description="BOQ, RFQ and PO requests of this project, newest first.">
         <div className="flex flex-col gap-4">
+          <FlowTracker requests={requests.map((r) => ({ code: r.code, type: r.type, status: r.status, flowStopped: r.flowStopped }))} />
           {mayCreate ? (
             <div className="flex flex-wrap gap-2">
               {REQUEST_TYPES.map((type) => (
@@ -296,6 +304,17 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <RequestTable rows={requests} emptyText="No requests for this project yet." />
         </div>
       </Section>
+
+      {can(viewer.role, "projects.reassign") && picOptions ? (
+        <Section id="owners" title="Owners" description="Superadmin: move the project to other people. Its details, requests and history stay exactly as they are; the move is added to the change log.">
+          <ReassignPics
+            projectId={project.id}
+            projectCode={project.code}
+            current={{ salesOwnerId: project.salesOwnerId, technicalPicId: project.technicalPicId, purchasingPicId: project.purchasingPicId }}
+            options={picOptions}
+          />
+        </Section>
+      ) : null}
 
       {can(viewer.role, "projects.delete") ? (
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4">

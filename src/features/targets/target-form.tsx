@@ -3,8 +3,8 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MoneyInput } from "@/features/projects/money-input";
 import { QUARTERS, QUARTER_MONTHS } from "@/domain/targets/quarters";
 import type { StoredTargets } from "@/server/targets/service";
 import { saveTargetsAction } from "./actions";
@@ -28,18 +28,18 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
               <Label htmlFor={`revenue-${q}`} className="sm:sr-only">
                 Q{q} revenue target
               </Label>
-              <Input id={`revenue-${q}`} name={`revenue-${q}`} inputMode="decimal" maxLength={40} defaultValue={values[q].revenue ?? ""} placeholder="for example 2500000000" />
+              <MoneyInput id={`revenue-${q}`} name={`revenue-${q}`} defaultValue={values[q].revenue === null ? "" : String(values[q].revenue)} placeholder="for example 2.500.000.000" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`grossProfit-${q}`} className="sm:sr-only">
                 Q{q} gross profit target
               </Label>
-              <Input id={`grossProfit-${q}`} name={`grossProfit-${q}`} inputMode="decimal" maxLength={40} defaultValue={values[q].grossProfit ?? ""} placeholder="for example 300000000" />
+              <MoneyInput id={`grossProfit-${q}`} name={`grossProfit-${q}`} defaultValue={values[q].grossProfit === null ? "" : String(values[q].grossProfit)} placeholder="for example 300.000.000" />
             </div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Plain numbers (assumed IDR). Leave a box empty for no target. Every save is written to the audit log.</p>
+      <p className="text-xs text-muted-foreground">Amounts in IDR; dots are added as you type. Leave a box empty for no target. Every save is written to the audit log.</p>
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>
