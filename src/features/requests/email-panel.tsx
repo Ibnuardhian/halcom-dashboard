@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Copy, Mail } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { buildMailto } from "@/domain/requests/mailto";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -76,15 +77,29 @@ export type EmailPanelProps = {
 };
 
 /**
- * The email text for copy and paste (brief §6.4, decision 2026-10-17). The application never sends
- * or opens mail: the user pastes each field into Outlook and sends it from there.
+ * The email text for copy and paste, and a MailTo link that opens it as a draft (brief §6.4, decisions D-017 and D-023).
+ * The application never sends mail: the person reviews the draft in Outlook and sends it from there.
  */
 export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigured, hint }: EmailPanelProps) {
+  const mailto = buildMailto({ to: to ?? [], cc, subject, body });
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Copy each field into a new Outlook message. This application does not send email or open Outlook for you.
+        Open a ready draft in your mail program, or copy each field into a new Outlook message. This application does not send email: you
+        review the draft and send it yourself.
       </p>
+      <div className="flex flex-col items-start gap-2">
+        <a href={mailto.href} className={buttonVariants()} aria-label="Open this email in Outlook (MailTo)">
+          <Mail aria-hidden data-icon="inline-start" />
+          Open in Outlook (MailTo)
+        </a>
+        {!mailto.bodyIncluded ? (
+          <p role="status" className="text-xs text-muted-foreground">
+            The text is too long for a MailTo link, so the draft has the recipients and subject only. Copy the text below into it.
+          </p>
+        ) : null}
+        {!to ? <p className="text-xs text-muted-foreground">The draft has no recipient because none is configured.</p> : null}
+      </div>
       {hint ? <p className="rounded-md border border-accent-foreground/20 bg-accent px-3 py-2 text-sm text-accent-foreground">{hint}</p> : null}
       {recipientsError ? (
         <p role="alert" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">

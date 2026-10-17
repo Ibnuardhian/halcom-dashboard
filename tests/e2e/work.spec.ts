@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { expectNotFound, signIn, signInAs } from "./helpers";
 
@@ -139,6 +140,21 @@ test.describe("projects and requests", () => {
     await soa.context().close();
   });
 
+  test("the email panel has a MailTo button that carries To, Cc, subject and text", async ({ page }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "MailTo demo");
+    await createRequest(page, projectCode, "BOQ", "BOQ for MailTo");
+
+    const href = await page.getByRole("link", { name: /Open this email in Outlook/ }).getAttribute("href");
+
+    expect(href).toMatch(/^mailto:soa-group@example\.invalid\?/);
+    const url = new URL(href!);
+    expect(url.searchParams.get("cc")).toBe("soa-cc@example.invalid");
+    expect(url.searchParams.get("subject")).toBe(`[HITBOQ] ${COMPANY} - MailTo demo`);
+    expect(url.searchParams.get("body")).toContain("Dear SOA team,");
+    expect(url.searchParams.get("body")).toContain(`Project ID   : ${projectCode}`);
+  });
+
   test("a request notifies the owning team, and SOA's phase notifies Sales", async ({ page, browser }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Notify demo");
@@ -160,6 +176,28 @@ test.describe("projects and requests", () => {
     await expect(page.getByRole("link", { name: `${boq} is now in Sizing` })).toBeVisible();
     await page.getByRole("button", { name: "Mark all as read" }).click();
     await expect(page.getByText("You are all caught up.")).toBeVisible();
+  });
+
+  test("the overview exports the projects with only the ticked columns", async ({ page }) => {
+    await signIn(page, "FINANCE");
+    await page.goto("/dashboard");
+    const form = page.locator("form[action='/export/projects']");
+    await expect(form).toBeVisible();
+
+    await expect(async () => {
+      await form.getByRole("button", { name: "Clear" }).click();
+      await expect(form.getByLabel("Project ID")).not.toBeChecked({ timeout: 1000 });
+    }).toPass();
+    await form.getByLabel("Project ID").check();
+    await form.getByLabel("Estimated PO Value").check();
+    const downloading = page.waitForEvent("download");
+    await form.getByRole("button", { name: "Export CSV" }).click();
+    const download = await downloading;
+
+    expect(download.suggestedFilename()).toMatch(/^halcom-projects-\d{4}-\d{2}-\d{2}\.csv$/);
+    const csv = readFileSync((await download.path())!, "utf8");
+    expect(csv.startsWith("﻿Project ID,Estimated PO Value\r\n")).toBe(true);
+    expect(csv.split("\r\n").length).toBeGreaterThan(2); // the header and at least one project
   });
 
   test("the overview shows the pipeline charts to everyone", async ({ page }) => {
