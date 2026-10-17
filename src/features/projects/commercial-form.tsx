@@ -19,6 +19,8 @@ const HINTS: Partial<Record<CommercialField, string>> = {
   targetMargin: "Percentage of the sale, for example 12.5",
   quoteReleasedAt: "Date the quotation was sent to the customer",
   targetDate: "Date the deal should close",
+  finalValue: "The agreed PO value once known; counts toward your revenue target",
+  wonDate: "Set when the project is closed as won; decides which quarter it counts in",
 };
 
 /** Sales' part of the project record. Every change is written to the change log. `values` are the stored values as text. */

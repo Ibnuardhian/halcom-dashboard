@@ -332,3 +332,15 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   The application still sends nothing (D-017). A text that would make the link longer than 1900 characters is left out of the link.
 - **Export:** the Overview offers a CSV export of the projects with the columns the person ticks (UTF-8 with BOM for Excel; text that
   starts with `= + - @` is neutralised). Each export is written to the audit log. An .xlsx export can follow if Excel formatting is needed.
+
+## D-024 Navbar, collapsible sidebar, tracking view and export modal
+
+- **Date:** 2026-10-18 · **Status:** Implemented (not yet committed)
+- **Navbar:** a bar across the top at every width holds the sidebar button, the theme switcher (superadmin), notifications and a profile menu
+  (name, role, Account, Sign out). The sidebar now holds only the logo and the modules. On a desktop the button hides and shows the sidebar
+  (not remembered between visits); below `md` it opens the drawer as before.
+- **Tracking** (Sales Pipeline, third view next to Table and Charts): every project Sales created with its requests, who has each request now
+  ("Waiting for SOA to pick it up", "Dewi (Purchasing) is working on it", "Waiting for you"), when it last changed, a search and a filter
+  (no request yet, open, waiting for me, all done). No timing rule is applied; SLA is still open (T-16).
+- **Charts:** Pipeline by progress names the steps without their percentages; the percentage only feeds the weighted pipeline.
+- **Export:** the column picker is a modal that opens from an Export data button on the Overview.

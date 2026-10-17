@@ -93,6 +93,8 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
     probability: project.probability === null ? "" : String(project.probability),
     targetMargin: targetMargin === null ? "" : String(targetMargin),
     targetDate: project.targetDate ? project.targetDate.toISOString().slice(0, 10) : "",
+    finalValue: finalValue === null ? "" : String(finalValue),
+    wonDate: project.wonDate ? project.wonDate.toISOString().slice(0, 10) : "",
   };
 
   const values: Record<ProjectEditableField, string | null> = {

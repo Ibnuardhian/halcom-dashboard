@@ -26,7 +26,15 @@ async function RoleDashboard({ params, searchParams }: Pick<PageProps<"/dashboar
   if (key === "admin" || key === "superadmin") {
     return <AdminDashboard viewer={viewer} scope={key} />;
   }
-  if (key === "sales") return <SalesPipeline viewer={viewer} view={(await searchParams).view === "charts" ? "charts" : "table"} />;
+  if (key === "sales") {
+    const query = await searchParams;
+    const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : "");
+    const view = one(query.view) === "charts" ? "charts" : one(query.view) === "tracking" ? "tracking" : "table";
+    const thisYear = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric" }).format(new Date()));
+    const wanted = Number(one(query.year));
+    const year = Number.isInteger(wanted) && wanted >= 2001 && wanted <= 2099 ? wanted : thisYear;
+    return <SalesPipeline viewer={viewer} view={view} year={year} />;
+  }
   return (
     <PlannedDashboard definition={ROLE_DASHBOARDS[key]}>
       <RoleQueue viewer={viewer} dashboard={key} />

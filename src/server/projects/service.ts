@@ -232,11 +232,17 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
       targetMargin: project.targetMargin?.toNumber() ?? null,
       quoteReleasedAt: dateText(project.quoteReleasedAt),
       targetDate: dateText(project.targetDate),
+      finalValue: project.finalValue?.toNumber() ?? null,
+      wonDate: dateText(project.wonDate),
     };
     // A new Progress carries its probability (30% - Propose means 30), unless the probability was also changed by hand.
     if (isProgress(submitted.progress) && submitted.progress !== current.progress) {
       const touched = "probability" in submitted && commercialLogText(submitted.probability ?? null) !== commercialLogText(current.probability);
       if (!touched) submitted.probability = PROGRESS_PERCENT[submitted.progress];
+    }
+    // Closing a project as won with no won date puts it in the quarter it was closed in (today), so it counts toward the target.
+    if (submitted.progress === "CLOSED_WON" && current.progress !== "CLOSED_WON" && current.wonDate === null && (submitted.wonDate ?? null) === null) {
+      submitted.wonDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
     }
     const changes = diffCommercial(current, submitted);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies CommercialResult;
@@ -246,7 +252,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
       data: Object.fromEntries(
         changes.map((change) => {
           const value = submitted[change.field] ?? null; // already a number, a date string or null
-          const isDate = change.field === "targetDate" || change.field === "quoteReleasedAt";
+          const isDate = change.field === "targetDate" || change.field === "quoteReleasedAt" || change.field === "wonDate";
           return [change.field, isDate && typeof value === "string" ? new Date(`${value}T00:00:00Z`) : value];
         }),
       ),

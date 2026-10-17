@@ -79,7 +79,7 @@ A page that needs a field-level rule (SOA edits) goes through a service that whi
   `docker compose restart app`. Same after `npm run build` in the `app` container (404 for new routes).
 - **`app-test` has file polling turned off** (`NEXT_DEV_POLL_INTERVAL_MS: ""`). With polling, Next dev restart-looped under
   Docker Desktop and every page reloaded endlessly, so E2E sign-in failed. After editing source or adding routes, recreate it:
-  `docker compose --profile test up -d --force-recreate app-test`. The dev `app` still polls and works.
+  `docker compose --profile test up -d --force-recreate app-test`. The dev `app` had polling too until 2026-10-18, when it started reloading the user's open page every second ("Compiled in 1ms" + GET in the log; menus and buttons reset), so it is off there as well: after editing code run `docker compose restart app`.
 - **Run nothing else in Docker during an E2E run** (not even `docker compose run app npm audit`): every `docker compose run app`
   executes `prisma generate`, which rewrites `src/generated` on the shared bind mount and made `app-test` reload pages, so
   25 sign-ins timed out. Also do not edit source while it runs: `app-test` compiles pages lazily. A full E2E run takes about 4 minutes

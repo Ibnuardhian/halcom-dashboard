@@ -13,6 +13,8 @@ export const COMMERCIAL_FIELDS = {
   targetMargin: { label: "Target margin (%)", kind: "percent" },
   quoteReleasedAt: { label: "Quote released", kind: "date" },
   targetDate: { label: "Target closing", kind: "date" },
+  finalValue: { label: "Final PO value", kind: "amount" },
+  wonDate: { label: "Won date", kind: "date" },
 } as const;
 
 export type CommercialField = keyof typeof COMMERCIAL_FIELDS;
@@ -28,6 +30,15 @@ export type CommercialValue = number | string | null;
 
 export type ParsedCommercial = { ok: true; value: CommercialValue } | { ok: false; message: string };
 
+/** A money amount typed by a person: plain digits or Indonesian thousands separators ("1.200.000.000"); blank means "no value". */
+export function parseAmount(label: string, raw: string | null | undefined): { ok: true; value: number | null } | { ok: false; message: string } {
+  const text = (raw ?? "").trim().replace(/\s+/g, "");
+  if (text === "") return { ok: true, value: null };
+  const digits = /^\d{1,3}(\.\d{3})+$/.test(text) ? text.replaceAll(".", "") : text;
+  if (!/^\d{1,16}(\.\d{1,2})?$/.test(digits)) return { ok: false, message: `${label} must be a number of zero or more.` };
+  return { ok: true, value: Number(digits) };
+}
+
 /** Turns what a form submitted (text) into the stored value of one field. Blank means "no value". */
 export function parseCommercialValue(field: CommercialField, raw: string | null | undefined): ParsedCommercial {
   const text = (raw ?? "").trim().replace(/\s+/g, "");
@@ -38,12 +49,8 @@ export function parseCommercialValue(field: CommercialField, raw: string | null 
       return isProgress(text) ? { ok: true, value: text } : { ok: false, message: `Choose a ${label.toLowerCase()} from the list.` };
     case "track-status":
       return isTrackStatus(text) ? { ok: true, value: text } : { ok: false, message: `Choose a ${label.toLowerCase()} from the list.` };
-    case "amount": {
-      // Indonesian thousands separators ("1.200.000.000") are accepted next to plain digits.
-      const digits = /^\d{1,3}(\.\d{3})+$/.test(text) ? text.replaceAll(".", "") : text;
-      if (!/^\d{1,16}(\.\d{1,2})?$/.test(digits)) return { ok: false, message: `${label} must be a number of zero or more.` };
-      return { ok: true, value: Number(digits) };
-    }
+    case "amount":
+      return parseAmount(label, text);
     case "percent-int": {
       if (!/^\d{1,3}$/.test(text) || Number(text) > 100) return { ok: false, message: `${label} must be a whole number from 0 to 100.` };
       return { ok: true, value: Number(text) };

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { diffCommercial, parseCommercialValue } from "@/domain/projects/commercial";
+import { diffCommercial, parseAmount, parseCommercialValue } from "@/domain/projects/commercial";
 import { fieldLabel } from "@/domain/projects/fields";
 import { targetMarginAmount } from "@/domain/projects/pipeline";
-import { PROGRESS_LABELS, PROGRESS_PERCENT, progressFromStage, trackStatusFromStatus } from "@/domain/projects/progress";
+import { PROGRESS_LABELS, PROGRESS_NAMES, PROGRESS_PERCENT, progressFromStage, trackStatusFromStatus } from "@/domain/projects/progress";
 import { PROJECT_STAGES } from "@/domain/projects/pipeline";
 import { canSeeEmail } from "@/domain/requests/access";
 import { navLinksFor } from "@/features/navigation/links";
@@ -65,8 +65,26 @@ describe("Progress and Status", () => {
   });
 });
 
+describe("progress names for charts", () => {
+  it("carry no percentage; the percentage only feeds the weighted pipeline", () => {
+    for (const name of Object.values(PROGRESS_NAMES)) expect(name).not.toMatch(/\d/);
+    expect(PROGRESS_NAMES.NEGOTIATE_FU).toBe("Negotiate (FU)");
+  });
+});
+
+describe("parseAmount", () => {
+  it("reads plain and Indonesian-formatted amounts and rejects everything else", () => {
+    expect(parseAmount("Revenue", "2.500.000.000")).toEqual({ ok: true, value: 2_500_000_000 });
+    expect(parseAmount("Revenue", " 1500 ")).toEqual({ ok: true, value: 1500 });
+    expect(parseAmount("Revenue", "")).toEqual({ ok: true, value: null });
+    expect(parseAmount("Revenue", undefined)).toEqual({ ok: true, value: null });
+    expect(parseAmount("Revenue", "-1")).toMatchObject({ ok: false });
+    expect(parseAmount("Revenue", "1e9")).toMatchObject({ ok: false });
+  });
+});
+
 describe("diffCommercial", () => {
-  const current = { progress: "PROPOSE", trackStatus: "ON_TRACK", estimatedValue: 100, probability: 40, targetMargin: null, quoteReleasedAt: null, targetDate: "2026-12-10" };
+  const current = { progress: "PROPOSE", trackStatus: "ON_TRACK", estimatedValue: 100, probability: 40, targetMargin: null, quoteReleasedAt: null, targetDate: "2026-12-10", finalValue: null, wonDate: null };
 
   it("lists only real changes, including clearing a value", () => {
     expect(diffCommercial(current, { estimatedValue: 100, probability: 50, targetMargin: 12.5, targetDate: null })).toEqual([

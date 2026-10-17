@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PageFallback } from "@/components/app-shell/page-fallback";
-import { ExportCard } from "@/features/dashboards/export-card";
+import { ExportDialog } from "@/features/dashboards/export-dialog";
 import { PipelineCharts, PipelineTiles } from "@/features/dashboards/pipeline-charts";
 import { PlannedDashboard } from "@/features/dashboards/planned-dashboard";
 import { SHARED_DASHBOARD } from "@/features/dashboards/definitions";
@@ -24,8 +24,10 @@ async function SharedDashboard() {
   return (
     <PlannedDashboard definition={SHARED_DASHBOARD}>
       <PipelineTiles analytics={analytics} />
+      <div className="mb-4 flex justify-end">
+        <ExportDialog />
+      </div>
       <PipelineCharts analytics={analytics} />
-      <ExportCard />
       <WorkOverview stats={stats} />
     </PlannedDashboard>
   );

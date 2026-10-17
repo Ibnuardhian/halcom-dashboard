@@ -89,8 +89,9 @@ password and the page each account lands on, including the named accounts create
 listed in `.gitignore` and `.dockerignore` because it contains a password, so it is never committed or copied
 into an image. It is written only for the development database, never for the test database.
 
-Always open the app at **http://localhost:3000**. The development server refuses scripts from other
-host names, so a different address can render the page without making it interactive.
+Open the app at **http://localhost:3000** or **http://127.0.0.1:3000**. The development server refuses scripts from
+any other host name, so a different address renders the page without making it interactive (menus and buttons do
+nothing). To test from a phone, add the PC's LAN address to `ALLOWED_DEV_ORIGINS` in `.env` and restart the `app` container.
 
 | Email | Role | Lands on | Can also open |
 |---|---|---|---|
@@ -195,11 +196,10 @@ It refuses to run outside development and test. A different file can be given as
 - **Dependencies** live in the `node_modules` volume, not on the host. On every container start,
   [docker/dev-entrypoint.sh](docker/dev-entrypoint.sh) runs `npm ci` if `package-lock.json`
   changed and regenerates the Prisma client into `src/generated/prisma` (git-ignored).
-- **Hot reload** polls for changes (`NEXT_DEV_POLL_INTERVAL_MS`, default 1000 ms) because Docker
-  Desktop does not forward file-change events from Windows drives into containers. Measured on
-  the reference machine: edits appear within about 2 s, and the idle app container uses about 3 % CPU.
-  For faster I/O, clone the repository inside the WSL 2 filesystem and set
-  `NEXT_DEV_POLL_INTERVAL_MS=` (empty).
+- **Hot reload is off by default.** Docker Desktop does not forward file-change events from Windows drives into
+  containers, and the polling workaround (`NEXT_DEV_POLL_INTERVAL_MS=1000`) made the open page reload itself every
+  second on this setup, so menus and buttons reset. After editing code run `docker compose restart app`. If you clone the
+  repository inside the WSL 2 filesystem, file events work and hot reload needs no polling.
 - **AGENTS.md is protected:** `agentRules: false` in [next.config.ts](next.config.ts) stops
   `next dev` from writing its own block into the project charter.
 - **Editor support:** VS Code on the host cannot see the `node_modules` volume, so imports show
@@ -339,7 +339,8 @@ and off-site storage are still open decisions.
 | `password authentication failed` after editing `.env` | PostgreSQL stores the credentials when the volume is first created; editing `.env` later does not change them. Restore the previous values in `.env`, or change the password inside the database: `docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB'`, then `ALTER USER <user> WITH PASSWORD '<new>';`. |
 | New columns or tables exist but pages fail with `Cannot read properties of undefined (reading 'findMany')` | After a migration the running dev server still holds the old Prisma client. Run `docker compose restart app`. |
 | `pg_dump is not installed in this container` on the Backups page | The image predates the PostgreSQL client. Run `docker compose build app` and `docker compose up -d`. |
-| Edits do not hot-reload | Make sure `NEXT_DEV_POLL_INTERVAL_MS` is set (default 1000) and restart: `docker compose up -d`. |
+| Edits do not show up | Hot reload is off by default: run `docker compose restart app`. |
+| The page reloads by itself, or menus and buttons close at once | The dev server is polling files (`NEXT_DEV_POLL_INTERVAL_MS` set). Leave it empty and run `docker compose up -d --force-recreate app`. Also open the app at `localhost` or `127.0.0.1`, not another host name (see `ALLOWED_DEV_ORIGINS`). |
 | `Cannot find module` after pulling changes | The lockfile changed. Run `docker compose restart app`. |
 | `npm error code ECONNRESET` during a build or install | A transient network failure. Retry the command; behind a proxy, configure npm and Docker proxy settings. |
 | `watch error (...): ... No such file or directory` in app logs | Harmless: the polling watcher reports optional packages that are not installed. |

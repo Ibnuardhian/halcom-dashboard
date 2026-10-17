@@ -11,9 +11,11 @@ import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badg
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
 import { getPipelineAnalytics, listPipelineProjects } from "@/server/projects/analytics";
+import { getOwnTargets, getTargetSummary } from "@/server/targets/service";
 import { getWorkStats, listRequests } from "@/server/requests/queries";
 import { DashboardHeader } from "./dashboard-header";
 import { PipelineCharts, PipelineTiles } from "./pipeline-charts";
+import { TargetTracking } from "./target-tracking";
 import { StatTile } from "./stat-tile";
 
 const NEEDS_MARGIN_SHOWN = 12;
@@ -22,16 +24,18 @@ const NEEDS_MARGIN_SHOWN = 12;
  * The one place a salesperson works from: their pipeline (value, margin, stage), the projects that still need a
  * target margin, and every BOQ, RFQ and PO request they raised, with a button for each kind of new request.
  */
-export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; view: "table" | "charts" }) {
+export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUser; view: "table" | "charts" | "tracking"; year: number }) {
   const db = getDb();
   // Sales see their own pipeline; an admin opening this dashboard sees everyone's.
   const ownerId = viewer.role === "SALES" ? viewer.id : undefined;
-  const [analytics, projects, requests, stats] = await Promise.all([
+  const [analytics, projects, requests, stats, targetSummary] = await Promise.all([
     getPipelineAnalytics(db, viewer, { salesOwnerId: ownerId }),
     listPipelineProjects(db, viewer, ownerId),
     listRequests(db, viewer, { requesterId: ownerId, limit: 10 }),
     getWorkStats(db, viewer),
+    view === "tracking" ? getTargetSummary(db, viewer, { year, salesOwnerId: ownerId }) : Promise.resolve(null),
   ]);
+  const ownTargets = view === "tracking" && ownerId ? await getOwnTargets(db, viewer, year) : null;
   const scope = ownerId ? "mine" : "all";
   const needMargin = projects.filter((p) => p.isOpen && p.estimatedValue !== null && p.targetMargin === null);
   const waiting = requests.filter((r) => r.status === "WAITING_FOR_SALES").length;
@@ -84,19 +88,20 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
       <PipelineTiles analytics={analytics} scope={scope} />
 
       <nav aria-label="View" className="mb-4 inline-flex rounded-lg border p-0.5">
-        {(["table", "charts"] as const).map((option) => (
+        {(["table", "charts", "tracking"] as const).map((option) => (
           <Link
             key={option}
             href={`/dashboard/sales?view=${option}`}
             aria-current={view === option ? "page" : undefined}
             className={`rounded-md px-4 py-1.5 text-sm font-medium ${view === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
           >
-            {option === "table" ? "Table" : "Charts"}
+            {option === "table" ? "Table" : option === "charts" ? "Charts" : "Tracking"}
           </Link>
         ))}
       </nav>
 
       {view === "charts" ? <PipelineCharts analytics={analytics} scope={scope} /> : null}
+      {view === "tracking" && targetSummary ? <TargetTracking summary={targetSummary} own={ownTargets} years={[year - 1, year, year + 1]} basePath="/dashboard/sales" /> : null}
 
       {view === "table" ? (
       <Card className="mb-8">

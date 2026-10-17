@@ -30,6 +30,9 @@ const PROGRESS_NAME: Record<ProjectProgress, string> = {
   CLOSED_LOST: "Closed Lost",
 };
 
+/** The step without its percentage ("Propose"): for charts, where the percentage only matters for the weighted pipeline. */
+export const PROGRESS_NAMES: Record<ProjectProgress, string> = PROGRESS_NAME;
+
 /** "30% - Propose": the wording of the sheet's drop-down. */
 export const PROGRESS_LABELS = Object.fromEntries(PROJECT_PROGRESSES.map((p) => [p, `${PROGRESS_PERCENT[p]}% - ${PROGRESS_NAME[p]}`])) as Record<ProjectProgress, string>;
 

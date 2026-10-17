@@ -2,6 +2,7 @@ import { BarList, type BarItem } from "@/components/charts/bar-list";
 import { ChartCard } from "@/components/charts/chart-card";
 import { ColumnChart } from "@/components/charts/column-chart";
 import { DonutChart, type DonutItem } from "@/components/charts/donut-chart";
+import { PROGRESS_NAMES, type ProjectProgress } from "@/domain/projects/progress";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatCompact } from "@/features/projects/format";
 import type { PipelineAnalytics, Slice } from "@/server/projects/analytics";
@@ -41,7 +42,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
   return (
     <section aria-label="Pipeline charts" className="mb-8 grid gap-4 lg:grid-cols-2">
       <ChartCard title="Pipeline by progress" description="Estimated PO value of the projects at each progress step; the count is under the label.">
-        <ColumnChart items={analytics.byProgress.map((s) => ({ key: s.key, label: s.label, value: s.value, display: formatCompact(s.value), note: `${s.count}` }))} />
+        <ColumnChart items={analytics.byProgress.map((s) => ({ key: s.key, label: PROGRESS_NAMES[s.key as ProjectProgress], value: s.value, display: formatCompact(s.value), note: `${s.count}` }))} />
       </ChartCard>
       {own ? (
         <ChartCard title="Projects by status" description="On track, on hold, done or blocked.">

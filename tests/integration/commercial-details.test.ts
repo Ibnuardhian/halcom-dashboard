@@ -80,7 +80,7 @@ describe("updateCommercialDetails", () => {
     const sales = await actorOf("SALES");
     const project = await makeProject(sales);
 
-    for (const values of [{ stage: "WON" }, { finalValue: "5" }, { status: "LOST" }, { salesOwnerId: sales.id }]) {
+    for (const values of [{ stage: "WON" }, { status: "LOST" }, { salesOwnerId: sales.id }, { code: "PRJ-999" }]) {
       await expect(updateCommercialDetails(db, sales, { projectId: project.id, values })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     }
     for (const bad of ["101", "-1", "abc", "12.345"]) {

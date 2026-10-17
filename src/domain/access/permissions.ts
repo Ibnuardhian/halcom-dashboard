@@ -20,6 +20,7 @@ export type Permission =
   | "projects.create"
   | "projects.edit.technical"
   | "projects.edit.commercial"
+  | "targets.edit"
   | "projects.post-update"
   | "requests.view"
   | "requests.create"
@@ -42,6 +43,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.create",
   "projects.edit.technical",
   "projects.edit.commercial",
+  "targets.edit",
   "projects.post-update",
   "requests.view",
   "requests.create",
@@ -77,7 +79,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "requests.work.purchasing",
     "requests.handover",
   ]),
-  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK]),
+  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK, "targets.edit"]),
   SOA: new Set<Permission>([
     "dashboard.shared.view",
     ownDashboardPermission("SOA"),

@@ -45,6 +45,7 @@ model User {
   projectChanges    ProjectChange[]
   projectActions    ProjectAction[]
   notifications     Notification[]
+  salesTargets      SalesTarget[]
 
   @@map("users")
 }
@@ -405,4 +406,23 @@ model Notification {
 
   @@index([recipientId, readAt, createdAt])
   @@map("notifications")
+}
+
+// A salesperson's own revenue and gross-profit targets for one calendar quarter. A row exists only while at least one of
+// the two is set. What was achieved is never stored: it is computed from the projects (src/domain/targets).
+model SalesTarget {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  salesUserId       String   @map("sales_user_id") @db.Uuid
+  year              Int
+  quarter           Int
+  revenueTarget     Decimal? @map("revenue_target") @db.Decimal(18, 2)
+  grossProfitTarget Decimal? @map("gross_profit_target") @db.Decimal(18, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  salesUser User @relation(fields: [salesUserId], references: [id], onDelete: Restrict)
+
+  @@unique([salesUserId, year, quarter])
+  @@index([year])
+  @@map("sales_targets")
 }

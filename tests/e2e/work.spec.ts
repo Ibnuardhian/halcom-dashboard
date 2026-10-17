@@ -105,7 +105,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByRole("link", { name: "Margin demo" }).first()).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Estimated Gross Profit" })).toBeVisible();
     await expect(page.getByText(projectCode).first()).toBeVisible();
-    await page.getByRole("link", { name: "Charts" }).click(); // the table is the default view
+    await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Charts" }).click(); // the table is the default view
     await expect(page).toHaveURL(/view=charts/);
     await expect(page.getByRole("heading", { level: 3, name: "Pipeline by progress" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 3, name: "Projects by principal" })).toHaveCount(0); // not in the Sales view
@@ -178,16 +178,68 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("You are all caught up.")).toBeVisible();
   });
 
+  test("Sales enter quarterly targets and see how far they have come", async ({ page }) => {
+    // The year is part of the data and the test database lives across runs, so each run uses its own year.
+    const year = 2040 + Math.floor(Math.random() * 50);
+    await signIn(page, "SALES");
+
+    // A project closed as won in Q1 of that year: 400 final value at a 10% margin.
+    await createProject(page, "Target demo");
+    const commercial = page.locator("#commercial");
+    await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
+    await commercial.getByLabel("Final PO value").fill("400");
+    await commercial.getByLabel("Target margin (%)").fill("10");
+    await commercial.getByLabel("Won date").fill(`${year}-02-10`);
+    await page.getByRole("button", { name: "Save commercial details" }).click();
+    await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
+
+    await page.goto(`/dashboard/sales?view=tracking&year=${year}`);
+    await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
+    await page.getByLabel("Q1 revenue target").fill("1.000");
+    await page.getByLabel("Q1 gross profit target").fill("100");
+    await page.getByLabel("Q2 revenue target").fill("2000");
+    await expect(async () => {
+      await page.getByRole("button", { name: `Save my ${year} targets` }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Saved targets for Q1, Q2." })).toBeVisible({ timeout: 4000 });
+    }).toPass({ timeout: 20_000 });
+
+    const card = (name: string) => page.getByRole("heading", { level: 2, name, exact: true }).locator("xpath=ancestor::*[@data-slot='card'][1]");
+    const revenue = card("Revenue");
+    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("1.000");
+    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("400");
+    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("40%");
+    await expect(revenue.getByRole("row", { name: /Q2/ })).toContainText("2.000");
+    await expect(revenue.getByRole("row", { name: new RegExp(`${year} total`) })).toContainText("3.000");
+    const profit = card("Gross profit");
+    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("40"); // 10% of 400
+    await expect(profit.getByRole("row", { name: /Q2/ })).toContainText("Not set");
+
+    await page.reload(); // the saved targets come back into the form
+    await expect(page.getByLabel("Q1 revenue target")).toHaveValue("1000");
+  });
+
+  test("the progress chart names the steps without their percentages", async ({ page }) => {
+    await signIn(page, "SALES");
+    await page.goto("/dashboard/sales?view=charts");
+
+    const chart = page.locator("section[aria-label='Pipeline charts'] > div").first();
+    await expect(chart.getByText("Propose", { exact: true })).toBeVisible();
+    await expect(chart.getByText("Negotiate (FU)", { exact: true })).toBeVisible();
+    await expect(chart.getByText(/\d+% - /)).toHaveCount(0);
+  });
+
   test("the overview exports the projects with only the ticked columns", async ({ page }) => {
     await signIn(page, "FINANCE");
     await page.goto("/dashboard");
     const form = page.locator("form[action='/export/projects']");
-    await expect(form).toBeVisible();
-
+    await expect(form).toBeHidden(); // the column picker is not on the page until it is asked for
     await expect(async () => {
-      await form.getByRole("button", { name: "Clear" }).click();
-      await expect(form.getByLabel("Project ID")).not.toBeChecked({ timeout: 1000 });
+      await page.getByRole("button", { name: "Export data" }).click();
+      await expect(form).toBeVisible({ timeout: 1000 });
     }).toPass();
+
+    await form.getByRole("button", { name: "Clear" }).click();
+    await expect(form.getByLabel("Project ID")).not.toBeChecked();
     await form.getByLabel("Project ID").check();
     await form.getByLabel("Estimated PO Value").check();
     const downloading = page.waitForEvent("download");
@@ -483,7 +535,8 @@ test.describe("account", () => {
     const context = await browser.newContext();
     const user = await context.newPage();
     await signInAs(user, email, first);
-    await user.getByRole("link", { name: /Account/ }).click();
+    await user.getByRole("button", { name: "Profile menu" }).click();
+    await user.getByRole("link", { name: "Account" }).click();
     await expect(user.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
 
     await user.getByLabel("Current password").fill("not-the-current-password");
@@ -524,15 +577,31 @@ test.describe("responsive layout", () => {
       "Projects",
     ]);
     await expect(page).toHaveTitle("Halcom Dashboard");
+
+    // Profile and notifications are in the navbar, not the sidebar.
+    const navbar = page.getByRole("banner");
+    await expect(navbar.getByRole("link", { name: /^Notifications/ })).toBeVisible();
+    await expect(navbar.getByRole("button", { name: "Profile menu" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Profile menu" })).toHaveCount(0);
+
+    // The sidebar can be hidden and shown again.
+    await navbar.getByRole("button", { name: "Hide sidebar" }).click();
+    await expect(nav).toBeHidden();
+    await navbar.getByRole("button", { name: "Show sidebar" }).click();
+    await expect(nav).toBeVisible();
   });
 
   test("on a phone the sidebar is a drawer that opens from the menu button and closes after navigating", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 });
     await signIn(page, "SALES");
 
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
     await expect(page.getByRole("navigation", { name: "Main" })).toBeHidden();
     const opener = page.getByRole("button", { name: "Open menu" });
     await expect(opener).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: /^Notifications/ })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("button", { name: "Profile menu" })).toBeVisible();
 
     await opener.click(); // may need a retry before hydration
     await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
@@ -543,6 +612,8 @@ test.describe("responsive layout", () => {
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Projects" }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByRole("navigation", { name: "Main" })).toBeHidden();
+
+    expect(errors).toEqual([]);
 
     // No sideways scrolling of the page itself.
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
