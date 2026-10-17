@@ -8,13 +8,21 @@ Build the Project Request & Fulfillment Tracker from business discovery through 
 
 The agent is an engineering collaborator. It is not authorized to invent company policy, destroy data, expose sensitive information, approve financial/procurement actions, or deploy risky changes without approval.
 
-## 2. Start Every Session Safely
+## 2. Mandatory Session Initialization and Memory Cycling
 
-1. Read `PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md`, this file, and any relevant `README.md`, architecture notes, decision logs, migrations, schemas, tests, and tool instructions.
-2. Inspect the repository and `git status` before changing anything. Preserve user changes and uncommitted work.
+At the beginning of every new session, you MUST:
+
+1. Read this `AGENTS.md`, `PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md`, `CLAUDE.md` if present, and relevant `README.md`, architecture notes, decision logs, migrations, schemas, tests, and tool instructions.
+2. Inspect the repository and `git status` before changing anything. Review the current branch and recent commits when available. Preserve user changes and uncommitted work.
 3. Inspect runtime, package manager, framework version, database target, test commands, and existing agent/tool integrations. Do not expose `.env` values or secrets.
-4. Summarize relevant findings, current test baseline, unknowns, impacted files/modules, migration risks, and a small plan before broad changes.
-5. Do not reinitialize an existing project or replace its conventions without evidence and a documented reason.
+4. Reconcile the documented progress and next steps with the actual codebase, Git history, and available test evidence. Never assume a task is complete solely because memory says so.
+5. Identify unfinished work, blockers, unresolved business decisions, and the most relevant next action.
+6. Provide a concise session briefing before implementation, including current state, relevant test baseline, unknowns, impacted files/modules, migration risks, and a small plan.
+7. Do not reinitialize an existing project or replace its conventions without evidence and a documented reason.
+
+### Automatic Session Startup
+
+Use the active coding agent's supported session-start lifecycle hook or equivalent automation to trigger this initialization automatically. Instructions in `AGENTS.md` alone do not guarantee that a tool will execute these steps at session startup. If hooks are supported, configure and document them in the appropriate agent-specific settings. If hooks are unavailable or not configured, state that limitation and follow the initialization checklist manually. Session startup must be read-only: do not run migrations, seed data, reset databases, delete files, or modify application data just to initialize context.
 
 ## 3. Discovery Before Implementation
 
@@ -124,7 +132,24 @@ Do not mark a feature complete simply because code compiles or the UI renders. C
 - No unintended reset, data loss, destructive migration, secret exposure, or unrelated change occurred.
 - Documentation and migration notes are current.
 
-## 10. Final Response Format
+## 10. Mandatory Memory Updates and Cycling
+
+Treat project memory as a concise, verified working context that helps the next session resume safely. Do not use it as a substitute for source code, formal requirements, architecture documentation, or test evidence.
+
+After successfully completing a feature, fixing a bug, making a significant architectural decision, or before declaring a task complete, you MUST update `CLAUDE.md` if it exists. If it does not exist, create it when the project uses Claude Code or when the user has requested persistent project memory. Include only verified and useful information:
+
+- **Latest Progress:** features implemented, bugs fixed, and tests actually performed with their outcomes.
+- **Architecture Decisions:** relevant decisions, rationale, dependencies, and implementation patterns.
+- **Outstanding Issues:** known bugs, incomplete work, blockers, and unresolved business questions.
+- **Next Steps:** the most relevant actions for the next session.
+
+Keep the memory concise, factual, and current. Preserve important historical decisions and their rationale; do not silently rewrite history. Avoid copying large sections of requirements or source code into memory. Link to the canonical documentation instead.
+
+Before ending a session, reconcile the memory with the final code diff and actual test results. Never claim a task is complete without attempting the required memory update. If the update fails, explicitly report the failure and do not silently skip it. Never invent test results or describe unverified work as complete.
+
+If another coding agent is in use and does not use `CLAUDE.md`, update its designated persistent context file or project handoff document as appropriate, while keeping this `AGENTS.md` as the shared engineering charter. Do not create multiple competing memory files without a clear reason.
+
+## 11. Final Response Format
 
 At the end of each implementation task, report:
 

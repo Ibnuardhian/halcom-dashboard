@@ -1,0 +1,92 @@
+# Roles, Permissions and Dashboards (RBAC)
+
+Status: **implemented foundation, matrix proposed.** The permission matrix below is an engineering
+proposal built from the brief (§5 roles, §12 access principles) and the request on 2026-10-17 for
+"RBAC per role including superadmin and admin, a dashboard per role, and a shared dashboard".
+The visibility policy itself is still an open business decision (brief §17). Treat every row marked
+*assumption* as unconfirmed.
+
+Single source of truth in code: [permissions.ts](../../src/domain/access/permissions.ts). UI and server
+both call `can()`; the menu is derived from it, and
+[access.test.ts](../../tests/unit/access.test.ts) pins the matrix.
+
+## Roles
+
+| Role | Purpose |
+|---|---|
+| `SUPERADMIN` | Owns the system. Manages every account including admins and other superadmins. |
+| `ADMIN` | Administers operational users and has read-only oversight of the operational dashboards. |
+| `SALES` | Creates requests to SOA and Purchasing (brief §5.1). |
+| `SOA` | Triages and completes BOQs, then hands over to Purchasing (§5.2). |
+| `PURCHASING` | Processes RFQ and PO requests (§5.3). |
+| `FINANCE` | Read-only cross-check (§5.4). |
+| `MANAGEMENT` | Read-only dashboards (§5.6, optional role in the brief). |
+
+## Implemented permissions
+
+| Permission | SUPERADMIN | ADMIN | SALES | SOA | PURCHASING | FINANCE | MANAGEMENT |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| `dashboard.shared.view` (shared overview) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| `dashboard.superadmin.view` | ✔ | – | – | – | – | – | – |
+| `dashboard.admin.view` | ✔ | ✔ | – | – | – | – | – |
+| `dashboard.sales.view` | ✔ | ✔ | ✔ | – | – | – | – |
+| `dashboard.soa.view` | ✔ | ✔ | – | ✔ | – | – | – |
+| `dashboard.purchasing.view` | ✔ | ✔ | – | – | ✔ | – | – |
+| `dashboard.finance.view` | ✔ | ✔ | – | – | – | ✔ | – |
+| `dashboard.management.view` | ✔ | ✔ | – | – | – | – | ✔ |
+| `users.view` | ✔ | ✔ | – | – | – | – | – |
+| `users.manage` (create, change role, deactivate, reset password) | ✔ | ✔ | – | – | – | – | – |
+| `users.manage-privileged` (act on ADMIN and SUPERADMIN accounts) | ✔ | – | – | – | – | – | – |
+| `audit.view` | ✔ | ✔ | – | – | – | – | – |
+
+Rules enforced in [service.ts](../../src/server/users/service.ts), inside one transaction with the audit event:
+
+- An admin can create, edit, deactivate and reset passwords only for operational roles, and can assign
+  only operational roles. Only a superadmin can touch `ADMIN` or `SUPERADMIN` accounts.
+- Nobody can change their own role, status or password through user management, so an active superadmin
+  always remains.
+- The actor is re-read from the database inside the transaction, so a demoted or deactivated user cannot
+  act on a session that still claims the old role.
+- Deactivating a user and resetting a password both end all of that user's sessions.
+- Every change writes an append-only `audit_events` row (database triggers reject UPDATE, DELETE and TRUNCATE).
+
+## Dashboards
+
+| Dashboard | Route | Content today |
+|---|---|---|
+| Overview (shared) | `/dashboard` | Planned widgets, "no data yet" |
+| Superadmin | `/dashboard/superadmin` | **Real data:** accounts by role and status, recent audit events |
+| Admin | `/dashboard/admin` | **Real data:** same widgets |
+| Sales, SOA, Purchasing, Finance, Management | `/dashboard/<role>` | Planned widgets, "no data yet" |
+
+The planned widgets come from brief §5 and §9 ([definitions.ts](../../src/features/dashboards/definitions.ts)).
+They show no numbers, because projects and tickets do not exist yet and the brief forbids fabricated
+analytics (§18). They fill in when the project and ticket modules are built.
+
+## Assumptions to confirm
+
+| ID | Assumption | Alternative |
+|---|---|---|
+| A-1 | One role per user. | Multiple roles per user (brief §11 `user_roles`). |
+| A-2 | Admin may view every operational dashboard (read-only oversight) but not the superadmin dashboard. | Admin sees only its own dashboard. |
+| A-3 | Only a superadmin manages admin accounts. | Admins may manage each other. |
+| A-4 | All roles may open the shared overview. Which figures it may show to Sales or Finance is undecided (brief §17: visibility). | Restrict by role or by project ownership. |
+| A-5 | Sessions last 12 hours from sign-in and are not extended by activity. | Idle timeout, or SSO session lifetime. |
+| A-6 | Passwords need 12 to 128 characters; there is no complexity rule or rotation. | Company password policy, or SSO only. |
+| A-7 | Management is included as an optional read-only role. | Remove it. |
+| A-8 | The UI language is English, matching the brief. | Indonesian, or both. |
+
+## Proposed permissions for the next modules (not implemented)
+
+Added to the matrix only when the feature that checks them exists (AGENTS.md §5).
+
+| Capability | Proposed roles | Brief reference |
+|---|---|---|
+| Create project, submit BOQ / RFQ / PO request | SALES (SUPERADMIN, ADMIN for support) | §5.1, §6 |
+| Triage, update, attach and complete BOQ; hand over to Purchasing | SOA | §5.2, §6.1 |
+| Update RFQ / PO requests, record purchasing references | PURCHASING | §5.3 |
+| Read projects, tickets, BOQ and PO references (read-only) | FINANCE | §5.4, §10 |
+| Read dashboards and drill into tickets | MANAGEMENT | §5.6, §9 |
+| Export `.xlsx` per dataset | Per dataset, undecided | §6.5, §17 |
+| View email delivery log | ADMIN, SUPERADMIN | §6.5 |
+| Configure SLA policies, request types, master data | ADMIN, SUPERADMIN | §5.5 |

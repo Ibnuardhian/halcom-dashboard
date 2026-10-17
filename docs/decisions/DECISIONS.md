@@ -86,13 +86,13 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   - Configuration lives in `prisma7.config.ts`, the file name Prisma 7.10 looks for first
     (`prisma.config.ts` is its legacy fallback). It does not load `.env`; Docker Compose injects
     `DATABASE_URL`.
-  - No domain models yet. They depend on open business decisions and the conceptual model in brief §11.
-- **Consequences:** The first real migration also creates the first entry in
-  `prisma/migrations`. Until then `migrate status` exits with code 1, which is expected.
+  - Project and ticket models are not defined yet. They depend on open business decisions and the
+    conceptual model in brief §11. The access models arrived in D-012.
+- **Consequences:** `migrate status` exited with code 1 until the first migration existed (D-012).
 
-## D-006 Authentication not installed yet
+## D-006 Authentication library not installed
 
-- **Date:** 2026-10-17 · **Status:** Deferred
+- **Date:** 2026-10-17 · **Status:** Superseded by D-012 for the interim solution
 - **Context:** The brief allows "Auth.js or another approved internal authentication solution" and
   Phase 0 requires confirming authentication needs. On 2026-10-17, Auth.js v5 (`next-auth@5`) was
   still a beta (`5.0.0-beta.32`).
@@ -105,7 +105,11 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
 - **Decision:**
   - Unit tests: Vitest, no I/O.
   - Integration tests: Vitest against the `db-test` service, whose data lives in tmpfs. The
-    global setup refuses to run unless `APP_ENV=test`, then applies migrations.
+    global setup refuses to run unless `APP_ENV=test`, creates a fresh empty database named
+    `halcom_it_<random>` for the run (nothing is dropped; the tmpfs is discarded when the service
+    stops) and applies all migrations to it. Runs therefore cannot interfere with each other or with
+    the data `app-test` seeds into `halcom_test` for E2E.
+  - `app-test` applies migrations and seeds synthetic users each time it starts.
   - E2E tests: Playwright in the official image, against `app-test` (a dev server wired to
     `db-test`). The `e2e` container shares the `app-test` network namespace, so the browser loads
     `localhost` and Next.js's cross-origin protection for dev resources stays on.
@@ -150,3 +154,58 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   - **ESLint 9 end of life:** blocked by eslint-config-next (D-004). It is a development tool only.
   - **Development PostgreSQL published on `127.0.0.1:55432`:** loopback only. Port 55432 avoids
     clashing with locally installed PostgreSQL servers.
+
+## D-012 Interim authentication: database sessions
+
+- **Date:** 2026-10-17 · **Status:** Accepted as interim; replace if OPEN_QUESTIONS T-1 chooses SSO
+- **Context:** RBAC and per-role dashboards need a signed-in user, but the approved authentication
+  approach (T-1) is undecided. Auth.js v5 was still a beta; Better Auth and Auth.js v4 were not evaluated.
+- **Decision:** Email and password sign-in with server-side sessions.
+  - Passwords: scrypt (N=2^16, r=8, p=1) via `node:crypto`, salted, cost stored in the hash, NFKC-normalised.
+    Unknown emails spend the same time as wrong passwords, and every failure returns one generic message.
+  - Sessions: a 32-byte random token in an `httpOnly`, `SameSite=Lax` cookie (`Secure` in production);
+    only its SHA-256 is stored; 12 hours absolute; role and active flag are re-read on every request, so
+    deactivation and role changes apply immediately.
+  - No authentication library was added, so there is no new dependency or install script. All of it sits
+    behind `getCurrentUser()`, `requireUser()` and `requirePermission()`, so SSO can replace it without
+    touching pages.
+- **Known gaps (not acceptable for production):** no login rate limiting or lockout; no password-change
+  screen (admins reset passwords); no first-superadmin bootstrap for production (the seed refuses to run
+  there); failed sign-ins are not logged. See OPEN_QUESTIONS T-7 to T-9.
+
+## D-013 RBAC model
+
+- **Date:** 2026-10-17 · **Status:** Accepted as a proposal; visibility policy still open (brief §17)
+- **Decision:** One role per user (`SUPERADMIN`, `ADMIN`, `SALES`, `SOA`, `PURCHASING`, `FINANCE`,
+  `MANAGEMENT`), explicit permissions in one pure module, a dashboard per role plus a shared overview.
+  The matrix, rules and assumptions are in [docs/requirements/RBAC.md](../requirements/RBAC.md).
+- **Authorization:** every page and server action re-checks the permission on the server; the menu is only
+  derived from the same matrix. Account changes run in a transaction with an advisory lock, re-verify the
+  actor from the database, and write an audit event in the same transaction. `audit_events` is
+  append-only through database triggers, and users are never deleted (deactivated instead).
+- **Consequences:** Sales, SOA, Purchasing, Finance and Management dashboards show "no data yet" until
+  the project and ticket modules exist. They show no numbers, because the brief forbids fabricated
+  analytics.
+
+## D-014 SOA handover email (business decision from the product owner)
+
+- **Date:** 2026-10-17 · **Status:** Confirmed by the user; not implemented yet
+- **Decision:** After SOA replies to the `[HITBOQ]` email sent to the SOA team, the outgoing message becomes
+  `[HITRFQ] {EndUserCompany} - {ProjectName}` addressed to the Purchasing team.
+- **Open details (OPEN_QUESTIONS B-1, B-2):** whether `PO` can still be chosen at handover (brief §6.4 says
+  the actor must choose), and whether the reply must stay in the same mail thread. A `mailto:` link cannot
+  set threading headers; Microsoft Graph can.
+
+## D-015 Next.js rendering rules for signed-in pages
+
+- **Date:** 2026-10-17 · **Status:** Accepted
+- **Decision:**
+  - Pages that read the session render behind `<Suspense>`, and `getCurrentUser()` calls `connection()`
+    first so a session check never runs while prerendering.
+  - Each page wraps its per-user content in its own `<Suspense>`. A `loading.tsx` was tried and the
+    development validator did not count it.
+  - `(app)/layout.tsx` exports `instant = false`: the session cannot be cached ahead of time, because a
+    deactivated user must lose access immediately, and validation renders without a session.
+  - A forbidden or unknown URL renders the not-found UI with none of the page content, but the HTTP
+    status stays 200, because Cache Components streams the response before the check runs. E2E tests
+    therefore assert on the delivered HTML. `forbidden()` was not used because it is experimental.

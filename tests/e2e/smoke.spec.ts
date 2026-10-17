@@ -9,13 +9,10 @@ test("health endpoint reports the app and database as available", async ({ reque
   expect(await response.json()).toEqual({ status: "ok", checks: { database: "ok" } });
 });
 
-test("home page renders the product shell", async ({ page }) => {
+test("signed-out visitors land on the login page", async ({ page }) => {
   await page.goto("/");
 
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page).toHaveTitle(APP_NAME);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(APP_NAME);
-  await expect(page.getByRole("link", { name: "Check system health" })).toHaveAttribute(
-    "href",
-    "/api/health",
-  );
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });

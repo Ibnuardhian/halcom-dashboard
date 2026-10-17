@@ -1,0 +1,171 @@
+import { expect, test, type Page } from "@playwright/test";
+import { ROLES, type Role } from "@/domain/access/roles";
+import { expectOnDashboard, signIn, signInAs, submitLogin } from "./helpers";
+import { seedEmailFor } from "../../prisma/seed-users";
+
+const OWN_DASHBOARD_HEADING: Record<Role, string> = {
+  SUPERADMIN: "Superadmin dashboard",
+  ADMIN: "Admin dashboard",
+  SALES: "Sales dashboard",
+  SOA: "SOA dashboard",
+  PURCHASING: "Purchasing dashboard",
+  FINANCE: "Finance dashboard",
+  MANAGEMENT: "Management dashboard",
+};
+
+/**
+ * A forbidden or unknown page renders the not-found UI and none of its content. The HTTP status
+ * stays 200 because Cache Components streams the response before the permission check runs,
+ * so the test inspects the delivered HTML instead of the status code.
+ */
+async function expectNotFound(page: Page, path: string, mustNotContain: string): Promise<void> {
+  await page.goto(path);
+  await expect(page.getByText("This page could not be found.")).toBeVisible();
+  expect(await page.content(), path).not.toContain(mustNotContain);
+}
+
+test.beforeAll(() => {
+  expect(process.env["SEED_USER_PASSWORD"], "SEED_USER_PASSWORD must be set for E2E").toBeTruthy();
+});
+
+test.describe("sign in", () => {
+  for (const role of ROLES) {
+    test(`${role} lands on its own dashboard and can open the shared overview`, async ({ page }) => {
+      await signIn(page, role);
+
+      await expectOnDashboard(page, `/dashboard/${role.toLowerCase()}`, OWN_DASHBOARD_HEADING[role]);
+      await page.getByRole("link", { name: "Overview" }).click();
+      await expectOnDashboard(page, "/dashboard", "Overview");
+    });
+  }
+
+  test("a wrong password shows one generic error and keeps the visitor signed out", async ({ page }) => {
+    await submitLogin(page, seedEmailFor("SALES"), "definitely-the-wrong-password");
+
+    await expect(page.getByRole("alert").filter({ hasText: "Invalid email or password." })).toBeVisible();
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test("signing out ends the session", async ({ page }) => {
+    await signIn(page, "SOA");
+    await expectOnDashboard(page, "/dashboard/soa", "SOA dashboard");
+
+    await page.getByRole("button", { name: "Sign out" }).click();
+
+    await expect(page).toHaveURL(/\/login$/);
+    await page.goto("/dashboard/soa");
+    await expect(page).toHaveURL(/\/login$/);
+  });
+});
+
+test.describe("access control", () => {
+  test("signed-out visitors are sent to the login page from every protected route", async ({ page }) => {
+    for (const path of ["/dashboard", "/dashboard/sales", "/dashboard/admin", "/admin/users"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/login$/);
+    }
+  });
+
+  test("an operational role cannot open another role's dashboard or the user list", async ({ page }) => {
+    await signIn(page, "SALES");
+    await expectOnDashboard(page, "/dashboard/sales", "Sales dashboard");
+
+    await expectNotFound(page, "/dashboard/finance", "Cross-check list");
+    await expectNotFound(page, "/dashboard/admin", "Recent administrative activity");
+    await expectNotFound(page, "/dashboard/superadmin", "Full oversight of accounts");
+    await expectNotFound(page, "/admin/users", "Accounts and roles");
+  });
+
+  test("the menu only offers what the role may open", async ({ page }) => {
+    await signIn(page, "FINANCE");
+    const nav = page.getByRole("navigation", { name: "Main" });
+
+    await expect(nav.getByRole("link")).toHaveText(["Overview", "My dashboard"]);
+  });
+
+  test("an unknown dashboard name shows not-found even for a superadmin", async ({ page }) => {
+    await signIn(page, "SUPERADMIN");
+
+    await expectNotFound(page, "/dashboard/not-a-role", "Cross-check list");
+  });
+
+  test("admin can open every dashboard except the superadmin one", async ({ page }) => {
+    await signIn(page, "ADMIN");
+
+    for (const role of ROLES.filter((r) => r !== "SUPERADMIN")) {
+      await page.goto(`/dashboard/${role.toLowerCase()}`);
+      await expectOnDashboard(page, `/dashboard/${role.toLowerCase()}`, OWN_DASHBOARD_HEADING[role]);
+    }
+    await expectNotFound(page, "/dashboard/superadmin", "Full oversight of accounts");
+  });
+});
+
+test.describe("user management", () => {
+  test("admin can only assign operational roles", async ({ page }) => {
+    await signIn(page, "ADMIN");
+    await page.goto("/admin/users");
+
+    const options = await page.locator("#new-role option:not([disabled])").allTextContents();
+
+    expect(options).toEqual(["Sales", "SOA", "Purchasing", "Finance", "Management"]);
+  });
+
+  test("superadmin can also assign admin and superadmin", async ({ page }) => {
+    await signIn(page, "SUPERADMIN");
+    await page.goto("/admin/users");
+
+    const options = await page.locator("#new-role option:not([disabled])").allTextContents();
+
+    expect(options).toEqual(["Superadmin", "Admin", "Sales", "SOA", "Purchasing", "Finance", "Management"]);
+  });
+
+  test("admin creates a user who can then sign in, and the action shows in the audit trail", async ({ page, browser }) => {
+    const email = `e2e-${Date.now()}@example.invalid`;
+    const password = "e2e-created-user-pass-1";
+    await signIn(page, "ADMIN");
+    await page.goto("/admin/users");
+
+    await page.getByLabel("Name", { exact: true }).fill("E2E Created");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Role", { exact: true }).selectOption("Purchasing");
+    await page.getByLabel("Initial password").fill(password);
+    await page.getByRole("button", { name: "Create user" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "User created." })).toBeVisible();
+    await expect(page.getByRole("cell", { name: email, exact: true })).toBeVisible();
+
+    const other = await browser.newContext();
+    const otherPage = await other.newPage();
+    await signInAs(otherPage, email, password);
+    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing dashboard");
+    await other.close();
+
+    await page.goto("/dashboard/admin");
+    await expect(page.getByRole("cell", { name: "user.created" }).first()).toBeVisible();
+  });
+
+  test("a deactivated user loses access immediately", async ({ page, browser }) => {
+    const email = `e2e-deact-${Date.now()}@example.invalid`;
+    const password = "e2e-deactivate-pass-1";
+    await signIn(page, "ADMIN");
+    await page.goto("/admin/users");
+    await page.getByLabel("Name", { exact: true }).fill("E2E Deactivate");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Role", { exact: true }).selectOption("Sales");
+    await page.getByLabel("Initial password").fill(password);
+    await page.getByRole("button", { name: "Create user" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "User created." })).toBeVisible();
+
+    const victim = await browser.newContext();
+    const victimPage = await victim.newPage();
+    await signInAs(victimPage, email, password);
+    await expectOnDashboard(victimPage, "/dashboard/sales", "Sales dashboard");
+
+    await page.getByRole("button", { name: `Deactivate ${email}` }).click();
+    await expect(page.getByRole("status").filter({ hasText: "User deactivated." })).toBeVisible();
+
+    await victimPage.reload();
+    await expect(victimPage).toHaveURL(/\/login$/);
+    await victim.close();
+  });
+});

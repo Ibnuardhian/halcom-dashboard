@@ -7,9 +7,11 @@ Sales → SOA (BOQ) → Purchasing (RFQ/PO), with read-only visibility for Finan
 - Engineering rules for people and AI agents: [AGENTS.md](AGENTS.md)
 - Decisions: [docs/decisions/DECISIONS.md](docs/decisions/DECISIONS.md) · Open questions: [docs/requirements/OPEN_QUESTIONS.md](docs/requirements/OPEN_QUESTIONS.md)
 
-> **Status: foundation only.** The Docker environment, framework, database connection,
-> health check and test tooling are in place. No business features or domain tables
-> exist yet, and authentication has not been chosen.
+> **Status: foundation plus access control.** The Docker environment, database, sign-in, roles
+> (RBAC), a dashboard per role and a shared overview exist. The business modules (projects,
+> tickets, email, SLA, exports) are **not built yet**, so most dashboard widgets show
+> "No data yet" on purpose. The sign-in is an interim solution (see
+> [DECISIONS.md D-012](docs/decisions/DECISIONS.md)) and is not ready for production.
 
 Everything runs in Docker. You do **not** need Node.js, npm or PostgreSQL on the host.
 
@@ -58,14 +60,53 @@ except `Copy-Item` (use `cp`).
    The first start installs dependencies into a Docker volume, which takes 1–2 minutes.
    Follow it with `docker compose logs -f app`.
 
-3. Open http://localhost:3000. The health endpoint http://localhost:3000/api/health returns
-   `{"status":"ok","checks":{"database":"ok"}}`.
+3. Create the database tables and the sample accounts (both safe to repeat):
+
+   ```powershell
+   docker compose run --rm app npm run db:migrate:deploy
+   docker compose run --rm app npm run db:seed
+   ```
+
+4. Open http://localhost:3000 and sign in (next section). The health endpoint
+   http://localhost:3000/api/health returns `{"status":"ok","checks":{"database":"ok"}}`.
 
 Stop with `docker compose stop`, or `docker compose down` to also remove the containers.
 Both keep your data.
 
 > **Never run `docker compose down -v`** and never delete the `halcom-dashboard_postgres_data`
 > volume: both permanently delete the database.
+
+## Signing in and what you will see
+
+The seed creates one synthetic account per role. All use the password in `SEED_USER_PASSWORD` in
+your `.env` (`dev-only-change-me` unless you changed it).
+
+| Email | Role | Lands on | Can also open |
+|---|---|---|---|
+| `superadmin@example.invalid` | Superadmin | `/dashboard/superadmin` | every dashboard, Users |
+| `admin@example.invalid` | Admin | `/dashboard/admin` | all dashboards except Superadmin's, Users |
+| `sales@example.invalid` | Sales | `/dashboard/sales` | Overview |
+| `soa@example.invalid` | SOA | `/dashboard/soa` | Overview |
+| `purchasing@example.invalid` | Purchasing | `/dashboard/purchasing` | Overview |
+| `finance@example.invalid` | Finance | `/dashboard/finance` | Overview |
+| `management@example.invalid` | Management | `/dashboard/management` | Overview |
+
+Things to try:
+
+1. Sign in as `sales@example.invalid`. You see **Overview** and **My dashboard** only. Typing
+   `/dashboard/finance` in the address bar shows "This page could not be found".
+2. Sign out, then sign in as `admin@example.invalid` and open **Users**. Create a user, change a role,
+   reset a password or deactivate someone. The **Admin dashboard** lists each change under
+   "Recent administrative activity".
+3. Sign in as `superadmin@example.invalid`. The role list in **Users** now also offers Admin and Superadmin.
+
+What is real today: sign-in, roles and permissions, user management, the audit trail, and the account
+statistics on the Admin and Superadmin dashboards. What is a placeholder: every other widget, which
+shows "No data yet" until the project and ticket modules exist. The rules are in
+[docs/requirements/RBAC.md](docs/requirements/RBAC.md).
+
+To change the password the seed uses, edit `SEED_USER_PASSWORD` for **new** accounts only: the seed never
+overwrites existing users. Reset an existing account's password from the **Users** page.
 
 ## Everyday commands
 
@@ -82,7 +123,7 @@ Both keep your data.
 | Integration tests | `docker compose --profile test run --rm app-test npm run test:integration` |
 | E2E tests | `docker compose --profile test run --rm e2e` |
 | Stop the test services | `docker compose --profile test stop app-test db-test` |
-| Production build check | `docker compose run --rm --no-deps app npm run build` |
+| Production build check | `docker compose run --rm --no-deps app npm run build`, then `docker compose restart app` |
 | Add a dependency | `docker compose run --rm --no-deps app npm install <package>@<version>`, then `docker compose restart app` |
 | Reinstall from the lockfile | `docker compose restart app` (or `docker compose run --rm --no-deps app npm ci`) |
 | Create a migration | `docker compose run --rm app npx prisma migrate dev --name <change_name>` |
@@ -150,8 +191,9 @@ Schema change workflow:
 5. Commit the schema and the migration together. Integration tests apply all migrations to the
    disposable test database automatically.
 
-`npm run db:migrate:status` exits with code 1 and reports "not managed by Prisma Migrate" until
-the first migration exists. That is expected.
+Current tables: `users`, `sessions` and `audit_events` (migration `access_foundation`). The migration
+adds constraints Prisma cannot express: lower-cased emails, and database triggers that make
+`audit_events` append-only (UPDATE, DELETE and TRUNCATE are rejected). Users are deactivated, never deleted.
 
 To connect a GUI client, use host `127.0.0.1`, port `55432` (`POSTGRES_HOST_PORT`) and the
 credentials from `.env`.
@@ -160,9 +202,11 @@ credentials from `.env`.
 
 - **Unit** (`tests/unit`): Vitest, no database.
 - **Integration** (`tests/integration`): Vitest against real PostgreSQL. Runs in `app-test` against the
-  tmpfs `db-test`; the global setup applies migrations first.
+  tmpfs `db-test`; every run creates its own empty database there and applies all migrations to it.
 - **E2E** (`tests/e2e`): Playwright with Chromium. Runs in `e2e`, which shares the network of `app-test`,
-  so the browser uses `http://localhost:3000`. Reports go to `playwright-report/` (open
+  so the browser uses `http://localhost:3000`. `app-test` migrates and seeds the disposable database each
+  time it starts. The suite signs in as every role and checks menus, forbidden pages (by delivered HTML,
+  not status code, see D-015) and user management. Reports go to `playwright-report/` (open
   `playwright-report/index.html`) and traces to `test-results/`, both git-ignored.
 - Retries are disabled, so a flaky test fails visibly.
 
@@ -194,8 +238,13 @@ curl -fsS http://127.0.0.1:3000/api/health
   TLS-terminating reverse proxy in front of it.
 - Migrations never run on app start. Back up the database before applying migrations.
 - Container logs rotate (json-file, 5 × 10 MB per container).
-- This sequence was smoke-tested locally with a disposable database (migrations, health check and
-  home page). A real deployment target has not been chosen yet.
+- This sequence was smoke-tested locally with a disposable database (migrations, health check, login
+  page, and protected routes returning no content without a session). A real deployment target has not
+  been chosen yet.
+- **Not ready for real users yet.** There is no way to create the first superadmin in production
+  (the seed refuses to run there), no login rate limiting, and the sign-in is an interim solution.
+  See D-012 and the open questions T-7 to T-9. The session cookie is `Secure` in production, so serve
+  the app over HTTPS.
 
 ## Backups
 
@@ -232,6 +281,7 @@ and off-site storage are still open decisions.
 | `npm error code ECONNRESET` during a build or install | A transient network failure. Retry the command; behind a proxy, configure npm and Docker proxy settings. |
 | `watch error (...): ... No such file or directory` in app logs | Harmless: the polling watcher reports optional packages that are not installed. |
 | E2E fails right after a Playwright upgrade | The `e2e` image tag in `compose.yaml` must match `@playwright/test` in `package.json`. |
+| New pages return 404 in development after running `npm run build` | The build shares the `.next` volume with the running dev server and can leave its route table stale. Run `docker compose restart app`. |
 | `/bin/sh^M: bad interpreter` | A script was checked out with CRLF line endings. [.gitattributes](.gitattributes) enforces LF; re-checkout the file. |
 | `prisma migrate dev` asks to reset the database | Answer **No**. The schema and migration history have drifted; investigate before changing anything. |
 | Dependencies are corrupted and need a clean reinstall | Run `docker compose run --rm --no-deps app npm ci`. Only if that fails, recreate the dependency volume: `docker compose stop app`, `docker volume rm halcom-dashboard_node_modules`, `docker compose up -d`. This volume only holds packages, never database data. |

@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo Session init (AGENTS.md section 2, read-only): read AGENTS.md, the brief and CLAUDE.md, reconcile with git, then brief the user before coding. && git status --short && git log --oneline -5"
+          }
+        ]
+      }
+    ]
+  }
+}
