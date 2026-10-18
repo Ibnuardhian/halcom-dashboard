@@ -243,6 +243,11 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     if (submitted.progress === "CLOSED_WON" && current.progress !== "CLOSED_WON" && current.wonDate === null && (submitted.wonDate ?? null) === null) {
       submitted.wonDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
     }
+    // Moving to Propose (30%) means the quotation was submitted: with no date yet, today is filled in. It stays editable (and can be
+    // cleared) afterwards, so a date typed in the same change wins and later schedule changes are free.
+    if (submitted.progress === "PROPOSE" && current.progress !== "PROPOSE" && current.quoteReleasedAt === null && (submitted.quoteReleasedAt ?? null) === null) {
+      submitted.quoteReleasedAt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    }
     const changes = diffCommercial(current, submitted);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies CommercialResult;
 

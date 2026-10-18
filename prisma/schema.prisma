@@ -36,6 +36,7 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   sessions          Session[]
+  deviceCredentials DeviceCredential[]
   audits            AuditEvent[]
   ownedProjects     Project[]              @relation("ProjectSalesOwner")
   requestsCreated   Request[]              @relation("RequestRequester")
@@ -67,6 +68,24 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+// An account remembered on one browser, so Switch Account needs no password again (never for ADMIN or SUPERADMIN). The browser holds a
+// random token and this row's id in an HttpOnly cookie; only a salted SHA-256 of the token is stored.
+model DeviceCredential {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  salt       String
+  tokenHash  String    @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("device_credentials")
 }
 
 // Append-only: the migration installs triggers that reject UPDATE, DELETE and

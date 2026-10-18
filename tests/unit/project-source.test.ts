@@ -50,9 +50,9 @@ describe("source labels", () => {
 });
 
 describe("who may register a project and raise its request", () => {
-  it("lets Sales register either kind (themselves, or Other with a sales name) and SOA only Other", () => {
+  it("lets Sales register only their own projects (Internal Sales) and SOA only Other", () => {
     expect(canCreateProjectWithSource("SALES", "INTERNAL_SALES")).toBe(true);
-    expect(canCreateProjectWithSource("SALES", "OTHER")).toBe(true);
+    expect(canCreateProjectWithSource("SALES", "OTHER")).toBe(false);
     expect(canCreateProjectWithSource("SOA", "OTHER")).toBe(true);
     expect(canCreateProjectWithSource("SOA", "INTERNAL_SALES")).toBe(false);
     expect(canCreateProjectWithSource("ADMIN", "OTHER")).toBe(true);
@@ -76,9 +76,10 @@ describe("who may register a project and raise its request", () => {
     expect(canRaiseRequestOn("PURCHASING", "BOQ", "OTHER")).toBe(false);
   });
 
-  it("gives the source permissions to Sales, SOA, admin and superadmin only", () => {
+  it("gives the source permissions to SOA, and administrators, never to Sales", () => {
     const holders = ROLES.filter((role) => can(role, "projects.edit.source"));
-    expect(holders).toEqual(["SUPERADMIN", "ADMIN", "SALES", "SOA"]);
+    expect(holders).toEqual(["SUPERADMIN", "ADMIN", "SOA"]);
+    expect(ROLES.filter((role) => can(role, "projects.create.external"))).toEqual(["SUPERADMIN", "ADMIN", "SOA"]);
   });
 
   it("lets any salesperson act on a project whose sales is Other, and only the owner on an internal one", () => {

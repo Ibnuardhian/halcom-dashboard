@@ -7,7 +7,7 @@ import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { RequestForm } from "@/features/requests/forms";
 import { getDb } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { can } from "@/domain/access/permissions";
 import { requireUser } from "@/server/auth/current-user";
 import { hasCompletedRfq, listActiveProjectOptions } from "@/server/requests/queries";
@@ -26,6 +26,8 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
   const raisesAny = can(viewer.role, "requests.create");
   if (!raisesAny && !can(viewer.role, "requests.create.external")) notFound();
   const query = await searchParams;
+  // SOA's BOQ starts in the New project form; this form is for adding a request to a project that already exists.
+  if (!raisesAny && typeof query.project !== "string") redirect("/projects/new?type=BOQ");
   const projects = await listActiveProjectOptions(getDb(), viewer, raisesAny ? undefined : "OTHER");
   const wantedProject = typeof query.project === "string" ? projects.find((p) => p.code === query.project) : undefined;
   const wantedType = typeof query.type === "string" ? query.type.toUpperCase() : "";

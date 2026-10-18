@@ -27,6 +27,7 @@ async function NewProject({ searchParams }: Pick<PageProps<"/projects/new">, "se
     sources,
     commercial: can(viewer.role, "projects.edit.commercial"),
     requestTypes: { INTERNAL_SALES: raisable("INTERNAL_SALES"), OTHER: raisable("OTHER") },
+    salesPicName: viewer.name,
   };
   const wanted = (await searchParams).type;
   const defaultType = typeof wanted === "string" && isRequestType(wanted.toUpperCase()) ? (wanted.toUpperCase() as RequestType) : "";

@@ -47,9 +47,7 @@ describe("navLinksFor", () => {
       ["/dashboard", "Overview"],
       ["/dashboard/soa", "Technical Dashboard"],
       ["/projects", "Projects"],
-      ["/projects/new", "New project"],
       ["/requests/boq", "BOQ Tickets"],
-      ["/requests/new", "New BOQ request"],
       ["/handoffs", "Purchasing Handoff"],
       ["/reports/technical", "Technical Reports"],
       ["/admin/master-data", "Principal & Solution Master Data"],
@@ -79,7 +77,7 @@ describe("navLinksFor", () => {
 
   it("offers New request in the menu to admins only; Sales start requests from the Sales Pipeline page", () => {
     for (const role of ROLES) {
-      expect(hrefsFor(role).includes("/requests/new")).toBe(["SUPERADMIN", "ADMIN", "SOA"].includes(role));
+      expect(hrefsFor(role).includes("/requests/new")).toBe(["SUPERADMIN", "ADMIN"].includes(role));
     }
   });
 
@@ -125,9 +123,7 @@ describe("navLinksFor", () => {
       const hrefs = hrefsFor(role);
       expect(new Set(hrefs).size).toBe(hrefs.length);
       for (const href of hrefs) {
-        // New BOQ request is the SOA's own way to the shared request form.
-        const needed = href === "/requests/new" && role === "SOA" ? "requests.create.external" : permissionFor(href);
-        expect(can(role, needed), `${role} ${href}`).toBe(true);
+        expect(can(role, permissionFor(href)), `${role} ${href}`).toBe(true);
       }
     }
   });

@@ -62,8 +62,8 @@ export const CUSTOMERS_PATH = "/customers";
 
 const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view", hiddenFor: ["PURCHASING"] },
-  // A project from another source (not the internal Sales team) is registered by SOA; Sales use the button on their dashboard.
-  { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES"] },
+  // A project (and its first request) is created with the button on the Projects page; Sales also have one on their dashboard, SOA on BOQ Tickets.
+  { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES", "SOA"] },
   { href: CUSTOMERS_PATH, label: "Customers", group: "work", icon: "customers", permission: "customers.view" },
   { href: SALES_TARGETS_PATH, label: "Sales Targets", group: "work", icon: "targets", permission: "targets.edit" },
   // Sales know the list of every request as the Request Center; SOA and Purchasing work from their own list instead.
@@ -73,7 +73,6 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"], labels: { PURCHASING: "RFQ Requests" } },
   { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
   { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES"] },
-  { href: NEW_REQUEST_PATH, label: "New BOQ request", group: "work", icon: "new", permission: "requests.create.external", hiddenFor: ["SUPERADMIN", "ADMIN"] },
   { href: HANDOFFS_PATH, label: "Purchasing Handoff", group: "work", icon: "handoff", permission: "handoffs.view" },
   { href: TECHNICAL_REPORTS_PATH, label: "Technical Reports", group: "work", icon: "reports", permission: "reports.technical.view" },
   { href: CROSSCHECK_PATH, label: "Financial Crosscheck", group: "work", icon: "reports", permission: "finance.crosscheck.view" },
@@ -117,7 +116,7 @@ export function navLinksFor(role: Role): NavLinkItem[] {
   for (const { permission, hiddenFor, labels, ...link } of MODULE_LINKS) {
     if (can(role, permission) && !hiddenFor?.includes(role)) links.push({ ...link, label: labels?.[role] ?? link.label });
   }
-  // Two entries can lead to the same page (New request and New BOQ request); a role sees the first one it is allowed.
+  // An entry is never offered twice.
   return links.filter((link, index) => links.findIndex((other) => other.href === link.href) === index);
 }
 

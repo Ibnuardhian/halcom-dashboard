@@ -80,9 +80,9 @@ describe("creating a project with source Other", () => {
   it("checks who may register which source", async () => {
     const [soa, sales, purchasing, finance] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("PURCHASING"), makeUser("FINANCE")]);
 
-    // SOA only registers projects whose sales is Other; Sales either kind (themselves, or Other with a sales name); the others none.
+    // SOA only registers projects whose sales is Other; Sales only their own (Internal Sales) projects; the others none.
     await expect(createProject(db, as(soa, "SOA"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
-    await expect(createProject(db, as(sales, "SALES"), other())).resolves.toMatchObject({ ok: true });
+    await expect(createProject(db, as(sales, "SALES"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(createProject(db, as(purchasing, "PURCHASING"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(createProject(db, as(finance, "FINANCE"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
@@ -190,7 +190,7 @@ describe("the SOA workflow for a project from another source", () => {
 
   it("lets any salesperson act on a project whose sales is Other: commercial details and the next step", async () => {
     const [soa, sales, other] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("SALES")]);
-    const project = await otherProject(sales);
+    const project = await otherProject(soa);
     const boq = await createRequest(db, as(sales, "SALES"), { projectId: project.id, type: "BOQ", title: "BOQ" });
     if (!boq.ok) throw new Error(boq.message);
 

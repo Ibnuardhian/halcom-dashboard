@@ -3,11 +3,12 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
+import { PROGRESS_OPTION_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { SOA_PHASES, SOA_PHASE_LABELS, type SoaPhase } from "@/domain/requests/phase";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
@@ -36,6 +37,8 @@ export type ProjectFormScope = {
   commercial: boolean;
   /** The request types this person may raise together with the project, per source. */
   requestTypes: Record<ProjectSourceType, readonly RequestType[]>;
+  /** The signed-in person, shown as the Sales PIC of an Internal Sales project: it is always them, never chosen in the form. */
+  salesPicName?: string;
 };
 
 /** What the form offers when the page passes no scope: a salesperson registering an Internal Sales project. */
@@ -92,6 +95,19 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       ) : (
         <input type="hidden" name="sourceType" value={source} />
       )}
+      {scope.sources.length === 1 && source === "INTERNAL_SALES" ? (
+        // Sales do not choose the classification: their project is Internal Sales and they are its Sales PIC. SOA classify a project as Other.
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+          <Field id="project-source-fixed" label="Project source" hint="Set by SOA. Sales projects are Internal Sales.">
+            <Input id="project-source-fixed" value={SOURCE_LABELS.INTERNAL_SALES} readOnly disabled />
+          </Field>
+          {scope.salesPicName ? (
+            <Field id="project-sales-pic" label="Sales PIC" hint="You, as the signed-in salesperson.">
+              <Input id="project-sales-pic" value={scope.salesPicName} readOnly disabled />
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
       {source === "OTHER" ? <ExternalSourceFields /> : null}
       <Field id="project-company" label="End-user company *">
         <Input id="project-company" name="endUserCompany" required maxLength={120} placeholder="PT ABC" />
@@ -100,7 +116,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
         <Input id="project-name" name="name" required maxLength={120} placeholder="CCTV AI" />
       </Field>
       <Field id="project-target" label="Target closing" hint="Optional.">
-        <Input id="project-target" name="targetDate" type="date" />
+        <DateInput id="project-target" name="targetDate" label="Target closing" />
       </Field>
       {scope.commercial ? (
         <>
@@ -108,7 +124,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
             <NativeSelect id="project-progress" name="progress" defaultValue="QUALIFY">
               {PROJECT_PROGRESSES.map((option) => (
                 <option key={option} value={option}>
-                  {PROGRESS_LABELS[option]}
+                  {PROGRESS_OPTION_LABELS[option]}
                 </option>
               ))}
             </NativeSelect>
@@ -162,7 +178,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
               </Field>
             </div>
             <Field id="project-request-needed" label="Needed by" hint="Optional.">
-              <Input id="project-request-needed" name="requestRequiredBy" type="date" />
+              <DateInput id="project-request-needed" name="requestRequiredBy" label="Needed by" />
             </Field>
           </div>
         ) : null}
@@ -233,7 +249,7 @@ export function RequestForm({
         </Field>
       </div>
       <Field id="request-needed" label="Needed by" hint="Optional.">
-        <Input id="request-needed" name="requiredBy" type="date" />
+        <DateInput id="request-needed" name="requiredBy" label="Needed by" />
       </Field>
       <div className="flex flex-col gap-2 sm:col-span-2">
         <FormStatus state={state} />

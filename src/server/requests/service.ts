@@ -170,6 +170,8 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
           trackStatus,
           targetMargin: commercial["targetMargin"] as number | null,
           targetMarginValue: commercial["targetMarginValue"] as number | null,
+          // A project that starts at Propose (30%) already has its quotation submitted: today, editable later.
+          quoteReleasedAt: progress === "PROPOSE" ? new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`) : null,
           // An Internal Sales project belongs to whoever registers it; a project from another source has no internal Sales PIC.
           sourceType,
           ...externalSource,

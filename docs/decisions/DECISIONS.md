@@ -442,3 +442,23 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   completion time (the SLA is not re-measured) and cannot be continued to an RFQ until it is completed again.
 - **Migrations (additive):** `20261022100000_request_revision` (enum value) and `20261022100100_request_revision_completion` (the completed_at
   check now also allows Revision; it only gets looser, no row is touched).
+
+## D-029 Remembered accounts, one New project form for SOA, Sales ownership, clearable dates, Propose means Submit Quotation
+
+- **Date:** 2026-10-18 · **Status:** Implemented
+- **Remembered accounts (Switch Account):** every sign-in of a role other than ADMIN and SUPERADMIN remembers the account on that browser, so
+  Switch Account continues as it without the password (`device_credentials`, migration `20261022120000_device_credentials`, additive). The
+  cookie `device_accounts` (HttpOnly) holds only `{ id, token }`; no name, email or role. The database stores a salted SHA-256 of the token.
+  Each use replaces the token (a copied cookie works once). Every use re-reads the stored user: deactivated, expired, or a role that became
+  ADMIN or SUPERADMIN means refusal and the credential is deleted. A password change, an admin reset and deactivation delete all of a user's
+  credentials. ADMIN and SUPERADMIN always type the password. Valid for 30 days from sign-in; at most five per browser; "Forget" removes one.
+- **SOA:** the menu no longer has New project or New BOQ request. A project and its BOQ are created with one form (the New project button on
+  Projects and on BOQ Tickets, BOQ preselected); `/requests/new` without a project leads there. Adding another request to an existing
+  project is still done from the project page.
+- **Sales ownership:** a Sales project is always Internal Sales with the signed-in salesperson as Sales PIC (any owner sent with the form is
+  ignored). Sales no longer hold `projects.create.external` or `projects.edit.source`; only SOA (and administrators, for oversight) classify
+  a project as Other or change that classification. Existing Other projects keep working: any salesperson still enters their commercial details.
+- **Dates:** every date field has a Clear button shown only while it has a value; an empty date is stored as no date (logged for the
+  commercial fields).
+- **Progress 30%:** Propose means the quotation was submitted (label "30% - Propose (Submit Quotation)"). Moving to Propose, or creating a
+  project at Propose, fills Quote released with today (Jakarta) when it is empty. The date stays editable and clearable at any time.

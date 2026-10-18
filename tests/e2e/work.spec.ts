@@ -57,6 +57,8 @@ async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, co
     }
     await expect(target.locator(`[data-request="${code}"]`)).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
+  // The card moves at once; the board says so when the server has saved it. Only then is it safe to reload.
+  await expect(page.getByRole("status").filter({ hasText: `${code} is now` })).toBeVisible({ timeout: 15_000 });
   // It stays there after a reload: the move was saved, not only shown.
   await page.reload();
   await expect(page.locator(`[data-column="${column}"] [data-request="${code}"]`)).toBeVisible();
@@ -118,6 +120,71 @@ test.describe("projects and requests", () => {
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
     await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
+  });
+
+  test("a date can be cleared with a button that shows only while it has a value", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, "SALES");
+    await page.goto("/projects/new");
+    const target = page.getByLabel("Target closing", { exact: true });
+    await expect(page.getByRole("button", { name: "Clear Target closing" })).toHaveCount(0);
+    await expect(async () => {
+      // A fill before hydration leaves the typed value in the box; emptying it first makes the next fill a real change.
+      await target.fill("");
+      await target.fill("2026-12-31");
+      await expect(page.getByRole("button", { name: "Clear Target closing" })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Clear Target closing" }).click();
+    await expect(target).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Clear Target closing" })).toHaveCount(0);
+
+    // The request's own date has the same button.
+    await page.getByText(/^BOQ – /).click();
+    const needed = page.getByLabel("Needed by", { exact: true });
+    await needed.fill("2026-11-30");
+    await page.getByRole("button", { name: "Clear Needed by" }).click();
+    await expect(needed).toHaveValue("");
+  });
+
+  test("Propose (30%) means the quotation was submitted: its date is filled in, stays editable, and can be cleared", async ({ page }) => {
+    test.setTimeout(150_000);
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Propose demo");
+    const commercial = page.locator("#commercial");
+    const quote = commercial.getByLabel("Quote released", { exact: true });
+    const save = async () => {
+      await expect(async () => {
+        await commercial.getByRole("button", { name: "Save commercial details" }).click();
+        await expect(page.getByRole("status").filter({ hasText: /Saved and logged|Nothing changed/ })).toBeVisible({ timeout: 4000 });
+      }).toPass({ timeout: 30_000 });
+    };
+
+    // The step is named for what it means, and a project with no quotation yet has no date and no clear button.
+    await expect(commercial.getByLabel("Progress").locator("option", { hasText: "30% - Propose (Submit Quotation)" })).toHaveCount(1);
+    await expect(quote).toHaveValue("");
+    await expect(commercial.getByRole("button", { name: "Clear Quote released" })).toHaveCount(0);
+
+    // Moving to Propose fills today's date, which Sales can see and keep.
+    await commercial.getByLabel("Progress").selectOption({ label: "30% - Propose (Submit Quotation)" });
+    await save();
+    await page.goto(`/projects/${projectCode}`);
+    await expect(quote).toHaveValue(today);
+
+    // The date stays editable at Propose: moved when the schedule moves...
+    await quote.fill("2026-12-15");
+    await save();
+    await page.goto(`/projects/${projectCode}`);
+    await expect(quote).toHaveValue("2026-12-15");
+
+    // ...and cleared with the button, which disappears with the value.
+    await commercial.getByRole("button", { name: "Clear Quote released" }).click();
+    await expect(quote).toHaveValue("");
+    await expect(commercial.getByRole("button", { name: "Clear Quote released" })).toHaveCount(0);
+    await save();
+    await page.goto(`/projects/${projectCode}`);
+    await expect(quote).toHaveValue("");
+    await expect(page.getByRole("list", { name: "Change log" })).toContainText("Quote released");
   });
 
   test("Sales set a target margin on their own project, the change is logged, and SOA cannot edit it", async ({ page, browser }) => {
@@ -388,7 +455,7 @@ test.describe("projects and requests", () => {
       await expect(page.getByRole("heading", { level: 2, name: heading, exact: true })).toBeVisible();
     }
     await expect(page.getByText("5% - Qualify").first()).toBeVisible(); // a new project starts at the first step
-    await expect(page.getByText("Sales PIC", { exact: true })).toBeVisible();
+    await expect(page.locator("#overview").getByText("Sales PIC", { exact: true })).toBeVisible();
 
     await page.goto("/projects");
     await expect(page.getByRole("link", { name: projectCode })).toBeVisible();

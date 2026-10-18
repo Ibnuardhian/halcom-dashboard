@@ -66,6 +66,8 @@ export async function revokeSession(db: Db, token: string): Promise<void> {
   await db.session.deleteMany({ where: { tokenHash: hashSessionToken(token) } });
 }
 
+/** Ends every session of a user and every browser that remembered the account, so nothing can sign them back in without the password. */
 export async function revokeAllSessions(db: Db, userId: string): Promise<void> {
   await db.session.deleteMany({ where: { userId } });
+  await db.deviceCredential.deleteMany({ where: { userId } });
 }
