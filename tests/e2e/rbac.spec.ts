@@ -7,9 +7,9 @@ const OWN_DASHBOARD_HEADING: Record<Role, string> = {
   SUPERADMIN: "Superadmin dashboard",
   ADMIN: "Admin dashboard",
   SALES: "Sales Pipeline",
-  SOA: "SOA dashboard",
-  PURCHASING: "Purchasing dashboard",
-  FINANCE: "Finance dashboard",
+  SOA: "Technical Dashboard",
+  PURCHASING: "Purchasing Dashboard",
+  FINANCE: "Finance Dashboard",
   MANAGEMENT: "Management dashboard",
 };
 
@@ -38,7 +38,7 @@ test.describe("sign in", () => {
 
   test("signing out ends the session", async ({ page }) => {
     await signIn(page, "SOA");
-    await expectOnDashboard(page, "/dashboard/soa", "SOA dashboard");
+    await expectOnDashboard(page, "/dashboard/soa", "Technical Dashboard");
 
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
@@ -61,7 +61,7 @@ test.describe("access control", () => {
     await signIn(page, "SALES");
     await expectOnDashboard(page, "/dashboard/sales", "Sales Pipeline");
 
-    await expectNotFound(page, "/dashboard/finance", "Cross-check list");
+    await expectNotFound(page, "/dashboard/finance", "Projects to check");
     await expectNotFound(page, "/dashboard/admin", "Recent administrative activity");
     await expectNotFound(page, "/dashboard/superadmin", "Full oversight of accounts");
     await expectNotFound(page, "/admin/users", "Accounts and roles");
@@ -73,19 +73,20 @@ test.describe("access control", () => {
 
     await expect(nav.getByRole("link")).toHaveText([
       "Overview",
-      "My dashboard",
+      "Finance Dashboard",
       "Projects",
       "All requests",
       "BOQ requests",
       "RFQ requests",
       "PO requests",
+      "Financial Crosscheck",
     ]);
   });
 
   test("an unknown dashboard name shows not-found even for a superadmin", async ({ page }) => {
     await signIn(page, "SUPERADMIN");
 
-    await expectNotFound(page, "/dashboard/not-a-role", "Cross-check list");
+    await expectNotFound(page, "/dashboard/not-a-role", "Projects to check");
   });
 
   test("admin can open every dashboard except the superadmin one", async ({ page }) => {
@@ -135,7 +136,7 @@ test.describe("user management", () => {
     const other = await browser.newContext();
     const otherPage = await other.newPage();
     await signInAs(otherPage, email, password);
-    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing dashboard");
+    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing Dashboard");
     await other.close();
 
     await page.goto("/dashboard/admin");

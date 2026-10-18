@@ -50,6 +50,12 @@ export const createProjectSchema = z.object({
   name: required("Project name", 120),
   description: optionalText(2000),
   targetDate: optionalDate,
+  // Where the project came from. Absent means Internal Sales; the rules live in normaliseSource (src/domain/projects/source.ts).
+  sourceType: optionalText(40),
+  externalSourceName: optionalText(4000),
+  externalContact: optionalText(4000),
+  externalReference: optionalText(4000),
+  sourceNotes: optionalText(4000),
   // Commercial details Sales may already know; kept as text and parsed with the same rules as the project page.
   progress: optionalText(40),
   trackStatus: optionalText(40),

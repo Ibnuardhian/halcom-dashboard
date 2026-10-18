@@ -3,9 +3,11 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { isOpen, REQUEST_STATUSES, type RequestStatus } from "@/domain/requests/status";
 import { weightedValue } from "@/domain/projects/pipeline";
+import { salesSideName, type ProjectSourceType } from "@/domain/projects/source";
 import { PROGRESS_PERCENT, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
 import type { SoaPhase } from "@/domain/requests/phase";
-import { slaOf, type Sla } from "@/domain/requests/sla";
+import { deadlineState } from "@/domain/requests/metrics";
+import { slaOf, type Sla, type SlaState } from "@/domain/requests/sla";
 import { OWNING_ROLE, REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
 import { getTeamSettings } from "@/server/settings/team-settings";
 
@@ -28,7 +30,9 @@ export type ProjectRow = {
   trackStatus: TrackStatus;
   principalName: string | null;
   solutionName: string | null;
+  /** The Sales PIC, or the external company of a project from another source. */
   salesOwnerName: string;
+  sourceType: ProjectSourceType;
   technicalPicName: string | null;
   estimatedValue: number | null;
   /** The win probability of the project's Progress step. */
@@ -63,6 +67,8 @@ export type ProjectFilter = {
   principalId?: string;
   show?: ProjectShow;
   salesOwnerId?: string;
+  /** Only projects from this source. */
+  sourceType?: ProjectSourceType;
 };
 
 function showWhere(show: ProjectShow | undefined) {
@@ -105,6 +111,7 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       ...(filter.trackStatus ? { trackStatus: filter.trackStatus } : {}),
       principalId: filter.principalId,
       salesOwnerId: filter.salesOwnerId,
+      sourceType: filter.sourceType,
       ...(search
         ? {
             OR: [
@@ -112,6 +119,9 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
               { endUserCompany: { contains: search, mode: "insensitive" } },
               { name: { contains: search, mode: "insensitive" } },
               { salesOwner: { name: { contains: search, mode: "insensitive" } } },
+              { externalSourceName: { contains: search, mode: "insensitive" } },
+              { externalContact: { contains: search, mode: "insensitive" } },
+              { externalReference: { contains: search, mode: "insensitive" } },
               { technicalPic: { name: { contains: search, mode: "insensitive" } } },
               { principal: { name: { contains: search, mode: "insensitive" } } },
             ],
@@ -140,7 +150,8 @@ export async function listProjects(db: PrismaClient, viewer: Viewer, filter: Pro
       trackStatus: project.trackStatus,
       principalName: project.principal?.name ?? null,
       solutionName: project.solutionCategory?.name ?? null,
-      salesOwnerName: project.salesOwner.name,
+      salesOwnerName: salesSideName(project),
+      sourceType: project.sourceType,
       technicalPicName: project.technicalPic?.name ?? null,
       estimatedValue,
       probability: PROGRESS_PERCENT[project.progress],
@@ -169,16 +180,22 @@ export async function listPicOptions(db: PrismaClient, viewer: Viewer) {
   return { sales: of("SALES"), soa: of("SOA"), purchasing: of("PURCHASING") };
 }
 
+/** Active Sales accounts, for handing a project from another source to an internal Sales PIC. */
+export async function listSalesPeopleOptions(db: PrismaClient, viewer: Viewer) {
+  assertPermitted(can(viewer.role, "projects.edit.source"));
+  return db.user.findMany({ where: { isActive: true, role: "SALES" }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+}
+
 export async function listPrincipalOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.principal.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 
 /** Projects a request can be added to: the ones that are On Track. */
-export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer) {
+export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer, sourceType?: ProjectSourceType) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.project.findMany({
-    where: { trackStatus: "ON_TRACK", deletedAt: null },
+    where: { trackStatus: "ON_TRACK", deletedAt: null, sourceType },
     orderBy: { createdAt: "desc" },
     take: LIST_LIMIT,
     select: { id: true, code: true, endUserCompany: true, name: true },
@@ -216,21 +233,33 @@ export type RequestFilter = {
   requesterId?: string;
   /** Requests on the projects a person owns (Sales PIC), whoever raised them: a moved project brings its requests along. */
   projectOwnerId?: string;
+  /** A person's id, or "none" for requests nobody has taken (the workload chart's drill-down). */
+  assignee?: string;
+  /** Requests whose SLA stands at this state; used by the dashboards' overdue and due-now numbers. */
+  slaState?: SlaState;
+  /** Requests whose needed-by date has passed ("past") or falls within the coming week ("soon"); open requests only. */
+  deadline?: "past" | "soon";
   limit?: number;
 };
 
+/** The SLA state and deadline are computed in code, so a list filtered by them reads more rows before it narrows down. */
+const FILTERED_READ_LIMIT = 2000;
+
 export async function listRequests(db: PrismaClient, viewer: Viewer, filter: RequestFilter = {}): Promise<RequestRow[]> {
   assertPermitted(can(viewer.role, "requests.view"));
+  const needsComputedFilter = Boolean(filter.slaState || filter.deadline);
+  const limit = Math.min(filter.limit ?? LIST_LIMIT, LIST_LIMIT);
   const requests = await db.request.findMany({
     where: {
       project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
+      assigneeId: filter.assignee === undefined ? undefined : filter.assignee === "none" ? null : filter.assignee,
       type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
       status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
       projectId: filter.projectId,
       requesterId: filter.requesterId,
     },
     orderBy: { createdAt: "desc" },
-    take: Math.min(filter.limit ?? LIST_LIMIT, LIST_LIMIT),
+    take: needsComputedFilter ? FILTERED_READ_LIMIT : limit,
     include: {
       project: { select: { code: true, endUserCompany: true, name: true } },
       requester: { select: { name: true } },
@@ -240,7 +269,7 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
   });
   const settings = await getTeamSettings(db);
   const now = new Date();
-  return requests.map((request) => ({
+  const rows = requests.map((request) => ({
     id: request.id,
     code: request.code,
     type: request.type,
@@ -264,6 +293,9 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
       now,
     }),
   }));
+  if (!needsComputedFilter) return rows;
+  const byDeadline = (row: (typeof rows)[number]) => !filter.deadline || deadlineState({ status: row.status, requiredBy: row.requiredBy }, now) === filter.deadline;
+  return rows.filter((row) => (!filter.slaState || row.sla.state === filter.slaState) && byDeadline(row)).slice(0, limit);
 }
 
 export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: string) {
@@ -308,6 +340,30 @@ export async function listPendingDecisions(db: PrismaClient, viewer: Viewer, own
     include: { project: { select: { code: true, endUserCompany: true, name: true } } },
   });
   return rows.map((row) => ({ code: row.code, type: row.type, title: row.title, projectCode: row.project.code, endUserCompany: row.project.endUserCompany, projectName: row.project.name, completedAt: row.completedAt }));
+}
+
+export type HandoverRow = { code: string; type: RequestType; status: RequestStatus; sourceCode: string; projectCode: string; endUserCompany: string; projectName: string; createdAt: Date; handedBy: string };
+
+/** The latest requests created by continuing a completed BOQ (or RFQ) to the next step, newest first. */
+export async function listRecentHandovers(db: PrismaClient, viewer: Viewer, limit = 20): Promise<HandoverRow[]> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const rows = await db.request.findMany({
+    where: { sourceRequestId: { not: null }, project: { deletedAt: null } },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: { source: { select: { code: true } }, project: { select: { code: true, endUserCompany: true, name: true } }, requester: { select: { name: true } } },
+  });
+  return rows.map((row) => ({
+    code: row.code,
+    type: row.type,
+    status: row.status,
+    sourceCode: row.source?.code ?? "",
+    projectCode: row.project.code,
+    endUserCompany: row.project.endUserCompany,
+    projectName: row.project.name,
+    createdAt: row.createdAt,
+    handedBy: row.requester.name,
+  }));
 }
 
 const REQUEST_DETAIL = {

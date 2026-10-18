@@ -49,6 +49,15 @@ both call `can()`; the menu is derived from it, and
 | `requests.handover` (hand a completed BOQ over to Purchasing as RFQ or PO) | ✔ | ✔ | – | ✔ | – | – | – |
 | `projects.edit.technical` (technical fields; each change logged with from and to) | ✔ | ✔ | – | ✔ | – | – | – |
 | `projects.post-update` (add current-action and next-action entries to the project feed) | ✔ | ✔ | – | ✔ | – | – | – |
+| `projects.create.external` (register a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
+| `projects.edit.source` (edit the external source details; hand an Other project to Sales) | ✔ | ✔ | – | ✔ | – | – | – |
+| `requests.create.external` (SOA: raise a BOQ on a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
+| `targets.edit` (own sales targets) | ✔ | – | ✔ | – | – | – | – |
+| `handoffs.view` (Purchasing Handoff list) | ✔ | ✔ | – | ✔ | – | – | – |
+| `reports.technical.view` (monthly BOQ report) | ✔ | ✔ | – | ✔ | – | – | ✔ |
+| `finance.crosscheck.view` (read-only crosscheck and its CSV) | ✔ | ✔ | – | – | – | ✔ | ✔ |
+| `permissions.view` (this matrix, read-only) | ✔ | ✔ | – | – | – | – | – |
+| `settings.view` (SLA policies, read-only) / `settings.manage` (edit) | ✔ / ✔ | ✔ / – | – | – | – | – | – |
 
 Rules enforced in [service.ts](../../src/server/users/service.ts), inside one transaction with the audit event:
 
@@ -65,10 +74,13 @@ Rules enforced in [service.ts](../../src/server/users/service.ts), inside one tr
 
 | Dashboard | Route | Content today |
 |---|---|---|
-| Overview (shared) | `/dashboard` | Planned widgets, "no data yet" |
+| Overview (shared) | `/dashboard` | Pipeline tiles and charts, request counts (real data) |
 | Superadmin | `/dashboard/superadmin` | **Real data:** accounts by role and status, recent audit events |
 | Admin | `/dashboard/admin` | **Real data:** same widgets |
-| Sales, SOA, Purchasing, Finance, Management | `/dashboard/<role>` | Planned widgets, "no data yet" |
+| Sales | `/dashboard/sales` | **Real data:** pipeline, target versus achievement, requests by status, overdue and upcoming (D-023, D-026) |
+| SOA, Purchasing | `/dashboard/soa`, `/dashboard/purchasing` | **Real data (D-026):** open, backlog, overdue, SLA compliance, workload, waiting and processing time, bottlenecks |
+| Finance | `/dashboard/finance` | **Real data (D-026):** pipeline values, RFQ and PO references, crosscheck flags |
+| Management | `/dashboard/management` | Planned widgets, "no data yet" |
 
 Superadmin only (D-016):
 
@@ -90,7 +102,7 @@ analytics (§18). They fill in when the project and ticket modules are built.
 | A-2 | **Confirmed 2026-10-17.** Admin may view every operational dashboard (read-only oversight) but not the superadmin dashboard. | Admin sees only its own dashboard. |
 | A-3 | **Confirmed 2026-10-17.** Only a superadmin manages admin accounts; admins add and manage the other operational users. | Admins may manage each other. |
 | A-4 | All roles may open the shared overview. Which figures it may show to Sales or Finance is undecided (brief §17: visibility). | Restrict by role or by project ownership. |
-| A-5 | Sessions last 12 hours from sign-in and are not extended by activity. | Idle timeout, or SSO session lifetime. |
+| A-5 | **Changed by D-026.** Sessions last 12 hours idle, are renewed while the person works, and end at most 7 days after sign-in. | Other limits (env `SESSION_TTL_HOURS`, `SESSION_MAX_HOURS`), or SSO session lifetime. |
 | A-6 | Passwords need 12 to 128 characters; there is no complexity rule or rotation. | Company password policy, or SSO only. |
 | A-7 | Management is included as an optional read-only role. | Remove it. |
 | A-8 | The UI language is English, matching the brief. | Indonesian, or both. |

@@ -11,6 +11,7 @@ import { requireUser } from "@/server/auth/current-user";
 import { redirect } from "next/navigation";
 import { deleteProject } from "@/server/projects/delete";
 import { reassignProject } from "@/server/projects/reassign";
+import { updateProjectSource } from "@/server/projects/source";
 import { postProjectUpdate, updateCommercialDetails, updateProjectDetails } from "@/server/projects/service";
 
 /**
@@ -68,6 +69,30 @@ export async function updateCommercialDetailsAction(_previous: FormState, formDa
   revalidatePath(PROJECTS_PATH);
   if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
   return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
+}
+
+/** Saves where a project came from (its external source details, or a handover to an internal Sales PIC). */
+export async function updateProjectSourceAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const pick = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === "string" ? value : undefined;
+  };
+  const result = await updateProjectSource(getDb(), { id: user.id, role: user.role }, {
+    projectId: formData.get("projectId"),
+    sourceType: pick("sourceType"),
+    externalSourceName: pick("externalSourceName"),
+    externalContact: pick("externalContact"),
+    externalReference: pick("externalReference"),
+    sourceNotes: pick("sourceNotes"),
+    salesOwnerId: pick("salesOwnerId"),
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  const code = formData.get("projectCode");
+  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  revalidatePath(PROJECTS_PATH);
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : "Saved and logged." };
 }
 
 /** Deletes (hides) a project; superadmin only. On success the person goes back to the project list. */

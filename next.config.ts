@@ -30,6 +30,16 @@ const nextConfig: NextConfig = {
   // page load is followed by "Compiled in 2ms" and a full reload, endlessly. Compiling from scratch costs a few seconds at
   // start-up, so the cache is off for the dev servers (`app` and the disposable `app-test`).
   experimental: { turbopackFileSystemCacheForDev: false },
+  // Pages show one person's data. no-store keeps the browser's back/forward cache and any shared cache from showing the
+  // last person's page to the next one on the same machine after a sign-out or an account switch.
+  async headers() {
+    return [
+      {
+        source: "/((?!_next/static|_next/image|icon\\.png|favicon\\.ico).*)",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

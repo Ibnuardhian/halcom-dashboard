@@ -18,13 +18,14 @@ async function RequestsByType({ params, searchParams }: Pick<PageProps<"/request
   const type = typeFromSlug((await params).type);
   if (!type) notFound();
   const viewer = await requirePermission("requests.view");
-  const { status } = await searchParams;
+  const query = await searchParams;
   return (
     <RequestList
       viewer={viewer}
       basePath={`${REQUESTS_PATH}/${type.toLowerCase()}`}
       type={type}
-      statusParam={typeof status === "string" ? status : undefined}
+      query={query}
+      title={viewer.role === "SOA" && type === "BOQ" ? "BOQ Tickets" : undefined}
     />
   );
 }

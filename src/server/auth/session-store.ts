@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { Role } from "@/domain/access/roles";
+import { renewedExpiry, SESSION_TTL_MS } from "./session-policy";
+
+export { SESSION_MAX_AGE_MS, SESSION_TTL_MS } from "./session-policy";
 
 type Db = PrismaClient | Prisma.TransactionClient;
-
-/** Absolute lifetime of a login. Not extended by activity (assumption in docs/requirements/RBAC.md). */
-export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 export type SessionUser = { id: string; name: string; email: string; role: Role };
 
@@ -42,6 +42,24 @@ export async function findSessionUser(
   if (!session || session.expiresAt <= now || !session.user.isActive) return null;
   const { id, name, email, role } = session.user;
   return { id, name, email, role };
+}
+
+/**
+ * Extends a live session while its owner keeps working (see session-policy.ts). Returns the new expiry, or null when the
+ * session was not extended: it is unknown, expired, belongs to a deactivated user, has plenty of time left, or reached its
+ * absolute limit. The expiry only moves forward, so two renewals at once cannot shorten it.
+ */
+export async function renewSession(db: Db, token: string, now: Date = new Date()): Promise<Date | null> {
+  const tokenHash = hashSessionToken(token);
+  const session = await db.session.findUnique({
+    where: { tokenHash },
+    select: { createdAt: true, expiresAt: true, user: { select: { isActive: true } } },
+  });
+  if (!session || !session.user.isActive) return null;
+  const next = renewedExpiry(session, now);
+  if (!next) return null;
+  const { count } = await db.session.updateMany({ where: { tokenHash, expiresAt: { lt: next, gt: now } }, data: { expiresAt: next } });
+  return count === 1 ? next : null;
 }
 
 export async function revokeSession(db: Db, token: string): Promise<void> {

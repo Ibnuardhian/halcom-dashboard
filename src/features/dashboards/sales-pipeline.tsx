@@ -2,7 +2,10 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { UPCOMING_DAYS } from "@/domain/requests/metrics";
+import { REQUEST_STATUSES, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { REQUEST_TYPES, typeSlug } from "@/domain/requests/types";
+import { getRequesterSummary } from "@/server/dashboards/metrics";
 import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatPercent } from "@/features/projects/format";
 import { formatDateOnly } from "@/features/requests/format";
@@ -12,6 +15,8 @@ import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
 import { getPipelineAnalytics, listPipelineProjects } from "@/server/projects/analytics";
 import { getOwnTargets, getTargetSummary } from "@/server/targets/service";
+import { percentOf } from "@/domain/targets/quarters";
+import { formatCompact } from "@/features/projects/format";
 import { getWorkStats, listPendingDecisions, listRequests } from "@/server/requests/queries";
 import { DashboardHeader } from "./dashboard-header";
 import { PipelineCharts, PipelineTiles } from "./pipeline-charts";
@@ -28,18 +33,20 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
   const db = getDb();
   // Sales see their own pipeline; an admin opening this dashboard sees everyone's.
   const ownerId = viewer.role === "SALES" ? viewer.id : undefined;
-  const [analytics, projects, requests, stats, targetSummary, decisions] = await Promise.all([
+  const [analytics, projects, requests, stats, targetSummary, decisions, summary] = await Promise.all([
     getPipelineAnalytics(db, viewer, { salesOwnerId: ownerId }),
     listPipelineProjects(db, viewer, ownerId),
     listRequests(db, viewer, { projectOwnerId: ownerId, limit: 10 }),
     getWorkStats(db, viewer),
-    view === "tracking" ? getTargetSummary(db, viewer, { year, salesOwnerId: ownerId }) : Promise.resolve(null),
+    getTargetSummary(db, viewer, { year, salesOwnerId: ownerId }),
     listPendingDecisions(db, viewer, ownerId),
+    getRequesterSummary(db, viewer, ownerId),
   ]);
   const ownTargets = view === "tracking" && ownerId ? await getOwnTargets(db, viewer, year) : null;
   const scope = ownerId ? "mine" : "all";
   const needMargin = projects.filter((p) => p.isOpen && p.estimatedValue !== null && p.estimatedGrossProfit === null);
-  const waiting = requests.filter((r) => r.status === "WAITING_FOR_SALES").length;
+  // "mine" keeps a salesperson's drill-down to the requests on their own projects; an admin sees everyone's.
+  const mineQuery = ownerId ? "&mine=1" : "";
 
   return (
     <>
@@ -56,7 +63,21 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
         {REQUEST_TYPES.map((type) => (
           <StatTile key={type} label={`Open ${type}`} value={stats.openByType[type]} href={`${REQUESTS_PATH}/${typeSlug(type)}?status=open`} note="All requests, still open" />
         ))}
-        <StatTile label="Waiting for you" value={waiting} href={`${REQUESTS_PATH}?status=WAITING_FOR_SALES`} note="In your latest requests" />
+        <StatTile label="Waiting for you" value={summary.waitingForSales} href={`${REQUESTS_PATH}?status=WAITING_FOR_SALES${mineQuery}`} note={ownerId ? "On your projects" : "On all projects"} />
+      </section>
+
+      <section aria-label="Your requests by status" className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{ownerId ? "Requests on your projects, by status" : "Requests on all projects, by status"}</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {REQUEST_STATUSES.map((status) => (
+            <StatTile key={status} label={REQUEST_STATUS_LABELS[status]} value={summary.byStatus[status]} href={`${REQUESTS_PATH}?status=${status}${mineQuery}`} />
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatTile label="Overdue requests" value={summary.overdue} href={`${REQUESTS_PATH}?sla=overdue${mineQuery}`} note="Past the SLA deadline of the team they went to" />
+          <StatTile label="Past needed-by date" value={summary.pastNeededBy} href={`${REQUESTS_PATH}?deadline=past${mineQuery}`} note="Open, and the date you asked for has passed" />
+          <StatTile label={`Needed in ${UPCOMING_DAYS} days`} value={summary.upcomingDeadlines} href={`${REQUESTS_PATH}?deadline=soon${mineQuery}`} note="Open, needed by today or within the week" />
+        </div>
       </section>
 
       {decisions.length > 0 ? (
@@ -111,6 +132,26 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
         </Card>
       ) : null}
 
+      <section aria-label={`Target versus achievement ${year}`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(
+          [
+            ["Revenue", targetSummary.total.revenue],
+            ["Gross profit", targetSummary.total.grossProfit],
+          ] as const
+        ).map(([label, figures]) => {
+          const reached = percentOf(figures.won, figures.target);
+          return (
+            <StatTile
+              key={label}
+              label={`${label} target ${year}`}
+              value={figures.target === null ? "Not set" : formatCompact(figures.target)}
+              href={`/dashboard/sales?view=tracking&year=${year}`}
+              note={`Won ${formatCompact(figures.won)}${reached === null ? "" : ` (${reached}% reached)`}; weighted forecast ${formatCompact(figures.forecast)}`}
+            />
+          );
+        })}
+      </section>
+
       <PipelineTiles analytics={analytics} scope={scope} />
 
       <nav aria-label="View" className="mb-4 inline-flex rounded-lg border p-0.5">
@@ -127,7 +168,7 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
       </nav>
 
       {view === "charts" ? <PipelineCharts analytics={analytics} scope={scope} /> : null}
-      {view === "tracking" && targetSummary ? <TargetTracking summary={targetSummary} own={ownTargets} years={[year - 1, year, year + 1]} basePath="/dashboard/sales" /> : null}
+      {view === "tracking" ? <TargetTracking summary={targetSummary} own={ownTargets} years={[year - 1, year, year + 1]} basePath="/dashboard/sales" /> : null}
 
       {view === "table" ? (
       <Card className="mb-8">

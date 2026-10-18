@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { can } from "@/domain/access/permissions";
 import { formatSlaRange } from "@/domain/requests/sla";
 import { renderBody, renderSubject, SAMPLE_VALUES, TEMPLATE_VARIABLES } from "@/domain/requests/template";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
@@ -24,14 +25,16 @@ const TEAMS = [
 ] as const;
 
 async function Settings() {
-  await requirePermission("settings.manage");
+  // Admins read the policies; only a superadmin changes them.
+  const viewer = await requirePermission("settings.view");
+  const mayEdit = can(viewer.role, "settings.manage");
   const settings = await getTeamSettings(getDb());
 
   return (
     <>
       <DashboardHeader
-        title="Team settings"
-        summary="How fast SOA and Purchasing should answer (1 to 3 working days) and the email Sales send them. The application never sends the email; it fills the template and opens the draft."
+        title="SLA Policies"
+        summary={`How fast SOA and Purchasing should answer (working days) and the email Sales send them. The application never sends the email; it fills the template and opens the draft.${mayEdit ? "" : " You can read the policies here; only a superadmin changes them."}`}
       />
 
       <Card className="mb-6">
@@ -73,14 +76,27 @@ async function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
-                <TeamSettingsForm
-                  key={`${team.role}-${setting.updatedAt?.toISOString() ?? "default"}`}
-                  role={team.role}
-                  label={team.label}
-                  sla={formatSlaRange(setting.sla)}
-                  subject={setting.emailSubject}
-                  body={setting.emailBody}
-                />
+                {mayEdit ? (
+                  <TeamSettingsForm
+                    key={`${team.role}-${setting.updatedAt?.toISOString() ?? "default"}`}
+                    role={team.role}
+                    label={team.label}
+                    sla={formatSlaRange(setting.sla)}
+                    subject={setting.emailSubject}
+                    body={setting.emailBody}
+                  />
+                ) : (
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">SLA (working days)</dt>
+                      <dd>{formatSlaRange(setting.sla)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Email subject</dt>
+                      <dd className="font-mono text-xs break-words">{setting.emailSubject}</dd>
+                    </div>
+                  </dl>
+                )}
                 <div className="border-t pt-4">
                   <h3 className="mb-2 text-sm font-semibold">Preview with sample data</h3>
                   <p className="mb-2 font-mono text-xs break-words">

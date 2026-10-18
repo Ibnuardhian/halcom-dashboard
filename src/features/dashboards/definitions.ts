@@ -1,5 +1,3 @@
-import type { DashboardKey } from "@/domain/access/dashboards";
-
 export type WidgetDefinition = { title: string; description: string };
 
 export type DashboardDefinition = {
@@ -27,48 +25,11 @@ export const SHARED_DASHBOARD: DashboardDefinition = {
   ],
 };
 
-type RoleDashboardKey = Exclude<DashboardKey, "admin" | "superadmin">;
-
-export const ROLE_DASHBOARDS: Record<RoleDashboardKey, DashboardDefinition> = {
-  sales: {
-    title: "Sales dashboard",
-    summary: "Your projects and requests to SOA and Purchasing.",
-    widgets: [
-      { title: "Waiting for Sales", description: "Clarifications requested from you, oldest first." },
-      { title: "My project progress", description: "Milestones of the projects you own." },
-    ],
-  },
-  soa: {
-    title: "SOA dashboard",
-    summary: "BOQ requests from Sales and their handover to Purchasing.",
-    widgets: [
-      { title: "Assigned to me", description: "BOQ work you own, with age and SLA state." },
-      { title: "Waiting for Sales", description: "BOQs paused for missing information." },
-      {
-        title: "Ready for handover",
-        description: "Completed BOQs to send to Purchasing as a [HITRFQ] request.",
-      },
-    ],
-  },
-  purchasing: {
-    title: "Purchasing dashboard",
-    summary: "RFQ and PO requests from Sales and from SOA handovers.",
-    widgets: [
-      { title: "Handed over from SOA", description: "Requests that arrived with a completed BOQ." },
-      { title: "Waiting for vendor", description: "Requests blocked on external input, with the reason." },
-      { title: "PO references", description: "Purchasing and PO numbers recorded on requests." },
-    ],
-  },
-  finance: {
-    title: "Finance dashboard",
-    summary: "Read-only cross-check of projects, BOQs and purchasing references.",
-    widgets: [
-      { title: "Cross-check list", description: "Projects with their BOQ and purchasing/PO references." },
-      { title: "Missing references", description: "Requests without a PO or purchasing reference yet." },
-      { title: "Estimated values", description: "Project values, where entered and permitted for Finance." },
-      { title: "Export", description: "Excel (.xlsx) export of the cross-check list." },
-    ],
-  },
+/**
+ * Planned widgets of the dashboards that have no data source yet. Sales, SOA, Purchasing, Finance, Admin and Superadmin show real
+ * numbers (D-023, D-026), so only Management is still here.
+ */
+export const ROLE_DASHBOARDS: Record<"management", DashboardDefinition> = {
   management: {
     title: "Management dashboard",
     summary: "Operational health across teams.",

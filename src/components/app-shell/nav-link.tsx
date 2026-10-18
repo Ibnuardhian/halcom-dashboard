@@ -9,9 +9,13 @@ import {
   FileSpreadsheet,
   FolderKanban,
   Gauge,
+  HandCoins,
+  KeyRound,
   LayoutDashboard,
   ListChecks,
   PlusCircle,
+  Target,
+  FileBarChart,
   ScrollText,
   ShoppingCart,
   Users,
@@ -33,6 +37,10 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   audit: ScrollText,
   backups: DatabaseBackup,
   system: Activity,
+  targets: Target,
+  handoff: HandCoins,
+  reports: FileBarChart,
+  permissions: KeyRound,
 };
 
 /** These two are parents of other menu entries, so only an exact match marks them active. */

@@ -4,6 +4,7 @@ import type { Role } from "@/domain/access/roles";
 import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
+import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource } from "@/domain/projects/source";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
@@ -121,11 +122,18 @@ async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, requ
 export async function createProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<CreatedProject>> {
   const parsed = createProjectSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
-  if (!can(claimedActor.role, "projects.create")) return fail("FORBIDDEN");
+  const source = normaliseSource(parsed.data);
+  if (!source.ok) return fail("INVALID_INPUT", source.message);
+  const { sourceType, ...externalSource } = source.value;
+  if (!canCreateProjectWithSource(claimedActor.role, sourceType)) return fail("FORBIDDEN");
   const { endUserCompany, name, description, targetDate, request, submissionKey } = parsed.data;
-  if (request && !can(claimedActor.role, "requests.create")) return fail("FORBIDDEN");
+  if (request && !canRaiseRequestOn(claimedActor.role, request.type, sourceType)) return fail("FORBIDDEN");
   // A new project has no RFQ yet, so it cannot start with a PO (BOQ -> RFQ -> PO; only the BOQ can be skipped).
   if (request?.type === "PO") return fail("INVALID_STATE", PO_NEEDS_RFQ);
+
+  // Value, margin and progress are Sales' to enter (docs/requirements/RBAC.md A-10); a role without that right cannot set them here.
+  const commercialGiven = (["estimatedValue", "targetMargin", "targetMarginValue", "progress", "trackStatus"] as const).some((field) => parsed.data[field] !== null);
+  if (commercialGiven && !can(claimedActor.role, "projects.edit.commercial")) return fail("FORBIDDEN", "Commercial details are entered by Sales.");
 
   const commercial: Record<string, number | string | null> = {};
   for (const field of ["estimatedValue", "targetMargin", "targetMarginValue", "progress", "trackStatus"] as const) {
@@ -142,7 +150,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
   try {
     return await db.$transaction(async (tx) => {
       const actor = await loadActor(tx, claimedActor);
-      if (!actor || !can(actor.role, "projects.create")) return fail("FORBIDDEN");
+      if (!actor || !canCreateProjectWithSource(actor.role, sourceType)) return fail("FORBIDDEN");
       if (submissionKey) {
         const again = await tx.project.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
         if (again) return succeed({ ...again, created: false, requestCode: null });
@@ -162,15 +170,18 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
           trackStatus,
           targetMargin: commercial["targetMargin"] as number | null,
           targetMarginValue: commercial["targetMarginValue"] as number | null,
-          salesOwnerId: actor.id,
+          // An Internal Sales project belongs to whoever registers it; a project from another source has no internal Sales PIC.
+          sourceType,
+          ...externalSource,
+          salesOwnerId: sourceType === "INTERNAL_SALES" ? actor.id : null,
           customerId,
           submissionKey,
         },
       });
-      await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name });
+      await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name, sourceType, ...externalSource });
       let requestCode: string | null = null;
       if (request) {
-        if (!can(actor.role, "requests.create")) return fail("FORBIDDEN");
+        if (!canRaiseRequestOn(actor.role, request.type, sourceType)) return fail("FORBIDDEN");
         requestCode = (await insertRequest(tx, actor, project.id, request, submissionKey ? `${submissionKey}:request` : null)).code;
       }
       return succeed({ id: project.id, code, created: true, requestCode });
@@ -188,20 +199,21 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
 export async function createRequest(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<CreatedRecord>> {
   const parsed = createRequestSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
-  if (!can(claimedActor.role, "requests.create")) return fail("FORBIDDEN");
+  if (!can(claimedActor.role, "requests.create") && !can(claimedActor.role, "requests.create.external")) return fail("FORBIDDEN");
   const { projectId, type, title, description, requiredBy, submissionKey } = parsed.data;
 
   const existing = () => db.request.findUnique({ where: { submissionKey: submissionKey! }, select: { id: true, code: true } });
   try {
     return await db.$transaction(async (tx) => {
       const actor = await loadActor(tx, claimedActor);
-      if (!actor || !can(actor.role, "requests.create")) return fail("FORBIDDEN");
+      if (!actor) return fail("FORBIDDEN");
       if (submissionKey) {
         const again = await tx.request.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
         if (again) return succeed({ ...again, created: false });
       }
-      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true, deletedAt: true } });
+      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true, deletedAt: true, sourceType: true } });
       if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
+      if (!canRaiseRequestOn(actor.role, type, project.sourceType)) return fail("FORBIDDEN");
       if (project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
       if (type === "PO" && (await tx.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED" } })) === 0) return fail("INVALID_STATE", PO_NEEDS_RFQ);
 

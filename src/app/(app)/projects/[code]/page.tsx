@@ -8,6 +8,7 @@ import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
+import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn } from "@/domain/projects/source";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
@@ -19,6 +20,7 @@ import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
 import { ReassignPics } from "@/features/projects/reassign-pics";
+import { SourceForm } from "@/features/projects/source-form";
 import { ClassificationForm } from "@/features/masterdata/classification-form";
 import { ChangeLog } from "@/features/projects/change-log";
 import { ProjectFieldsForm } from "@/features/projects/edit-forms";
@@ -32,7 +34,7 @@ import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
 import { isOpen } from "@/domain/requests/status";
 import { listMasterRecords } from "@/server/masterdata/service";
-import { getProjectByCode, listPicOptions, listProjectRequestDetails, listRequests } from "@/server/requests/queries";
+import { getProjectByCode, listPicOptions, listProjectRequestDetails, listRequests, listSalesPeopleOptions } from "@/server/requests/queries";
 
 export default function ProjectPage({ params }: PageProps<"/projects/[code]">) {
   return (
@@ -89,7 +91,11 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
     listProjectActions(getDb(), viewer, project.id),
   ]);
   const soaPhases = requests.filter((r) => r.type === "BOQ" && r.phase !== null && r.status !== "COMPLETED" && r.status !== "CANCELLED");
-  const mayCreate = can(viewer.role, "requests.create") && project.trackStatus === "ON_TRACK";
+  // Sales and admins raise any request; SOA raises a BOQ on a project from another source (Other).
+  const raisable = REQUEST_TYPES.filter((type) => canRaiseRequestOn(viewer.role, type, project.sourceType));
+  const mayCreate = raisable.length > 0 && project.trackStatus === "ON_TRACK";
+  const mayEditSource = can(viewer.role, "projects.edit.source") && project.sourceType === "OTHER";
+  const salesPeople = mayEditSource ? await listSalesPeopleOptions(getDb(), viewer) : [];
   // SOA (and admins) edit the technical fields and post updates; commercial fields stay read-only for them.
   const mayEditTechnical = can(viewer.role, "projects.edit.technical");
   const mayPostUpdate = can(viewer.role, "projects.post-update");
@@ -160,7 +166,15 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Location">{project.location ?? "–"}</Fact>
           <Fact label="Principal">{project.principal?.name ?? "–"}</Fact>
           <Fact label="Solution">{project.solutionCategory?.name ?? "–"}</Fact>
-          <Fact label="Sales PIC">{project.salesOwner.name}</Fact>
+          <Fact label="Project source">{SOURCE_LABELS[project.sourceType]}</Fact>
+          {project.sourceType === "OTHER" ? (
+            <>
+              <Fact label={EXTERNAL_SOURCE_LABELS.externalSourceName}>{project.externalSourceName}</Fact>
+              <Fact label={EXTERNAL_SOURCE_LABELS.externalContact}>{project.externalContact ?? "–"}</Fact>
+              <Fact label={EXTERNAL_SOURCE_LABELS.externalReference}>{project.externalReference ?? "–"}</Fact>
+            </>
+          ) : null}
+          <Fact label="Sales PIC">{project.salesOwner?.name ?? "None (project from another source)"}</Fact>
           <Fact label="Technical PIC (SOA)">{project.technicalPic?.name ?? "–"}</Fact>
           <Fact label="Purchasing PIC">{project.purchasingPic?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
@@ -179,6 +193,13 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
         <div className="mt-4 border-t pt-4">
           <Label>Description</Label>
           <Prose value={project.description} />
+          {project.sourceNotes ? (
+            <>
+              <div className="mt-4" />
+              <Label>{EXTERNAL_SOURCE_LABELS.sourceNotes}</Label>
+              <Prose value={project.sourceNotes} />
+            </>
+          ) : null}
           {project.lostNotes ? (
             <>
               <div className="mt-4" />
@@ -312,7 +333,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <FlowTracker requests={requests.map((r) => ({ code: r.code, type: r.type, status: r.status, flowStopped: r.flowStopped }))} />
           {mayCreate ? (
             <div className="flex flex-wrap gap-2">
-              {REQUEST_TYPES.filter((type) => type !== "PO" || requests.some((r) => r.type === "RFQ" && r.status === "COMPLETED")).map((type) => (
+              {raisable.filter((type) => type !== "PO" || requests.some((r) => r.type === "RFQ" && r.status === "COMPLETED")).map((type) => (
                 <Link
                   key={type}
                   href={`${NEW_REQUEST_PATH}?project=${project.code}&type=${type}`}
@@ -349,6 +370,22 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           )}
         </div>
       </Section>
+
+      {mayEditSource ? (
+        <Section id="source" title="Project source" description="This project comes from another source, so it has no internal Sales PIC. Every change is written to the change log and the audit log.">
+          <SourceForm
+            projectId={project.id}
+            projectCode={project.code}
+            values={{
+              externalSourceName: project.externalSourceName,
+              externalContact: project.externalContact,
+              externalReference: project.externalReference,
+              sourceNotes: project.sourceNotes,
+            }}
+            salesPeople={salesPeople}
+          />
+        </Section>
+      ) : null}
 
       {can(viewer.role, "projects.reassign") && picOptions ? (
         <Section id="owners" title="Owners" description="Superadmin: move the project to other people. Its details, requests and history stay exactly as they are; the move is added to the change log.">

@@ -39,6 +39,8 @@ export type PipelineAnalytics = {
 };
 
 const UNSET = "Not set";
+const EXTERNAL_KEY = "external-source";
+const EXTERNAL_LABEL = "External sources (Other)";
 export const MAX_SLICES = 7;
 
 function add(map: Map<string, Slice>, key: string, label: string, estimated: number | null, weighted: number | null): void {
@@ -116,7 +118,8 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, estimated, weighted);
     const industry = project.industry?.trim() || UNSET;
     add(industries, industry.toLowerCase(), industry, estimated, weighted);
-    add(salespeople, project.salesOwner.id, project.salesOwner.name, estimated, weighted);
+    // A project from another source has no internal Sales PIC; its numbers stay in the totals under one "external" row.
+    add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted);
 
     if (isOpenProject(project.progress, project.trackStatus)) {
       totals.open += 1;

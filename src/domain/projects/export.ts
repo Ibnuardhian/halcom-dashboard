@@ -1,3 +1,4 @@
+import { SOURCE_LABELS, type ProjectSourceType } from "./source";
 import { PROGRESS_LABELS, TRACK_STATUS_LABELS, type ProjectProgress, type TrackStatus } from "./progress";
 
 /** One project as the export sees it: plain values, already resolved (names, not ids). */
@@ -17,7 +18,13 @@ export type ExportProject = {
   finalValue: number | null;
   targetDate: Date | null;
   wonDate: Date | null;
-  salesPic: string;
+  /** Null for a project from another source: it has no internal Sales PIC. */
+  salesPic: string | null;
+  sourceType: ProjectSourceType;
+  externalSourceName: string | null;
+  externalContact: string | null;
+  externalReference: string | null;
+  sourceNotes: string | null;
   technicalPic: string | null;
   principal: string | null;
   solution: string | null;
@@ -46,6 +53,11 @@ export const EXPORT_COLUMNS = [
   { key: "quoteReleased", label: "Quote Released", value: (p) => day(p.quoteReleasedAt), group: "Project", preset: true },
   { key: "accountName", label: "Account Name", value: (p) => p.accountName, group: "Project", preset: true },
   { key: "projectTitle", label: "Project Title", value: (p) => p.projectTitle, group: "Project", preset: true },
+  { key: "source", label: "Project Source", value: (p) => SOURCE_LABELS[p.sourceType], group: "Source", preset: true },
+  { key: "externalSource", label: "External Sales Company", value: (p) => p.externalSourceName, group: "Source", preset: false },
+  { key: "externalContact", label: "External Sales Contact", value: (p) => p.externalContact, group: "Source", preset: false },
+  { key: "externalReference", label: "External Reference", value: (p) => p.externalReference, group: "Source", preset: false },
+  { key: "sourceNotes", label: "Source Notes", value: (p) => p.sourceNotes, group: "Source", preset: false },
   { key: "industry", label: "Industry", value: (p) => p.industry, group: "Project", preset: false },
   { key: "location", label: "Location", value: (p) => p.location, group: "Project", preset: false },
   { key: "principal", label: "Principal", value: (p) => p.principal, group: "Project", preset: false },

@@ -266,7 +266,7 @@ test.describe("projects and requests", () => {
 
     const root = await asRole(browser, "SUPERADMIN");
     await root.goto("/admin/settings");
-    await expect(root.getByRole("heading", { level: 1, name: "Team settings" })).toBeVisible();
+    await expect(root.getByRole("heading", { level: 1, name: "SLA Policies" })).toBeVisible();
     const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Save SOA settings" }) });
     await expect(form.getByLabel(/^SLA of the SOA team/)).toHaveValue("2-3"); // the default range
     await expect(async () => {
@@ -442,7 +442,7 @@ test.describe("projects and requests", () => {
     await soa.getByRole("button", { name: "Add BOQ", exact: true }).click();
     await soa.getByLabel("BOQ", { exact: true }).fill("In progress");
     await soa.getByRole("button", { name: "Add Technical notes" }).click();
-    await soa.getByLabel("Technical notes").fill("Sized for 400 users");
+    await soa.getByLabel("Technical notes", { exact: true }).fill("Sized for 400 users");
     await soa.getByRole("button", { name: "Save technical details" }).click();
     await expect(soa.getByRole("status").filter({ hasText: "Saved and logged: BOQ, Technical notes." })).toBeVisible();
 
@@ -739,6 +739,8 @@ test.describe("responsive layout", () => {
       "Overview",
       "Sales Pipeline",
       "Projects",
+      "Sales Targets",
+      "Request Center",
     ]);
     await expect(page).toHaveTitle("Halcom Dashboard");
 

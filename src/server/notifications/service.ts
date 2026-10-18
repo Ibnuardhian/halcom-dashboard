@@ -8,7 +8,8 @@ type Tx = Prisma.TransactionClient;
 export type NotificationInput = {
   /** The person who made the change; never notified about their own action. */
   actorId: string;
-  recipientIds: Iterable<string>;
+  /** A null entry (a project with no Sales PIC) is skipped. */
+  recipientIds: Iterable<string | null>;
   kind: string;
   title: string;
   body?: string | null;
@@ -18,7 +19,7 @@ export type NotificationInput = {
 
 /** Writes one notification per recipient, inside the caller's transaction. Returns how many were written. */
 export async function notify(tx: Tx, input: NotificationInput): Promise<number> {
-  const recipients = [...new Set(input.recipientIds)].filter((id) => id !== input.actorId);
+  const recipients = [...new Set(input.recipientIds)].filter((id): id is string => id !== null && id !== input.actorId);
   if (recipients.length === 0) return 0;
   const body = input.body?.trim() ? input.body.trim().slice(0, 300) : null;
   await tx.notification.createMany({
@@ -43,7 +44,8 @@ export async function projectAudience(tx: Tx, projectId: string): Promise<string
     select: { salesOwnerId: true, technicalPicId: true, purchasingPicId: true, requests: { select: { type: true, status: true } } },
   });
   if (!project) return [];
-  const ids = new Set<string>([project.salesOwnerId]);
+  const ids = new Set<string>();
+  if (project.salesOwnerId) ids.add(project.salesOwnerId);
   if (project.technicalPicId) ids.add(project.technicalPicId);
   if (project.purchasingPicId) ids.add(project.purchasingPicId);
   const teams = new Set<Role>(project.requests.filter((request) => isOpen(request.status)).map((request) => OWNING_ROLE[request.type]));

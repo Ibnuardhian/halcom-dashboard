@@ -153,6 +153,14 @@ enum ProjectStage {
   LOST
 }
 
+// Where a project came from. INTERNAL_SALES is the company's own Sales team (the project has a Sales PIC); OTHER is work SOA
+// registers that comes from an external sales company or another source (no internal Sales PIC; the external fields describe
+// it). Not the project's status and not a request type. Keep in sync with src/domain/projects/source.ts.
+enum ProjectSourceType {
+  INTERNAL_SALES
+  OTHER
+}
+
 // Master data. `nameKey` is the trimmed, lower-cased, single-spaced name: it makes "HPE" and "hpe "
 // the same record and is what the unique index guards.
 model Customer {
@@ -212,7 +220,15 @@ model Project {
   status         ProjectStatus @default(ACTIVE)
   // Target closing date.
   targetDate     DateTime?     @map("target_date") @db.Date
-  salesOwnerId   String        @map("sales_owner_id") @db.Uuid
+  // Null only for a project whose source is OTHER (a database check keeps the two in step).
+  salesOwnerId   String?       @map("sales_owner_id") @db.Uuid
+  // Every project that existed before this column was added is INTERNAL_SALES: each of them has a Sales owner, and no
+  // external source was ever recorded, so nothing is inferred.
+  sourceType         ProjectSourceType @default(INTERNAL_SALES) @map("source_type")
+  externalSourceName String?           @map("external_source_name")
+  externalContact    String?           @map("external_contact")
+  externalReference  String?           @map("external_reference")
+  sourceNotes        String?           @map("source_notes")
 
   // Commercial fields (Sales-owned; assumption docs/requirements/RBAC.md A-10). Currency is not stored: the
   // sales export holds plain numbers, assumed to be IDR.
@@ -278,7 +294,7 @@ model Project {
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedById String?   @map("deleted_by_id") @db.Uuid
 
-  salesOwner       User              @relation("ProjectSalesOwner", fields: [salesOwnerId], references: [id], onDelete: Restrict)
+  salesOwner       User?             @relation("ProjectSalesOwner", fields: [salesOwnerId], references: [id], onDelete: Restrict)
   technicalPic     User?             @relation("ProjectTechnicalPic", fields: [technicalPicId], references: [id], onDelete: Restrict)
   purchasingPic    User?             @relation("ProjectPurchasingPic", fields: [purchasingPicId], references: [id], onDelete: Restrict)
   customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -293,6 +309,7 @@ model Project {
   @@index([stage])
   @@index([progress])
   @@index([salesOwnerId])
+  @@index([sourceType])
   @@index([technicalPicId])
   @@index([purchasingPicId])
   @@index([customerId])

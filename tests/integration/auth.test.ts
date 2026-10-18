@@ -5,8 +5,10 @@ import {
   createSession,
   findSessionUser,
   hashSessionToken,
+  renewSession,
   revokeAllSessions,
   revokeSession,
+  SESSION_MAX_AGE_MS,
   SESSION_TTL_MS,
 } from "@/server/auth/session-store";
 import { makeUser, TEST_PASSWORD, uniqueEmail } from "./helpers";
@@ -90,6 +92,70 @@ describe("sessions", () => {
 
     await revokeAllSessions(db, user.id);
     await expect(db.session.count({ where: { userId: user.id } })).resolves.toBe(0);
+  });
+});
+
+describe("session renewal and switching", () => {
+  it("renews a session in the last half of its lifetime, and only forward", async () => {
+    const user = await makeUser("SALES");
+    const start = new Date();
+    const { token, expiresAt } = await createSession(db, user.id, start);
+    const stored = () => db.session.findFirstOrThrow({ where: { userId: user.id } });
+
+    // Fresh: nothing to renew, nothing written.
+    await expect(renewSession(db, token, new Date(start.getTime() + 60_000))).resolves.toBeNull();
+    expect((await stored()).expiresAt).toEqual(expiresAt);
+
+    // Past half of the lifetime: a full lifetime from now.
+    const later = new Date(start.getTime() + SESSION_TTL_MS * 0.75);
+    const renewed = await renewSession(db, token, later);
+    expect(renewed).toEqual(new Date(later.getTime() + SESSION_TTL_MS));
+    expect((await stored()).expiresAt).toEqual(renewed);
+    await expect(findSessionUser(db, token, new Date(expiresAt.getTime() + 60_000))).resolves.toMatchObject({ id: user.id });
+
+    // A late duplicate renewal cannot pull the expiry back.
+    await expect(renewSession(db, token, new Date(start.getTime() + SESSION_TTL_MS * 0.76))).resolves.toBeNull();
+    expect((await stored()).expiresAt).toEqual(renewed);
+  });
+
+  it("does not renew an expired, revoked or unknown session, or one of a deactivated user", async () => {
+    const user = await makeUser("SOA");
+    const { token, expiresAt } = await createSession(db, user.id);
+
+    await expect(renewSession(db, "not-a-real-token")).resolves.toBeNull();
+    await expect(renewSession(db, token, new Date(expiresAt.getTime() + 1))).resolves.toBeNull();
+    await db.user.update({ where: { id: user.id }, data: { isActive: false } });
+    await expect(renewSession(db, token, new Date(expiresAt.getTime() - 60_000))).resolves.toBeNull();
+    await db.user.update({ where: { id: user.id }, data: { isActive: true } });
+    await revokeSession(db, token);
+    await expect(renewSession(db, token, new Date(expiresAt.getTime() - 60_000))).resolves.toBeNull();
+  });
+
+  it("stops renewing at the absolute limit", async () => {
+    const user = await makeUser("FINANCE");
+    const start = new Date(Date.now() - SESSION_MAX_AGE_MS + SESSION_TTL_MS / 4);
+    const { token } = await createSession(db, user.id, start);
+    await db.session.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(start.getTime() + SESSION_MAX_AGE_MS - 60_000) } });
+
+    const renewed = await renewSession(db, token, new Date(start.getTime() + SESSION_MAX_AGE_MS - 120_000));
+
+    expect(renewed === null || renewed.getTime() <= start.getTime() + SESSION_MAX_AGE_MS).toBe(true);
+    const row = await db.session.findFirstOrThrow({ where: { userId: user.id } });
+    expect(row.expiresAt.getTime()).toBeLessThanOrEqual(start.getTime() + SESSION_MAX_AGE_MS);
+  });
+
+  it("ends the previous user's session on a switch, whatever the next user does", async () => {
+    const [first, second] = await Promise.all([makeUser("SALES"), makeUser("FINANCE")]);
+    const one = await createSession(db, first.id);
+
+    // Switching: the first session is revoked before the second user authenticates.
+    await revokeSession(db, one.token);
+    const two = await createSession(db, second.id);
+
+    await expect(findSessionUser(db, one.token)).resolves.toBeNull();
+    await expect(findSessionUser(db, two.token)).resolves.toMatchObject({ id: second.id, role: "FINANCE" });
+    // The second user's token never resolves to the first user, and the other way round.
+    expect((await findSessionUser(db, two.token))?.id).not.toBe(first.id);
   });
 });
 

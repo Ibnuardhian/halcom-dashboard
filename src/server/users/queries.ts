@@ -43,6 +43,13 @@ export async function getUserStats(db: PrismaClient, actor: Actor): Promise<User
   return { total: active + inactive, active, byRole };
 }
 
+/** Audit events of the last `days` days other than sign-ins and sign-outs: accounts, settings, master data, projects and exports. */
+export async function countAdministrativeChanges(db: PrismaClient, actor: Actor, days: number): Promise<number> {
+  assertPermitted(can(actor.role, "audit.view"));
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  return db.auditEvent.count({ where: { createdAt: { gte: since }, NOT: { action: { startsWith: "auth." } } } });
+}
+
 export type AuditRow = {
   id: string;
   action: string;

@@ -3,7 +3,8 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { can } from "@/domain/access/permissions";
 import { ROLE_LABELS } from "@/domain/access/roles";
-import { logoutAction } from "@/features/auth/actions";
+import { logoutAction, switchAccountAction } from "@/features/auth/actions";
+import { SessionKeepAlive } from "@/features/auth/session-keep-alive";
 import { ACCOUNT_PATH, NOTIFICATIONS_PATH, navSectionsFor } from "@/features/navigation/links";
 import { ThemeSwitcher } from "@/features/theme/theme-switcher";
 import { getDb } from "@/lib/db";
@@ -38,13 +39,22 @@ async function AuthenticatedShell({ children }: { children: React.ReactNode }) {
       notifications={{ href: NOTIFICATIONS_PATH, unread }}
       controls={can(user.role, "theme.switch") ? <ThemeSwitcher /> : null}
       signOut={
-        <form action={logoutAction}>
-          <Button type="submit" variant="outline" className="w-full">
-            Sign out
-          </Button>
-        </form>
+        <div className="flex flex-col gap-2">
+          {/* Ends this session, then shows the sign-in page with the accounts used on this browser. */}
+          <form action={switchAccountAction}>
+            <Button type="submit" variant="outline" className="w-full">
+              Switch account
+            </Button>
+          </form>
+          <form action={logoutAction}>
+            <Button type="submit" variant="outline" className="w-full">
+              Sign out
+            </Button>
+          </form>
+        </div>
       }
     >
+      <SessionKeepAlive />
       {children}
     </AppShell>
   );

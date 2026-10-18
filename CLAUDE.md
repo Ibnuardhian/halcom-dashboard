@@ -2,7 +2,7 @@
 
 Concise working context for the next session. It is not a substitute for the code, the brief or test
 evidence; reconcile it with `git status`, `git log` and a fresh test run before trusting it
-(AGENTS.md §2, §10). Last reconciled: 2026-10-17 (after projects, requests, the sales import and SOA edit log).
+(AGENTS.md §2, §10). Last reconciled: 2026-10-18 (after D-026: persistent login and Switch Account, role dashboards, project source Other).
 
 Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 [PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md](PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md) ·
@@ -42,11 +42,23 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 
 - **Added 2026-10-19 (D-025):** project soft delete (superadmin), XLSX export, sales funnel, clickable pipeline tiles, PIC reassignment, margin as amount or percent, SLA range and email templates per team (`/admin/settings`), Waiting-for-Sales answer, BOQ -> RFQ -> PO decisions (a PO needs a completed RFQ). Migrations through `20261020140000_sla_range`. The Turbopack dev cache is off for dev servers (it caused endless reloads).
 
+- **Added 2026-10-18 (D-026, from `FEATURE_SPEC_LOGIN_ROLE_DASHBOARDS_SOA_OTHER.md`):** session renewal (12 h idle, 7 days at most,
+  `POST /api/session/renew`), **Switch Account** (revokes the session, quick-pick of accounts used on this browser, password always required),
+  audit of sign-in/out/switch; real SOA, Purchasing and Finance dashboards (`src/domain/requests/metrics.ts`, `src/server/dashboards`), Sales
+  dashboard additions, Request Center, Sales Targets page, BOQ board view, Purchasing Handoff, Technical Reports, Financial Crosscheck (read-only,
+  CSV), Permissions page, read-only SLA Policies for admin; **project source `OTHER`** (migration `20261021100000_project_source`: nullable
+  `sales_owner_id`, CHECK constraint; SOA registers these and raises their BOQ). Nav labels changed per role. Open points: OPEN_QUESTIONS T-17.
+  Integration test files now run one after another (`fileParallelism: false`).
+  **Checks run on the final code (2026-10-18, outside Docker: Node 22, PostgreSQL 16 with a `uuidv7()` shim in template1):** typecheck and lint
+  (0 warnings) exit 0; unit 208/208; integration 183/184 (the one failure asserts PostgreSQL 18 and cannot pass on 16); `next build` passes;
+  E2E rbac + modules + smoke 39/39, and work/superadmin specs pass except the System page (also asserts PostgreSQL 18) and "Sales answer a
+  request that waits for them", which **fails on the baseline commit too** (not caused by D-026). Not re-run in Docker: do that before merging.
+
 ## Architecture decisions
 
 D-012 interim auth, D-013 RBAC, D-014 handover email (delivery part superseded by D-017), D-015 Cache Components rules,
 D-016 superadmin tooling, D-017 email copy-paste, D-018 numbering, D-019 pipeline and import, D-020 field-level edits and log,
-D-021 backup, D-022 shell and branding.
+D-021 backup, D-022 shell and branding, D-023 to D-025 pipeline/flow/SLA, D-026 sessions, dashboards and project source.
 Layering: pure rules in `src/domain` (`access`, `requests`, `projects`), use cases in `src/server`
 (`requests`, `projects`, `import`, `system`, `auth`, `users`), UI in `src/features` and `src/app`.
 Permissions are checked only through `can()` / `requirePermission()`; services re-check the stored actor inside the transaction.

@@ -3,12 +3,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ROLE_LABELS, ROLES } from "@/domain/access/roles";
-import { USERS_PATH } from "@/features/navigation/links";
+import { formatSlaRange } from "@/domain/requests/sla";
+import { AUDIT_PATH, MASTER_DATA_PATH, PERMISSIONS_PATH, SETTINGS_PATH, USERS_PATH } from "@/features/navigation/links";
+import { getTeamSettings } from "@/server/settings/team-settings";
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
-import { getUserStats, recentAuditEvents } from "@/server/users/queries";
+import { countAdministrativeChanges, getUserStats, recentAuditEvents } from "@/server/users/queries";
 import { DashboardHeader } from "./dashboard-header";
 import { formatUtc } from "./format";
+import { StatTile } from "./stat-tile";
 
 const COPY = {
   admin: {
@@ -24,11 +27,31 @@ const COPY = {
 /** The only dashboard widgets with real data today: they read the users and audit tables. */
 export async function AdminDashboard({ viewer, scope }: { viewer: SessionUser; scope: keyof typeof COPY }) {
   const db = getDb();
-  const [stats, events] = await Promise.all([getUserStats(db, viewer), recentAuditEvents(db, viewer, 10)]);
+  const [stats, events, settings, customers, principals, solutions, changes] = await Promise.all([
+    getUserStats(db, viewer),
+    recentAuditEvents(db, viewer, 10),
+    getTeamSettings(db),
+    db.customer.count(),
+    db.principal.count(),
+    db.solutionCategory.count(),
+    // Administrative changes in the last seven days: accounts, settings and master data, not every login.
+    countAdministrativeChanges(db, viewer, 7),
+  ]);
 
   return (
     <>
       <DashboardHeader title={COPY[scope].title} summary={COPY[scope].summary} />
+      <section aria-label="Administration" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="Active accounts" value={stats.active} href={USERS_PATH} note={`${stats.total - stats.active} inactive`} />
+        <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={SETTINGS_PATH} note="Working days to answer a request" />
+        <StatTile label="Master data" value={principals + solutions + customers} href={MASTER_DATA_PATH} note={`${principals} principals, ${solutions} solutions, ${customers} customers`} />
+        <StatTile label="Changes in 7 days" value={changes} href={AUDIT_PATH} note="Audit events other than sign-ins" />
+      </section>
+      <p className="mb-4 text-sm text-muted-foreground">
+        <Link href={PERMISSIONS_PATH} className="underline underline-offset-4">
+          Review role permissions
+        </Link>
+      </p>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>

@@ -6,7 +6,7 @@ import type { FormState } from "@/components/ui/form-status";
 import { marginFields } from "@/domain/projects/margin";
 import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
-import { requirePermission, requireUser } from "@/server/auth/current-user";
+import { requireUser } from "@/server/auth/current-user";
 import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setRequestPhase, stopFlow } from "@/server/requests/service";
 
 // Each action checks the sign-in (and, where one permission fits, that permission) on the server;
@@ -18,13 +18,19 @@ function text(formData: FormData, name: string): string | null {
 }
 
 export async function createProjectAction(_previous: FormState, formData: FormData): Promise<FormState> {
-  const user = await requirePermission("projects.create");
+  // Who may register a project depends on its source, so the service decides; it re-checks the stored role.
+  const user = await requireUser();
   const requestType = text(formData, "requestType");
   const result = await createProject(getDb(), { id: user.id, role: user.role }, {
     endUserCompany: text(formData, "endUserCompany"),
     name: text(formData, "name"),
     description: text(formData, "description"),
     targetDate: text(formData, "targetDate"),
+    sourceType: text(formData, "sourceType"),
+    externalSourceName: text(formData, "externalSourceName"),
+    externalContact: text(formData, "externalContact"),
+    externalReference: text(formData, "externalReference"),
+    sourceNotes: text(formData, "sourceNotes"),
     progress: text(formData, "progress"),
     trackStatus: text(formData, "trackStatus"),
     estimatedValue: text(formData, "estimatedValue"),
@@ -50,7 +56,8 @@ export async function createProjectAction(_previous: FormState, formData: FormDa
 }
 
 export async function createRequestAction(_previous: FormState, formData: FormData): Promise<FormState> {
-  const user = await requirePermission("requests.create");
+  // BOQ for a project from another source is raised by SOA, everything else by Sales: the service decides per project.
+  const user = await requireUser();
   const result = await createRequest(getDb(), { id: user.id, role: user.role }, {
     projectId: text(formData, "projectId"),
     type: text(formData, "type"),

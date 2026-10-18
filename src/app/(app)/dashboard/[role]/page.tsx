@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { dashboardFromSlug } from "@/domain/access/dashboards";
 import { AdminDashboard } from "@/features/dashboards/admin-dashboard";
+import { FinanceDashboard } from "@/features/dashboards/finance-dashboard";
 import { PlannedDashboard } from "@/features/dashboards/planned-dashboard";
+import { TeamDashboard } from "@/features/dashboards/team-dashboard";
 import { ROLE_DASHBOARDS } from "@/features/dashboards/definitions";
 import { RoleQueue } from "@/features/dashboards/role-queue";
 import { SalesPipeline } from "@/features/dashboards/sales-pipeline";
@@ -35,6 +37,9 @@ async function RoleDashboard({ params, searchParams }: Pick<PageProps<"/dashboar
     const year = Number.isInteger(wanted) && wanted >= 2001 && wanted <= 2099 ? wanted : thisYear;
     return <SalesPipeline viewer={viewer} view={view} year={year} />;
   }
+  if (key === "soa") return <TeamDashboard viewer={viewer} team="SOA" />;
+  if (key === "purchasing") return <TeamDashboard viewer={viewer} team="PURCHASING" />;
+  if (key === "finance") return <FinanceDashboard viewer={viewer} />;
   return (
     <PlannedDashboard definition={ROLE_DASHBOARDS[key]}>
       <RoleQueue viewer={viewer} dashboard={key} />

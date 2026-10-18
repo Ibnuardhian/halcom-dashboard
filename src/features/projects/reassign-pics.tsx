@@ -9,13 +9,14 @@ import { reassignProjectAction } from "./actions";
 
 type Person = { id: string; name: string };
 export type PicOptions = { sales: Person[]; soa: Person[]; purchasing: Person[] };
-export type CurrentPics = { salesOwnerId: string; technicalPicId: string | null; purchasingPicId: string | null };
+export type CurrentPics = { salesOwnerId: string | null; technicalPicId: string | null; purchasingPicId: string | null };
 
 /** Superadmin only (the page decides). Picks who the project belongs to; nothing else about the project changes. */
 export function ReassignPics({ projectId, projectCode, current, options }: { projectId: string; projectCode: string; current: CurrentPics; options: PicOptions }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(reassignProjectAction, null);
   const fields = [
-    { name: "salesOwnerId", label: "Sales PIC", people: options.sales, value: current.salesOwnerId, optional: false },
+    // A project from another source has no internal Sales PIC to move; its source is edited in the Source section.
+    ...(current.salesOwnerId === null ? [] : [{ name: "salesOwnerId", label: "Sales PIC", people: options.sales, value: current.salesOwnerId, optional: false }]),
     { name: "technicalPicId", label: "SOA PIC (technical)", people: options.soa, value: current.technicalPicId ?? "", optional: true },
     { name: "purchasingPicId", label: "Purchasing PIC", people: options.purchasing, value: current.purchasingPicId ?? "", optional: true },
   ];
@@ -23,7 +24,7 @@ export function ReassignPics({ projectId, projectCode, current, options }: { pro
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="projectCode" value={projectCode} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {fields.map((field) => (
           <div key={field.name} className="flex flex-col gap-1.5">
             <Label htmlFor={`${projectCode}-${field.name}`}>{field.label}</Label>

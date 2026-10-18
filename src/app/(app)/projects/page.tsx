@@ -7,6 +7,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/domain/access/permissions";
 import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
+import { PROJECT_SOURCE_TYPES, SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatPercent } from "@/features/projects/format";
@@ -37,11 +38,12 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const principals = await listPrincipalOptions(getDb(), viewer);
   const principalId = principals.find((p) => p.id === one(query.principal))?.id;
   const show = PROJECT_SHOWS.find((s) => s === one(query.show));
+  const sourceType = PROJECT_SOURCE_TYPES.find((s) => s === one(query.source));
   // "mine" is the salesperson's view of the tiles; it only ever narrows to the signed-in user's own projects.
   const mine = one(query.mine) === "1";
-  const filter: ProjectFilter = { search, progress, trackStatus, principalId, show, salesOwnerId: mine ? viewer.id : undefined };
+  const filter: ProjectFilter = { search, progress, trackStatus, principalId, show, sourceType, salesOwnerId: mine ? viewer.id : undefined };
   const projects = await listProjects(getDb(), viewer, filter);
-  const filtered = Boolean(search || progress || trackStatus || principalId || show || mine);
+  const filtered = Boolean(search || progress || trackStatus || principalId || show || sourceType || mine);
 
   return (
     <>
@@ -50,10 +52,10 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
         summary="Every project in the pipeline, newest first. Values are plain numbers (assumed IDR); weighted value is estimated value times probability."
       />
       <div className="mb-4 flex flex-col gap-3">
-        <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto]">
+        <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]">
           {show ? <input type="hidden" name="show" value={show} /> : null}
           {mine ? <input type="hidden" name="mine" value="1" /> : null}
-          <Input name="q" defaultValue={search} placeholder="Search code, customer, project, PIC or principal" aria-label="Search projects" maxLength={100} />
+          <Input name="q" defaultValue={search} placeholder="Search code, customer, project, PIC, principal or external source" aria-label="Search projects" maxLength={100} />
           <NativeSelect name="progress" defaultValue={progress ?? ""} aria-label="Progress">
             <option value="">All progress</option>
             {PROJECT_PROGRESSES.map((p) => (
@@ -78,6 +80,14 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               </option>
             ))}
           </NativeSelect>
+          <NativeSelect name="source" defaultValue={sourceType ?? ""} aria-label="Project source">
+            <option value="">All sources</option>
+            {PROJECT_SOURCE_TYPES.map((s) => (
+              <option key={s} value={s}>
+                {SOURCE_LABELS[s]}
+              </option>
+            ))}
+          </NativeSelect>
           <button type="submit" className={buttonVariants({ variant: "outline" })}>
             Filter
           </button>
@@ -96,7 +106,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               </>
             ) : null}
           </p>
-          {can(viewer.role, "projects.create") ? (
+          {can(viewer.role, "projects.create") || can(viewer.role, "projects.create.external") ? (
             <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>
               New project
             </Link>
@@ -117,6 +127,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               <TableHead>Progress</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
               <TableHead className="hidden lg:table-cell">Principal</TableHead>
+              <TableHead className="hidden md:table-cell">Source</TableHead>
               <TableHead className="hidden md:table-cell">Sales PIC</TableHead>
               <TableHead className="hidden xl:table-cell">Technical PIC</TableHead>
               <TableHead className="hidden text-right lg:table-cell">Estimated</TableHead>
@@ -143,6 +154,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
                   <TrackStatusBadge status={project.trackStatus} />
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">{project.principalName ?? "–"}</TableCell>
+                <TableCell className="hidden md:table-cell">{SOURCE_LABELS[project.sourceType]}</TableCell>
                 <TableCell className="hidden md:table-cell">{project.salesOwnerName}</TableCell>
                 <TableCell className="hidden xl:table-cell">{project.technicalPicName ?? "–"}</TableCell>
                 <TableCell className="hidden text-right tabular-nums lg:table-cell">{formatAmount(project.estimatedValue)}</TableCell>

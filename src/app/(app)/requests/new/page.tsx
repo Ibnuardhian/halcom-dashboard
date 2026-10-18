@@ -7,7 +7,9 @@ import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { RequestForm } from "@/features/requests/forms";
 import { getDb } from "@/lib/db";
-import { requirePermission } from "@/server/auth/current-user";
+import { notFound } from "next/navigation";
+import { can } from "@/domain/access/permissions";
+import { requireUser } from "@/server/auth/current-user";
 import { hasCompletedRfq, listActiveProjectOptions } from "@/server/requests/queries";
 
 export default function NewRequestPage({ searchParams }: PageProps<"/requests/new">) {
@@ -19,14 +21,17 @@ export default function NewRequestPage({ searchParams }: PageProps<"/requests/ne
 }
 
 async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "searchParams">) {
-  const viewer = await requirePermission("requests.create");
+  const viewer = await requireUser();
+  // Sales and admins raise any request. SOA raises a BOQ, and only for a project from another source (Other).
+  const raisesAny = can(viewer.role, "requests.create");
+  if (!raisesAny && !can(viewer.role, "requests.create.external")) notFound();
   const query = await searchParams;
-  const projects = await listActiveProjectOptions(getDb(), viewer);
+  const projects = await listActiveProjectOptions(getDb(), viewer, raisesAny ? undefined : "OTHER");
   const wantedProject = typeof query.project === "string" ? projects.find((p) => p.code === query.project) : undefined;
   const wantedType = typeof query.type === "string" ? query.type.toUpperCase() : "";
   // A PO needs a completed RFQ on its project, so it is offered only for a project that has one.
   const poAllowed = wantedProject ? await hasCompletedRfq(getDb(), viewer, wantedProject.id) : false;
-  const types: readonly RequestType[] = poAllowed ? REQUEST_TYPES : REQUEST_TYPES.filter((type) => type !== "PO");
+  const types: readonly RequestType[] = !raisesAny ? ["BOQ"] : poAllowed ? REQUEST_TYPES : REQUEST_TYPES.filter((type) => type !== "PO");
 
   return (
     <>

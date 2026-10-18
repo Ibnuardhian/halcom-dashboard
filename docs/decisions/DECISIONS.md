@@ -362,3 +362,41 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   and can delete a project. Deleting is a soft delete: history tables are append-only, so the project is hidden everywhere instead.
 - **Commercial:** probability is no longer entered; it is the percentage of the Progress step. Target margin is an amount (default) or a
   percentage, never both. Money inputs group thousands with dots as they are typed.
+
+## D-026 Persistent login and Switch Account, role modules and dashboards, project source Other
+
+- **Date:** 2026-10-18 · **Status:** Implemented (from `FEATURE_SPEC_LOGIN_ROLE_DASHBOARDS_SOA_OTHER.md`)
+- **Sessions:** the server-side session and the opaque HttpOnly cookie of D-012 stay; no new provider. A session lasts **12 hours idle**
+  (`SESSION_TTL_HOURS`, 1 to 72) and is **renewed while the person works** (the page asks `POST /api/session/renew` every ten minutes while
+  visible; a session in the last half of its lifetime gets a fresh 12 hours), but **never lives past 7 days** after sign-in
+  (`SESSION_MAX_HOURS`). This replaces A-5 ("not extended by activity"). The cookie is a persistent cookie, so it survives a browser restart.
+  `Secure` in production, `SameSite=Lax`. Nothing about the session is kept in web storage.
+- **Switch Account:** ends (revokes) the current session, clears the cookie and shows the sign-in page with the accounts used on this
+  browser. Choosing one only fills the email; **the password is always required**. The list (`recent_accounts` cookie: name, email, role;
+  HttpOnly; at most five; 30 days) can be cleared per account or entirely. Sign out never signs anyone back in. Signing in revokes the
+  browser's previous session. Sign-in, sign-out and switch are written to the audit log (`auth.login`, `auth.logout`, `auth.switch`;
+  failed attempts are not logged, T-7). Login, logout and switch revalidate the whole app so no page of the previous user is cached, and every
+  page is served `Cache-Control: no-store`.
+- **Navigation per role:** Sales: Sales Pipeline, Projects, Sales Targets (`/targets`), Request Center (`/requests`). SOA: Technical
+  Dashboard, Projects, New project, BOQ Tickets (list or board), New BOQ request, Purchasing Handoff (`/handoffs`), Technical Reports,
+  Principal & Solution Master Data. Purchasing: Purchasing Dashboard, Projects (the shared view) and **RFQ Requests only**; PO requests are not in
+  its menu but stay in the data, the lists and the notifications (interpretation of the spec, see OPEN_QUESTIONS T-17). Finance:
+  Finance Dashboard, Projects, request lists (read) and Financial Crosscheck. Admin: Administration Dashboard, Users and Roles, Permissions,
+  SLA Policies (read-only for admin, editable by superadmin), Master Data, Audit Logs. Backups and System stay superadmin-only.
+- **Dashboard numbers** (`src/domain/requests/metrics.ts`, computed from requests and their status history, each linking to the filtered list):
+  open (not Completed or Cancelled); backlog (Submitted); overdue (past the SLA deadline, requests waiting for Sales excluded); due now;
+  waiting for Sales; past needed-by date; needed in the next 7 days; workload per assignee; bottlenecks (time in the current status);
+  over the requests **completed in the last 90 days**: SLA compliance (met over met + late), queue time (created to first response), waiting
+  time (in Waiting for Sales), processing time (turnaround minus queue minus waiting) and turnaround. Sales also see their requests by status
+  and their target versus achievement. Time is calendar hours; the SLA clock is working days (D-025).
+- **Finance crosscheck** (read-only, `src/domain/finance/crosscheck.ts`): value, RFQ and PO references, audit count, and four derived flags
+  (Closed Won without final value, without PO, without RFQ; PO completed on a project not Closed Won). No verification or editing exists; it
+  would need its own permission and audit trail. CSV export is audited.
+- **Project source:** `source_type` (`INTERNAL_SALES`, `OTHER`) on the project, separate from status and request type. `OTHER` has no Sales PIC
+  (`sales_owner_id` is now nullable) and needs the external company; contact, reference and notes are optional. A database CHECK and the
+  service both enforce the combinations. Legacy rows become `INTERNAL_SALES` (each has a Sales owner; nothing is inferred). **SOA, admin and
+  superadmin register `OTHER` projects; Sales register `INTERNAL_SALES`.** SOA may raise a BOQ on an `OTHER` project (not on a Sales
+  project, not RFQ or PO) and continue it to Purchasing like any BOQ. SOA/admin edit the external details (change log + audit); an `OTHER`
+  project can be handed to an internal Sales PIC, but an internal project cannot become `OTHER` (it would drop its Sales PIC and the targets
+  that count it). Source is in the Projects list (column, filter, search), the project page and the exports.
+- **Tests:** the integration files now run one after another (`fileParallelism: false`) because the dashboard tests compare whole-table counts.

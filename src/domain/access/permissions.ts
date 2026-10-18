@@ -18,16 +18,24 @@ export type Permission =
   | "theme.switch"
   | "projects.view"
   | "projects.create"
+  | "projects.create.external"
+  | "projects.edit.source"
   | "projects.edit.technical"
   | "projects.edit.commercial"
   | "projects.delete"
   | "projects.reassign"
   | "settings.manage"
+  | "settings.view"
+  | "permissions.view"
+  | "handoffs.view"
+  | "finance.crosscheck.view"
+  | "reports.technical.view"
   | "masterdata.manage"
   | "targets.edit"
   | "projects.post-update"
   | "requests.view"
   | "requests.create"
+  | "requests.create.external"
   | "requests.email"
   | "requests.work.boq"
   | "requests.work.purchasing"
@@ -45,16 +53,24 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "theme.switch",
   "projects.view",
   "projects.create",
+  "projects.create.external",
+  "projects.edit.source",
   "projects.edit.technical",
   "projects.edit.commercial",
   "projects.delete",
   "projects.reassign",
   "settings.manage",
+  "settings.view",
+  "permissions.view",
+  "handoffs.view",
+  "finance.crosscheck.view",
+  "reports.technical.view",
   "masterdata.manage",
   "targets.edit",
   "projects.post-update",
   "requests.view",
   "requests.create",
+  "requests.create.external",
   "requests.email",
   "requests.work.boq",
   "requests.work.purchasing",
@@ -79,8 +95,17 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "users.view",
     "users.manage",
     "audit.view",
+    // Least privilege: an admin reads the SLA policies and the permission matrix, and only a superadmin changes the policies.
+    "settings.view",
+    "permissions.view",
+    "handoffs.view",
+    "finance.crosscheck.view",
+    "reports.technical.view",
     ...READ_WORK,
     ...SALES_WORK,
+    "projects.create.external",
+    "projects.edit.source",
+    "requests.create.external",
     "projects.edit.technical",
     "projects.post-update",
     "masterdata.manage",
@@ -92,7 +117,13 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   SOA: new Set<Permission>([
     "dashboard.shared.view",
     ownDashboardPermission("SOA"),
+    "handoffs.view",
+    "reports.technical.view",
     ...READ_WORK,
+    // SOA registers work that comes from outside the internal Sales team (source Other), and raises its BOQ.
+    "projects.create.external",
+    "projects.edit.source",
+    "requests.create.external",
     "projects.edit.technical",
     "projects.post-update",
     "masterdata.manage",
@@ -106,8 +137,9 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     ...READ_WORK,
     "requests.work.purchasing",
   ]),
-  FINANCE: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("FINANCE"), ...READ_WORK]),
-  MANAGEMENT: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("MANAGEMENT"), ...READ_WORK]),
+  // Finance reads: values, quotation and PO references, audit history. Nothing here lets Finance change a project or a request.
+  FINANCE: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("FINANCE"), "finance.crosscheck.view", ...READ_WORK]),
+  MANAGEMENT: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("MANAGEMENT"), "finance.crosscheck.view", "reports.technical.view", ...READ_WORK]),
 };
 
 export function permissionsFor(role: Role): ReadonlySet<Permission> {
