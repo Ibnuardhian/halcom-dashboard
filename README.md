@@ -63,13 +63,16 @@ except `Copy-Item` (use `cp`).
    The first start installs dependencies into a Docker volume, which takes 1–2 minutes.
    Follow it with `docker compose logs -f app`.
 
-3. Create the database tables and the sample accounts (both safe to repeat; the sales-export import is optional, see
+3. Create the database tables, the development accounts and the sample data (all safe to repeat; the sales-export import is optional, see
    [Importing the sales export](#importing-the-sales-export)):
 
    ```powershell
    docker compose run --rm app npm run db:migrate:deploy
-   docker compose run --rm app npm run db:seed
+   docker compose run --rm app npm run db:seed          # accounts, principals, solutions, PICs
+   docker compose run --rm app npm run db:seed:sample   # sample projects with BOQ, RFQ and PO requests
    ```
+
+   Details of what each command adds, and of the cleanup script, are in [Seeding and cleaning development data](#seeding-and-cleaning-development-data).
 
 4. Open http://localhost:3000 and sign in (next section). The health endpoint
    http://localhost:3000/api/health returns `{"status":"ok","checks":{"database":"ok"}}`.
@@ -159,6 +162,32 @@ projects that already exist, existing users and their passwords are never change
 file is imported in one transaction or not at all, and any problem in the file is listed before anything is written.
 It refuses to run outside development and test. A different file can be given as the first argument.
 
+### Seeding and cleaning development data
+
+Migrations and seeding are separate steps. Neither deletes, resets or truncates anything, and both refuse to run outside `development` or `test`.
+
+| Command | Adds | Safe to repeat |
+|---|---|---|
+| `npm run db:migrate:deploy` | Applies the pending migrations (schema only) | yes |
+| `npm run db:seed` | One account per role, the Sales accounts `dzaki@` and `satrio@`, the principals Fortinet, HPE and Cisco, three solution categories and three PICs. Needs `SEED_USER_PASSWORD` in `.env`. | yes: existing records and passwords are never changed |
+| `npm run db:seed:sample` | Five fictional projects (four owned by Dzaki or Satrio, one registered by SOA for an outside source) with BOQ, RFQ and PO requests at different stages. Run after `db:seed`. | yes: fixed idempotency keys `seed-dev-v1:...`; nothing is overwritten |
+
+A fresh clone therefore needs: `docker compose up -d`, `db:migrate:deploy`, `db:seed`, `db:seed:sample`. Role permissions need no seed: the defaults are in code, and the
+Permissions page stores only what a superadmin changes.
+
+`npm run db:cleanup-dev` (D-032) is for a development database that already holds test data. It reports first and changes nothing until `--apply`:
+
+```powershell
+docker compose run --rm app npm run db:cleanup-dev                                   # dry run: accounts, test projects, what is left alone
+docker compose run --rm app npm run db:cleanup-dev -- --apply                        # one transaction, recomputed and verified inside it
+docker compose run --rm app npm run db:cleanup-dev -- --date=2026-10-17 --tz=UTC     # the day and time zone to look at (these are the defaults)
+```
+
+It deletes the obsolete accounts listed in `prisma/seed-users.ts` when nothing refers to them, and otherwise deactivates and signs them out. It also
+marks the test projects of that day deleted the way the application does (their requests and history stay). A project counts as test data only when it was
+created that day through the form, was not imported from the sales export and has a placeholder company such as `PT ABCD`; everything else is reported and left alone.
+Take a backup first (Backups page or `pg_dump`).
+
 ### Correcting Sales accounts and project ownership
 
 `npm run db:remap-owners` applies the reviewed ownership correction of D-031 (rename `mas.dzaki@` to `dzaki@`, move the projects of `soraya@` to
@@ -191,7 +220,8 @@ docker compose run --rm app npm run db:remap-owners -- --apply   # apply
 | Create a migration | `docker compose run --rm app npx prisma migrate dev --name <change_name>` |
 | Apply migrations | `docker compose run --rm app npm run db:migrate:deploy` |
 | Migration status | `docker compose run --rm app npm run db:migrate:status` |
-| Seed development data | `docker compose run --rm app npm run db:seed` |
+| Seed development data | `docker compose run --rm app npm run db:seed`, then `npm run db:seed:sample` |
+| Clean up development data (dry run) | `docker compose run --rm app npm run db:cleanup-dev` |
 | SQL shell | `docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB'` |
 
 ## How the development environment works

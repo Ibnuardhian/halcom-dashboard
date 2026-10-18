@@ -61,6 +61,12 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
   Migrations `20261023100000_project_principals`, `20261023110000_operational_pics` (applied to the dev DB). `DEV_ACCOUNTS.md` is now generated
   without a password. Heredocs that contain some quote patterns fail as a whole in this shell: write a script file with the Write tool instead.
 
+- **Added 2026-10-18 (D-032):** **permission editor** on `/admin/permissions` (Superadmin only, new `permissions.manage`; categories, labels, guards; the database holds
+  only deviations in `role_permission_overrides`, loaded at the start of every signed-in request into a `globalThis` snapshot so `can()` stays synchronous),
+  one **Admin Dashboard** for Admin and Superadmin (both addresses and permissions kept), `npm run db:cleanup-dev` (applied to the dev DB: PRJ-035/036 and their
+  three requests marked deleted, 18 notifications removed, 5 obsolete accounts deleted, `gusti` and `adityo` deactivated), repeatable seeds (`db:seed`, `db:seed:sample`).
+  Migration `20261024100000_role_permission_overrides`. Backup before the cleanup: `backups/pre-dev-cleanup-2026-10-18.dump`.
+
 ## Architecture decisions
 
 D-012 interim auth, D-013 RBAC, D-014 handover email (delivery part superseded by D-017), D-015 Cache Components rules,
