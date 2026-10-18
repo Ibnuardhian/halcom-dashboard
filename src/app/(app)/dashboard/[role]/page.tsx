@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { dashboardFromSlug } from "@/domain/access/dashboards";
 import { AdminDashboard } from "@/features/dashboards/admin-dashboard";
@@ -31,11 +31,9 @@ async function RoleDashboard({ params, searchParams }: Pick<PageProps<"/dashboar
   if (key === "sales") {
     const query = await searchParams;
     const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : "");
-    const view = one(query.view) === "charts" ? "charts" : one(query.view) === "tracking" ? "tracking" : "table";
-    const thisYear = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric" }).format(new Date()));
-    const wanted = Number(one(query.year));
-    const year = Number.isInteger(wanted) && wanted >= 2001 && wanted <= 2099 ? wanted : thisYear;
-    return <SalesPipeline viewer={viewer} view={view} year={year} />;
+    // Targets live on their own page; an old link to the tracking view goes there.
+    if (one(query.view) === "tracking") redirect(`/targets${one(query.year) ? `?year=${encodeURIComponent(one(query.year))}` : ""}`);
+    return <SalesPipeline viewer={viewer} view={one(query.view) === "charts" ? "charts" : "table"} />;
   }
   if (key === "soa") return <TeamDashboard viewer={viewer} team="SOA" />;
   if (key === "purchasing") return <TeamDashboard viewer={viewer} team="PURCHASING" />;

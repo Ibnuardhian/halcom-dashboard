@@ -310,10 +310,17 @@ test.describe("dashboards use the stored requests", () => {
     await expect(finance.getByRole("link", { name: "Download CSV" })).toBeVisible();
   });
 
-  test("Sales' dashboard shows target versus achievement and requests by status", async ({ browser }) => {
+  test("Sales' dashboard puts pipeline performance before the request numbers and leaves targets to their own page", async ({ browser }) => {
     const sales = await asRole(browser, "SALES");
     await sales.goto("/dashboard/sales");
-    await expect(sales.getByRole("region", { name: /^Target versus achievement/ })).toBeVisible();
+    const pipeline = sales.getByRole("region", { name: "Pipeline numbers" });
+    const requests = sales.getByRole("region", { name: "Request counts" });
+    await expect(pipeline).toBeVisible();
+    await expect(requests).toBeVisible();
+    const [pipelineBox, requestsBox] = [await pipeline.boundingBox(), await requests.boundingBox()];
+    expect(pipelineBox!.y).toBeLessThan(requestsBox!.y); // sales performance first, BOQ/RFQ/PO counts after
+    await expect(sales.getByRole("region", { name: /^Target versus achievement/ })).toHaveCount(0);
+    await expect(sales.getByRole("link", { name: "Tracking" })).toHaveCount(0);
     await expect(sales.getByRole("region", { name: "Your requests by status" })).toBeVisible();
     await sales.getByRole("link", { name: "Sales Targets" }).first().click();
     await expect(sales.getByRole("heading", { level: 1, name: "Sales Targets" })).toBeVisible();

@@ -299,7 +299,7 @@ test.describe("projects and requests", () => {
     await page.getByRole("button", { name: "Save commercial details" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
 
-    await page.goto(`/dashboard/sales?view=tracking&year=${year}`);
+    await page.goto(`/targets?year=${year}`);
     await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
     await expect(async () => {
       // The boxes reset when the page becomes interactive, so they are filled again on every try.

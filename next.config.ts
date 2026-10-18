@@ -29,7 +29,8 @@ const nextConfig: NextConfig = {
   // Turbopack's on-disk dev cache goes stale between runs (after a restart or a Prisma client regeneration) and then every
   // page load is followed by "Compiled in 2ms" and a full reload, endlessly. Compiling from scratch costs a few seconds at
   // start-up, so the cache is off for the dev servers (`app` and the disposable `app-test`).
-  experimental: { turbopackFileSystemCacheForDev: false },
+  // A project import posts the .xlsx file itself to a server action (5 MB at most, checked again on the server).
+  experimental: { turbopackFileSystemCacheForDev: false, serverActions: { bodySizeLimit: "6mb" } },
   // Pages show one person's data. no-store keeps the browser's back/forward cache and any shared cache from showing the
   // last person's page to the next one on the same machine after a sign-out or an account switch.
   async headers() {
