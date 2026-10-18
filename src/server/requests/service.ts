@@ -4,7 +4,7 @@ import type { Role } from "@/domain/access/roles";
 import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
-import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource } from "@/domain/projects/source";
+import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource, salesActsOn } from "@/domain/projects/source";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
@@ -256,9 +256,9 @@ export async function handOverToPurchasing(
       if (!actor) return fail("FORBIDDEN");
 
       await tx.$executeRaw`SELECT id FROM requests WHERE id = ${sourceId}::uuid FOR UPDATE`;
-      const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { trackStatus: true, salesOwnerId: true, deletedAt: true } } } });
+      const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { trackStatus: true, salesOwnerId: true, sourceType: true, deletedAt: true } } } });
       if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
-      if (!canContinueFlow(actor.role, source.type, source.project.salesOwnerId === actor.id)) return fail("FORBIDDEN");
+      if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
       if (!canHandOver(source.type, source.status)) {
         return fail("INVALID_STATE", "Only a completed BOQ or RFQ can be continued to the next step.");
       }
@@ -332,10 +332,10 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${sourceId}::uuid FOR UPDATE`;
     const source = await tx.request.findUnique({
       where: { id: sourceId },
-      include: { project: { select: { salesOwnerId: true, deletedAt: true } }, handovers: { select: { id: true } } },
+      include: { project: { select: { salesOwnerId: true, sourceType: true, deletedAt: true } }, handovers: { select: { id: true } } },
     });
     if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
-    if (!canContinueFlow(actor.role, source.type, source.project.salesOwnerId === actor.id)) return fail("FORBIDDEN");
+    if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
     if (!canHandOver(source.type, source.status)) return fail("INVALID_STATE", "Only a completed BOQ or RFQ has a next step to decide on.");
     if (source.handovers.length > 0) return fail("INVALID_STATE", "This request has already been continued.");
 
@@ -372,10 +372,10 @@ export async function changeRequestStatus(
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId } });
     if (!request) return fail("NOT_FOUND", "Request not found.");
-    const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true } });
+    const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true, sourceType: true } });
     // The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. Nothing else.
     const salesResponding =
-      actor.role === "SALES" && project?.salesOwnerId === actor.id && request.status === "WAITING_FOR_SALES" && (to === "IN_PROGRESS" || to === "CANCELLED");
+      actor.role === "SALES" && project !== null && salesActsOn(project, actor.id) && request.status === "WAITING_FOR_SALES" && (to === "IN_PROGRESS" || to === "CANCELLED");
     if (!can(actor.role, workPermission(request.type)) && !salesResponding) return fail("FORBIDDEN");
     if (salesResponding && !reason) return fail("INVALID_INPUT", "Write your answer or the reason for cancelling.");
 

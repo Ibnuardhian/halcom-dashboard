@@ -47,7 +47,7 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
   audit of sign-in/out/switch; real SOA, Purchasing and Finance dashboards (`src/domain/requests/metrics.ts`, `src/server/dashboards`), Sales
   dashboard additions, Request Center, Sales Targets page, BOQ board view, Purchasing Handoff, Technical Reports, Financial Crosscheck (read-only,
   CSV), Permissions page, read-only SLA Policies for admin; **project source `OTHER`** (migration `20261021100000_project_source`: nullable
-  `sales_owner_id`, CHECK constraint; SOA registers these and raises their BOQ). Nav labels changed per role. Open points: OPEN_QUESTIONS T-17.
+  `sales_owner_id`, CHECK constraint; SOA registers these and raises their BOQ). Nav labels changed per role. Amended same day after T-17 answers: PO back in the Purchasing menu, `/customers` page, Sales can register "Other" (sales name; any salesperson acts on such a project; charts show "Other"). Remaining open: T-17 b to d.
   Integration test files now run one after another (`fileParallelism: false`).
   **Checks run on the final code (2026-10-18, outside Docker: Node 22, PostgreSQL 16 with a `uuidv7()` shim in template1):** typecheck and lint
   (0 warnings) exit 0; unit 208/208; integration 183/184 (the one failure asserts PostgreSQL 18 and cannot pass on 16); `next build` passes;

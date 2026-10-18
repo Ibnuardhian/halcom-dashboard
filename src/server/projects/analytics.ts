@@ -40,7 +40,7 @@ export type PipelineAnalytics = {
 
 const UNSET = "Not set";
 const EXTERNAL_KEY = "external-source";
-const EXTERNAL_LABEL = "External sources (Other)";
+const EXTERNAL_LABEL = "Other";
 export const MAX_SLICES = 7;
 
 function add(map: Map<string, Slice>, key: string, label: string, estimated: number | null, weighted: number | null): void {

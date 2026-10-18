@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can } from "@/domain/access/permissions";
 import { ROLES } from "@/domain/access/roles";
-import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource, salesSideName, sourceSummary } from "@/domain/projects/source";
+import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource, salesActsOn, salesSideName, sourceSummary } from "@/domain/projects/source";
 
 describe("normaliseSource", () => {
   it("treats a missing source as Internal Sales, as every project was before the source existed", () => {
@@ -50,9 +50,9 @@ describe("source labels", () => {
 });
 
 describe("who may register a project and raise its request", () => {
-  it("lets Sales register only Internal Sales projects and SOA only projects from another source", () => {
+  it("lets Sales register either kind (themselves, or Other with a sales name) and SOA only Other", () => {
     expect(canCreateProjectWithSource("SALES", "INTERNAL_SALES")).toBe(true);
-    expect(canCreateProjectWithSource("SALES", "OTHER")).toBe(false);
+    expect(canCreateProjectWithSource("SALES", "OTHER")).toBe(true);
     expect(canCreateProjectWithSource("SOA", "OTHER")).toBe(true);
     expect(canCreateProjectWithSource("SOA", "INTERNAL_SALES")).toBe(false);
     expect(canCreateProjectWithSource("ADMIN", "OTHER")).toBe(true);
@@ -76,8 +76,14 @@ describe("who may register a project and raise its request", () => {
     expect(canRaiseRequestOn("PURCHASING", "BOQ", "OTHER")).toBe(false);
   });
 
-  it("gives the source permissions to SOA, admin and superadmin only", () => {
+  it("gives the source permissions to Sales, SOA, admin and superadmin only", () => {
     const holders = ROLES.filter((role) => can(role, "projects.edit.source"));
-    expect(holders).toEqual(["SUPERADMIN", "ADMIN", "SOA"]);
+    expect(holders).toEqual(["SUPERADMIN", "ADMIN", "SALES", "SOA"]);
+  });
+
+  it("lets any salesperson act on a project whose sales is Other, and only the owner on an internal one", () => {
+    expect(salesActsOn({ sourceType: "OTHER", salesOwnerId: null }, "u1")).toBe(true);
+    expect(salesActsOn({ sourceType: "INTERNAL_SALES", salesOwnerId: "u1" }, "u1")).toBe(true);
+    expect(salesActsOn({ sourceType: "INTERNAL_SALES", salesOwnerId: "u1" }, "u2")).toBe(false);
   });
 });

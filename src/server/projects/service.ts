@@ -10,6 +10,7 @@ import {
   type ProjectEditableField,
 } from "@/domain/projects/fields";
 import { ACTION_BODY_MAX_LENGTH, ACTION_KINDS } from "@/domain/projects/actions";
+import { salesActsOn } from "@/domain/projects/source";
 import { notify, projectAudience } from "@/server/notifications/service";
 import {
   COMMERCIAL_FIELDS,
@@ -222,7 +223,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     const project = await tx.project.findUnique({ where: { id: projectId } });
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
-    if (actor.role === "SALES" && project.salesOwnerId !== actor.id) {
+    if (actor.role === "SALES" && !salesActsOn(project, actor.id)) {
       return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;
     }
 

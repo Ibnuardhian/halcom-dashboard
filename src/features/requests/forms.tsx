@@ -50,8 +50,8 @@ const SALES_SCOPE: ProjectFormScope = {
 function ExternalSourceFields() {
   return (
     <fieldset className="grid gap-4 rounded-lg border p-4 sm:col-span-2 sm:grid-cols-2">
-      <legend className="px-1 text-sm font-semibold">External source</legend>
-      <Field id="project-source-name" label={`${EXTERNAL_SOURCE_LABELS.externalSourceName} *`} hint="The company or party the project comes from. No internal Sales PIC is needed.">
+      <legend className="px-1 text-sm font-semibold">Sales: Other</legend>
+      <Field id="project-source-name" label={`${EXTERNAL_SOURCE_LABELS.externalSourceName} *`} hint="The name of the sales person or company, as a marker. Charts group every project like this under Other.">
         <Input id="project-source-name" name="externalSourceName" required maxLength={SOURCE_FIELD_LIMITS.externalSourceName} />
       </Field>
       <Field id="project-source-contact" label={EXTERNAL_SOURCE_LABELS.externalContact} hint="Optional.">
@@ -81,7 +81,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="submissionKey" value={submissionKey} />
       {scope.sources.length > 1 ? (
-        <Field id="project-source" label="Project source *" hint="Internal Sales projects have a Sales PIC. Choose Other for work that comes from an external sales company.">
+        <Field id="project-source" label="Project source *" hint="Internal Sales: you are the Sales PIC. Other: the sale is made by someone else; you name them below and charts count it as Other.">
           <NativeSelect id="project-source" name="sourceType" value={source} onChange={(event) => setSource(event.target.value as ProjectSourceType)}>
             {scope.sources.map((option) => (
               <option key={option} value={option}>

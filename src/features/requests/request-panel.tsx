@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { salesActsOn } from "@/domain/projects/source";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canContinueFlow, canSeeEmail, canWorkOn } from "@/domain/requests/access";
@@ -29,7 +30,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   const mayWork = canWorkOn(viewer.role, request.type);
   const transitions = allowedTransitions(request.status);
   const next = nextRequestType(request.type);
-  const ownsProject = request.project.salesOwnerId === viewer.id;
+  const ownsProject = salesActsOn(request.project, viewer.id);
   const decided = request.handovers.length > 0;
   const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
   // The Sales owner answers a request that waits for Sales. The team's question is the reason of the last change to that status.

@@ -150,6 +150,7 @@ describe("Sales navigation", () => {
       ["/dashboard", "Overview"],
       ["/dashboard/sales", "Sales Pipeline"],
       ["/projects", "Projects"],
+      ["/customers", "Customers"],
       ["/targets", "Sales Targets"],
       ["/requests", "Request Center"],
     ]);

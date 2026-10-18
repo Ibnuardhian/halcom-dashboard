@@ -49,8 +49,9 @@ both call `can()`; the menu is derived from it, and
 | `requests.handover` (hand a completed BOQ over to Purchasing as RFQ or PO) | ✔ | ✔ | – | ✔ | – | – | – |
 | `projects.edit.technical` (technical fields; each change logged with from and to) | ✔ | ✔ | – | ✔ | – | – | – |
 | `projects.post-update` (add current-action and next-action entries to the project feed) | ✔ | ✔ | – | ✔ | – | – | – |
-| `projects.create.external` (register a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
-| `projects.edit.source` (edit the external source details; hand an Other project to Sales) | ✔ | ✔ | – | ✔ | – | – | – |
+| `projects.create.external` (register a project whose sales is Other) | ✔ | ✔ | ✔ | ✔ | – | – | – |
+| `projects.edit.source` (edit the sales name of an Other project; hand it to an internal Sales PIC) | ✔ | ✔ | ✔ | ✔ | – | – | – |
+| `customers.view` (Customers page) | ✔ | ✔ | ✔ | – | – | – | – |
 | `requests.create.external` (SOA: raise a BOQ on a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
 | `targets.edit` (own sales targets) | ✔ | – | ✔ | – | – | – | – |
 | `handoffs.view` (Purchasing Handoff list) | ✔ | ✔ | – | ✔ | – | – | – |

@@ -399,4 +399,10 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   project, not RFQ or PO) and continue it to Purchasing like any BOQ. SOA/admin edit the external details (change log + audit); an `OTHER`
   project can be handed to an internal Sales PIC, but an internal project cannot become `OTHER` (it would drop its Sales PIC and the targets
   that count it). Source is in the Projects list (column, filter, search), the project page and the exports.
+- **Amended after the product owner's answers (T-17):** (1) **PO stays Purchasing's work**: PO requests are back in its menu. (2) **"Other" is
+  the Sales side, not the project**: when creating a project, Sales choose themselves or Other and type a *sales name* as a marker; the project is
+  otherwise normal, and charts count it under "Other". Sales (and SOA, admin) may register such projects, and **any salesperson may act on an
+  Other project** (commercial details, answering Waiting for Sales, deciding the next step); an internal project still belongs to its owner only.
+  Sales may also correct the sales name. (3) **Customers page** (`/customers`, Sales and admins): customers are never typed there; they are created from
+  the end-user company when a project is created, one customer per name.
 - **Tests:** the integration files now run one after another (`fileParallelism: false`) because the dashboard tests compare whole-table counts.

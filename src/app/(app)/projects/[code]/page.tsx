@@ -8,7 +8,7 @@ import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
-import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn } from "@/domain/projects/source";
+import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn } from "@/domain/projects/source";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
@@ -100,7 +100,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
   const mayEditTechnical = can(viewer.role, "projects.edit.technical");
   const mayPostUpdate = can(viewer.role, "projects.post-update");
   // Sales change their own projects; admins support any project (the service enforces the same rule).
-  const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || project.salesOwnerId === viewer.id);
+  const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
   const estimated = project.estimatedValue?.toNumber() ?? null;
   const finalValue = project.finalValue?.toNumber() ?? null;
   const marginPercent = project.targetMargin?.toNumber() ?? null;

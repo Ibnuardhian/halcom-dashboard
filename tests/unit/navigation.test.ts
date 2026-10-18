@@ -12,6 +12,7 @@ function permissionFor(href: string): Permission {
   if (href === "/projects") return "projects.view";
   if (href === "/projects/new") return "projects.create.external";
   if (href === "/targets") return "targets.edit";
+  if (href === "/customers") return "customers.view";
   if (href === "/requests/new") return "requests.create";
   if (href.startsWith("/requests")) return "requests.view";
   if (href === "/handoffs") return "handoffs.view";
@@ -35,6 +36,7 @@ describe("navLinksFor", () => {
       ["/dashboard", "Overview"],
       ["/dashboard/sales", "Sales Pipeline"],
       ["/projects", "Projects"],
+      ["/customers", "Customers"],
       ["/targets", "Sales Targets"],
       ["/requests", "Request Center"],
     ]);
@@ -54,12 +56,13 @@ describe("navLinksFor", () => {
     ]);
   });
 
-  it("shows Purchasing its dashboard, the shared projects and RFQ requests only: no BOQ, PO or all-requests entry", () => {
+  it("shows Purchasing its dashboard, the shared projects and RFQ and PO requests: no BOQ or all-requests entry", () => {
     expect(labelsFor("PURCHASING")).toEqual([
       ["/dashboard", "Overview"],
       ["/dashboard/purchasing", "Purchasing Dashboard"],
       ["/projects", "Projects"],
       ["/requests/rfq", "RFQ Requests"],
+      ["/requests/po", "PO requests"],
     ]);
   });
 

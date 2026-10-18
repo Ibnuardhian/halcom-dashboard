@@ -28,7 +28,8 @@ export type NavIcon =
   | "targets"
   | "handoff"
   | "reports"
-  | "permissions";
+  | "permissions"
+  | "customers";
 
 export type NavLinkItem = { href: string; label: string; group: NavGroup; icon: NavIcon };
 
@@ -57,18 +58,20 @@ export const NOTIFICATIONS_PATH = "/notifications";
 type ModuleLink = NavLinkItem & { permission: Permission; hiddenFor?: readonly Role[]; labels?: Partial<Record<Role, string>> };
 
 export const SALES_TARGETS_PATH = "/targets";
+export const CUSTOMERS_PATH = "/customers";
 
 const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view" },
   // A project from another source (not the internal Sales team) is registered by SOA; Sales use the button on their dashboard.
-  { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external" },
+  { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES"] },
+  { href: CUSTOMERS_PATH, label: "Customers", group: "work", icon: "customers", permission: "customers.view" },
   { href: SALES_TARGETS_PATH, label: "Sales Targets", group: "work", icon: "targets", permission: "targets.edit" },
   // Sales know the list of every request as the Request Center; SOA and Purchasing work from their own list instead.
   { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SOA", "PURCHASING"], labels: { SALES: "Request Center" } },
   { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES", "PURCHASING"], labels: { SOA: "BOQ Tickets" } },
-  // Purchasing's operational navigation lists RFQ requests only. PO requests stay in the data and are reachable by address and by notification.
+  // Purchasing works RFQ and PO requests (confirmed); BOQ requests are not theirs.
   { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"], labels: { PURCHASING: "RFQ Requests" } },
-  { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA", "PURCHASING"] },
+  { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
   { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES"] },
   { href: NEW_REQUEST_PATH, label: "New BOQ request", group: "work", icon: "new", permission: "requests.create.external", hiddenFor: ["SUPERADMIN", "ADMIN"] },
   { href: HANDOFFS_PATH, label: "Purchasing Handoff", group: "work", icon: "handoff", permission: "handoffs.view" },

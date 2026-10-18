@@ -26,9 +26,9 @@ export const EXTERNAL_SOURCE_KEYS = ["externalSourceName", "externalContact", "e
 export type ExternalSourceKey = (typeof EXTERNAL_SOURCE_KEYS)[number];
 
 export const EXTERNAL_SOURCE_LABELS: Record<ExternalSourceKey, string> = {
-  externalSourceName: "Source / external sales company",
-  externalContact: "External sales contact",
-  externalReference: "External reference",
+  externalSourceName: "Sales name",
+  externalContact: "Sales contact",
+  externalReference: "Reference",
   sourceNotes: "Source notes",
 };
 
@@ -105,6 +105,14 @@ export function sourceSummary(project: { sourceType: ProjectSourceType; external
 export function salesSideName(project: { sourceType: ProjectSourceType; externalSourceName: string | null; salesOwner: { name: string } | null }): string {
   if (project.salesOwner) return project.salesOwner.name;
   return project.externalSourceName ? `${project.externalSourceName} (external)` : "–";
+}
+
+/**
+ * Does this salesperson act as the Sales side of the project? The owner does. A project whose sales is "Other" has no owner and is
+ * shared by every salesperson: they enter its commercial details, answer its requests and decide its next step.
+ */
+export function salesActsOn(project: { sourceType: ProjectSourceType; salesOwnerId: string | null }, userId: string): boolean {
+  return project.sourceType === "OTHER" || project.salesOwnerId === userId;
 }
 
 /**

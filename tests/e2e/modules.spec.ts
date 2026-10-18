@@ -153,9 +153,9 @@ test.describe("persistent login and switching accounts", () => {
 
 test.describe("each role sees its own modules", () => {
   const MODULES = {
-    SALES: ["Overview", "Sales Pipeline", "Projects", "Sales Targets", "Request Center"],
+    SALES: ["Overview", "Sales Pipeline", "Projects", "Customers", "Sales Targets", "Request Center"],
     SOA: ["Overview", "Technical Dashboard", "Projects", "New project", "BOQ Tickets", "New BOQ request", "Purchasing Handoff", "Technical Reports", "Principal & Solution Master Data"],
-    PURCHASING: ["Overview", "Purchasing Dashboard", "Projects", "RFQ Requests"],
+    PURCHASING: ["Overview", "Purchasing Dashboard", "Projects", "RFQ Requests", "PO requests"],
     FINANCE: ["Overview", "Finance Dashboard", "Projects", "All requests", "BOQ requests", "RFQ requests", "PO requests", "Financial Crosscheck"],
   } as const;
 
@@ -265,16 +265,16 @@ test.describe("a project from another source (Other)", () => {
     await soa.goto("/projects/new");
     await expect(soa.getByRole("heading", { level: 1, name: "New project" })).toBeVisible();
     // SOA register only projects from another source: the source is fixed, the external fields show, Sales' commercial fields do not.
-    await expect(soa.getByLabel("Source / external sales company *")).toBeVisible();
+    await expect(soa.getByLabel("Sales name *")).toBeVisible();
     await expect(soa.getByLabel("Estimated PO value")).toHaveCount(0);
     await expect(soa.getByLabel("Progress")).toHaveCount(0);
 
     await expect(async () => {
       await soa.getByLabel("End-user company").fill(company);
       await soa.getByLabel("Project name").fill("Dari mitra");
-      await soa.getByLabel("Source / external sales company *").fill(source);
-      await soa.getByLabel("External sales contact").fill("Budi");
-      await soa.getByLabel("External reference").fill("MP-2026-7");
+      await soa.getByLabel("Sales name *").fill(source);
+      await soa.getByLabel("Sales contact").fill("Budi");
+      await soa.getByLabel("Reference").fill("MP-2026-7");
       await soa.getByText(/^BOQ – /).click();
       await soa.getByLabel("Request summary").fill("BOQ untuk mitra");
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
@@ -300,30 +300,57 @@ test.describe("a project from another source (Other)", () => {
     await expect(finance.getByRole("heading", { name: "Project source" })).toHaveCount(0);
     await expectNotFound(finance, "/projects/new", "Project details");
 
-    // Sales can read it, but cannot edit its commercial fields (there is no Sales PIC) or its source.
+    // Any salesperson can work on a project whose sales is Other: its source section and commercial form are there.
     const sales = await asRole(browser, "SALES");
     await sales.goto(projectUrl);
-    await expect(sales.getByRole("heading", { name: "Project source" })).toHaveCount(0);
-    await expect(sales.getByRole("button", { name: /Save commercial/ })).toHaveCount(0);
+    await expect(sales.getByRole("heading", { name: "Project source" })).toBeVisible();
+    await expect(sales.locator("#commercial").getByLabel("Estimated PO value")).toBeVisible();
 
     // SOA edits the source details; the change shows in the change log.
     await soa.goto(projectUrl);
     await expect(async () => {
-      await soa.getByLabel("External sales contact").fill("Siti");
+      await soa.getByLabel("Sales contact").fill("Siti");
       await soa.getByRole("button", { name: "Save source" }).click();
       await expect(soa.getByRole("status").filter({ hasText: "Saved and logged." })).toBeVisible({ timeout: 4000 });
     }).toPass({ timeout: 45_000 });
     await soa.reload();
-    await expect(soa.getByText("External sales contact").first()).toBeVisible();
+    await expect(soa.getByText("Sales contact").first()).toBeVisible();
     await expect(soa.getByRole("list", { name: "Change log" })).toContainText("Siti");
   });
 
-  test("Sales still register Internal Sales projects only: no source choice, and the old flow is unchanged", async ({ page }) => {
+  test("Sales pick themselves or Other and name the sales; the customer appears on the Customers page", async ({ page }) => {
+    test.setTimeout(90_000);
     await signIn(page, "SALES");
+    const company = `PT Pelanggan ${Date.now()}`;
     await page.goto("/projects/new");
-    await expect(page.getByLabel("Source / external sales company *")).toHaveCount(0);
-    await expect(page.getByLabel("Project source")).toHaveCount(0);
+    const source = page.getByLabel("Project source");
+    await expect(source).toHaveValue("INTERNAL_SALES");
+    await expect(page.getByLabel("Sales name *")).toHaveCount(0);
     await expect(page.getByLabel("Estimated PO value")).toBeVisible();
+    await source.selectOption("OTHER");
+    await expect(page.getByLabel("Sales name *")).toBeVisible();
+
+    await expect(async () => {
+      await page.getByLabel("End-user company").fill(company);
+      await page.getByLabel("Project name").fill("Lewat mitra");
+      await page.getByLabel("Sales name *").fill("Budi Mitra");
+      await page.getByRole("button", { name: "Create project" }).click();
+      await expect(page).toHaveURL(/\/projects\/PRJ-\d+$/, { timeout: 4000 });
+    }).toPass({ timeout: 45_000 });
+    await expect(page.getByText("None (project from another source)")).toBeVisible();
+
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Customers" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Customers" })).toBeVisible();
+    await page.getByPlaceholder("Search customers").fill(company);
+    await page.getByRole("button", { name: "Search" }).click();
+    await expect(page.getByRole("link", { name: company })).toBeVisible();
+  });
+
+  test("Customers are closed to SOA and Finance", async ({ browser }) => {
+    for (const role of ["SOA", "FINANCE"] as const) {
+      const other = await asRole(browser, role);
+      await expectNotFound(other, "/customers", "Search customers");
+    }
   });
 
   test("an admin chooses the source when creating a project", async ({ page }) => {
@@ -331,10 +358,10 @@ test.describe("a project from another source (Other)", () => {
     await page.goto("/projects/new");
     const source = page.getByLabel("Project source");
     await expect(source).toHaveValue("INTERNAL_SALES");
-    await expect(page.getByLabel("Source / external sales company *")).toHaveCount(0);
+    await expect(page.getByLabel("Sales name *")).toHaveCount(0);
     await source.selectOption("OTHER");
-    await expect(page.getByLabel("Source / external sales company *")).toBeVisible();
+    await expect(page.getByLabel("Sales name *")).toBeVisible();
     await source.selectOption("INTERNAL_SALES");
-    await expect(page.getByLabel("Source / external sales company *")).toHaveCount(0);
+    await expect(page.getByLabel("Sales name *")).toHaveCount(0);
   });
 });

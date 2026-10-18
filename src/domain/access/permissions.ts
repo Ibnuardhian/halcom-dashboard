@@ -32,6 +32,7 @@ export type Permission =
   | "reports.technical.view"
   | "masterdata.manage"
   | "targets.edit"
+  | "customers.view"
   | "projects.post-update"
   | "requests.view"
   | "requests.create"
@@ -67,6 +68,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "reports.technical.view",
   "masterdata.manage",
   "targets.edit",
+  "customers.view",
   "projects.post-update",
   "requests.view",
   "requests.create",
@@ -80,6 +82,8 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
 const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "requests.create", "requests.email"];
+/** Sales may name an external sales party instead of themselves ("Other") and correct that name later. */
+const SALES_OTHER: readonly Permission[] = ["projects.create.external", "projects.edit.source"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;
@@ -98,6 +102,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     // Least privilege: an admin reads the SLA policies and the permission matrix, and only a superadmin changes the policies.
     "settings.view",
     "permissions.view",
+    "customers.view",
     "handoffs.view",
     "finance.crosscheck.view",
     "reports.technical.view",
@@ -113,7 +118,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "requests.work.purchasing",
     "requests.handover",
   ]),
-  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK, "targets.edit"]),
+  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK, ...SALES_OTHER, "targets.edit", "customers.view"]),
   SOA: new Set<Permission>([
     "dashboard.shared.view",
     ownDashboardPermission("SOA"),

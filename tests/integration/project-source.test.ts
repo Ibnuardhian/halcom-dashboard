@@ -80,18 +80,18 @@ describe("creating a project with source Other", () => {
   it("checks who may register which source", async () => {
     const [soa, sales, purchasing, finance] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("PURCHASING"), makeUser("FINANCE")]);
 
-    // SOA only registers projects from another source; Sales only their own; the others none.
+    // SOA only registers projects whose sales is Other; Sales either kind (themselves, or Other with a sales name); the others none.
     await expect(createProject(db, as(soa, "SOA"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
-    await expect(createProject(db, as(sales, "SALES"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(createProject(db, as(sales, "SALES"), other())).resolves.toMatchObject({ ok: true });
     await expect(createProject(db, as(purchasing, "PURCHASING"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(createProject(db, as(finance, "FINANCE"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
   it("does not trust a role claimed by the session: the stored role decides", async () => {
-    const sales = await makeUser("SALES");
+    const purchasing = await makeUser("PURCHASING");
 
-    // A salesperson claiming to be SOA reaches the stored-role check and is refused.
-    await expect(createProject(db, as(sales, "SOA"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    // A purchasing user claiming to be SOA reaches the stored-role check and is refused.
+    await expect(createProject(db, as(purchasing, "SOA"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
   it("does not let SOA set Sales' commercial details", async () => {
@@ -143,8 +143,8 @@ describe("the database guards the source rules too", () => {
 });
 
 describe("the SOA workflow for a project from another source", () => {
-  it("lets SOA raise and work a BOQ and continue it to Purchasing, and keeps Sales out of other people's records", async () => {
-    const [soa, purchasing, sales] = await Promise.all([makeUser("SOA"), makeUser("PURCHASING"), makeUser("SALES")]);
+  it("lets SOA raise and work a BOQ and continue it to Purchasing, and keeps Purchasing out of the decision", async () => {
+    const [soa, purchasing] = await Promise.all([makeUser("SOA"), makeUser("PURCHASING")]);
     const project = await otherProject(soa);
 
     const boq = await createRequest(db, as(soa, "SOA"), { projectId: project.id, type: "BOQ", title: "BOQ for external deal" });
@@ -156,9 +156,7 @@ describe("the SOA workflow for a project from another source", () => {
     // A completed BOQ does not authorise a purchase by itself: the RFQ exists only after someone continues it.
     await expect(db.request.count({ where: { projectId: project.id, type: "RFQ" } })).resolves.toBe(0);
 
-    // Sales cannot continue the flow of a project that is not theirs (it has no Sales owner at all).
-    await expect(handOverToPurchasing(db, as(sales, "SALES"), { sourceId: boq.value.id, targetType: "RFQ" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
-    // Purchasing cannot either.
+    // Purchasing does not decide whether a BOQ continues.
     await expect(handOverToPurchasing(db, as(purchasing, "PURCHASING"), { sourceId: boq.value.id, targetType: "RFQ" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
 
     const rfq = await handOverToPurchasing(db, as(soa, "SOA"), { sourceId: boq.value.id, targetType: "RFQ" });
@@ -190,11 +188,31 @@ describe("the SOA workflow for a project from another source", () => {
     await expect(createRequest(db, as(soa, "SOA"), { projectId: internal.value.id, type: "BOQ", title: "t" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
-  it("keeps commercial editing off an Other project for Sales, and out of reassignment", async () => {
+  it("lets any salesperson act on a project whose sales is Other: commercial details, answering, and the next step", async () => {
+    const [soa, sales, other] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("SALES")]);
+    const project = await otherProject(sales);
+    const boq = await createRequest(db, as(sales, "SALES"), { projectId: project.id, type: "BOQ", title: "BOQ" });
+    if (!boq.ok) throw new Error(boq.message);
+
+    await expect(updateCommercialDetails(db, as(other, "SALES"), { projectId: project.id, values: { estimatedValue: "5000" } })).resolves.toMatchObject({ ok: true });
+    await changeRequestStatus(db, as(soa, "SOA"), { requestId: boq.value.id, to: "WAITING_FOR_SALES", reason: "Which brand?" });
+    await expect(changeRequestStatus(db, as(other, "SALES"), { requestId: boq.value.id, to: "IN_PROGRESS", reason: "Hikvision" })).resolves.toMatchObject({ ok: true });
+    await changeRequestStatus(db, as(soa, "SOA"), { requestId: boq.value.id, to: "COMPLETED" });
+    await expect(handOverToPurchasing(db, as(other, "SALES"), { sourceId: boq.value.id, targetType: "RFQ" })).resolves.toMatchObject({ ok: true });
+  });
+
+  it("still keeps a salesperson off an internal project they do not own", async () => {
+    const [owner, other] = await Promise.all([makeUser("SALES"), makeUser("SALES")]);
+    const internal = await createProject(db, as(owner, "SALES"), { endUserCompany: company(), name: "Not yours" });
+    if (!internal.ok) throw new Error(internal.message);
+
+    await expect(updateCommercialDetails(db, as(other, "SALES"), { projectId: internal.value.id, values: { estimatedValue: "1" } })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+  });
+
+  it("keeps an Other project out of Sales PIC reassignment", async () => {
     const [soa, sales, root] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("SUPERADMIN")]);
     const project = await otherProject(soa);
 
-    await expect(updateCommercialDetails(db, as(sales, "SALES"), { projectId: project.id, values: { estimatedValue: "5000" } })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(reassignProject(db, as(root, "SUPERADMIN"), { projectId: project.id, salesOwnerId: sales.id })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ salesOwnerId: null, sourceType: "OTHER" });
   });
@@ -267,13 +285,12 @@ describe("updateProjectSource", () => {
   });
 
   it("refuses roles without the permission, unknown keys, and an empty company", async () => {
-    const [soa, sales, purchasing] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("PURCHASING")]);
+    const [soa, purchasing] = await Promise.all([makeUser("SOA"), makeUser("PURCHASING")]);
     const project = await otherProject(soa);
     const input = { projectId: project.id, sourceType: "OTHER", externalSourceName: "Hijack" };
 
-    await expect(updateProjectSource(db, as(sales, "SALES"), input)).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(updateProjectSource(db, as(purchasing, "PURCHASING"), input)).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
-    await expect(updateProjectSource(db, as(sales, "SOA"), input)).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(updateProjectSource(db, as(purchasing, "SOA"), input)).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(updateProjectSource(db, as(soa, "SOA"), { ...input, estimatedValue: "1" })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(updateProjectSource(db, as(soa, "SOA"), { ...input, externalSourceName: "" })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ externalSourceName: "PT Mitra Jaya" });

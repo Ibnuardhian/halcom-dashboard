@@ -21,7 +21,7 @@ describe("what each operational role may do", () => {
 
   it("gives Sales their own targets and request-raising, but no technical, handoff or finance module", () => {
     for (const permission of ["targets.edit", "projects.create", "requests.create", "projects.edit.commercial"] as const) expect(can("SALES", permission)).toBe(true);
-    for (const permission of ["projects.edit.technical", "projects.edit.source", "handoffs.view", "finance.crosscheck.view", "reports.technical.view", "permissions.view", "settings.manage"] as const) {
+    for (const permission of ["projects.edit.technical", "handoffs.view", "finance.crosscheck.view", "reports.technical.view", "permissions.view", "settings.manage"] as const) {
       expect(can("SALES", permission), permission).toBe(false);
     }
   });

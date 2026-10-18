@@ -739,6 +739,7 @@ test.describe("responsive layout", () => {
       "Overview",
       "Sales Pipeline",
       "Projects",
+      "Customers",
       "Sales Targets",
       "Request Center",
     ]);

@@ -15,6 +15,7 @@ import {
   ListChecks,
   PlusCircle,
   Target,
+  Building2,
   FileBarChart,
   ScrollText,
   ShoppingCart,
@@ -41,6 +42,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   handoff: HandCoins,
   reports: FileBarChart,
   permissions: KeyRound,
+  customers: Building2,
 };
 
 /** These two are parents of other menu entries, so only an exact match marks them active. */
