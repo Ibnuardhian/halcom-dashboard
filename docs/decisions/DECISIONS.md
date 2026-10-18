@@ -471,3 +471,35 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   validates that the chosen account exists, is active and is a Sales account; the salesperson is told (`project.assigned` notification);
   the audit event records who registered it and for whom. SOA may raise the project's BOQ in the same step (not an RFQ or PO, and not a BOQ on
   an existing internal project). Sales still own their own projects and cannot name another owner (any owner sent is ignored).
+
+## D-031 Owner migration, PICs, several principals, Excel import, chart drill-down, Sales dashboard
+
+- **Date:** 2026-10-18 · **Status:** Implemented (migrations `20261023100000_project_principals`, `20261023110000_operational_pics`, both additive)
+- **Account and ownership migration** (`npm run db:remap-owners`, dry run by default; `--apply` runs one transaction, development and test only,
+  superadmin recorded as the actor). In order: `mas.dzaki@` is renamed to `dzaki@` (name Dzaki; same account id, so every reference follows);
+  projects of `soraya@` move to `dzaki@`; projects of `gusti@` move to `satrio@`; every other internal project becomes source **Other**, with
+  the earlier owner kept as the external sales name and a note ("Previously owned by ..."). Nothing is deleted. The plan refuses to apply when
+  both addresses of the rename exist, a target is missing, inactive or not Sales; an owner who is not a Sales account (the SOA account
+  `adityo@`) is reported as a warning, not guessed. Each change is in the project change log and the audit log; the counts are verified
+  inside the transaction and a difference rolls everything back. Applied to the development database on 2026-10-18 after a `pg_dump`:
+  38 projects: 15 Dzaki, 18 Satrio, 5 Other. Recovery is the dump; there is no automatic revert.
+- **PICs** (`pics`, `request_pic_assignments`, `requests.pic_id`): a PIC is an operational assignee of SOA or Purchasing, not a login account.
+  Each team keeps one shared login. An administrator creates, renames, deactivates and reactivates PICs (`pics.manage`, `/admin/pics`); a PIC
+  is never deleted. SOA or Purchasing hands a request to a PIC of their own team from the request page; every change is an append-only row
+  (from, to, by, when) and an audit event. Workload by assignee counts per PIC; starting work no longer makes the login the assignee
+  (`requests.assignee_id` stays, deprecated). The migration made a PIC of every SOA or Purchasing account a request had been assigned to
+  (Adityo, and the two shared logins by name; the shared ones should be handed on and deactivated). The project-level Technical PIC and
+  Purchasing PIC (`projects.technical_pic_id`, `purchasing_pic_id`) still point at accounts: they route notifications, so moving them to PICs is a separate decision.
+- **Several principals per project** (`project_principals`, unique per project and principal): SOA picks any number from a searchable list
+  and may create a new one (`masterdata.manage`); a name that exists is matched, never duplicated. `projects.principal_id` keeps the first so
+  lists, filters and exports keep working. Charts count a project under each of its principals; the folded "Other (n)" slice counts it once.
+- **Excel import** (`projects.import`: SOA, Admin, Superadmin; `/projects/import`): upload `.xlsx`, match columns (suggested from the headers),
+  check every row, then import. The file is posted again with each step and checked again on the server (5 MB, 5,000 rows, 60 columns; no
+  formulas run). Duplicates (same Project ID, or same end user and project name, in the data or earlier in the file) are skipped, never
+  updated. All or nothing (default) or valid rows only; the import is one transaction, so any failure leaves no project, principal, code
+  number or audit row behind. Explicit Project IDs move the counter past them. Sales do not import: owners are named in the sheet.
+- **Overview charts** link to the Projects list filtered to exactly what they count (progress, status, funnel step "reached", principal,
+  solution, industry, Sales PIC; the folded "Other" slice carries all of its values; "Not set" is `none`).
+- **Projects table** pages of 25, 50, 100 or All (`per`, `page`); All is every match, not capped.
+- **Sales Pipeline dashboard**: every number is the signed-in salesperson's own (the request counts were global before); sales performance
+  (open pipeline, weighted, margin, won) comes before the BOQ/RFQ/PO numbers; the targets block and its tab are gone (Sales Targets has its own page).

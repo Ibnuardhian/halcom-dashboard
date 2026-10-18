@@ -51,6 +51,9 @@ both call `can()`; the menu is derived from it, and
 | `projects.post-update` (add current-action and next-action entries to the project feed) | ✔ | ✔ | – | ✔ | – | – | – |
 | `projects.create.external` (register a project whose sales is Other) | ✔ | ✔ | ✔ | ✔ | – | – | – |
 | `projects.edit.source` (edit the sales name of an Other project; hand it to an internal Sales PIC) | ✔ | ✔ | ✔ | ✔ | – | – | – |
+| `projects.assign-sales` (SOA: register an Internal Sales project for a salesperson they pick) | ✔ | – | – | ✔ | – | – | – |
+| `projects.import` (import projects from an Excel sheet) | ✔ | ✔ | – | ✔ | – | – | – |
+| `pics.manage` (create, rename, deactivate the PICs of SOA and Purchasing) | ✔ | ✔ | – | – | – | – | – |
 | `customers.view` (Customers page) | ✔ | ✔ | ✔ | – | – | – | – |
 | `requests.create.external` (SOA: raise a BOQ on a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
 | `targets.edit` (own sales targets) | ✔ | – | ✔ | – | – | – | – |

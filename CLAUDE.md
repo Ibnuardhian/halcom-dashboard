@@ -54,6 +54,13 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
   E2E rbac + modules + smoke 39/39, and work/superadmin specs pass except the System page (also asserts PostgreSQL 18) and "Sales answer a
   request that waits for them", which **fails on the baseline commit too** (not caused by D-026). Not re-run in Docker: do that before merging.
 
+- **Added 2026-10-18 (D-031):** ownership correction script `npm run db:remap-owners` (dry run first; applied to the dev DB: 15 Dzaki, 18 Satrio, 5 Other),
+  operational **PICs** (`pics`, `/admin/pics`; SOA and Purchasing share one login each, requests are handed to PICs, workload counts PICs),
+  several principals per project (`project_principals`), Excel import (`/projects/import`), Overview charts that drill down to the Projects
+  list, Projects table pages (25/50/100/All), Sales Pipeline numbers scoped to the salesperson and ordered sales first.
+  Migrations `20261023100000_project_principals`, `20261023110000_operational_pics` (applied to the dev DB). `DEV_ACCOUNTS.md` is now generated
+  without a password. Heredocs that contain some quote patterns fail as a whole in this shell: write a script file with the Write tool instead.
+
 ## Architecture decisions
 
 D-012 interim auth, D-013 RBAC, D-014 handover email (delivery part superseded by D-017), D-015 Cache Components rules,

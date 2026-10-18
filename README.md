@@ -159,6 +159,17 @@ projects that already exist, existing users and their passwords are never change
 file is imported in one transaction or not at all, and any problem in the file is listed before anything is written.
 It refuses to run outside development and test. A different file can be given as the first argument.
 
+### Correcting Sales accounts and project ownership
+
+`npm run db:remap-owners` applies the reviewed ownership correction of D-031 (rename `mas.dzaki@` to `dzaki@`, move the projects of `soraya@` to
+Dzaki and of `gusti@` to Satrio, every other internal project becomes source Other). It only reports until `--apply` is added, runs in one
+transaction and refuses outside development and test. Take a backup first (Backups page or `pg_dump`).
+
+```powershell
+docker compose run --rm app npm run db:remap-owners              # dry run: counts, conflicts, warnings
+docker compose run --rm app npm run db:remap-owners -- --apply   # apply
+```
+
 ## Everyday commands
 
 `--no-deps` skips starting the database for commands that do not need it.
