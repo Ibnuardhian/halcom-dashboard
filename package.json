@@ -20,8 +20,10 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:seed": "prisma db seed",
+    "db:seed:sample": "tsx prisma/seed-sample.ts",
     "db:import-projects": "tsx prisma/import-projects.ts",
-    "db:remap-owners": "tsx prisma/remap-owners.ts"
+    "db:remap-owners": "tsx prisma/remap-owners.ts",
+    "db:cleanup-dev": "tsx prisma/cleanup-dev-data.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

@@ -1,4 +1,5 @@
 import { homePathFor } from "@/domain/access/dashboards";
+import { seedEmailFor, seedNameFor } from "@/domain/devdata/accounts";
 import { ROLE_LABELS, ROLES, type Role } from "@/domain/access/roles";
 
 /** Synthetic development/test accounts: one per role, all sharing the password in SEED_USER_PASSWORD. */
@@ -7,20 +8,16 @@ export const SEED_PASSWORD_ENV = "SEED_USER_PASSWORD";
 /** Written by the development seed and the sales-export import. Git-ignored and Docker-ignored; it holds no password or other secret. */
 export const DEV_ACCOUNTS_FILE = "DEV_ACCOUNTS.md";
 
-export function seedEmailFor(role: Role): string {
-  return `${role.toLowerCase()}@example.invalid`;
-}
-
-export function seedNameFor(role: Role): string {
-  return `Dev ${role.charAt(0)}${role.slice(1).toLowerCase()}`;
-}
+export { seedEmailFor, seedNameFor };
 
 export type DevAccount = { name: string; email: string; role: Role; isActive: boolean; projects: number };
 export type DevPic = { name: string; team: "SOA" | "PURCHASING"; isActive: boolean };
 
 /**
- * Accounts that came from the sales export and are no longer how the team is organised (D-031). They are kept, not deleted: projects,
- * requests and the audit trail still point at them. Listed here so the cheat sheet says so instead of letting a developer sign in as them.
+ * Accounts that came from the sales export and are no longer how the team is organised (D-031). `npm run db:cleanup-dev` (D-032) deletes
+ * the ones nothing refers to and deactivates the ones the audit trail or the projects still point at, so those stay listed here and the
+ * cheat sheet says so instead of letting a developer sign in as them. Importing the export again creates them again; run
+ * `db:remap-owners` and `db:cleanup-dev` after it.
  */
 export const OBSOLETE_DEV_ACCOUNTS: Readonly<Record<string, string>> = {
   "gusti@example.invalid": "Projects moved to Satrio (satrio@example.invalid).",
