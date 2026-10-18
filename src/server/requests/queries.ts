@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { isOpen, REQUEST_STATUSES, type RequestStatus } from "@/domain/requests/status";
@@ -193,9 +193,13 @@ export type RequestRow = {
   /** The part of the BOQ work SOA is on (BOQ requests only). */
   phase: SoaPhase | null;
   title: string;
+  /** The item details Sales or SOA wrote on the request. */
+  description: string;
   projectCode: string;
   endUserCompany: string;
   projectName: string;
+  principalName: string | null;
+  solutionName: string | null;
   requesterName: string;
   assigneeName: string | null;
   requiredBy: Date | null;
@@ -216,40 +220,68 @@ export type RequestFilter = {
   requesterId?: string;
   /** Requests on the projects a person owns (Sales PIC), whoever raised them: a moved project brings its requests along. */
   projectOwnerId?: string;
+  /** Free text: matches the request, project, End User, requester, PIC, Principal and Solution. */
+  q?: string;
   limit?: number;
 };
 
-export async function listRequests(db: PrismaClient, viewer: Viewer, filter: RequestFilter = {}): Promise<RequestRow[]> {
-  assertPermitted(can(viewer.role, "requests.view"));
-  const requests = await db.request.findMany({
-    where: {
-      project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
-      type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
-      status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
-      projectId: filter.projectId,
-      requesterId: filter.requesterId,
-    },
-    orderBy: { createdAt: "desc" },
-    take: Math.min(filter.limit ?? LIST_LIMIT, LIST_LIMIT),
-    include: {
-      project: { select: { code: true, endUserCompany: true, name: true } },
-      requester: { select: { name: true } },
-      assignee: { select: { name: true } },
-      statusHistory: { select: { toStatus: true, changedAt: true } },
-    },
-  });
-  const settings = await getTeamSettings(db);
-  const now = new Date();
-  return requests.map((request) => ({
+const ROW_INCLUDE = {
+  project: { select: { code: true, endUserCompany: true, name: true, principal: { select: { name: true } }, solutionCategory: { select: { name: true } } } },
+  requester: { select: { name: true } },
+  assignee: { select: { name: true } },
+  statusHistory: { select: { toStatus: true, changedAt: true } },
+} as const;
+
+/** Typed text is matched literally: LIKE wildcards in a search (`%`, `_`) and the escape character itself are escaped. */
+const escapeLike = (text: string) => text.replace(/[\\%_]/g, (char) => "\\" + char);
+
+function requestWhere(filter: RequestFilter) {
+  const q = filter.q?.trim() ? escapeLike(filter.q.trim()) : undefined;
+  return {
+    project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
+    type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
+    status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
+    projectId: filter.projectId,
+    requesterId: filter.requesterId,
+    ...(q
+      ? {
+          OR: [
+            { code: { contains: q, mode: "insensitive" as const } },
+            { title: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
+            { requester: { name: { contains: q, mode: "insensitive" as const } } },
+            { assignee: { name: { contains: q, mode: "insensitive" as const } } },
+            { project: { code: { contains: q, mode: "insensitive" as const } } },
+            { project: { name: { contains: q, mode: "insensitive" as const } } },
+            { project: { endUserCompany: { contains: q, mode: "insensitive" as const } } },
+            { project: { principal: { name: { contains: q, mode: "insensitive" as const } } } },
+            { project: { solutionCategory: { name: { contains: q, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+type RequestWithRelations = Awaited<ReturnType<typeof findWithRelations>>[number];
+
+function findWithRelations(db: PrismaClient, args: { where: ReturnType<typeof requestWhere>; orderBy: Prisma.RequestOrderByWithRelationInput | Prisma.RequestOrderByWithRelationInput[]; take?: number; skip?: number }) {
+  return db.request.findMany({ ...args, include: ROW_INCLUDE });
+}
+
+function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeof getTeamSettings>>, now: Date): RequestRow {
+  return {
     id: request.id,
     code: request.code,
     type: request.type,
     status: request.status,
     phase: request.phase,
     title: request.title,
+    description: request.description,
     projectCode: request.project.code,
     endUserCompany: request.project.endUserCompany,
     projectName: request.project.name,
+    principalName: request.project.principal?.name ?? null,
+    solutionName: request.project.solutionCategory?.name ?? null,
     requesterName: request.requester.name,
     assigneeName: request.assignee?.name ?? null,
     requiredBy: request.requiredBy,
@@ -263,7 +295,71 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
       range: settings[OWNING_ROLE[request.type] as "SOA" | "PURCHASING"].sla,
       now,
     }),
-  }));
+  };
+}
+
+export async function listRequests(db: PrismaClient, viewer: Viewer, filter: RequestFilter = {}): Promise<RequestRow[]> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const requests = await findWithRelations(db, {
+    where: requestWhere(filter),
+    orderBy: { createdAt: "desc" },
+    take: Math.min(filter.limit ?? LIST_LIMIT, LIST_LIMIT),
+  });
+  const settings = await getTeamSettings(db);
+  const now = new Date();
+  return requests.map((request) => toRow(request, settings, now));
+}
+
+export const REQUEST_SORTS = ["created", "code", "project", "requester", "status", "sla", "needed"] as const;
+export type RequestSort = (typeof REQUEST_SORTS)[number];
+export const REQUEST_PAGE_SIZE = 20;
+/** The most requests an SLA sort looks at: the SLA is computed, so it cannot be sorted by the database. */
+const SLA_SORT_LIMIT = 1000;
+
+export type RequestPage = { rows: RequestRow[]; total: number; page: number; pageCount: number; pageSize: number };
+
+/** One page of requests with search (`q`), the usual filters and a sort. Used by the RFQ list. */
+export async function searchRequests(
+  db: PrismaClient,
+  viewer: Viewer,
+  filter: RequestFilter & { sort?: RequestSort; dir?: "asc" | "desc"; page?: number; pageSize?: number },
+): Promise<RequestPage> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const pageSize = Math.min(Math.max(filter.pageSize ?? REQUEST_PAGE_SIZE, 1), 100);
+  const sort = filter.sort ?? "created";
+  const dir = filter.dir ?? "desc";
+  const where = requestWhere(filter);
+  const total = await db.request.count({ where });
+  const pageCount = Math.max(Math.ceil(total / pageSize), 1);
+  const page = Math.min(Math.max(Math.trunc(filter.page ?? 1) || 1, 1), pageCount);
+  const settings = await getTeamSettings(db);
+  const now = new Date();
+
+  if (sort === "sla") {
+    const all = await findWithRelations(db, { where, orderBy: { createdAt: "desc" }, take: SLA_SORT_LIMIT });
+    const sign = dir === "asc" ? 1 : -1;
+    const rows = all
+      .map((request) => toRow(request, settings, now))
+      .sort((a, b) => sign * (a.sla.dueAt.getTime() - b.sla.dueAt.getTime()) || a.code.localeCompare(b.code));
+    return { rows: rows.slice((page - 1) * pageSize, page * pageSize), total, page, pageCount, pageSize };
+  }
+
+  const orderBy: Prisma.RequestOrderByWithRelationInput[] = [
+    sort === "code"
+      ? { code: dir }
+      : sort === "project"
+        ? { project: { code: dir } }
+        : sort === "requester"
+          ? { requester: { name: dir } }
+          : sort === "status"
+            ? { status: dir }
+            : sort === "needed"
+              ? { requiredBy: { sort: dir, nulls: "last" } }
+              : { createdAt: dir },
+    { id: "asc" },
+  ];
+  const found = await findWithRelations(db, { where, orderBy, take: pageSize, skip: (page - 1) * pageSize });
+  return { rows: found.map((request) => toRow(request, settings, now)), total, page, pageCount, pageSize };
 }
 
 export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: string) {

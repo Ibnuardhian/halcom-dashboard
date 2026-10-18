@@ -51,8 +51,8 @@ export const ROLE_DASHBOARDS: Record<RoleDashboardKey, DashboardDefinition> = {
     ],
   },
   purchasing: {
-    title: "Purchasing dashboard",
-    summary: "RFQ and PO requests from Sales and from SOA handovers.",
+    title: "Purchasing Dashboard",
+    summary: "RFQ requests from Sales and from SOA handovers.",
     widgets: [
       { title: "Handed over from SOA", description: "Requests that arrived with a completed BOQ." },
       { title: "Waiting for vendor", description: "Requests blocked on external input, with the reason." },

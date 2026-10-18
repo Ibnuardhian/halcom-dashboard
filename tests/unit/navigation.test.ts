@@ -17,20 +17,15 @@ function permissionFor(href: string): Permission {
   if (href === "/admin/backups") return "system.backup";
   if (href === "/admin/system") return "system.monitor";
   if (href === "/admin/settings") return "settings.manage";
+  if (href === "/admin/master-data") return "masterdata.manage";
   throw new Error(`No permission mapped for ${href}`);
 }
 
 describe("navLinksFor", () => {
-  it("shows Purchasing its dashboards and the read-only work modules, nothing else", () => {
-    expect(hrefsFor("PURCHASING")).toEqual([
-      "/dashboard",
-      "/dashboard/purchasing",
-      "/projects",
-      "/requests",
-      "/requests/boq",
-      "/requests/rfq",
-      "/requests/po",
-    ]);
+  it("shows Purchasing its own dashboard and the RFQ list, nothing else", () => {
+    expect(hrefsFor("PURCHASING")).toEqual(["/dashboard/purchasing", "/requests/rfq"]);
+    const labels = navLinksFor("PURCHASING").map((link) => link.label);
+    expect(labels).toEqual(["Purchasing Dashboard", "RFQ requests"]);
   });
 
   it("offers New request in the menu to admins only; Sales start requests from the Sales Pipeline page", () => {
@@ -58,7 +53,7 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    expect(hrefs).toHaveLength(2 + 6 + 6 + 5); // overview + own + 6 other dashboards, 6 work links, 5 administration links
+    expect(hrefs).toHaveLength(2 + 6 + 6 + 6); // overview + own + 6 other dashboards, 6 work links, 6 administration links
     for (const expected of ["/dashboard/admin", "/projects", "/requests/new", "/admin/users", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings"]) {
       expect(hrefs).toContain(expected);
     }
@@ -68,7 +63,7 @@ describe("navLinksFor", () => {
     const soa = hrefsFor("SOA");
     expect(soa).toContain("/requests/boq");
     for (const hidden of ["/requests", "/requests/rfq", "/requests/po", "/requests/new"]) expect(soa).not.toContain(hidden);
-    expect(hrefsFor("PURCHASING")).toEqual(expect.arrayContaining(["/requests", "/requests/rfq", "/requests/po"]));
+    expect(hrefsFor("FINANCE")).toEqual(expect.arrayContaining(["/requests", "/requests/rfq", "/requests/po"]));
   });
 
   it("offers Backups, System and Team settings to superadmin only", () => {

@@ -25,11 +25,11 @@ const QUEUES = (viewer: SessionUser): Record<Exclude<DashboardKey, "admin" | "su
     empty: "No open BOQ requests.",
   },
   purchasing: {
-    title: "Open RFQ and PO requests",
-    description: "Requests from Sales and from SOA handovers, newest first.",
-    filter: { types: ["RFQ", "PO"], openOnly: true, limit: 10 },
-    viewAllHref: `${REQUESTS_PATH}?status=open`,
-    empty: "No open RFQ or PO requests.",
+    title: "Open RFQ requests",
+    description: "RFQ requests from Sales and from SOA handovers, newest first.",
+    filter: { type: "RFQ", openOnly: true, limit: 10 },
+    viewAllHref: `${REQUESTS_PATH}/rfq?status=open`,
+    empty: "No open RFQ requests.",
   },
   finance: {
     title: "Recent requests",

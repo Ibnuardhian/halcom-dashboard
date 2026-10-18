@@ -8,7 +8,7 @@ const OWN_DASHBOARD_HEADING: Record<Role, string> = {
   ADMIN: "Admin dashboard",
   SALES: "Sales Pipeline",
   SOA: "SOA dashboard",
-  PURCHASING: "Purchasing dashboard",
+  PURCHASING: "Purchasing Dashboard",
   FINANCE: "Finance dashboard",
   MANAGEMENT: "Management dashboard",
 };
@@ -23,7 +23,13 @@ test.describe("sign in", () => {
       await signIn(page, role);
 
       await expectOnDashboard(page, `/dashboard/${role.toLowerCase()}`, OWN_DASHBOARD_HEADING[role]);
-      await page.getByRole("link", { name: "Overview" }).click();
+      if (role === "PURCHASING") {
+        // Purchasing's menu offers only its own dashboard and the RFQ list; the overview is still open by address.
+        await expect(page.getByRole("link", { name: "Overview" })).toHaveCount(0);
+        await page.goto("/dashboard");
+      } else {
+        await page.getByRole("link", { name: "Overview" }).click();
+      }
       await expectOnDashboard(page, "/dashboard", "Overview");
     });
   }
@@ -135,7 +141,7 @@ test.describe("user management", () => {
     const other = await browser.newContext();
     const otherPage = await other.newPage();
     await signInAs(otherPage, email, password);
-    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing dashboard");
+    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing Dashboard");
     await other.close();
 
     await page.goto("/dashboard/admin");

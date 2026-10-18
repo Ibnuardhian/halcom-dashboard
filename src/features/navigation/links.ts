@@ -42,12 +42,12 @@ export const NOTIFICATIONS_PATH = "/notifications";
 
 /** A fixed module link and the permission that shows it. The page enforces the same permission. */
 const MODULE_LINKS: readonly (NavLinkItem & { permission: Permission; hiddenFor?: readonly Role[] })[] = [
-  { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view" },
-  { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
-  { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES"] },
+  { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view", hiddenFor: ["PURCHASING"] },
+  { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SALES", "SOA", "PURCHASING"] },
+  { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES", "PURCHASING"] },
   { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
-  { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
-  { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES", "SOA"] },
+  { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA", "PURCHASING"] },
+  { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES", "SOA", "PURCHASING"] },
   { href: USERS_PATH, label: "Users", group: "administration", icon: "users", permission: "users.view" },
   { href: AUDIT_PATH, label: "Audit log", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
@@ -59,16 +59,18 @@ const MODULE_LINKS: readonly (NavLinkItem & { permission: Permission; hiddenFor?
 /** Navigation shown to a role. Derived from the permission matrix, so the menu can never offer a page the role cannot open. */
 export function navLinksFor(role: Role): NavLinkItem[] {
   const links: NavLinkItem[] = [];
-  if (can(role, "dashboard.shared.view")) {
+  // Purchasing works from its own dashboard and the RFQ list only. Everything else stays reachable by address; it is just not offered.
+  const focused = role === "PURCHASING";
+  if (!focused && can(role, "dashboard.shared.view")) {
     links.push({ href: SHARED_DASHBOARD_PATH, label: "Overview", group: "dashboards", icon: "overview" });
   }
   const own = dashboardForRole(role);
   if (can(role, `dashboard.${own}.view`)) {
     // Sales work from one page: the pipeline holds their projects, margins and every kind of request.
-    links.push({ href: dashboardPath(own), label: role === "SALES" ? "Sales Pipeline" : "My dashboard", group: "dashboards", icon: "dashboard" });
+    links.push({ href: dashboardPath(own), label: role === "SALES" ? "Sales Pipeline" : focused ? "Purchasing Dashboard" : "My dashboard", group: "dashboards", icon: "dashboard" });
   }
   for (const key of DASHBOARD_KEYS) {
-    if (key === own || !can(role, `dashboard.${key}.view`)) continue;
+    if (focused || key === own || !can(role, `dashboard.${key}.view`)) continue;
     const owner = ROLES.find((r) => dashboardForRole(r) === key)!;
     links.push({ href: dashboardPath(key), label: `${ROLE_LABELS[owner]} dashboard`, group: "dashboards", icon: "dashboard" });
   }
