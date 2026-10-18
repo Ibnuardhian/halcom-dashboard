@@ -29,6 +29,7 @@ export type Permission =
   | "settings.manage"
   | "settings.view"
   | "permissions.view"
+  | "permissions.manage"
   | "handoffs.view"
   | "finance.crosscheck.view"
   | "reports.technical.view"
@@ -68,6 +69,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "settings.manage",
   "settings.view",
   "permissions.view",
+  "permissions.manage",
   "handoffs.view",
   "finance.crosscheck.view",
   "reports.technical.view",
@@ -84,6 +86,26 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "requests.work.purchasing",
   "requests.handover",
 ];
+
+/** Permissions a role may never lose or gain through the permission editor, so the editor cannot lock everyone out or hand out the keys. */
+export const PERMISSION_GUARDS = {
+  /** A superadmin always keeps these: they are how permissions, accounts and the superadmin's own dashboard are reached and repaired. */
+  lockedForSuperadmin: ["permissions.view", "permissions.manage", "users.view", "users.manage", "users.manage-privileged", "dashboard.superadmin.view"],
+  /** Only a superadmin can ever hold these. They cannot be granted to another role. */
+  superadminOnly: ["permissions.manage", "users.manage-privileged"],
+} as const satisfies Record<string, readonly Permission[]>;
+
+const LOCKED_FOR_SUPERADMIN: ReadonlySet<Permission> = new Set(PERMISSION_GUARDS.lockedForSuperadmin);
+const SUPERADMIN_ONLY: ReadonlySet<Permission> = new Set(PERMISSION_GUARDS.superadminOnly);
+
+/** Why a role/permission pair cannot be changed in the permission editor, or null when it can. */
+export function permissionChangeBlock(role: Role, permission: Permission, granted: boolean): string | null {
+  if (role === "SUPERADMIN" && LOCKED_FOR_SUPERADMIN.has(permission)) {
+    return granted ? null : "Superadmin always keeps this permission: it is how permissions and accounts are managed.";
+  }
+  if (role !== "SUPERADMIN" && SUPERADMIN_ONLY.has(permission) && granted) return "Only a superadmin can hold this permission.";
+  return null;
+}
 
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
@@ -158,12 +180,53 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   MANAGEMENT: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("MANAGEMENT"), "finance.crosscheck.view", "reports.technical.view", ...READ_WORK]),
 };
 
-export function permissionsFor(role: Role): ReadonlySet<Permission> {
+/** The permissions a role has when nobody has changed anything: the rules above. */
+export function defaultPermissionsFor(role: Role): ReadonlySet<Permission> {
   return ROLE_PERMISSIONS[role];
 }
 
+export type PermissionOverride = { role: Role; permission: string; granted: boolean };
+
+/**
+ * What the superadmin changed in the permission editor, as the stored deviations from the defaults above. The database holds only
+ * deviations, so a permission added to the code later reaches every role as written here until somebody changes it.
+ * The effective sets live on `globalThis`: Next.js bundles pages, actions and route handlers separately, and each would otherwise
+ * keep its own copy. `loadPermissionOverrides` refreshes them from the database at the start of every authenticated request.
+ */
+const EFFECTIVE_KEY = Symbol.for("halcom.effective-role-permissions");
+type EffectiveStore = { [EFFECTIVE_KEY]?: Record<Role, ReadonlySet<Permission>> };
+
+const KNOWN_PERMISSIONS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
+
+/** Defaults with the stored deviations applied. Unknown keys and changes the guards forbid are ignored, so a bad row cannot lock anyone out. */
+export function computeEffectivePermissions(overrides: readonly PermissionOverride[]): Record<Role, ReadonlySet<Permission>> {
+  const result = Object.fromEntries(ROLES.map((role) => [role, new Set(ROLE_PERMISSIONS[role])])) as Record<Role, Set<Permission>>;
+  for (const { role, permission, granted } of overrides) {
+    if (!KNOWN_PERMISSIONS.has(permission) || !(role in result)) continue;
+    const key = permission as Permission;
+    if (permissionChangeBlock(role, key, granted) !== null) continue;
+    if (granted) result[role].add(key);
+    else result[role].delete(key);
+  }
+  return result;
+}
+
+export function setPermissionOverrides(overrides: readonly PermissionOverride[]): void {
+  (globalThis as EffectiveStore)[EFFECTIVE_KEY] = computeEffectivePermissions(overrides);
+}
+
+/** Back to the defaults (tests, and a failed refresh must not leave a stale set behind). */
+export function clearPermissionOverrides(): void {
+  delete (globalThis as EffectiveStore)[EFFECTIVE_KEY];
+}
+
+/** What a role may do right now: the defaults with the superadmin's changes. */
+export function permissionsFor(role: Role): ReadonlySet<Permission> {
+  return (globalThis as EffectiveStore)[EFFECTIVE_KEY]?.[role] ?? ROLE_PERMISSIONS[role];
+}
+
 export function can(role: Role, permission: Permission): boolean {
-  return ROLE_PERMISSIONS[role].has(permission);
+  return permissionsFor(role).has(permission);
 }
 
 /** May `actor` change an account whose current role is `target` (edit, deactivate, reset password)? */

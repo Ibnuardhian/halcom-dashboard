@@ -48,6 +48,7 @@ model User {
   purchasingProjects Project[]             @relation("ProjectPurchasingPic")
   deletedProjects   Project[]              @relation("ProjectDeletedBy")
   teamSettings      TeamSetting[]          @relation("TeamSettingUpdatedBy")
+  rolePermissionChanges RolePermissionOverride[] @relation("RolePermissionUpdatedBy")
   projectChanges    ProjectChange[]
   projectActions    ProjectAction[]
   notifications     Notification[]
@@ -575,4 +576,20 @@ model SalesTarget {
   @@unique([salesUserId, year, quarter])
   @@index([year])
   @@map("sales_targets")
+}
+
+// What a superadmin changed in the permission editor: one row per role and permission whose state differs from the defaults in
+// src/domain/access/permissions.ts. Permissions themselves stay defined in code (D-013); a role with no row here has the defaults.
+// Every change is also written to audit_events with the before and after.
+model RolePermissionOverride {
+  role        Role
+  permission  String
+  granted     Boolean
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String?  @map("updated_by_id") @db.Uuid
+
+  updatedBy User? @relation("RolePermissionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@id([role, permission])
+  @@map("role_permission_overrides")
 }

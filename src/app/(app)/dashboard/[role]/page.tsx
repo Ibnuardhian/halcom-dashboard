@@ -26,7 +26,7 @@ async function RoleDashboard({ params, searchParams }: Pick<PageProps<"/dashboar
   const viewer = await requirePermission(`dashboard.${key}.view`);
 
   if (key === "admin" || key === "superadmin") {
-    return <AdminDashboard viewer={viewer} scope={key} />;
+    return <AdminDashboard viewer={viewer} />;
   }
   if (key === "sales") {
     const query = await searchParams;

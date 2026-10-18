@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, type Permission } from "@/domain/access/permissions";
+import { can, clearPermissionOverrides, setPermissionOverrides, type Permission } from "@/domain/access/permissions";
 import { ROLES } from "@/domain/access/roles";
 import { navLinksFor, navSectionsFor } from "@/features/navigation/links";
 
@@ -87,7 +87,7 @@ describe("navLinksFor", () => {
 
     expect(links.slice(0, 3).map((l) => [l.href, l.label])).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/admin", "Administration Dashboard"],
+      ["/dashboard/admin", "Admin Dashboard"],
       ["/dashboard/sales", "Sales dashboard"],
     ]);
     const labels = links.map((l) => l.label);
@@ -101,10 +101,25 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    for (const expected of ["/dashboard/admin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings", "/admin/master-data", "/admin/pics"]) {
+    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings", "/admin/master-data", "/admin/pics"]) {
       expect(hrefs).toContain(expected);
     }
-    expect(hrefs).toContain("/dashboard/superadmin");
+    // Admin and Superadmin share one Admin Dashboard (D-032): the menu offers it once, under the user's own address.
+    expect(hrefs).not.toContain("/dashboard/admin");
+    expect(navLinksFor("SUPERADMIN").filter((l) => l.label === "Admin Dashboard")).toHaveLength(1);
+  });
+
+  it("offers a shared dashboard once even when a role is given both addresses", () => {
+    setPermissionOverrides([
+      { role: "MANAGEMENT", permission: "dashboard.admin.view", granted: true },
+      { role: "MANAGEMENT", permission: "dashboard.superadmin.view", granted: true },
+    ]);
+    try {
+      const adminLinks = navLinksFor("MANAGEMENT").filter((l) => l.href === "/dashboard/admin" || l.href === "/dashboard/superadmin");
+      expect(adminLinks).toHaveLength(1);
+    } finally {
+      clearPermissionOverrides();
+    }
   });
 
   it("offers Backups and System to superadmin only, and SLA Policies to admins and superadmin", () => {

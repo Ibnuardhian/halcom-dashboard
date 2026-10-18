@@ -208,7 +208,7 @@ test.describe("persistent login and switching accounts", () => {
     await expectNotFound(page, "/dashboard/soa?role=SOA", "Awaiting handoff");
     await expectNotFound(page, "/handoffs", "Ready for handoff");
     await expectNotFound(page, "/finance/crosscheck?role=FINANCE", "Financial Crosscheck");
-    await expectNotFound(page, "/admin/permissions", "Role permission matrix");
+    await expectNotFound(page, "/admin/permissions", "Expand all");
     await expectNotFound(page, "/targets", "Revenue target");
   });
 });
@@ -240,6 +240,7 @@ test.describe("each role sees its own modules", () => {
     await signIn(page, "ADMIN");
     await page.goto("/admin/permissions");
     await expect(page.getByRole("heading", { level: 1, name: "Permissions" })).toBeVisible();
+    await page.getByRole("button", { name: "Expand all" }).click();
     const finance = page.getByRole("row", { name: /finance\.crosscheck\.view/ });
     await expect(finance).toBeVisible();
 

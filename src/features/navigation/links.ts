@@ -1,4 +1,4 @@
-import { DASHBOARD_KEYS, dashboardForRole, dashboardPath, SHARED_DASHBOARD_PATH } from "@/domain/access/dashboards";
+import { DASHBOARD_KEYS, dashboardForRole, type DashboardKey, dashboardPath, SHARED_DASHBOARD_PATH } from "@/domain/access/dashboards";
 import { can, type Permission } from "@/domain/access/permissions";
 import { ROLE_LABELS, ROLES, type Role } from "@/domain/access/roles";
 
@@ -94,9 +94,15 @@ const OWN_DASHBOARD_LABELS: Partial<Record<Role, string>> = {
   PURCHASING: "Purchasing Dashboard",
   FINANCE: "Finance Dashboard",
   MANAGEMENT: "Management Dashboard",
-  ADMIN: "Administration Dashboard",
-  SUPERADMIN: "Administration Dashboard",
+  ADMIN: "Admin Dashboard",
+  SUPERADMIN: "Admin Dashboard",
 };
+
+/**
+ * Dashboards that are the same page under another address. A role that can open both is offered one entry, and the permission to open
+ * each stays separate, so access to either can still be granted or taken away on its own.
+ */
+const SAME_DASHBOARD_AS: Partial<Record<DashboardKey, DashboardKey>> = { superadmin: "admin" };
 
 /** Navigation shown to a role. Derived from the permission matrix, so the menu can never offer a page the role cannot open. */
 export function navLinksFor(role: Role): NavLinkItem[] {
@@ -112,6 +118,9 @@ export function navLinksFor(role: Role): NavLinkItem[] {
   }
   for (const key of DASHBOARD_KEYS) {
     if (focused || key === own || !can(role, `dashboard.${key}.view`)) continue;
+    // The same page as one the user already has in the menu.
+    const twin = SAME_DASHBOARD_AS[key] ?? DASHBOARD_KEYS.find((other) => SAME_DASHBOARD_AS[other] === key);
+    if (twin && (twin === own || links.some((link) => link.href === dashboardPath(twin)))) continue;
     const owner = ROLES.find((r) => dashboardForRole(r) === key)!;
     links.push({ href: dashboardPath(key), label: `${ROLE_LABELS[owner]} dashboard`, group: "dashboards", icon: "dashboard" });
   }
