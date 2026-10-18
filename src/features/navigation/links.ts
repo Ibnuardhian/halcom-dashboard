@@ -39,6 +39,7 @@ export const AUDIT_PATH = "/admin/audit";
 export const BACKUPS_PATH = "/admin/backups";
 export const SETTINGS_PATH = "/admin/settings";
 export const MASTER_DATA_PATH = "/admin/master-data";
+export const PICS_PATH = "/admin/pics";
 export const PROJECTS_PATH = "/projects";
 export const REQUESTS_PATH = "/requests";
 export const HANDOFFS_PATH = "/handoffs";
@@ -80,6 +81,7 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PERMISSIONS_PATH, label: "Permissions", group: "administration", icon: "permissions", permission: "permissions.view" },
   { href: SETTINGS_PATH, label: "SLA Policies", group: "administration", icon: "system", permission: "settings.view" },
   { href: MASTER_DATA_PATH, label: "Master Data", group: "administration", icon: "system", permission: "masterdata.manage", labels: { SOA: "Principal & Solution Master Data" } },
+  { href: PICS_PATH, label: "PICs", group: "administration", icon: "users", permission: "pics.manage" },
   { href: AUDIT_PATH, label: "Audit Logs", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
   { href: SYSTEM_PATH, label: "System", group: "administration", icon: "system", permission: "system.monitor" },

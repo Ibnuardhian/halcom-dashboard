@@ -10,6 +10,16 @@ export const MASTER_KIND_LABELS: Record<MasterKind, string> = { principal: "Prin
 
 export const MASTER_NAME_MAX_LENGTH = 120;
 
+/** The most principals one project can be built on. */
+export const MAX_PROJECT_PRINCIPALS = 20;
+
+/** The principal names of a project in the order they were chosen; a project that only has the single legacy link still lists it. */
+export function principalNamesOf(project: { principals?: readonly { principal: { name: string } }[]; principal?: { name: string } | null }): string[] {
+  const linked = (project.principals ?? []).map((link) => link.principal.name);
+  if (linked.length > 0) return linked;
+  return project.principal ? [project.principal.name] : [];
+}
+
 export type MasterOption = { id: string; name: string };
 
 const squash = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();

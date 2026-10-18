@@ -14,9 +14,11 @@ import { getDb } from "@/lib/db";
 import { buildRequestEmail } from "@/server/requests/email";
 import type { RequestDetail } from "@/server/requests/queries";
 import { getTeamSetting } from "@/server/settings/team-settings";
+import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
+import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
-import { NextStepForm, PhaseForm } from "./forms";
+import { AssignPicForm, NextStepForm, PhaseForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -35,6 +37,8 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   const mayPhase = mayWork && request.type === "BOQ" && isOpen(request.status);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
+  // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
+  const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
     ? buildRequestEmail(request, { subject: setting.emailSubject, body: setting.emailBody, sla: setting.sla, dueAt: sla.dueAt })
@@ -58,7 +62,16 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             {request.type === "BOQ" ? (
               <Fact label="SOA phase">{request.phase ? SOA_PHASE_LABELS[request.phase] : <span className="text-muted-foreground">Not started</span>}</Fact>
             ) : null}
-            <Fact label="Assignee">{request.assignee?.name ?? <span className="text-muted-foreground">Unassigned</span>}</Fact>
+            <Fact label="PIC">
+              {request.pic ? (
+                <>
+                  {request.pic.name}
+                  {request.pic.isActive ? null : <span className="text-muted-foreground"> (inactive)</span>}
+                </>
+              ) : (
+                <span className="text-muted-foreground">Unassigned</span>
+              )}
+            </Fact>
             {inProject ? null : (
               <Fact label="Project">
                 <Link href={`${PROJECTS_PATH}/${request.project.code}`} className="text-primary underline-offset-4 hover:underline">
@@ -125,6 +138,22 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
         </p>
       ) : null}
 
+      {mayWork ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h3>PIC</h3>
+            </CardTitle>
+            <CardDescription>
+              Who in {PIC_TEAM_LABELS[picTeamOf(request.type)]} is working on this request. PICs are not login accounts; the change is kept in the assignment history.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AssignPicForm requestId={request.id} current={request.picId ?? ""} pics={pics} teamLabel={PIC_TEAM_LABELS[picTeamOf(request.type)]} />
+          </CardContent>
+        </Card>
+      ) : null}
+
       {mayPhase ? (
         <Card>
           <CardHeader>
@@ -165,6 +194,36 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           Not continuing to {next ?? "the next step"} – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatUtc(request.flowStoppedAt)}
           {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
         </p>
+      ) : null}
+
+      {assignments.length > 0 ? (
+        <details className="group rounded-xl ring-1 ring-foreground/10">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold select-none marker:content-none">
+            PIC history <span className="font-normal text-muted-foreground">({assignments.length}) – append-only, times are UTC</span>
+          </summary>
+          <div className="px-4 pb-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Change</TableHead>
+                  <TableHead>By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignments.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="whitespace-nowrap">{formatUtc(row.changedAt)}</TableCell>
+                    <TableCell>
+                      {row.fromName ?? "Unassigned"} → {row.toName ?? "Unassigned"}
+                    </TableCell>
+                    <TableCell>{row.changedByName}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </details>
       ) : null}
 
       <details className="group rounded-xl ring-1 ring-foreground/10">

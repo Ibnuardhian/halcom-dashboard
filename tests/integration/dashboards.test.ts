@@ -4,6 +4,7 @@ import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { getRequesterSummary, getTeamDashboard, getTechnicalReport } from "@/server/dashboards/metrics";
 import { listCrosscheck } from "@/server/finance/crosscheck";
+import { assignRequestPic } from "@/server/pics/service";
 import { updateCommercialDetails } from "@/server/projects/service";
 import { listRecentHandovers, listRequests } from "@/server/requests/queries";
 import { changeRequestStatus, createProject, createRequest, handOverToPurchasing } from "@/server/requests/service";
@@ -29,6 +30,12 @@ async function salesProject(sales: { id: string }, extra: Record<string, unknown
   return created.value;
 }
 
+/** A SOA PIC that exists only in the test that asks for it, so counts per PIC are exact. */
+async function soaPic(label: string) {
+  const name = `${label} ${randomBytes(3).toString("hex")}`;
+  return db.pic.create({ data: { team: "SOA", name, nameKey: name.toLowerCase() } });
+}
+
 async function boq(sales: { id: string }, projectId: string, extra: Record<string, unknown> = {}) {
   const created = await createRequest(db, as(sales, "SALES"), { projectId, type: "BOQ", title: "BOQ", ...extra });
   if (!created.ok) throw new Error(created.message);
@@ -37,16 +44,20 @@ async function boq(sales: { id: string }, projectId: string, extra: Record<strin
 
 describe("the SOA dashboard numbers match the stored requests", () => {
   it("counts open, backlog, in progress, waiting and workload exactly as the requests are stored", async () => {
-    const [sales, soa, other] = await Promise.all([makeUser("SALES"), makeUser("SOA"), makeUser("SOA")]);
+    // SOA signs in with one shared account; the work is handed to PICs, and the workload is counted per PIC.
+    const [sales, soa] = await Promise.all([makeUser("SALES"), makeUser("SOA")]);
+    const [picOne, picTwo] = await Promise.all([soaPic("Adityo"), soaPic("Ibnu")]);
     const project = await salesProject(sales);
     const a = await boq(sales, project.id); // stays Submitted
-    const b = await boq(sales, project.id); // In progress, taken by `soa`
-    const c = await boq(sales, project.id); // revision, taken by `other`
+    const b = await boq(sales, project.id); // In progress, handed to picOne
+    const c = await boq(sales, project.id); // revision, handed to picTwo
     const d = await boq(sales, project.id); // completed
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: b.id, to: "IN_PROGRESS" });
-    await changeRequestStatus(db, as(other, "SOA"), { requestId: c.id, to: "COMPLETED" });
-    await changeRequestStatus(db, as(other, "SOA"), { requestId: c.id, to: "REVISION" });
+    await changeRequestStatus(db, as(soa, "SOA"), { requestId: c.id, to: "COMPLETED" });
+    await changeRequestStatus(db, as(soa, "SOA"), { requestId: c.id, to: "REVISION" });
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: d.id, to: "COMPLETED" });
+    await assignRequestPic(db, as(soa, "SOA"), { requestId: b.id, picId: picOne.id });
+    await assignRequestPic(db, as(soa, "SOA"), { requestId: c.id, picId: picTwo.id });
     void a;
 
     const { metrics } = await getTeamDashboard(db, as(soa, "SOA"), "SOA");
@@ -57,12 +68,14 @@ describe("the SOA dashboard numbers match the stored requests", () => {
     await within(() => count({ status: "IN_PROGRESS" }), metrics.inProgress);
     await within(() => count({ status: "WAITING_FOR_SALES" }), metrics.waitingForSales);
     await within(() => count({ status: "REVISION" }), metrics.revision);
-    // Workload: the open requests of each assignee, as stored. These two people exist only in this test, so it is exact.
-    const mine = metrics.workload.find((row) => row.assigneeId === soa.id);
-    const theirs = metrics.workload.find((row) => row.assigneeId === other.id);
-    expect(mine?.open).toBe(await count({ assigneeId: soa.id, status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] } }));
+    // Workload: the open requests of each PIC, as stored. These two PICs exist only in this test, so it is exact. The shared SOA login is no row.
+    const mine = metrics.workload.find((row) => row.assigneeId === picOne.id);
+    const theirs = metrics.workload.find((row) => row.assigneeId === picTwo.id);
+    expect(mine?.open).toBe(await count({ picId: picOne.id, status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] } }));
     expect(mine?.open).toBe(1);
     expect(theirs?.open).toBe(1);
+    expect(mine?.name).toBe(picOne.name);
+    expect(metrics.workload.some((row) => row.name === soa.name)).toBe(false);
     expect(metrics.workload.reduce((sum, row) => sum + row.open, 0)).toBe(metrics.open);
     // Everything completed just now has a measurable turnaround and met its SLA.
     expect(metrics.completedInWindow).toBeGreaterThanOrEqual(1);
@@ -91,9 +104,11 @@ describe("the SOA dashboard numbers match the stored requests", () => {
     const project = await salesProject(sales);
     const taken = await boq(sales, project.id, { requiredBy: "2020-01-01" });
     const untouched = await boq(sales, project.id, { requiredBy: "2999-01-01" });
+    const pic = await soaPic("Adityo");
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: taken.id, to: "IN_PROGRESS" });
+    await assignRequestPic(db, as(soa, "SOA"), { requestId: taken.id, picId: pic.id });
 
-    const ofSoa = await listRequests(db, as(soa, "SOA"), { assignee: soa.id });
+    const ofSoa = await listRequests(db, as(soa, "SOA"), { assignee: pic.id });
     const unassigned = await listRequests(db, as(soa, "SOA"), { assignee: "none" });
     const past = await listRequests(db, as(soa, "SOA"), { deadline: "past" });
     const { metrics } = await getTeamDashboard(db, as(soa, "SOA"), "SOA");

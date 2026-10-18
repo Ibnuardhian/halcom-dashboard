@@ -197,7 +197,7 @@ describe("createRequest", () => {
 });
 
 describe("changeRequestStatus", () => {
-  it("walks a BOQ through its statuses, recording assignee, completion time and history", async () => {
+  it("walks a BOQ through its statuses, recording completion time and history", async () => {
     const sales = await actorOf("SALES", "qa.flow");
     const soa = await actorOf("SOA", "soa.flow");
     const project = await makeProject(sales);
@@ -207,7 +207,7 @@ describe("changeRequestStatus", () => {
     expect((await advance(soa, boq.id, "COMPLETED")).ok).toBe(true);
 
     const done = await db.request.findUniqueOrThrow({ where: { id: boq.id }, include: { statusHistory: { orderBy: { changedAt: "asc" } } } });
-    expect(done).toMatchObject({ status: "COMPLETED", assigneeId: soa.id });
+    expect(done).toMatchObject({ status: "COMPLETED", assigneeId: null }); // PICs are chosen, not taken from the login
     expect(done.completedAt).toBeInstanceOf(Date);
     expect(done.statusHistory.map((row) => [row.fromStatus, row.toStatus])).toEqual([
       [null, "SUBMITTED"],

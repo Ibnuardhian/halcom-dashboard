@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { principalNamesOf } from "@/domain/projects/master-data";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn } from "@/domain/projects/source";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
@@ -164,7 +165,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="End user">{project.customer?.name ?? project.endUserCompany}</Fact>
           <Fact label="Industry">{project.industry ?? "–"}</Fact>
           <Fact label="Location">{project.location ?? "–"}</Fact>
-          <Fact label="Principal">{project.principal?.name ?? "–"}</Fact>
+          <Fact label="Principals">{principalNamesOf(project).join(", ") || "–"}</Fact>
           <Fact label="Solution">{project.solutionCategory?.name ?? "–"}</Fact>
           <Fact label="Project source">{SOURCE_LABELS[project.sourceType]}</Fact>
           {project.sourceType === "OTHER" ? (
@@ -258,7 +259,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
               projectCode={project.code}
               principals={principals.map(({ id, name }) => ({ id, name }))}
               solutions={solutions.map(({ id, name }) => ({ id, name }))}
-              principalId={project.principalId ?? ""}
+              principalIds={project.principals.length > 0 ? project.principals.map((link) => link.principal.id) : project.principalId ? [project.principalId] : []}
               solutionId={project.solutionCategoryId ?? ""}
               canCreate={can(viewer.role, "masterdata.manage")}
             />

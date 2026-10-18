@@ -25,6 +25,7 @@ function permissionFor(href: string): Permission {
   if (href === "/admin/system") return "system.monitor";
   if (href === "/admin/settings") return "settings.view";
   if (href === "/admin/master-data") return "masterdata.manage";
+  if (href === "/admin/pics") return "pics.manage";
   throw new Error(`No permission mapped for ${href}`);
 }
 
@@ -100,7 +101,7 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    for (const expected of ["/dashboard/admin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings", "/admin/master-data"]) {
+    for (const expected of ["/dashboard/admin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings", "/admin/master-data", "/admin/pics"]) {
       expect(hrefs).toContain(expected);
     }
     expect(hrefs).toContain("/dashboard/superadmin");

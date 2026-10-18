@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   console.log(`  projects: ${summary.projectsToCreate.length} new, ${summary.projectsExisting.length} already present (left untouched)`);
   console.log(`  users:    ${summary.usersToCreate.length} new${summary.usersToCreate.length ? ` [${summary.usersToCreate.join(", ")}]` : ""}, ${summary.usersExisting.length} already present`);
   console.log(`  master data ${summary.dryRun ? "to add" : "added"}: ${summary.customers} customer(s), ${summary.principals} principal(s), ${summary.solutionCategories} solution categorie(s)`);
-  if (!summary.dryRun && appEnv === "development") await writeDevAccountsFile(db, password!);
+  if (!summary.dryRun && appEnv === "development") await writeDevAccountsFile(db);
   await db.$disconnect();
 }
 

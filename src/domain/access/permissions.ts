@@ -20,6 +20,7 @@ export type Permission =
   | "projects.create"
   | "projects.create.external"
   | "projects.assign-sales"
+  | "projects.import"
   | "projects.edit.source"
   | "projects.edit.technical"
   | "projects.edit.commercial"
@@ -32,6 +33,7 @@ export type Permission =
   | "finance.crosscheck.view"
   | "reports.technical.view"
   | "masterdata.manage"
+  | "pics.manage"
   | "targets.edit"
   | "customers.view"
   | "projects.post-update"
@@ -57,6 +59,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.create",
   "projects.create.external",
   "projects.assign-sales",
+  "projects.import",
   "projects.edit.source",
   "projects.edit.technical",
   "projects.edit.commercial",
@@ -69,6 +72,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "finance.crosscheck.view",
   "reports.technical.view",
   "masterdata.manage",
+  "pics.manage",
   "targets.edit",
   "customers.view",
   "projects.post-update",
@@ -109,11 +113,14 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     ...READ_WORK,
     ...SALES_WORK,
     "projects.create.external",
+    "projects.import",
     "projects.edit.source",
     "requests.create.external",
     "projects.edit.technical",
     "projects.post-update",
     "masterdata.manage",
+    // Admin keeps the list of PICs (the operational assignees of SOA and Purchasing tickets).
+    "pics.manage",
     "requests.work.boq",
     "requests.work.purchasing",
     "requests.handover",
@@ -129,6 +136,8 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     // project for an internal salesperson they pick (source Internal Sales).
     "projects.create.external",
     "projects.assign-sales",
+    // SOA imports project lists (an Excel sheet) for the salespeople they name.
+    "projects.import",
     "projects.edit.source",
     "requests.create.external",
     "projects.edit.technical",

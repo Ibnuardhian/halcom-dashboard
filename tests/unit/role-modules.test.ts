@@ -49,6 +49,18 @@ describe("what each operational role may do", () => {
   });
 });
 
+describe("importing projects and keeping PICs", () => {
+  it("lets only SOA and the administrators import projects from a sheet", () => {
+    for (const role of ROLES) expect(can(role, "projects.import"), role).toBe(["SOA", "ADMIN", "SUPERADMIN"].includes(role));
+  });
+
+  it("lets only the administrators keep the list of PICs; the teams only pick from it", () => {
+    for (const role of ROLES) expect(can(role, "pics.manage"), role).toBe(["ADMIN", "SUPERADMIN"].includes(role));
+    expect(can("SOA", "requests.work.boq")).toBe(true);
+    expect(can("PURCHASING", "requests.work.purchasing")).toBe(true);
+  });
+});
+
 describe("crosscheck flags", () => {
   const rfq = { code: "RFQ-1", type: "RFQ", status: "COMPLETED" } as const;
   const po = { code: "PO-1", type: "PO", status: "COMPLETED" } as const;

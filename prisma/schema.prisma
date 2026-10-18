@@ -43,6 +43,7 @@ model User {
   requestsHandled   Request[]              @relation("RequestAssignee")
   flowStopped       Request[]              @relation("RequestFlowStoppedBy")
   statusChanges     RequestStatusHistory[]
+  picAssignments    RequestPicAssignment[] @relation("AssignmentChangedBy")
   technicalProjects Project[]              @relation("ProjectTechnicalPic")
   purchasingProjects Project[]             @relation("ProjectPurchasingPic")
   deletedProjects   Project[]              @relation("ProjectDeletedBy")
@@ -205,7 +206,9 @@ model Principal {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  projects Project[]
+  // `projects` is the legacy first-principal link (Project.principalId); `projectLinks` is the full list a project is built on.
+  projects     Project[]
+  projectLinks ProjectPrincipal[]
 
   @@map("principals")
 }
@@ -220,6 +223,22 @@ model SolutionCategory {
   projects Project[]
 
   @@map("solution_categories")
+}
+
+// The principals (brands) a project is built on: one row per project and principal, so the same principal cannot be linked twice.
+// `position` keeps the order they were chosen in; the first one is also written to projects.principal_id.
+model ProjectPrincipal {
+  projectId   String   @map("project_id") @db.Uuid
+  principalId String   @map("principal_id") @db.Uuid
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  principal Principal @relation(fields: [principalId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, principalId])
+  @@index([principalId])
+  @@map("project_principals")
 }
 
 // Human-readable codes come from this counter: one row per scope (for example "RFQ-IA-26"
@@ -275,6 +294,7 @@ model Project {
 
   // General information.
   customerId         String? @map("customer_id") @db.Uuid
+  // The first of the project's principals (see ProjectPrincipal), kept so lists, filters and exports that read one name keep working.
   principalId        String? @map("principal_id") @db.Uuid
   solutionCategoryId String? @map("solution_category_id") @db.Uuid
   industry           String?
@@ -321,6 +341,7 @@ model Project {
   purchasingPic    User?             @relation("ProjectPurchasingPic", fields: [purchasingPicId], references: [id], onDelete: Restrict)
   customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
   principal        Principal?        @relation(fields: [principalId], references: [id], onDelete: Restrict)
+  principals       ProjectPrincipal[]
   solutionCategory SolutionCategory? @relation(fields: [solutionCategoryId], references: [id], onDelete: Restrict)
   deletedBy        User?             @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   requests         Request[]
@@ -352,8 +373,11 @@ model Request {
   description     String        @default("")
   requiredBy      DateTime?     @map("required_by") @db.Date
   requesterId     String        @map("requester_id") @db.Uuid
-  // Null means "unassigned", which is shown explicitly (brief §6.3).
+  // Deprecated: the operational assignee is now `picId` (a PIC, not a login account). Kept for the rows that were assigned before;
+  // the application no longer writes it.
   assigneeId      String?       @map("assignee_id") @db.Uuid
+  // The PIC working on it. Null means "unassigned", which is shown explicitly (brief §6.3).
+  picId           String?       @map("pic_id") @db.Uuid
   // Set on an RFQ or PO that was handed over from a completed BOQ.
   sourceRequestId String?       @map("source_request_id") @db.Uuid
   // Set by SOA on a BOQ request only (a database check keeps it off RFQ and PO).
@@ -370,6 +394,8 @@ model Request {
   project       Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
   requester     User                   @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
   assignee      User?                  @relation("RequestAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  pic           Pic?                   @relation(fields: [picId], references: [id], onDelete: Restrict)
+  picAssignments RequestPicAssignment[]
   flowStoppedBy User?                  @relation("RequestFlowStoppedBy", fields: [flowStoppedById], references: [id], onDelete: Restrict)
   source        Request?               @relation("Handover", fields: [sourceRequestId], references: [id], onDelete: Restrict)
   handovers     Request[]              @relation("Handover")
@@ -378,6 +404,7 @@ model Request {
   // A repeated handover click cannot create a second RFQ (or PO) from the same BOQ.
   @@unique([sourceRequestId, type])
   @@index([projectId])
+  @@index([picId])
   @@index([type, status])
   @@index([status])
   @@index([createdAt])
@@ -445,6 +472,53 @@ model ProjectAction {
   @@index([projectId, createdAt])
   @@index([projectId, kind, createdAt])
   @@map("project_actions")
+}
+
+// The team an operational PIC works for. Keep in sync with PIC_TEAMS in src/domain/pics/teams.ts.
+enum PicTeam {
+  SOA
+  PURCHASING
+}
+
+// An operational assignee of SOA or Purchasing tickets (Adityo, Ibnu...). It is not a login account: SOA and Purchasing each sign in
+// with one shared account, and the tickets are handed to PICs. A PIC is deactivated, never deleted, so the assignment history keeps its names.
+model Pic {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  team      PicTeam
+  name      String
+  // Trimmed, single-spaced, lower-cased name: one team cannot hold the same name twice.
+  nameKey   String   @map("name_key")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  requests         Request[]
+  assignedTo       RequestPicAssignment[] @relation("AssignmentTo")
+  assignedFrom     RequestPicAssignment[] @relation("AssignmentFrom")
+
+  @@unique([team, nameKey])
+  @@index([team, isActive])
+  @@map("pics")
+}
+
+// Who a request was handed to and by whom, one row per change. Append-only (the migration installs triggers), and a PIC row is never
+// deleted, so the history stays readable after a PIC is changed or deactivated.
+model RequestPicAssignment {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  requestId   String   @map("request_id") @db.Uuid
+  fromPicId   String?  @map("from_pic_id") @db.Uuid
+  toPicId     String?  @map("to_pic_id") @db.Uuid
+  changedById String   @map("changed_by_id") @db.Uuid
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  fromPic   Pic?    @relation("AssignmentFrom", fields: [fromPicId], references: [id], onDelete: Restrict)
+  toPic     Pic?    @relation("AssignmentTo", fields: [toPicId], references: [id], onDelete: Restrict)
+  changedBy User    @relation("AssignmentChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([requestId, changedAt])
+  @@index([toPicId])
+  @@map("request_pic_assignments")
 }
 
 // Something a person should look at: a request that reached their team, or a project change made by another

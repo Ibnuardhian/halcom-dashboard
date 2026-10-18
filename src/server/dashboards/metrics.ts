@@ -19,8 +19,8 @@ const SELECT = {
   createdAt: true,
   completedAt: true,
   requiredBy: true,
-  assigneeId: true,
-  assignee: { select: { name: true } },
+  picId: true,
+  pic: { select: { name: true, isActive: true } },
   statusHistory: { select: { toStatus: true, changedAt: true } },
 } satisfies Prisma.RequestSelect;
 
@@ -36,8 +36,9 @@ async function load(db: PrismaClient, scope: { type?: RequestType; ownerId?: str
     createdAt: row.createdAt,
     completedAt: row.completedAt,
     requiredBy: row.requiredBy,
-    assigneeId: row.assigneeId,
-    assigneeName: row.assignee?.name ?? null,
+    // Work is counted per PIC (an operational assignee), not per login account: SOA and Purchasing each share one account.
+    assigneeId: row.picId,
+    assigneeName: row.pic ? (row.pic.isActive ? row.pic.name : `${row.pic.name} (inactive)`) : null,
     history: row.statusHistory,
   }));
 }

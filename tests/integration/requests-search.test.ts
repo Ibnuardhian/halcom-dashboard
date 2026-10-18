@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { getDb } from "@/lib/db";
 import { createMasterRecord, setProjectMasterData } from "@/server/masterdata/service";
 import { searchRequests } from "@/server/requests/queries";
+import { assignRequestPic } from "@/server/pics/service";
 import { changeRequestStatus, createProject, createRequest } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
@@ -43,6 +44,8 @@ describe("searchRequests (the RFQ list)", () => {
   it("returns only RFQs when asked for them, with project, End User, requester, Principal, Solution, item details, PIC and SLA", async () => {
     const { tag, sales, purchasing, made } = await fixture();
     await changeRequestStatus(db, actor(purchasing), { requestId: made[0].id, to: "IN_PROGRESS" });
+    const pic = await db.pic.create({ data: { team: "PURCHASING", name: `Budi ${tag}`, nameKey: `budi ${tag}` } });
+    await assignRequestPic(db, actor(purchasing), { requestId: made[0].id, picId: pic.id });
 
     const page = await searchRequests(db, actor(purchasing), { type: "RFQ", q: tag, sort: "created", dir: "asc" });
 
@@ -58,7 +61,7 @@ describe("searchRequests (the RFQ list)", () => {
       title: "Switches 0",
       description: `0 units of item ${tag}-0`,
       status: "IN_PROGRESS",
-      assigneeName: purchasing.name,
+      assigneeName: pic.name,
     });
     expect(first.sla.dueAt.getTime()).toBeGreaterThan(first.createdAt.getTime());
     const unclassified = page.rows.find((row) => row.code === made[1].code)!;

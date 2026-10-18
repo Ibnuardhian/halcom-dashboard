@@ -37,7 +37,7 @@ async function main(): Promise<void> {
     created += 1;
   }
   // A sign-in cheat sheet for developers, development only (the test database has its own users).
-  if (appEnv === "development") await writeDevAccountsFile(db, password);
+  if (appEnv === "development") await writeDevAccountsFile(db);
   await db.$disconnect();
   console.log(`Seed finished for APP_ENV=${appEnv}: ${created} user(s) created, ${ROLES.length - created} already existed.`);
 }

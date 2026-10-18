@@ -368,7 +368,8 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
     const next = nextRequestType(source.type)!;
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(source.assigneeId ? [source.assigneeId] : [])],
+      // The team that owns the request type is told too: its tickets are handed to PICs, who are not accounts, so the team's accounts are the audience.
+      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(source.assigneeId ? [source.assigneeId] : []), ...(await usersWithRole(tx, OWNING_ROLE[source.type]))],
       kind: "request.flow_stopped",
       title: `${source.code}: not continuing to ${next}`,
       body: note,
@@ -417,8 +418,6 @@ export async function changeRequestStatus(
         status: to,
         // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
         completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
-        // Whoever first starts the work owns it, so "unassigned" does not linger on active requests.
-        assigneeId: request.assigneeId ?? (can(actor.role, workPermission(request.type)) ? actor.id : null),
       },
     });
     await tx.requestStatusHistory.create({
@@ -463,7 +462,7 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     const starts = phase !== null && request.status === "SUBMITTED";
     await tx.request.update({
       where: { id: request.id },
-      data: { phase, ...(starts ? { status: "IN_PROGRESS" as const } : {}), assigneeId: request.assigneeId ?? actor.id },
+      data: { phase, ...(starts ? { status: "IN_PROGRESS" as const } : {}) },
     });
     if (starts) {
       await tx.requestStatusHistory.create({

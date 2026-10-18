@@ -15,7 +15,8 @@ import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type Projec
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
 import { MarginInput } from "@/features/projects/margin-input";
 import { MoneyInput } from "@/features/projects/money-input";
-import { createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
+import type { PicOption } from "@/domain/pics/teams";
+import { assignPicAction, createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -297,6 +298,33 @@ export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: st
         )}
       </div>
       <FormStatus state={state} />
+    </form>
+  );
+}
+
+/** SOA or Purchasing hands the request to one of their PICs: an operational assignee, not a login account. */
+export function AssignPicForm({ requestId, current, pics, teamLabel }: { requestId: string; current: string; pics: readonly PicOption[]; teamLabel: string }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(assignPicAction, null);
+
+  return (
+    <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
+      <input type="hidden" name="requestId" value={requestId} />
+      <Field id={`pic-${requestId}`} label="PIC" hint={pics.length === 0 ? `No active ${teamLabel} PIC yet. An administrator adds them under PICs.` : undefined}>
+        <NativeSelect id={`pic-${requestId}`} name="picId" defaultValue={current}>
+          <option value="">Unassigned</option>
+          {pics.map((pic) => (
+            <option key={pic.id} value={pic.id}>
+              {pic.name}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save PIC"}
+      </Button>
+      <div className="sm:col-span-2">
+        <FormStatus state={state} />
+      </div>
     </form>
   );
 }

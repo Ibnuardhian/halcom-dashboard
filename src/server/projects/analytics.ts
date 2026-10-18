@@ -2,6 +2,8 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { FILTER_EXTERNAL, FILTER_NONE } from "@/domain/projects/drilldown";
+import { industryKey } from "@/domain/projects/drilldown";
 import {
   CLOSED_PROGRESSES,
   PROGRESS_LABELS,
@@ -14,8 +16,12 @@ import {
 
 type Viewer = { id: string; role: Role };
 
-/** One bar or slice: how many projects, and their summed estimated and weighted value. */
-export type Slice = { key: string; label: string; count: number; value: number; weighted: number };
+/**
+ * One bar or slice: how many projects, and their summed estimated and weighted value. `drill` is what the Projects list filters by
+ * to show exactly these projects when the bar is clicked (an id, "none" for "Not set", "external" for the Other source); the folded
+ * "Other (n)" slice carries the values of every slice folded into it.
+ */
+export type Slice = { key: string; label: string; count: number; value: number; weighted: number; drill?: string[] };
 
 export type PipelineAnalytics = {
   /** Open means Sales have not closed it (Closed Won / Closed Lost) and its Status is not Done. */
@@ -43,8 +49,19 @@ const EXTERNAL_KEY = "external-source";
 const EXTERNAL_LABEL = "Other";
 export const MAX_SLICES = 7;
 
-function add(map: Map<string, Slice>, key: string, label: string, estimated: number | null, weighted: number | null): void {
-  const slice = map.get(key) ?? { key, label, count: 0, value: 0, weighted: 0 };
+/**
+ * The projects behind each slice, kept aside so a folded slice can count a project once even when it sits in several of the folded
+ * slices (a project built on three principals is under each of them, but it is one project in "Other").
+ */
+const MEMBERS = new WeakMap<Slice, Map<string, { estimated: number; weighted: number }>>();
+
+function add(map: Map<string, Slice>, key: string, label: string, estimated: number | null, weighted: number | null, drill: string = key, projectId?: string): void {
+  const slice = map.get(key) ?? { key, label, count: 0, value: 0, weighted: 0, drill: [drill] };
+  if (projectId !== undefined) {
+    const members = MEMBERS.get(slice) ?? new Map<string, { estimated: number; weighted: number }>();
+    members.set(projectId, { estimated: estimated ?? 0, weighted: weighted ?? 0 });
+    MEMBERS.set(slice, members);
+  }
   slice.count += 1;
   slice.value += estimated ?? 0;
   slice.weighted += weighted ?? 0;
@@ -59,13 +76,23 @@ export function topSlices(slices: Iterable<Slice>, limit: number = MAX_SLICES): 
   const kept = named.slice(0, limit);
   const rest = named.slice(limit);
   if (rest.length > 0) {
-    kept.push({
+    // A project that is in several folded slices is one project here.
+    const union = new Map<string, { estimated: number; weighted: number }>();
+    let tracked = true;
+    for (const slice of rest) {
+      const members = MEMBERS.get(slice);
+      if (!members) tracked = false;
+      else for (const [projectId, amounts] of members) union.set(projectId, amounts);
+    }
+    const folded: Slice = {
       key: "other",
       label: `Other (${rest.length})`,
-      count: rest.reduce((n, s) => n + s.count, 0),
-      value: rest.reduce((n, s) => n + s.value, 0),
-      weighted: rest.reduce((n, s) => n + s.weighted, 0),
-    });
+      count: tracked ? union.size : rest.reduce((n, s) => n + s.count, 0),
+      value: tracked ? [...union.values()].reduce((n, m) => n + m.estimated, 0) : rest.reduce((n, s) => n + s.value, 0),
+      weighted: tracked ? [...union.values()].reduce((n, m) => n + m.weighted, 0) : rest.reduce((n, s) => n + s.weighted, 0),
+      drill: rest.flatMap((s) => s.drill ?? [s.key]),
+    };
+    kept.push(folded);
   }
   if (unset) kept.push(unset);
   return kept;
@@ -86,6 +113,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const projects = await db.project.findMany({
     where: { deletedAt: null, ...(options.salesOwnerId ? { salesOwnerId: options.salesOwnerId } : {}) },
     select: {
+      id: true,
       progress: true,
       trackStatus: true,
       estimatedValue: true,
@@ -94,6 +122,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       targetMarginValue: true,
       industry: true,
       principal: { select: { id: true, name: true } },
+      principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
       solutionCategory: { select: { id: true, name: true } },
       salesOwner: { select: { id: true, name: true } },
     },
@@ -114,12 +143,15 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
 
     add(progresses, project.progress, PROGRESS_LABELS[project.progress], estimated, weighted);
     add(statuses, project.trackStatus, TRACK_STATUS_LABELS[project.trackStatus], estimated, weighted);
-    add(principals, project.principal?.id ?? UNSET, project.principal?.name ?? UNSET, estimated, weighted);
-    add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, estimated, weighted);
+    // A project built on several principals counts under each of them (so these slices can add up to more than the projects).
+    const brands = project.principals.length > 0 ? project.principals.map((link) => link.principal) : project.principal ? [project.principal] : [];
+    if (brands.length === 0) add(principals, UNSET, UNSET, estimated, weighted, FILTER_NONE, project.id);
+    for (const brand of brands) add(principals, brand.id, brand.name, estimated, weighted, brand.id, project.id);
+    add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, estimated, weighted, project.solutionCategory ? undefined : FILTER_NONE, project.id);
     const industry = project.industry?.trim() || UNSET;
-    add(industries, industry.toLowerCase(), industry, estimated, weighted);
+    add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(project.industry) ?? FILTER_NONE, project.id);
     // A project from another source has no internal Sales PIC; its numbers stay in the totals under one "external" row.
-    add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted);
+    add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted, project.salesOwner ? undefined : FILTER_EXTERNAL, project.id);
 
     if (isOpenProject(project.progress, project.trackStatus)) {
       totals.open += 1;

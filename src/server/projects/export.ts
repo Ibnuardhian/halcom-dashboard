@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
+import { principalNamesOf } from "@/domain/projects/master-data";
 import type { ExportProject } from "@/domain/projects/export";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
@@ -17,6 +18,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
       principal: { select: { name: true } },
+      principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
       solutionCategory: { select: { name: true } },
       requests: { select: { status: true } },
     },
@@ -51,7 +53,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
         externalReference: row.externalReference,
         sourceNotes: row.sourceNotes,
         technicalPic: row.technicalPic?.name ?? null,
-        principal: row.principal?.name ?? null,
+        principal: principalNamesOf(row).join("; ") || null,
         solution: row.solutionCategory?.name ?? null,
         industry: row.industry,
         location: row.location,

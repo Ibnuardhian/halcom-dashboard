@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { MASTER_KIND_LABELS, MASTER_KINDS, MASTER_NAME_MAX_LENGTH, type MasterKind } from "@/domain/projects/master-data";
+import { MASTER_KIND_LABELS, MASTER_KINDS, MASTER_NAME_MAX_LENGTH, MAX_PROJECT_PRINCIPALS, principalNamesOf, type MasterKind } from "@/domain/projects/master-data";
 import { cleanName, nameKey } from "@/domain/projects/pipeline";
 import { notify, projectAudience } from "@/server/notifications/service";
 
@@ -43,9 +43,9 @@ const kindSchema = z.enum(MASTER_KINDS, "Choose Principal or Solution.");
 export async function listMasterRecords(db: PrismaClient, viewer: Actor, kind: MasterKind): Promise<MasterRecord[]> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
   const rows = await (kind === "principal"
-    ? db.principal.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, _count: { select: { projects: true } } } })
-    : db.solutionCategory.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, _count: { select: { projects: true } } } }));
-  return rows.map((row) => ({ id: row.id, name: row.name, projectCount: row._count.projects }));
+    ? db.principal.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, _count: { select: { projectLinks: true } } } }).then((found) => found.map((row) => ({ id: row.id, name: row.name, count: row._count.projectLinks })))
+    : db.solutionCategory.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, _count: { select: { projects: true } } } }).then((found) => found.map((row) => ({ id: row.id, name: row.name, count: row._count.projects }))));
+  return rows.map((row) => ({ id: row.id, name: row.name, projectCount: row.count }));
 }
 
 async function loadActor(tx: Tx, claimed: Actor) {
@@ -124,7 +124,8 @@ export async function deleteMasterRecord(db: PrismaClient, claimedActor: Actor, 
     if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
     const current = await table(tx, kind).findUnique({ where: { id }, select: { id: true, name: true } });
     if (!current) return fail("NOT_FOUND", `${MASTER_KIND_LABELS[kind]} not found.`);
-    const used = await tx.project.count({ where: kind === "principal" ? { principalId: id } : { solutionCategoryId: id } });
+    // A project is linked to a principal through its link row (and the first one also sits in principal_id).
+    const used = kind === "principal" ? await tx.project.count({ where: { OR: [{ principals: { some: { principalId: id } } }, { principalId: id }] } }) : await tx.project.count({ where: { solutionCategoryId: id } });
     if (used > 0) return fail("IN_USE", `${MASTER_KIND_LABELS[kind]} "${current.name}" is used by ${used} project${used === 1 ? "" : "s"}, so it cannot be deleted.`);
 
     await table(tx, kind).delete({ where: { id } });
@@ -135,16 +136,27 @@ export async function deleteMasterRecord(db: PrismaClient, claimedActor: Actor, 
 
 const idOrBlank = z.union([z.uuid(), z.literal("")]);
 
+const principalIdsSchema = z.array(z.uuid()).max(MAX_PROJECT_PRINCIPALS, `A project can have at most ${MAX_PROJECT_PRINCIPALS} principals.`);
+
 /**
- * Sets the Principal and the Solution of a project (SOA's technical work). Only the fields that are sent change; an empty value
- * clears one. Each change is written to the project's change log (from name, to name) and the audit log, in one transaction;
- * nothing else of the project is touched.
+ * Sets the Principals and the Solution of a project (SOA's technical work). A project can be built on several principals: send
+ * `principalIds` (the whole list, in order; an empty list clears it). `principalId` is the single-principal form of the same thing.
+ * Only the fields that are sent change. The same principal twice is one link. The first principal is also kept in
+ * `projects.principal_id`. Each change is written to the project's change log (from names, to names) and the audit log, in one
+ * transaction; nothing else of the project is touched.
  */
 export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ changed: MasterKind[] }>> {
-  const parsed = z.object({ projectId: z.uuid(), principalId: idOrBlank.optional(), solutionId: idOrBlank.optional() }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", "Choose a valid Principal and Solution.");
+  const parsed = z
+    .object({ projectId: z.uuid(), principalId: idOrBlank.optional(), principalIds: principalIdsSchema.optional(), solutionId: idOrBlank.optional() })
+    .strict()
+    .refine((value) => value.principalId === undefined || value.principalIds === undefined, "Send either principalId or principalIds.")
+    .safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Choose a valid Principal and Solution.");
   if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
   const { projectId } = parsed.data;
+  // The wanted principals, once each, in the order given; undefined when the caller did not send any.
+  const wantedPrincipals: string[] | undefined =
+    parsed.data.principalIds !== undefined ? [...new Set(parsed.data.principalIds)] : parsed.data.principalId === undefined ? undefined : parsed.data.principalId === "" ? [] : [parsed.data.principalId];
 
   return db.$transaction(async (tx): Promise<MasterResult<{ changed: MasterKind[] }>> => {
     const actor = await loadActor(tx, claimedActor);
@@ -152,30 +164,57 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({
       where: { id: projectId },
-      include: { principal: { select: { name: true } }, solutionCategory: { select: { name: true } } },
+      include: {
+        principal: { select: { name: true } },
+        principals: { orderBy: { position: "asc" }, select: { principalId: true, principal: { select: { name: true } } } },
+        solutionCategory: { select: { name: true } },
+      },
     });
     if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
 
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     const changes: { field: string; from: string | null; to: string | null }[] = [];
     const changed: MasterKind[] = [];
-    const slots = [
-      { kind: "principal" as const, wanted: parsed.data.principalId, current: project.principalId, currentName: project.principal?.name ?? null, column: "principalId" as const },
-      { kind: "solution" as const, wanted: parsed.data.solutionId, current: project.solutionCategoryId, currentName: project.solutionCategory?.name ?? null, column: "solutionCategoryId" as const },
-    ];
-    for (const slot of slots) {
-      if (slot.wanted === undefined) continue;
-      const next = slot.wanted === "" ? null : slot.wanted;
-      if (next === slot.current) continue;
-      let toName: string | null = null;
-      if (next !== null) {
-        const record = await table(tx, slot.kind).findUnique({ where: { id: next }, select: { id: true, name: true } });
-        if (!record) return fail("NOT_FOUND", `${MASTER_KIND_LABELS[slot.kind]} not found. Create it first.`);
-        toName = record.name;
+
+    if (wantedPrincipals !== undefined) {
+      const currentIds = project.principals.length > 0 ? project.principals.map((link) => link.principalId) : project.principalId ? [project.principalId] : [];
+      const sameList = wantedPrincipals.length === currentIds.length && wantedPrincipals.every((id, index) => id === currentIds[index]);
+      if (!sameList) {
+        const records = await tx.principal.findMany({ where: { id: { in: wantedPrincipals } }, select: { id: true, name: true } });
+        if (records.length !== wantedPrincipals.length) return fail("NOT_FOUND", `${MASTER_KIND_LABELS.principal} not found. Create it first.`);
+        const nameOf = new Map(records.map((record) => [record.id, record.name]));
+        // Links that stay keep their row; removed ones go; new ones are added; positions follow the order given.
+        await tx.projectPrincipal.deleteMany({ where: { projectId: project.id, principalId: { notIn: wantedPrincipals } } });
+        for (const [position, principalId] of wantedPrincipals.entries()) {
+          await tx.projectPrincipal.upsert({
+            where: { projectId_principalId: { projectId: project.id, principalId } },
+            update: { position },
+            create: { projectId: project.id, principalId, position },
+          });
+        }
+        data.principalId = wantedPrincipals[0] ?? null;
+        changes.push({
+          field: "principal",
+          from: principalNamesOf(project).join(", ") || null,
+          to: wantedPrincipals.map((id) => nameOf.get(id)!).join(", ") || null,
+        });
+        changed.push("principal");
       }
-      data[slot.column] = next;
-      changes.push({ field: slot.kind, from: slot.currentName, to: toName });
-      changed.push(slot.kind);
+    }
+
+    if (parsed.data.solutionId !== undefined) {
+      const next = parsed.data.solutionId === "" ? null : parsed.data.solutionId;
+      if (next !== project.solutionCategoryId) {
+        let toName: string | null = null;
+        if (next !== null) {
+          const record = await tx.solutionCategory.findUnique({ where: { id: next }, select: { id: true, name: true } });
+          if (!record) return fail("NOT_FOUND", `${MASTER_KIND_LABELS.solution} not found. Create it first.`);
+          toName = record.name;
+        }
+        data.solutionCategoryId = next;
+        changes.push({ field: "solution", from: project.solutionCategory?.name ?? null, to: toName });
+        changed.push("solution");
+      }
     }
     if (changes.length === 0) return { ok: true, value: { changed: [] } };
 
