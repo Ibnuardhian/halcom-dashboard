@@ -19,7 +19,8 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
 };
 
 const TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
-  SUBMITTED: ["IN_PROGRESS", "CANCELLED"],
+  // A request nobody has touched can be answered straight away: no manual "In progress" step in between.
+  SUBMITTED: ["IN_PROGRESS", "WAITING_FOR_SALES", "COMPLETED", "CANCELLED"],
   IN_PROGRESS: ["WAITING_FOR_SALES", "COMPLETED", "CANCELLED"],
   WAITING_FOR_SALES: ["IN_PROGRESS", "CANCELLED"],
   // Reopening keeps the earlier completion in the status history (brief §6.3).
@@ -54,6 +55,9 @@ export const NEXT_IN_FLOW: Record<RequestType, RequestType | null> = { BOQ: "RFQ
 export function canHandOver(type: RequestType, status: RequestStatus): boolean {
   return NEXT_IN_FLOW[type] !== null && status === "COMPLETED";
 }
+
+/** A PO follows an RFQ: it can only be raised on a project that has a completed RFQ. A BOQ and an RFQ have no such condition. */
+export const PO_NEEDS_RFQ = "A PO needs a completed RFQ on the project first. Raise the RFQ, and when it is completed, continue it to a PO.";
 
 /** The step that follows in the flow, or null after a PO. */
 export function nextRequestType(type: RequestType): RequestType | null {

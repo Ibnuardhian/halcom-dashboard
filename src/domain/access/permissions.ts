@@ -23,6 +23,7 @@ export type Permission =
   | "projects.delete"
   | "projects.reassign"
   | "settings.manage"
+  | "masterdata.manage"
   | "targets.edit"
   | "projects.post-update"
   | "requests.view"
@@ -49,6 +50,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.delete",
   "projects.reassign",
   "settings.manage",
+  "masterdata.manage",
   "targets.edit",
   "projects.post-update",
   "requests.view",
@@ -81,6 +83,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     ...SALES_WORK,
     "projects.edit.technical",
     "projects.post-update",
+    "masterdata.manage",
     "requests.work.boq",
     "requests.work.purchasing",
     "requests.handover",
@@ -92,6 +95,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     ...READ_WORK,
     "projects.edit.technical",
     "projects.post-update",
+    "masterdata.manage",
     "requests.email",
     "requests.work.boq",
     "requests.handover",

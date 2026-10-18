@@ -33,7 +33,13 @@ export function isEditableField(key: string): key is ProjectEditableField {
 }
 
 /** The change-log names of the three PIC slots, which only a superadmin moves. */
-const OWNER_LABELS: Record<string, string> = { salesOwner: "Sales PIC", technicalPic: "Technical PIC (SOA)", purchasingPic: "Purchasing PIC" };
+const OWNER_LABELS: Record<string, string> = {
+  salesOwner: "Sales PIC",
+  technicalPic: "Technical PIC (SOA)",
+  purchasingPic: "Purchasing PIC",
+  principal: "Principal",
+  solution: "Solution",
+};
 
 /** A field label for a stored change; an unknown key (a field removed later) is shown as it was stored. */
 export function fieldLabel(key: string): string {

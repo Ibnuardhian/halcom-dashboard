@@ -124,7 +124,10 @@ describe("createRequest", () => {
     const rfq1 = await makeRequest(ibnu, project.id, "RFQ");
     const rfq2 = await makeRequest(ibnu, project.id, "RFQ");
     const boq1 = await makeRequest(ibnu, project.id, "BOQ");
-    const po1 = await makeRequest(ibnu, project.id, "PO");
+    const purchasing = await actorOf("PURCHASING", "pu.num");
+    await advance(purchasing, rfq1.id, "IN_PROGRESS");
+    await advance(purchasing, rfq1.id, "COMPLETED");
+    const po1 = await makeRequest(ibnu, project.id, "PO"); // a PO follows a completed RFQ
     const otherRfq = await makeRequest(other, project.id, "RFQ");
 
     expect(rfq1.code).toBe(`RFQ-QO-${YY}0001`);
@@ -229,7 +232,7 @@ describe("changeRequestStatus", () => {
     const project = await makeProject(sales);
     const boq = await makeRequest(sales, project.id, "BOQ");
 
-    expect(await advance(soa, boq.id, "COMPLETED")).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect(await advance(soa, boq.id, "WAITING_FOR_SALES")).toMatchObject({ ok: false, code: "INVALID_INPUT" }); // waiting needs a reason
     expect(await advance(soa, boq.id, "CANCELLED")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect((await advance(soa, boq.id, "CANCELLED", "Customer cancelled")).ok).toBe(true);
     const final = await advance(soa, boq.id, "IN_PROGRESS");
@@ -301,7 +304,7 @@ describe("handOverToPurchasing", () => {
     const rfq = await db.request.findUniqueOrThrow({ where: { id: result.value.id }, include: { statusHistory: true } });
     expect(rfq).toMatchObject({
       type: "RFQ",
-      status: "SUBMITTED",
+      status: "IN_PROGRESS", // a handed-over request arrives In progress
       projectId: project.id,
       sourceRequestId: boq.id,
       requesterId: soa.id,

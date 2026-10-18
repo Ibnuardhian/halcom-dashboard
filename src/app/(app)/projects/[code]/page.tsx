@@ -19,17 +19,20 @@ import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
 import { ReassignPics } from "@/features/projects/reassign-pics";
+import { ClassificationForm } from "@/features/masterdata/classification-form";
 import { ChangeLog } from "@/features/projects/change-log";
 import { ProjectFieldsForm } from "@/features/projects/edit-forms";
 import { formatAmount, formatPercent } from "@/features/projects/format";
 import { Fact } from "@/features/requests/fact";
 import { formatDateOnly } from "@/features/requests/format";
-import { RequestTable } from "@/features/requests/request-table";
-import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
+import { RequestPanel } from "@/features/requests/request-panel";
+import { ProgressBadge, StatusBadge, TrackStatusBadge, TypeBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
-import { getProjectByCode, listPicOptions, listRequests } from "@/server/requests/queries";
+import { isOpen } from "@/domain/requests/status";
+import { listMasterRecords } from "@/server/masterdata/service";
+import { getProjectByCode, listPicOptions, listProjectRequestDetails, listRequests } from "@/server/requests/queries";
 
 export default function ProjectPage({ params }: PageProps<"/projects/[code]">) {
   return (
@@ -75,8 +78,13 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
   const project = await getProjectByCode(getDb(), viewer, (await params).code);
   if (!project) notFound();
   const picOptions = can(viewer.role, "projects.reassign") ? await listPicOptions(getDb(), viewer) : null;
-  const [requests, changes, actions] = await Promise.all([
+  // SOA classify the project with a Principal and a Solution picked from their own lists.
+  const [principals, solutions] = can(viewer.role, "projects.edit.technical")
+    ? await Promise.all([listMasterRecords(getDb(), viewer, "principal"), listMasterRecords(getDb(), viewer, "solution")])
+    : [[], []];
+  const [requests, details, changes, actions] = await Promise.all([
     listRequests(getDb(), viewer, { projectId: project.id }),
+    listProjectRequestDetails(getDb(), viewer, project.id),
     listProjectChanges(getDb(), viewer, project.id),
     listProjectActions(getDb(), viewer, project.id),
   ]);
@@ -121,7 +129,6 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
   };
   // A fresh key after every save rebuilds the fields, so they show the stored values.
   const formKey = project.updatedAt.toISOString();
-  const readOnlyTechnical = TECHNICAL_FIELDS.filter((field) => field !== "technicalNotes");
 
   return (
     <>
@@ -223,6 +230,20 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
         }
       >
         {mayEditTechnical ? (
+          <div className="mb-6 border-b pb-6">
+            <h3 className="mb-3 text-sm font-semibold">Classification</h3>
+            <ClassificationForm
+              projectId={project.id}
+              projectCode={project.code}
+              principals={principals.map(({ id, name }) => ({ id, name }))}
+              solutions={solutions.map(({ id, name }) => ({ id, name }))}
+              principalId={project.principalId ?? ""}
+              solutionId={project.solutionCategoryId ?? ""}
+              canCreate={can(viewer.role, "masterdata.manage")}
+            />
+          </div>
+        ) : null}
+        {mayEditTechnical ? (
           <ProjectFieldsForm
             formKey={`technical-${formKey}`}
             projectId={project.id}
@@ -230,20 +251,21 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
             fields={TECHNICAL_FIELDS}
             values={values}
             submitLabel="Save technical details"
+            optional
           />
         ) : (
           <>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              {readOnlyTechnical.map((field) => (
-                <Fact key={field} label={PROJECT_EDITABLE_FIELDS[field].label}>
-                  {values[field] ? <span className="whitespace-pre-wrap">{values[field]}</span> : <span className="text-muted-foreground">–</span>}
-                </Fact>
-              ))}
-            </dl>
-            <div className="mt-4 border-t pt-4">
-              <Label>{PROJECT_EDITABLE_FIELDS.technicalNotes.label}</Label>
-              <Prose value={project.technicalNotes} />
-            </div>
+            {TECHNICAL_FIELDS.some((field) => values[field]) ? (
+              <dl className="grid gap-4 sm:grid-cols-2">
+                {TECHNICAL_FIELDS.filter((field) => values[field]).map((field) => (
+                  <Fact key={field} label={PROJECT_EDITABLE_FIELDS[field].label}>
+                    <span className="whitespace-pre-wrap">{values[field]}</span>
+                  </Fact>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">No technical details recorded yet.</p>
+            )}
           </>
         )}
         <div className="mt-6 border-t pt-4">
@@ -285,12 +307,12 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
         {project.importedFrom ? <p className="mt-4 text-xs text-muted-foreground">Imported from {project.importedFrom}.</p> : null}
       </Section>
 
-      <Section id="requests" title="Requests" description="BOQ, RFQ and PO requests of this project, newest first.">
+      <Section id="requests" title="Requests" description="The BOQ, RFQ and PO of this project. Open one to see its status, actions, email and history.">
         <div className="flex flex-col gap-4">
           <FlowTracker requests={requests.map((r) => ({ code: r.code, type: r.type, status: r.status, flowStopped: r.flowStopped }))} />
           {mayCreate ? (
             <div className="flex flex-wrap gap-2">
-              {REQUEST_TYPES.map((type) => (
+              {REQUEST_TYPES.filter((type) => type !== "PO" || requests.some((r) => r.type === "RFQ" && r.status === "COMPLETED")).map((type) => (
                 <Link
                   key={type}
                   href={`${NEW_REQUEST_PATH}?project=${project.code}&type=${type}`}
@@ -301,7 +323,30 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
               ))}
             </div>
           ) : null}
-          <RequestTable rows={requests} emptyText="No requests for this project yet." />
+          {details.length === 0 ? (
+            <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+              No requests for this project yet.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {details.map((request) => (
+                <li key={request.id} id={`request-${request.code}`}>
+                  {/* Open when it is the only open request (or the only one), so the next thing to do is in view; the rest are one click away. */}
+                  <details open={details.length === 1 || (isOpen(request.status) && details.filter((r) => isOpen(r.status)).length === 1)} className="rounded-xl ring-1 ring-foreground/10">
+                    <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm select-none">
+                      <span className="font-mono font-medium">{request.code}</span>
+                      <TypeBadge type={request.type} />
+                      <StatusBadge status={request.status} />
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">{request.title}</span>
+                    </summary>
+                    <div className="px-4 pb-4">
+                      <RequestPanel request={request} viewer={viewer} inProject />
+                    </div>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </Section>
 

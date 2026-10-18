@@ -100,3 +100,17 @@ export async function reassignProjectAction(_previous: FormState, formData: Form
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : "The project was moved. Its history is unchanged." };
 }
+
+/**
+ * Clears one technical section of a project (a confirmed removal in the form). Only that field is sent, so no other section is
+ * touched; the change log records the text it had. The page is not refreshed, so what the person typed in other sections stays.
+ */
+export async function removeTechnicalSectionAction(projectId: string, projectCode: string, field: string): Promise<FormState> {
+  const user = await requireUser();
+  const known = PROJECT_EDITABLE_KEYS.find((key) => key === field);
+  if (!known) return { ok: false, message: "That section does not exist." };
+  const result = await updateProjectDetails(getDb(), { id: user.id, role: user.role }, { projectId, values: { [known]: "" } });
+  if (!result.ok) return { ok: false, message: result.message };
+  void projectCode;
+  return { ok: true, message: `${fieldLabel(known)} removed. The change log keeps what it said; it shows after the page is reloaded.` };
+}

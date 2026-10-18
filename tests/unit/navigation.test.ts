@@ -64,6 +64,13 @@ describe("navLinksFor", () => {
     }
   });
 
+  it("shows SOA only the BOQ requests, and Purchasing and the rest every list", () => {
+    const soa = hrefsFor("SOA");
+    expect(soa).toContain("/requests/boq");
+    for (const hidden of ["/requests", "/requests/rfq", "/requests/po", "/requests/new"]) expect(soa).not.toContain(hidden);
+    expect(hrefsFor("PURCHASING")).toEqual(expect.arrayContaining(["/requests", "/requests/rfq", "/requests/po"]));
+  });
+
   it("offers Backups, System and Team settings to superadmin only", () => {
     for (const role of ROLES) {
       expect(hrefsFor(role).includes("/admin/settings")).toBe(role === "SUPERADMIN");

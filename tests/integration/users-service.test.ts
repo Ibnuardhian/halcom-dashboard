@@ -301,8 +301,13 @@ describe("queries", () => {
     const admin = await actorOf("ADMIN");
     await makeUser("FINANCE", { isActive: false });
 
-    const users = await listUsers(db, admin);
-    const stats = await getUserStats(db, admin);
+    // Other test files create users while this one runs, so the list and the stats are read again until no one was added between them.
+    let users = await listUsers(db, admin);
+    let stats = await getUserStats(db, admin);
+    for (let attempt = 0; attempt < 10 && stats.total !== users.length; attempt += 1) {
+      users = await listUsers(db, admin);
+      stats = await getUserStats(db, admin);
+    }
 
     expect(users.length).toBeGreaterThan(0);
     for (const user of users) expect(Object.keys(user)).not.toContain("passwordHash");

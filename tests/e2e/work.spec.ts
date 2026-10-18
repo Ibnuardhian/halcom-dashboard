@@ -66,6 +66,7 @@ test.describe("projects and requests", () => {
     expect(body).toContain(`keep the Request ID ${code} in the subject`);
     await expect(page.getByText(/^SLA \([\d-]+ working days\)$/)).toBeVisible();
     expect(body).toContain(`/request/${code}`);
+    await page.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
     await expect(page.getByText("does not send email")).toBeVisible();
   });
 
@@ -92,7 +93,7 @@ test.describe("projects and requests", () => {
     const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (PRJ-\d+)/)![1]!;
 
     await page.goto(`/projects/${projectCode}`);
-    await expect(page.getByRole("table").getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
     await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
   });
 
@@ -158,6 +159,7 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "MailTo demo");
     await createRequest(page, projectCode, "BOQ", "BOQ for MailTo");
 
+    await page.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
     const href = await page.getByRole("link", { name: /Open this email in Outlook/ }).getAttribute("href");
 
     expect(href).toMatch(/^mailto:soa-group@example\.invalid\?/);
@@ -435,7 +437,11 @@ test.describe("projects and requests", () => {
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/projects/${projectCode}`);
+    // Technical details are optional: only the ones that have text are shown, the others are added when needed.
+    await expect(soa.getByRole("textbox", { name: "Technical notes" })).toHaveCount(0);
+    await soa.getByRole("button", { name: "Add BOQ", exact: true }).click();
     await soa.getByLabel("BOQ", { exact: true }).fill("In progress");
+    await soa.getByRole("button", { name: "Add Technical notes" }).click();
     await soa.getByLabel("Technical notes").fill("Sized for 400 users");
     await soa.getByRole("button", { name: "Save technical details" }).click();
     await expect(soa.getByRole("status").filter({ hasText: "Saved and logged: BOQ, Technical notes." })).toBeVisible();
@@ -450,7 +456,7 @@ test.describe("projects and requests", () => {
     await soa.context().close();
   });
 
-  test("a direct RFQ and PO go to Purchasing with their own tags and numbering", async ({ page }) => {
+  test("a direct RFQ goes to Purchasing with its own tag and numbering, and a PO is not offered before the RFQ is completed", async ({ page }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Access control");
 
@@ -459,10 +465,13 @@ test.describe("projects and requests", () => {
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("");
 
-    const po = await createRequest(page, projectCode, "PO", "Buy 10 readers");
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("PO", "Access control"));
     expect(rfq).toMatch(/^RFQ-SA-/);
-    expect(po).toMatch(/^PO-SA-/);
+
+    // The flow is BOQ -> RFQ -> PO: the BOQ was skipped, but a PO waits for the RFQ to be completed.
+    await page.goto(`/projects/${projectCode}`);
+    await expect(page.getByRole("link", { name: "New RFQ", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "New PO", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQSkipped");
   });
 
   test("SOA completes a BOQ and hands it over as an RFQ that keeps the link to the BOQ", async ({ page, browser }) => {
@@ -490,6 +499,7 @@ test.describe("projects and requests", () => {
     await expect(soa.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
     await expect(soa.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     expect(await soa.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
+    await soa.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
     await expect(soa.getByText("Reply inside the original [HITBOQ] email thread")).toBeVisible();
     await expect(soa.getByRole("link", { name: boq })).toBeVisible();
 
@@ -501,7 +511,9 @@ test.describe("projects and requests", () => {
     // Purchasing sees it and works on it; Finance sees it read-only.
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/request/${rfq}`);
-    await purchasing.getByLabel("Change status to").selectOption("In progress");
+    // A handed-over request arrives In progress by itself: the team only has to complete it.
+    await expect(purchasing.getByText("Currently In progress.")).toBeVisible();
+    await purchasing.getByLabel("Change status to").selectOption("Completed");
     await purchasing.getByRole("button", { name: "Update status" }).click();
     await expect(purchasing.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible();
     await expect(purchasing.getByLabel("Subject", { exact: true })).toHaveCount(0); // Purchasing does not send these emails
@@ -588,6 +600,7 @@ test.describe("projects and requests", () => {
     // Cancelled is final, so the status form disappears once the change is saved.
     await expect(soa.getByRole("button", { name: "Update status" })).toHaveCount(0);
     await soa.reload();
+    await soa.getByText(/^Status history/).click(); // the history is collapsed at the end of the page
     await expect(soa.getByRole("cell", { name: "Customer cancelled the tender" })).toBeVisible();
     await soa.context().close();
   });

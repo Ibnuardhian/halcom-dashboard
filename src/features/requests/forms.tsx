@@ -119,7 +119,7 @@ export function ProjectForm({ submissionKey, defaultType = "" }: { submissionKey
   );
 }
 
-const REQUEST_TYPE_CHOICES = ["BOQ", "RFQ", "PO"] as const satisfies readonly RequestType[];
+const REQUEST_TYPE_CHOICES = ["BOQ", "RFQ"] as const satisfies readonly RequestType[];
 
 export type ProjectOption = { id: string; code: string; endUserCompany: string; name: string };
 
