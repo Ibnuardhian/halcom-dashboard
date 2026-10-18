@@ -31,6 +31,7 @@ export async function createProjectAction(_previous: FormState, formData: FormDa
     externalContact: text(formData, "externalContact"),
     externalReference: text(formData, "externalReference"),
     sourceNotes: text(formData, "sourceNotes"),
+    salesOwnerId: text(formData, "salesOwnerId"),
     progress: text(formData, "progress"),
     trackStatus: text(formData, "trackStatus"),
     estimatedValue: text(formData, "estimatedValue"),

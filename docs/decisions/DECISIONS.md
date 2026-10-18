@@ -462,3 +462,12 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   commercial fields).
 - **Progress 30%:** Propose means the quotation was submitted (label "30% - Propose (Submit Quotation)"). Moving to Propose, or creating a
   project at Propose, fills Quote released with today (Jakarta) when it is empty. The date stays editable and clearable at any time.
+
+## D-030 SOA register a project for a registered salesperson, or as Other
+
+- **Date:** 2026-10-18 · **Status:** Implemented (no migration)
+- The New project form for SOA has two sources: **Internal Sales** (the Sales PIC is a registered, active salesperson picked from a searchable
+  drop-down, required) and **Other** (the external sales name). New permission `projects.assign-sales` (SOA, superadmin). The server
+  validates that the chosen account exists, is active and is a Sales account; the salesperson is told (`project.assigned` notification);
+  the audit event records who registered it and for whom. SOA may raise the project's BOQ in the same step (not an RFQ or PO, and not a BOQ on
+  an existing internal project). Sales still own their own projects and cannot name another owner (any owner sent is ignored).

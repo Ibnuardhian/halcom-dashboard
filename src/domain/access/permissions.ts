@@ -19,6 +19,7 @@ export type Permission =
   | "projects.view"
   | "projects.create"
   | "projects.create.external"
+  | "projects.assign-sales"
   | "projects.edit.source"
   | "projects.edit.technical"
   | "projects.edit.commercial"
@@ -55,6 +56,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.view",
   "projects.create",
   "projects.create.external",
+  "projects.assign-sales",
   "projects.edit.source",
   "projects.edit.technical",
   "projects.edit.commercial",
@@ -123,8 +125,10 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "handoffs.view",
     "reports.technical.view",
     ...READ_WORK,
-    // SOA registers work that comes from outside the internal Sales team (source Other), and raises its BOQ.
+    // SOA registers work that comes from outside the internal Sales team (source Other), and raises its BOQ. SOA can also register a
+    // project for an internal salesperson they pick (source Internal Sales).
     "projects.create.external",
+    "projects.assign-sales",
     "projects.edit.source",
     "requests.create.external",
     "projects.edit.technical",

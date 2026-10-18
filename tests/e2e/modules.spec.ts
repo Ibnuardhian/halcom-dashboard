@@ -322,6 +322,58 @@ test.describe("dashboards use the stored requests", () => {
 });
 
 test.describe("a project from another source (Other)", () => {
+  test("SOA register a project for a registered salesperson, picked from a searchable list, together with its BOQ", async ({ browser }) => {
+    test.setTimeout(150_000);
+    const soa = await asRole(browser, "SOA");
+    const company = `PT Untuk Sales ${Date.now()}`;
+
+    await soa.goto("/projects/new?type=BOQ");
+    await expect(soa.getByLabel("Project source")).toHaveValue("INTERNAL_SALES");
+    const pic = soa.getByRole("combobox", { name: "Sales PIC *" });
+    await expect(pic).toBeVisible();
+
+    await expect(async () => {
+      await soa.getByLabel("End-user company").fill(company);
+      await soa.getByLabel("Project name").fill("Untuk Sales terdaftar");
+      // Without a salesperson the form cannot be sent; typing filters the list and picking fills the box.
+      await pic.click();
+      await pic.fill("Dev Sal");
+      await expect(soa.getByRole("listbox", { name: "salesperson options" }).getByRole("button", { name: "Dev Sales", exact: true })).toBeVisible({ timeout: 3000 });
+      await soa.getByRole("listbox", { name: "salesperson options" }).getByRole("button", { name: "Dev Sales", exact: true }).click();
+      await expect(pic).toHaveValue("Dev Sales");
+      await soa.getByText(/^BOQ – /).click();
+      await soa.getByLabel("Request summary").fill("BOQ untuk Sales terdaftar");
+      await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
+      await expect(soa).toHaveURL(/\/request\/BOQ-/, { timeout: 15_000 });
+    }).toPass({ timeout: 60_000 });
+
+    await soa.getByRole("link", { name: /^PRJ-\d+/ }).first().click();
+    await expect(soa.locator("#overview").getByText("Dev Sales").first()).toBeVisible(); // the Sales PIC
+    await expect(soa.getByText("None (project from another source)")).toHaveCount(0);
+
+    // The salesperson owns it: it is in their pipeline, and they were told.
+    const sales = await asRole(browser, "SALES");
+    await sales.goto("/dashboard/sales");
+    await expect(sales.getByText(company).first()).toBeVisible();
+    await sales.goto("/notifications");
+    await expect(sales.getByText(/was registered for you/).first()).toBeVisible();
+    await soa.context().close();
+    await sales.context().close();
+  });
+
+  test("the form for SOA needs a salesperson for an Internal Sales project", async ({ browser }) => {
+    const soa = await asRole(browser, "SOA");
+    await soa.goto("/projects/new");
+    await soa.getByLabel("End-user company").fill("PT Tanpa Sales");
+    await soa.getByLabel("Project name").fill("Belum ada Sales");
+    await expect(soa.getByRole("combobox", { name: "Sales PIC *" })).toBeVisible();
+    await soa.getByRole("button", { name: "Create project" }).click();
+    // The browser stops the submit: the salesperson is required, so nothing is created and we stay on the form.
+    await expect(soa).toHaveURL(/\/projects\/new$/);
+    await expect(soa.getByRole("combobox", { name: "Sales PIC *" })).toHaveJSProperty("validity.valueMissing", true);
+    await soa.context().close();
+  });
+
   test("SOA registers it without a Sales PIC, raises its BOQ, and everyone can find it by source", async ({ browser }) => {
     test.setTimeout(150_000);
     const soa = await asRole(browser, "SOA");
@@ -336,7 +388,12 @@ test.describe("a project from another source (Other)", () => {
     await soa.goto("/requests/new");
     await expect(soa).toHaveURL(/\/projects\/new\?type=BOQ$/);
     await expect(soa.getByRole("heading", { level: 1, name: "New project" })).toBeVisible();
-    // SOA register only projects from another source: the source is fixed, the external fields show, Sales' commercial fields do not.
+    // SOA choose the source: Internal Sales (a registered salesperson, picked from a searchable list) or Other (the external fields).
+    // Sales' own commercial fields are not part of their form.
+    await expect(soa.getByLabel("Project source")).toHaveValue("INTERNAL_SALES");
+    await expect(soa.getByLabel("Sales name *")).toHaveCount(0);
+    await soa.getByLabel("Project source").selectOption("OTHER");
+    await expect(soa.getByRole("combobox", { name: /Sales PIC/ })).toHaveCount(0);
     await expect(soa.getByLabel("Sales name *")).toBeVisible();
     await expect(soa.getByLabel("Estimated PO value")).toHaveCount(0);
     await expect(soa.getByLabel("Progress")).toHaveCount(0);

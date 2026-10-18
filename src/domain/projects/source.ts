@@ -120,7 +120,17 @@ export function salesActsOn(project: { sourceType: ProjectSourceType; salesOwner
  * another source is registered by SOA, and by admins.
  */
 export function canCreateProjectWithSource(role: Role, sourceType: ProjectSourceType): boolean {
-  return can(role, sourceType === "OTHER" ? "projects.create.external" : "projects.create");
+  if (sourceType === "OTHER") return can(role, "projects.create.external");
+  // An Internal Sales project is registered by a salesperson (for themselves) or by SOA, who pick the salesperson it belongs to.
+  return can(role, "projects.create") || can(role, "projects.assign-sales");
+}
+
+/**
+ * May this role raise a request together with a project it is creating? Everything canRaiseRequestOn allows, and also a BOQ from SOA
+ * for an Internal Sales project they register for a salesperson: the one form that creates the project and its BOQ.
+ */
+export function canRaiseWithNewProject(role: Role, type: "BOQ" | "RFQ" | "PO", sourceType: ProjectSourceType): boolean {
+  return canRaiseRequestOn(role, type, sourceType) || (type === "BOQ" && can(role, "requests.create.external"));
 }
 
 /**

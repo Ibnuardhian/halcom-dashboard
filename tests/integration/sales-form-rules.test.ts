@@ -152,3 +152,69 @@ describe("Propose (30%) and the quotation date", () => {
     expect(await dateOf(created.id)).toBeNull();
   });
 });
+
+describe("SOA register a project for a registered salesperson", () => {
+  const forSales = (soa: { id: string }, owner: string | null, extra: Record<string, unknown> = {}) =>
+    createProject(db, as(soa, "SOA"), { endUserCompany: company(), name: "For a salesperson", sourceType: "INTERNAL_SALES", ...(owner ? { salesOwnerId: owner } : {}), ...extra });
+
+  it("makes the chosen salesperson the Sales PIC (Internal Sales), tells them, and keeps SOA as the registrar", async () => {
+    const [soa, sales] = await Promise.all([makeUser("SOA"), makeUser("SALES")]);
+
+    const created = await forSales(soa, sales.id);
+    if (!created.ok) throw new Error(created.message);
+
+    await expect(db.project.findUniqueOrThrow({ where: { id: created.value.id } })).resolves.toMatchObject({ sourceType: "INTERNAL_SALES", salesOwnerId: sales.id, externalSourceName: null });
+    await expect(db.notification.count({ where: { recipientId: sales.id, kind: "project.assigned", href: `/projects/${created.value.code}` } })).resolves.toBe(1);
+    const audit = await db.auditEvent.findFirstOrThrow({ where: { action: "project.created", entityId: created.value.id } });
+    expect(audit.actorId).toBe(soa.id);
+    expect(audit.after).toMatchObject({ salesOwnerId: sales.id, sourceType: "INTERNAL_SALES" });
+  });
+
+  it("can raise the project's BOQ in the same step, but not an RFQ or PO", async () => {
+    const [soa, sales] = await Promise.all([makeUser("SOA"), makeUser("SALES")]);
+
+    const withBoq = await forSales(soa, sales.id, { request: { type: "BOQ", title: "BOQ with the project" } });
+    const withRfq = await forSales(soa, sales.id, { request: { type: "RFQ", title: "RFQ?" } });
+
+    expect(withBoq).toMatchObject({ ok: true });
+    if (withBoq.ok) {
+      await expect(db.request.findFirstOrThrow({ where: { projectId: withBoq.value.id } })).resolves.toMatchObject({ type: "BOQ", requesterId: soa.id });
+    }
+    expect(withRfq).toMatchObject({ ok: false, code: "FORBIDDEN" });
+  });
+
+  it("needs a salesperson: missing, malformed, unknown, inactive or not a Sales account are all refused, and nothing is created", async () => {
+    const [soa, sales, inactive, notSales] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("SALES", { isActive: false }), makeUser("FINANCE")]);
+    const name = company();
+
+    await expect(forSales(soa, null, { endUserCompany: name })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(forSales(soa, "not-an-id", { endUserCompany: name })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(forSales(soa, "00000000-0000-4000-8000-000000000000", { endUserCompany: name })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(forSales(soa, inactive.id, { endUserCompany: name })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(forSales(soa, notSales.id, { endUserCompany: name })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(db.project.count({ where: { endUserCompany: name } })).resolves.toBe(0);
+    await expect(forSales(soa, sales.id)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("keeps the other option: SOA still register a project from another source (Other) with no Sales PIC", async () => {
+    const soa = await makeUser("SOA");
+
+    const created = await createProject(db, as(soa, "SOA"), { endUserCompany: company(), name: "Outside", sourceType: "OTHER", externalSourceName: "PT Mitra" });
+    if (!created.ok) throw new Error(created.message);
+
+    await expect(db.project.findUniqueOrThrow({ where: { id: created.value.id } })).resolves.toMatchObject({ sourceType: "OTHER", salesOwnerId: null });
+  });
+
+  it("is for SOA only: other roles cannot pick the owner, and a role claimed by the session does not count", async () => {
+    const [sales, other, purchasing, soa] = await Promise.all([makeUser("SALES"), makeUser("SALES"), makeUser("PURCHASING"), makeUser("SOA")]);
+
+    // A salesperson who names another salesperson still owns the project themselves.
+    const own = await createProject(db, as(sales, "SALES"), { endUserCompany: company(), name: "Mine", salesOwnerId: other.id });
+    if (!own.ok) throw new Error(own.message);
+    await expect(db.project.findUniqueOrThrow({ where: { id: own.value.id } })).resolves.toMatchObject({ salesOwnerId: sales.id });
+    await expect(forSales(purchasing, sales.id)).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    // The stored role decides: this account is Sales, whatever the session claims.
+    await expect(createProject(db, { id: sales.id, role: "SOA" }, { endUserCompany: company(), name: "Claimed", sourceType: "OTHER", externalSourceName: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    void soa;
+  });
+});

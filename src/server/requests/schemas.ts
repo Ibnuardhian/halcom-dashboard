@@ -56,6 +56,8 @@ export const createProjectSchema = z.object({
   externalContact: optionalText(4000),
   externalReference: optionalText(4000),
   sourceNotes: optionalText(4000),
+  // The salesperson an Internal Sales project belongs to, chosen by SOA. Ignored for anyone else: a salesperson always owns their own.
+  salesOwnerId: optionalText(40),
   // Commercial details Sales may already know; kept as text and parsed with the same rules as the project page.
   progress: optionalText(40),
   trackStatus: optionalText(40),

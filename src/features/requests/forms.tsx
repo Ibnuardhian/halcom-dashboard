@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
 import { DateInput } from "@/components/ui/date-input";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -37,8 +38,12 @@ export type ProjectFormScope = {
   commercial: boolean;
   /** The request types this person may raise together with the project, per source. */
   requestTypes: Record<ProjectSourceType, readonly RequestType[]>;
-  /** The signed-in person, shown as the Sales PIC of an Internal Sales project: it is always them, never chosen in the form. */
+  /** The signed-in person, shown as the Sales PIC of an Internal Sales project when they own it: it is them, never chosen in the form. */
   salesPicName?: string;
+  /** The salespeople a project can be registered for. Given only to people who may pick one (SOA); then the Sales PIC is chosen here. */
+  salesPeople?: readonly { id: string; name: string }[];
+  /** Whether choosing a salesperson is required (SOA) or optional (an administrator who would otherwise own the project). */
+  salesPicRequired?: boolean;
 };
 
 /** What the form offers when the page passes no scope: a salesperson registering an Internal Sales project. */
@@ -83,7 +88,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="submissionKey" value={submissionKey} />
       {scope.sources.length > 1 ? (
-        <Field id="project-source" label="Project source *" hint="Internal Sales: you are the Sales PIC. Other: the sale is made by someone else; you name them below and charts count it as Other.">
+        <Field id="project-source" label="Project source *" hint="Internal Sales: a registered salesperson is the Sales PIC. Other: the sale is made by someone else; you name them below and charts count it as Other.">
           <NativeSelect id="project-source" name="sourceType" value={source} onChange={(event) => setSource(event.target.value as ProjectSourceType)}>
             {scope.sources.map((option) => (
               <option key={option} value={option}>
@@ -95,7 +100,13 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       ) : (
         <input type="hidden" name="sourceType" value={source} />
       )}
-      {scope.sources.length === 1 && source === "INTERNAL_SALES" ? (
+      {scope.salesPeople && source === "INTERNAL_SALES" ? (
+        // SOA register an Internal Sales project for a registered salesperson, picked from a searchable list.
+        <Field id="project-sales-pic" label={scope.salesPicRequired ? "Sales PIC *" : "Sales PIC"} hint={scope.salesPicRequired ? "The registered salesperson this project belongs to. Type to search." : "Optional. Leave empty to own it yourself. Type to search."}>
+          <SearchSelect id="project-sales-pic" name="salesOwnerId" label="salesperson" options={scope.salesPeople} required={scope.salesPicRequired} placeholder="Search a salesperson" />
+        </Field>
+      ) : null}
+      {scope.sources.length === 1 && source === "INTERNAL_SALES" && !scope.salesPeople ? (
         // Sales do not choose the classification: their project is Internal Sales and they are its Sales PIC. SOA classify a project as Other.
         <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
           <Field id="project-source-fixed" label="Project source" hint="Set by SOA. Sales projects are Internal Sales.">

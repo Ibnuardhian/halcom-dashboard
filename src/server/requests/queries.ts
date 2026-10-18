@@ -180,9 +180,9 @@ export async function listPicOptions(db: PrismaClient, viewer: Viewer) {
   return { sales: of("SALES"), soa: of("SOA"), purchasing: of("PURCHASING") };
 }
 
-/** Active Sales accounts, for handing a project from another source to an internal Sales PIC. */
+/** Active Sales accounts, for handing a project from another source to an internal Sales PIC and for SOA registering a project for one. */
 export async function listSalesPeopleOptions(db: PrismaClient, viewer: Viewer) {
-  assertPermitted(can(viewer.role, "projects.edit.source"));
+  assertPermitted(can(viewer.role, "projects.edit.source") || can(viewer.role, "projects.assign-sales"));
   return db.user.findMany({ where: { isActive: true, role: "SALES" }, orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 

@@ -80,8 +80,8 @@ describe("creating a project with source Other", () => {
   it("checks who may register which source", async () => {
     const [soa, sales, purchasing, finance] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("PURCHASING"), makeUser("FINANCE")]);
 
-    // SOA only registers projects whose sales is Other; Sales only their own (Internal Sales) projects; the others none.
-    await expect(createProject(db, as(soa, "SOA"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    // SOA register Other projects, or Internal Sales ones for a salesperson they choose (never without one); Sales only their own; the others none.
+    await expect(createProject(db, as(soa, "SOA"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(createProject(db, as(sales, "SALES"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(createProject(db, as(purchasing, "PURCHASING"), other())).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(createProject(db, as(finance, "FINANCE"), { endUserCompany: company(), name: "x" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });

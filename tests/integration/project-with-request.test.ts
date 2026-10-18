@@ -76,8 +76,11 @@ describe("createProject with a first request", () => {
   });
 
   it("refuses roles that cannot create projects", async () => {
+    const purchasing = await makeUser("PURCHASING");
     const soa = await makeUser("SOA");
 
-    await expect(createProject(db, { id: soa.id, role: "SOA" }, { ...base(), request: { type: "BOQ", title: "t" } })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(createProject(db, { id: purchasing.id, role: "PURCHASING" }, { ...base(), request: { type: "BOQ", title: "t" } })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    // SOA may create a project with a BOQ, but for a salesperson: without one it is refused as invalid input.
+    await expect(createProject(db, { id: soa.id, role: "SOA" }, { ...base(), request: { type: "BOQ", title: "t" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 });

@@ -4,7 +4,8 @@ import type { Role } from "@/domain/access/roles";
 import { allowedTransitions, canHandOver, canTransition, isOpen, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
-import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource, salesActsOn } from "@/domain/projects/source";
+import { z } from "zod";
+import { canCreateProjectWithSource, canRaiseRequestOn, canRaiseWithNewProject, normaliseSource, salesActsOn } from "@/domain/projects/source";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
@@ -127,7 +128,13 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
   const { sourceType, ...externalSource } = source.value;
   if (!canCreateProjectWithSource(claimedActor.role, sourceType)) return fail("FORBIDDEN");
   const { endUserCompany, name, description, targetDate, request, submissionKey } = parsed.data;
-  if (request && !canRaiseRequestOn(claimedActor.role, request.type, sourceType)) return fail("FORBIDDEN");
+  if (request && !canRaiseWithNewProject(claimedActor.role, request.type, sourceType)) return fail("FORBIDDEN");
+  // SOA register an Internal Sales project for a salesperson they choose; nobody else picks the owner (a salesperson owns their own).
+  const chosenOwner = parsed.data.salesOwnerId;
+  if (sourceType === "INTERNAL_SALES" && claimedActor.role === "SOA") {
+    if (!chosenOwner) return fail("INVALID_INPUT", "Choose the salesperson this project belongs to.");
+    if (!z.uuid().safeParse(chosenOwner).success) return fail("INVALID_INPUT", "Choose a salesperson from the list.");
+  }
   // A new project has no RFQ yet, so it cannot start with a PO (BOQ -> RFQ -> PO; only the BOQ can be skipped).
   if (request?.type === "PO") return fail("INVALID_STATE", PO_NEEDS_RFQ);
 
@@ -156,6 +163,18 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
         if (again) return succeed({ ...again, created: false, requestCode: null });
       }
 
+      // An Internal Sales project belongs to whoever registers it, or, when SOA register it, to the salesperson they chose.
+      let ownerId = actor.id;
+      let assignedOwner: { id: string; name: string } | null = null;
+      if (sourceType === "INTERNAL_SALES" && can(actor.role, "projects.assign-sales") && chosenOwner) {
+        const owner = await tx.user.findUnique({ where: { id: chosenOwner }, select: { id: true, name: true, role: true, isActive: true } });
+        if (!owner?.isActive || owner.role !== "SALES") return fail("INVALID_INPUT", "Choose an active salesperson from the list.");
+        ownerId = owner.id;
+        assignedOwner = { id: owner.id, name: owner.name };
+      } else if (sourceType === "INTERNAL_SALES" && actor.role === "SOA") {
+        return fail("INVALID_INPUT", "Choose the salesperson this project belongs to.");
+      }
+
       const code = await nextProjectCode(tx);
       const customerId = await ensureCustomer(tx, endUserCompany);
       const project = await tx.project.create({
@@ -175,15 +194,18 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
           // An Internal Sales project belongs to whoever registers it; a project from another source has no internal Sales PIC.
           sourceType,
           ...externalSource,
-          salesOwnerId: sourceType === "INTERNAL_SALES" ? actor.id : null,
+          salesOwnerId: sourceType === "INTERNAL_SALES" ? ownerId : null,
           customerId,
           submissionKey,
         },
       });
-      await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name, sourceType, ...externalSource });
+      await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name, sourceType, ...externalSource, ...(assignedOwner ? { salesOwnerId: assignedOwner.id } : {}) });
+      if (assignedOwner) {
+        await notify(tx, { actorId: actor.id, recipientIds: [assignedOwner.id], kind: "project.assigned", title: `${code} was registered for you`, body: `${endUserCompany}: ${name}`, href: `/projects/${code}` });
+      }
       let requestCode: string | null = null;
       if (request) {
-        if (!canRaiseRequestOn(actor.role, request.type, sourceType)) return fail("FORBIDDEN");
+        if (!canRaiseWithNewProject(actor.role, request.type, sourceType)) return fail("FORBIDDEN");
         requestCode = (await insertRequest(tx, actor, project.id, request, submissionKey ? `${submissionKey}:request` : null)).code;
       }
       return succeed({ id: project.id, code, created: true, requestCode });
