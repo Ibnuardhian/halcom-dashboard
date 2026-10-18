@@ -12,14 +12,16 @@ export const MASTER_NAME_MAX_LENGTH = 120;
 
 export type MasterOption = { id: string; name: string };
 
-/** The options that match what was typed: a name that contains it, ignoring case, the closest (starts with it) first. */
+const squash = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** The options that match what was typed: a name that contains it, ignoring case and extra spaces, the closest (starts with it) first. */
 export function filterMasterOptions(options: readonly MasterOption[], typed: string): MasterOption[] {
-  const needle = typed.trim().toLowerCase();
+  const needle = squash(typed);
   if (needle === "") return [...options];
   const starts: MasterOption[] = [];
   const contains: MasterOption[] = [];
   for (const option of options) {
-    const name = option.name.toLowerCase();
+    const name = squash(option.name);
     if (name.startsWith(needle)) starts.push(option);
     else if (name.includes(needle)) contains.push(option);
   }
@@ -28,6 +30,6 @@ export function filterMasterOptions(options: readonly MasterOption[], typed: str
 
 /** True when the typed name is already a record (same name ignoring case and spacing): then "create" is not offered, selecting is. */
 export function hasExactMatch(options: readonly MasterOption[], typed: string): boolean {
-  const key = typed.trim().replace(/\s+/g, " ").toLowerCase();
-  return key !== "" && options.some((option) => option.name.trim().replace(/\s+/g, " ").toLowerCase() === key);
+  const key = squash(typed);
+  return key !== "" && options.some((option) => squash(option.name) === key);
 }

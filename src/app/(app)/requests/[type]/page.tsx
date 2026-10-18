@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { typeFromSlug } from "@/domain/requests/types";
 import { REQUESTS_PATH } from "@/features/navigation/links";
-import { RequestList } from "@/features/requests/request-list";
+import { listParamsFrom, RequestList } from "@/features/requests/request-list";
 import { requirePermission } from "@/server/auth/current-user";
 
 export default function RequestsByTypePage({ params, searchParams }: PageProps<"/requests/[type]">) {
@@ -18,14 +18,5 @@ async function RequestsByType({ params, searchParams }: Pick<PageProps<"/request
   const type = typeFromSlug((await params).type);
   if (!type) notFound();
   const viewer = await requirePermission("requests.view");
-  const query = await searchParams;
-  return (
-    <RequestList
-      viewer={viewer}
-      basePath={`${REQUESTS_PATH}/${type.toLowerCase()}`}
-      type={type}
-      query={query}
-      title={viewer.role === "SOA" && type === "BOQ" ? "BOQ Tickets" : undefined}
-    />
-  );
+  return <RequestList viewer={viewer} basePath={`${REQUESTS_PATH}/${type.toLowerCase()}`} type={type} params={listParamsFrom(await searchParams)} title={viewer.role === "SOA" && type === "BOQ" ? "BOQ Tickets" : undefined} />;
 }

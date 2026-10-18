@@ -406,3 +406,22 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   Sales may also correct the sales name. (3) **Customers page** (`/customers`, Sales and admins): customers are never typed there; they are created from
   the end-user company when a project is created, one customer per name.
 - **Tests:** the integration files now run one after another (`fileParallelism: false`) because the dashboard tests compare whole-table counts.
+
+## D-027 One project view, Principal/Solution master data and a Purchasing view of RFQs only
+
+- **Date:** 2026-10-18 · **Status:** Implemented (no migration: the Principal and Solution tables already existed)
+- **One view:** the BOQ, RFQ and PO of a project are panels inside the project page; `/request/CODE` stays and shows the same panel. A
+  request handed over starts In progress. The email text opens in a modal and the status history is collapsed. Technical fields are
+  optional and added on demand; SOA see only BOQ requests in the menu.
+- **Master data:** Principal and Solution are separate searchable lists with stable ids. A new name is created only by the explicit
+  Create button (SOA, admin, superadmin: `masterdata.manage`); a name that exists, ignoring case and spacing, is selected instead and the
+  server refuses a duplicate (unique name key, also under concurrency). Rename keeps the id and so every project; delete is refused while a
+  project uses the record. Changes go to the audit log, and a project's classification to its change log.
+- **Technical sections:** one that was never saved is dropped at once; a saved one is cleared only after confirmation. Only that field
+  changes; the change log keeps what it said (so history is not lost, and no row is deleted).
+- **Purchasing:** the menu offers only the Purchasing Dashboard and RFQ requests. All other pages and the PO list are not offered but still
+  work by address (nothing was deleted). The dashboard queue is RFQ only. The request lists have search (request, project, End User,
+  requester, PIC, Principal, Solution, item details), status filter, sorting (SLA is computed, over the newest 1000) and pages of 20, all in the URL.
+- **Not built:** attachments on requests do not exist yet, so the RFQ list has no attachments column. Purchasing no longer sees PO requests in
+  its menu or queue; if Purchasing must still work POs, that needs a decision. **Answered 2026-10-18 (T-17): PO is Purchasing's work, so its menu
+  now has Purchasing Dashboard, RFQ Requests and PO requests.**

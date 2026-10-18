@@ -155,7 +155,7 @@ test.describe("each role sees its own modules", () => {
   const MODULES = {
     SALES: ["Overview", "Sales Pipeline", "Projects", "Customers", "Sales Targets", "Request Center"],
     SOA: ["Overview", "Technical Dashboard", "Projects", "New project", "BOQ Tickets", "New BOQ request", "Purchasing Handoff", "Technical Reports", "Principal & Solution Master Data"],
-    PURCHASING: ["Overview", "Purchasing Dashboard", "Projects", "RFQ Requests", "PO requests"],
+    PURCHASING: ["Purchasing Dashboard", "RFQ Requests", "PO requests"],
     FINANCE: ["Overview", "Finance Dashboard", "Projects", "All requests", "BOQ requests", "RFQ requests", "PO requests", "Financial Crosscheck"],
   } as const;
 
@@ -217,7 +217,9 @@ test.describe("dashboards use the stored requests", () => {
     await tile.click();
     await expect(soa).toHaveURL(/\/requests\/boq\?status=open$/);
     await expect(soa.getByRole("heading", { level: 1, name: "BOQ Tickets" })).toBeVisible();
-    await expect(soa.getByRole("link", { name: /^BOQ-/ })).toHaveCount(after);
+    // The list has pages of 20; the line under it counts all of them.
+    await expect(soa.getByRole("link", { name: /^BOQ-/ })).toHaveCount(Math.min(after, 20));
+    await expect(soa.getByRole("status").filter({ hasText: `of ${after}` })).toBeVisible();
 
     // The board shows the same requests as columns.
     await soa.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Board" }).click();

@@ -9,7 +9,7 @@ import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { cn } from "@/lib/utils";
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
-import { listRequests } from "@/server/requests/queries";
+import { REQUEST_SORTS, searchRequests, type RequestSort } from "@/server/requests/queries";
 import { RequestBoard } from "./request-board";
 import { RequestTable } from "./request-table";
 
@@ -21,44 +21,65 @@ function parseStatusFilter(raw: string | undefined): StatusFilter {
   return status ? { kind: "status", status } : { kind: "all" };
 }
 
-/** The SLA states a dashboard number can link to. */
+/** The list parameters out of a page's `searchParams`; a repeated parameter keeps its first value. */
+export function listParamsFrom(searchParams: Record<string, string | string[] | undefined>): ListParams {
+  const one = (key: string) => {
+    const value = searchParams[key];
+    return typeof value === "string" ? value : Array.isArray(value) ? value[0] : undefined;
+  };
+  return {
+    status: one("status"),
+    q: one("q"),
+    sort: one("sort"),
+    dir: one("dir"),
+    page: one("page"),
+    assignee: one("assignee"),
+    sla: one("sla"),
+    deadline: one("deadline"),
+    mine: one("mine"),
+    view: one("view"),
+  };
+}
+
+/** `assignee`, `sla`, `deadline` and `mine` are the drill-downs the dashboards link to; `view=board` shows the rows as a board. */
+export type ListParams = { status?: string; q?: string; sort?: string; dir?: string; page?: string; assignee?: string; sla?: string; deadline?: string; mine?: string; view?: string };
+
 const SLA_FILTERS = ["overdue", "due_soon"] as const satisfies readonly SlaState[];
 const DEADLINE_FILTERS = ["past", "soon"] as const;
 const DEADLINE_LABELS = { past: "Needed-by date has passed", soon: "Needed within the next 7 days" } as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export type RequestListQuery = Record<string, string | string[] | undefined>;
-
-const one = (value: string | string[] | undefined): string | undefined => (typeof value === "string" ? value : undefined);
+const BOARD_SIZE = 100;
 
 /**
- * A request list with status filter chips. `type` narrows it to BOQ, RFQ or PO; without it every type is listed. The dashboards
- * link here with more filters in the query (`assignee`, `sla`, `deadline`, `mine`), so every number can be traced to its rows;
- * `view=board` shows the same rows as a board. Unknown values in the query are ignored.
+ * A request list with search, status filter chips, sortable columns and pages. `type` narrows it to BOQ, RFQ or PO; without it every
+ * type is listed. The filter, the search, the sort and the page all live in the URL, so a link or a reload keeps them.
  */
 export async function RequestList({
   viewer,
   basePath,
   type,
-  query,
+  params = {},
   title,
 }: {
   viewer: SessionUser;
   basePath: string;
   type?: RequestType;
-  query: RequestListQuery;
+  params?: ListParams;
   /** Overrides the page title (for example "BOQ Tickets"). */
   title?: string;
 }) {
-  const filter = parseStatusFilter(one(query.status));
-  const assignee = one(query.assignee) === "none" ? "none" : UUID.test(one(query.assignee) ?? "") ? one(query.assignee) : undefined;
-  const slaState = SLA_FILTERS.find((state) => state === one(query.sla));
-  const deadline = DEADLINE_FILTERS.find((state) => state === one(query.deadline));
+  const filter = parseStatusFilter(params.status);
+  const q = params.q?.trim().slice(0, 100) || undefined;
+  const sort: RequestSort = REQUEST_SORTS.find((s) => s === params.sort) ?? "created";
+  const defaultDir = (column: RequestSort) => (column === "created" ? "desc" : "asc");
+  const dir = params.dir === "asc" || params.dir === "desc" ? params.dir : defaultDir(sort);
+  const assignee = params.assignee === "none" ? "none" : UUID.test(params.assignee ?? "") ? params.assignee : undefined;
+  const slaState = SLA_FILTERS.find((state) => state === params.sla);
+  const deadline = DEADLINE_FILTERS.find((state) => state === params.deadline);
   // "mine" narrows to the requests on the projects the signed-in person owns; it can never widen what they may see.
-  const mine = one(query.mine) === "1";
-  const board = one(query.view) === "board";
-
-  const rows = await listRequests(getDb(), viewer, {
+  const mine = params.mine === "1";
+  const board = params.view === "board";
+  const result = await searchRequests(getDb(), viewer, {
     type,
     status: filter.kind === "status" ? filter.status : undefined,
     openOnly: filter.kind === "open" || Boolean(slaState || deadline),
@@ -66,25 +87,36 @@ export async function RequestList({
     slaState,
     deadline,
     projectOwnerId: mine ? viewer.id : undefined,
+    q,
+    sort,
+    dir,
+    page: Number(params.page) || 1,
+    pageSize: board ? BOARD_SIZE : undefined,
   });
-
-  // The extra filters travel with every chip and the view switch, so changing one thing does not drop the others.
-  const carried = new URLSearchParams();
-  if (assignee) carried.set("assignee", assignee);
-  if (slaState) carried.set("sla", slaState);
-  if (deadline) carried.set("deadline", deadline);
-  if (mine) carried.set("mine", "1");
-  const href = (extra: Record<string, string | null>) => {
-    const params = new URLSearchParams(carried);
-    for (const [key, value] of Object.entries(extra)) {
-      if (value === null) params.delete(key);
-      else params.set(key, value);
+  const { rows } = result;
+  const statusValue = filter.kind === "open" ? "open" : filter.kind === "status" ? filter.status : undefined;
+  /** A link to this list with some parts changed; `null` clears a part, an omitted part stays as it is. */
+  const href = (next: { status?: string | null; q?: string | null; sort?: RequestSort; dir?: "asc" | "desc"; page?: number; view?: "board" | null }) => {
+    const query = new URLSearchParams();
+    if (assignee) query.set("assignee", assignee);
+    if (slaState) query.set("sla", slaState);
+    if (deadline) query.set("deadline", deadline);
+    if (mine) query.set("mine", "1");
+    if (next.view === undefined ? board : next.view === "board") query.set("view", "board");
+    const nextStatus = next.status === undefined ? statusValue : next.status;
+    const nextQ = next.q === undefined ? q : next.q;
+    const nextSort = next.sort ?? sort;
+    const nextDir = next.dir ?? dir;
+    if (nextStatus) query.set("status", nextStatus);
+    if (nextQ) query.set("q", nextQ);
+    if (nextSort !== "created" || nextDir !== "desc") {
+      query.set("sort", nextSort);
+      query.set("dir", nextDir);
     }
-    const text = params.toString();
+    if (next.page && next.page > 1) query.set("page", String(next.page));
+    const text = query.toString();
     return text ? `${basePath}?${text}` : basePath;
   };
-  const statusHref = (value: string | null) => href({ status: value, view: board ? "board" : null });
-
   const chips: { label: string; value: string | null; active: boolean }[] = [
     { label: "All", value: null, active: filter.kind === "all" },
     { label: "Open", value: "open", active: filter.kind === "open" },
@@ -94,6 +126,7 @@ export async function RequestList({
       active: filter.kind === "status" && filter.status === status,
     })),
   ];
+
   const extraFilters = [
     assignee ? (assignee === "none" ? "Unassigned" : "One assignee") : null,
     slaState ? `SLA: ${SLA_STATE_LABELS[slaState]}` : null,
@@ -111,12 +144,32 @@ export async function RequestList({
             : "BOQ, RFQ and PO requests across all projects, newest first."
         }
       />
+      <form action={basePath} method="get" role="search" className="mb-3 flex flex-wrap items-center gap-2">
+        {statusValue ? <input type="hidden" name="status" value={statusValue} /> : null}
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          maxLength={100}
+          aria-label="Search requests"
+          placeholder="Search request, project, End User, requester, PIC, Principal, Solution"
+          className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm sm:max-w-xl"
+        />
+        <button type="submit" className={buttonVariants({ variant: "outline" })}>
+          Search
+        </button>
+        {q ? (
+          <Link href={href({ q: null })} className={buttonVariants({ variant: "ghost" })}>
+            Clear
+          </Link>
+        ) : null}
+      </form>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Filter by status" className="flex flex-wrap gap-1.5">
           {chips.map((chip) => (
             <Link
               key={chip.label}
-              href={statusHref(chip.value)}
+              href={href({ status: chip.value })}
               aria-current={chip.active ? "true" : undefined}
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted",
@@ -132,7 +185,7 @@ export async function RequestList({
             {([false, true] as const).map((isBoard) => (
               <Link
                 key={isBoard ? "board" : "list"}
-                href={href({ status: filter.kind === "all" ? null : filter.kind === "open" ? "open" : filter.status, view: isBoard ? "board" : null })}
+                href={href({ view: isBoard ? "board" : null, page: 1 })}
                 aria-current={board === isBoard ? "page" : undefined}
                 className={cn("rounded-md px-3 py-1 text-xs font-medium", board === isBoard ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
               >
@@ -158,8 +211,39 @@ export async function RequestList({
       {board ? (
         <RequestBoard rows={rows} />
       ) : (
-        <RequestTable rows={rows} emptyText={filter.kind === "all" && extraFilters.length === 0 ? "No requests yet." : "No requests match this filter."} />
+      <RequestTable
+        rows={rows}
+        detailed
+        emptyText={filter.kind === "all" && !q && extraFilters.length === 0 ? "No requests yet." : "No requests match this search or filter."}
+        sorting={{
+          sort,
+          dir,
+          href: (column) => href({ sort: column, dir: column === sort ? (dir === "asc" ? "desc" : "asc") : defaultDir(column) }),
+        }}
+      />
       )}
+      {result.total > 0 && !board ? (
+        <nav aria-label="Pages" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <p role="status" className="text-muted-foreground">
+            Showing {(result.page - 1) * result.pageSize + 1}–{(result.page - 1) * result.pageSize + rows.length} of {result.total}
+          </p>
+          <div className="flex items-center gap-2">
+            {result.page > 1 ? (
+              <Link href={href({ page: result.page - 1 })} rel="prev" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Previous
+              </Link>
+            ) : null}
+            <span className="text-muted-foreground">
+              Page {result.page} of {result.pageCount}
+            </span>
+            {result.page < result.pageCount ? (
+              <Link href={href({ page: result.page + 1 })} rel="next" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Next
+              </Link>
+            ) : null}
+          </div>
+        </nav>
+      ) : null}
     </>
   );
 }

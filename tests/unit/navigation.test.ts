@@ -56,11 +56,9 @@ describe("navLinksFor", () => {
     ]);
   });
 
-  it("shows Purchasing its dashboard, the shared projects and RFQ and PO requests: no BOQ or all-requests entry", () => {
+  it("shows Purchasing a focused menu: its dashboard, RFQ requests and PO requests; no overview, projects, BOQ or all-requests entry", () => {
     expect(labelsFor("PURCHASING")).toEqual([
-      ["/dashboard", "Overview"],
       ["/dashboard/purchasing", "Purchasing Dashboard"],
-      ["/projects", "Projects"],
       ["/requests/rfq", "RFQ Requests"],
       ["/requests/po", "PO requests"],
     ]);

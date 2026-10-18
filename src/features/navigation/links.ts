@@ -61,7 +61,7 @@ export const SALES_TARGETS_PATH = "/targets";
 export const CUSTOMERS_PATH = "/customers";
 
 const MODULE_LINKS: readonly ModuleLink[] = [
-  { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view" },
+  { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view", hiddenFor: ["PURCHASING"] },
   // A project from another source (not the internal Sales team) is registered by SOA; Sales use the button on their dashboard.
   { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES"] },
   { href: CUSTOMERS_PATH, label: "Customers", group: "work", icon: "customers", permission: "customers.view" },
@@ -69,7 +69,7 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   // Sales know the list of every request as the Request Center; SOA and Purchasing work from their own list instead.
   { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SOA", "PURCHASING"], labels: { SALES: "Request Center" } },
   { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES", "PURCHASING"], labels: { SOA: "BOQ Tickets" } },
-  // Purchasing works RFQ and PO requests (confirmed); BOQ requests are not theirs.
+  // Purchasing works RFQ and PO requests (confirmed 2026-10-18); BOQ requests are not theirs. Its menu is focused: its dashboard and these two lists.
   { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"], labels: { PURCHASING: "RFQ Requests" } },
   { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
   { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES"] },
@@ -100,7 +100,9 @@ const OWN_DASHBOARD_LABELS: Partial<Record<Role, string>> = {
 /** Navigation shown to a role. Derived from the permission matrix, so the menu can never offer a page the role cannot open. */
 export function navLinksFor(role: Role): NavLinkItem[] {
   const links: NavLinkItem[] = [];
-  if (can(role, "dashboard.shared.view")) {
+  // Purchasing works from its own dashboard and the RFQ list only. Everything else stays reachable by address; it is just not offered.
+  const focused = role === "PURCHASING";
+  if (!focused && can(role, "dashboard.shared.view")) {
     links.push({ href: SHARED_DASHBOARD_PATH, label: "Overview", group: "dashboards", icon: "overview" });
   }
   const own = dashboardForRole(role);
@@ -108,7 +110,7 @@ export function navLinksFor(role: Role): NavLinkItem[] {
     links.push({ href: dashboardPath(own), label: OWN_DASHBOARD_LABELS[role] ?? "My dashboard", group: "dashboards", icon: "dashboard" });
   }
   for (const key of DASHBOARD_KEYS) {
-    if (key === own || !can(role, `dashboard.${key}.view`)) continue;
+    if (focused || key === own || !can(role, `dashboard.${key}.view`)) continue;
     const owner = ROLES.find((r) => dashboardForRole(r) === key)!;
     links.push({ href: dashboardPath(key), label: `${ROLE_LABELS[owner]} dashboard`, group: "dashboards", icon: "dashboard" });
   }

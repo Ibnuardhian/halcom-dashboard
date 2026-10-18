@@ -23,7 +23,13 @@ test.describe("sign in", () => {
       await signIn(page, role);
 
       await expectOnDashboard(page, `/dashboard/${role.toLowerCase()}`, OWN_DASHBOARD_HEADING[role]);
-      await page.getByRole("link", { name: "Overview" }).click();
+      if (role === "PURCHASING") {
+        // Purchasing's menu offers only its own dashboard and the RFQ list; the overview is still open by address.
+        await expect(page.getByRole("link", { name: "Overview" })).toHaveCount(0);
+        await page.goto("/dashboard");
+      } else {
+        await page.getByRole("link", { name: "Overview" }).click();
+      }
       await expectOnDashboard(page, "/dashboard", "Overview");
     });
   }

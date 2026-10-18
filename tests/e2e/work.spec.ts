@@ -19,7 +19,7 @@ async function createProject(page: Page, name: string): Promise<string> {
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill(name);
     await page.getByRole("button", { name: "Create project" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 4000 });
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
@@ -34,7 +34,7 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
     await page.getByLabel("Summary").fill(title);
     await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/request\/(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}$/, { timeout: 4000 });
+    await expect(page).toHaveURL(/\/request\/(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
@@ -365,7 +365,7 @@ test.describe("projects and requests", () => {
       await expect(page.getByRole("heading", { level: 2, name: heading, exact: true })).toBeVisible();
     }
     await expect(page.getByText("5% - Qualify").first()).toBeVisible(); // a new project starts at the first step
-    await expect(page.getByText("Sales PIC")).toBeVisible();
+    await expect(page.getByText("Sales PIC", { exact: true })).toBeVisible();
 
     await page.goto("/projects");
     await expect(page.getByRole("link", { name: projectCode })).toBeVisible();
@@ -554,7 +554,8 @@ test.describe("projects and requests", () => {
     await expect(async () => {
       await page.getByLabel("Your answer *").fill("Hikvision, 40 pieces");
       await page.getByRole("button", { name: "Send answer and continue" }).click();
-      await expect(page.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible({ timeout: 2500 });
+      // The request is In progress again, so the answer form (and its message) goes away.
+      await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toHaveCount(0, { timeout: 6000 });
     }).toPass({ timeout: 40_000 });
     await page.reload();
     await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toHaveCount(0);
@@ -572,7 +573,8 @@ test.describe("projects and requests", () => {
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("Not continuing");
     await page.goto("/dashboard/sales");
-    await expect(page.getByRole("heading", { name: "Decide the next step" })).toHaveCount(0); // decided, so nothing is waiting
+    // Decided, so this BOQ is no longer listed (other BOQs of the shared Sales account may be).
+    await expect(page.getByRole("link", { name: new RegExp("^" + boq + " ·") })).toHaveCount(0);
 
     // They change their mind: continue to the RFQ anyway.
     await page.goto(`/request/${boq}`);
