@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, canTransition, isOpen, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
 import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource, salesActsOn } from "@/domain/projects/source";
@@ -373,14 +373,11 @@ export async function changeRequestStatus(
     const request = await tx.request.findUnique({ where: { id: requestId } });
     if (!request) return fail("NOT_FOUND", "Request not found.");
     const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true, sourceType: true } });
-    // The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. Nothing else.
-    const salesResponding =
-      actor.role === "SALES" && project !== null && salesActsOn(project, actor.id) && request.status === "WAITING_FOR_SALES" && (to === "IN_PROGRESS" || to === "CANCELLED");
-    if (!can(actor.role, workPermission(request.type)) && !salesResponding) return fail("FORBIDDEN");
-    if (salesResponding && !reason) return fail("INVALID_INPUT", "Write your answer or the reason for cancelling.");
+    // Only the team that works on this type moves its requests (SOA for a BOQ, Purchasing for an RFQ or PO; admins too).
+    if (!can(actor.role, workPermission(request.type))) return fail("FORBIDDEN");
 
-    if (!canTransition(request.status, to)) {
-      const options = allowedTransitions(request.status).map((s) => REQUEST_STATUS_LABELS[s]);
+    if (!canTransition(request.status, to, request.type)) {
+      const options = allowedTransitions(request.status, request.type).map((s) => REQUEST_STATUS_LABELS[s]);
       return fail(
         "INVALID_STATE",
         `A ${REQUEST_STATUS_LABELS[request.status]} request cannot become ${REQUEST_STATUS_LABELS[to]}.` +
@@ -394,7 +391,8 @@ export async function changeRequestStatus(
       where: { id: request.id },
       data: {
         status: to,
-        completedAt: to === "COMPLETED" ? now : null,
+        // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
+        completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
         // Whoever first starts the work owns it, so "unassigned" does not linger on active requests.
         assigneeId: request.assigneeId ?? (can(actor.role, workPermission(request.type)) ? actor.id : null),
       },
@@ -403,12 +401,11 @@ export async function changeRequestStatus(
       data: { requestId: request.id, fromStatus: request.status, toStatus: to, changedById: actor.id, changedAt: now, reason },
     });
     await audit(tx, actor.id, "request", "request.status_changed", request.id, { status: request.status }, { status: to, reason });
-    const team = salesResponding ? (request.assigneeId ? [request.assigneeId] : await usersWithRole(tx, OWNING_ROLE[request.type])) : [];
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : []), ...team],
+      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : [])],
       kind: "request.status_changed",
-      title: to === "WAITING_FOR_SALES" ? `${request.code} needs your input` : salesResponding && to === "IN_PROGRESS" ? `${request.code}: Sales answered` : `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
+      title: `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
       body: reason,
       href: `/request/${request.code}`,
     });
@@ -435,7 +432,7 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { code: true, endUserCompany: true } } } });
     if (!request) return fail("NOT_FOUND", "Request not found.");
     if (request.type !== "BOQ") return fail("INVALID_STATE", "Only a BOQ request has an SOA phase.");
-    if (request.status === "COMPLETED" || request.status === "CANCELLED") return fail("INVALID_STATE", "This request is already closed.");
+    if (!isOpen(request.status)) return fail("INVALID_STATE", "This request is already closed.");
     if (request.phase === phase) return succeed({ code: request.code });
 
     // Labelling the work with a phase means SOA has started it: a request nobody had touched goes to In progress by itself.

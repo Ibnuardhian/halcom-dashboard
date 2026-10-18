@@ -10,11 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { SOA_PHASES, SOA_PHASE_LABELS, type SoaPhase } from "@/domain/requests/phase";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
-import { reasonRequired, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
 import { MarginInput } from "@/features/projects/margin-input";
 import { MoneyInput } from "@/features/projects/money-input";
-import { changeStatusAction, createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
+import { createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -248,36 +247,6 @@ export function RequestForm({
   );
 }
 
-export function StatusForm({ requestId, from, options }: { requestId: string; from: RequestStatus; options: readonly RequestStatus[] }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(changeStatusAction, null);
-  const [to, setTo] = useState<RequestStatus>(options[0]!);
-  const needsReason = reasonRequired(from, to);
-
-  return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_1fr_auto] sm:items-end">
-      <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`status-${requestId}`} label="Change status to">
-        <NativeSelect id={`status-${requestId}`} name="to" value={to} onChange={(event) => setTo(event.target.value as RequestStatus)}>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {REQUEST_STATUS_LABELS[option]}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Field id={`reason-${requestId}`} label={needsReason ? "Reason *" : "Reason (optional)"}>
-        <Input id={`reason-${requestId}`} name="reason" maxLength={500} required={needsReason} placeholder={needsReason ? "Required for this change" : ""} />
-      </Field>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Update status"}
-      </Button>
-      <div className="sm:col-span-3">
-        <FormStatus state={state} />
-      </div>
-    </form>
-  );
-}
-
 /** SOA picks RFQ or PO explicitly; a completed BOQ never implies a purchase (brief §6.1). */
 /** What follows a completed BOQ or RFQ: continue to the next step (RFQ after a BOQ, PO after an RFQ), or record that it does not continue. */
 export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: string; nextType: RequestType; hasDecision: boolean }) {
@@ -299,29 +268,6 @@ export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: st
             Do not continue
           </Button>
         )}
-      </div>
-      <FormStatus state={state} />
-    </form>
-  );
-}
-
-/** The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. */
-export function WaitingResponseForm({ requestId }: { requestId: string }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(changeStatusAction, null);
-
-  return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`answer-${requestId}`} label="Your answer *" hint="The team is told and the request goes back to In progress.">
-        <Textarea id={`answer-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
-      </Field>
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" name="to" value="IN_PROGRESS" disabled={pending}>
-          Send answer and continue
-        </Button>
-        <Button type="submit" name="to" value="CANCELLED" variant="outline" disabled={pending}>
-          Cancel this request
-        </Button>
       </div>
       <FormStatus state={state} />
     </form>

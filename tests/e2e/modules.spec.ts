@@ -217,6 +217,9 @@ test.describe("dashboards use the stored requests", () => {
     await tile.click();
     await expect(soa).toHaveURL(/\/requests\/boq\?status=open$/);
     await expect(soa.getByRole("heading", { level: 1, name: "BOQ Tickets" })).toBeVisible();
+    // SOA open their ticket list as the board, where statuses are changed; the table is one click away.
+    await expect(soa.getByRole("group", { name: "Request board" })).toBeVisible();
+    await soa.getByRole("navigation", { name: "View" }).getByRole("link", { name: "List" }).click();
     // The list has pages of 20; the line under it counts all of them.
     await expect(soa.getByRole("link", { name: /^BOQ-/ })).toHaveCount(Math.min(after, 20));
     await expect(soa.getByRole("status").filter({ hasText: `of ${after}` })).toBeVisible();

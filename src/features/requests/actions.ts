@@ -71,17 +71,17 @@ export async function createRequestAction(_previous: FormState, formData: FormDa
   redirect(`/request/${result.value.code}`);
 }
 
-export async function changeStatusAction(_previous: FormState, formData: FormData): Promise<FormState> {
+/**
+ * Moves a request to another column of the board (the only place SOA and Purchasing change a status). The service re-checks who may
+ * move this type of request, that the move is allowed from where the request is, and that a reason came with a cancellation or reopening.
+ */
+export async function moveRequestAction(requestId: string, to: string, reason?: string): Promise<NonNullable<FormState>> {
   const user = await requireUser();
-  const result = await changeRequestStatus(getDb(), { id: user.id, role: user.role }, {
-    requestId: text(formData, "requestId"),
-    to: text(formData, "to"),
-    reason: text(formData, "reason"),
-  });
+  const result = await changeRequestStatus(getDb(), { id: user.id, role: user.role }, { requestId, to, reason: reason ?? null });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(`/request/${result.value.code}`);
   revalidatePath(REQUESTS_PATH);
-  return { ok: true, message: "Status updated." };
+  return { ok: true, message: `${result.value.code} moved.` };
 }
 
 export async function handOverAction(_previous: FormState, formData: FormData): Promise<FormState> {

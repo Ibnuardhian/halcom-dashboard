@@ -425,3 +425,20 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
 - **Not built:** attachments on requests do not exist yet, so the RFQ list has no attachments column. Purchasing no longer sees PO requests in
   its menu or queue; if Purchasing must still work POs, that needs a decision. **Answered 2026-10-18 (T-17): PO is Purchasing's work, so its menu
   now has Purchasing Dashboard, RFQ Requests and PO requests.**
+
+## D-028 Status changes on the board only, Waiting for Sales retired, Revision for a completed BOQ
+
+- **Date:** 2026-10-18 · **Status:** Implemented
+- **Board:** SOA (BOQ) and Purchasing (RFQ, PO), and admins, change a status only by dragging the card to another column of the board
+  (`/requests/<type>?view=board`, the default view of the team that works on that type; the list is one click away). The status form on the
+  request page is gone. Only moves the flow allows are drop targets. A cancellation, or reopening a completed RFQ or PO, asks for a reason.
+  The keyboard does the same with Shift + Arrow keys on a focused card. The server checks every move again (`changeRequestStatus`).
+  Sales and Finance see the board but cannot move cards; Sales no longer change a status.
+- **Waiting for Sales is retired:** it is no longer offered and nobody can move a request into it; questions to Sales are asked and answered by
+  email, which keeps the history. The value stays in the database (older requests and their append-only status history use it; PostgreSQL
+  cannot drop an enum value without rewriting rows). An older request that still has it is shown in the In progress column and can be moved on.
+- **Revision:** a BOQ that is Completed can be dragged to Revision (no reason: the details go by email), and from there back to Completed or to
+  Cancelled. An RFQ or PO has no Revision (a completed one is reopened with a reason). A BOQ in Revision is open work, keeps its first
+  completion time (the SLA is not re-measured) and cannot be continued to an RFQ until it is completed again.
+- **Migrations (additive):** `20261022100000_request_revision` (enum value) and `20261022100100_request_revision_completion` (the completed_at
+  check now also allows Revision; it only gets looser, no row is touched).

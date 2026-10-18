@@ -66,7 +66,7 @@ export function addWorkingDays(start: Date, days: number): Date {
 
 export type StatusEntry = { toStatus: RequestStatus; changedAt: Date };
 
-/** The time a request spent in Waiting for Sales: finished stretches, plus the running one if it is waiting now. */
+/** The time a request spent in the retired Waiting for Sales status (older requests only): finished stretches, plus the running one if it is waiting now. */
 export function waitingMs(history: readonly StatusEntry[], now: Date): number {
   const ordered = [...history].sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime());
   let total = 0;
@@ -116,7 +116,8 @@ export function slaOf({ createdAt, status, completedAt, history, range, now }: S
   const targetAt = new Date(addWorkingDays(createdAt, range.minDays).getTime() + waited);
   const dueAt = new Date(addWorkingDays(createdAt, range.maxDays).getTime() + waited);
   if (status === "CANCELLED") return { targetAt, dueAt, state: "none" };
-  if (status === "COMPLETED") return { targetAt, dueAt, state: completedAt && completedAt.getTime() > dueAt.getTime() ? "late" : "met" };
+  // A BOQ in Revision keeps the result of its first completion: the revision does not restart the clock.
+  if (status === "COMPLETED" || status === "REVISION") return { targetAt, dueAt, state: completedAt && completedAt.getTime() > dueAt.getTime() ? "late" : "met" };
   if (status === "WAITING_FOR_SALES") return { targetAt, dueAt, state: "paused" };
   if (now.getTime() > dueAt.getTime()) return { targetAt, dueAt, state: "overdue" };
   return { targetAt, dueAt, state: now.getTime() >= targetAt.getTime() || dueAt.getTime() - now.getTime() < DAY_MS ? "due_soon" : "on_track" };

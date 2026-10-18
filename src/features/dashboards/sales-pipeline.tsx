@@ -3,7 +3,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UPCOMING_DAYS } from "@/domain/requests/metrics";
-import { REQUEST_STATUSES, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { ACTIVE_STATUSES, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { REQUEST_TYPES, typeSlug } from "@/domain/requests/types";
 import { getRequesterSummary } from "@/server/dashboards/metrics";
 import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
@@ -63,13 +63,12 @@ export async function SalesPipeline({ viewer, view, year }: { viewer: SessionUse
         {REQUEST_TYPES.map((type) => (
           <StatTile key={type} label={`Open ${type}`} value={stats.openByType[type]} href={`${REQUESTS_PATH}/${typeSlug(type)}?status=open`} note="All requests, still open" />
         ))}
-        <StatTile label="Waiting for you" value={summary.waitingForSales} href={`${REQUESTS_PATH}?status=WAITING_FOR_SALES${mineQuery}`} note={ownerId ? "On your projects" : "On all projects"} />
       </section>
 
       <section aria-label="Your requests by status" className="mb-6">
         <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{ownerId ? "Requests on your projects, by status" : "Requests on all projects, by status"}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {REQUEST_STATUSES.map((status) => (
+          {ACTIVE_STATUSES.map((status) => (
             <StatTile key={status} label={REQUEST_STATUS_LABELS[status]} value={summary.byStatus[status]} href={`${REQUESTS_PATH}?status=${status}${mineQuery}`} />
           ))}
         </div>

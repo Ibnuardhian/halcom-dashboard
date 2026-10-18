@@ -41,24 +41,26 @@ describe("the SOA dashboard numbers match the stored requests", () => {
     const project = await salesProject(sales);
     const a = await boq(sales, project.id); // stays Submitted
     const b = await boq(sales, project.id); // In progress, taken by `soa`
-    const c = await boq(sales, project.id); // waiting for Sales, taken by `other`
+    const c = await boq(sales, project.id); // revision, taken by `other`
     const d = await boq(sales, project.id); // completed
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: b.id, to: "IN_PROGRESS" });
-    await changeRequestStatus(db, as(other, "SOA"), { requestId: c.id, to: "WAITING_FOR_SALES", reason: "Need the camera count" });
+    await changeRequestStatus(db, as(other, "SOA"), { requestId: c.id, to: "COMPLETED" });
+    await changeRequestStatus(db, as(other, "SOA"), { requestId: c.id, to: "REVISION" });
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: d.id, to: "COMPLETED" });
     void a;
 
     const { metrics } = await getTeamDashboard(db, as(soa, "SOA"), "SOA");
 
     const count = (where: Record<string, unknown>) => db.request.count({ where: { type: "BOQ", project: { deletedAt: null }, ...where } });
-    await within(() => count({ status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES"] } }), metrics.open);
+    await within(() => count({ status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] } }), metrics.open);
     await within(() => count({ status: "SUBMITTED" }), metrics.backlog);
     await within(() => count({ status: "IN_PROGRESS" }), metrics.inProgress);
     await within(() => count({ status: "WAITING_FOR_SALES" }), metrics.waitingForSales);
+    await within(() => count({ status: "REVISION" }), metrics.revision);
     // Workload: the open requests of each assignee, as stored. These two people exist only in this test, so it is exact.
     const mine = metrics.workload.find((row) => row.assigneeId === soa.id);
     const theirs = metrics.workload.find((row) => row.assigneeId === other.id);
-    expect(mine?.open).toBe(await count({ assigneeId: soa.id, status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES"] } }));
+    expect(mine?.open).toBe(await count({ assigneeId: soa.id, status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] } }));
     expect(mine?.open).toBe(1);
     expect(theirs?.open).toBe(1);
     expect(metrics.workload.reduce((sum, row) => sum + row.open, 0)).toBe(metrics.open);
@@ -120,8 +122,8 @@ describe("the Purchasing dashboard", () => {
 
     const dashboard = await getTeamDashboard(db, as(purchasing, "PURCHASING"), "PURCHASING");
 
-    const openRfq = await db.request.count({ where: { type: "RFQ", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES"] }, project: { deletedAt: null } } });
-    const openPo = await db.request.count({ where: { type: "PO", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES"] }, project: { deletedAt: null } } });
+    const openRfq = await db.request.count({ where: { type: "RFQ", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] }, project: { deletedAt: null } } });
+    const openPo = await db.request.count({ where: { type: "PO", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] }, project: { deletedAt: null } } });
     await within(async () => openRfq, dashboard.metrics.open);
     await within(async () => openPo, dashboard.otherOpen ?? -100);
     expect(dashboard.awaitingHandoff).toBeNull();
@@ -149,13 +151,14 @@ describe("the Purchasing dashboard", () => {
 
 describe("the Sales dashboard numbers", () => {
   it("count the requests on a salesperson's own projects by status, and nobody else's", async () => {
-    const [mine, theirs, soa] = await Promise.all([makeUser("SALES"), makeUser("SALES"), makeUser("SOA")]);
+    const [mine, theirs] = await Promise.all([makeUser("SALES"), makeUser("SALES")]);
     const myProject = await salesProject(mine);
     const theirProject = await salesProject(theirs);
     const a = await boq(mine, myProject.id, { requiredBy: "2020-01-01" });
     await boq(mine, myProject.id);
     await boq(theirs, theirProject.id);
-    await changeRequestStatus(db, as(soa, "SOA"), { requestId: a.id, to: "WAITING_FOR_SALES", reason: "question" });
+    // An older request that still has the retired status keeps being counted.
+    await db.request.update({ where: { id: a.id }, data: { status: "WAITING_FOR_SALES" } });
 
     const summary = await getRequesterSummary(db, as(mine, "SALES"), mine.id);
 

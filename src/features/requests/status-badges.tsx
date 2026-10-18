@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 const STATUS_STYLE: Record<RequestStatus, { variant: "default" | "secondary" | "outline"; className?: string }> = {
   SUBMITTED: { variant: "outline" },
   IN_PROGRESS: { variant: "default" },
-  // Amber is reserved for states that need attention (waiting on Sales).
+  // Amber is for states that need attention: a revision in progress (and the retired waiting status of older requests).
   WAITING_FOR_SALES: { variant: "secondary", className: "bg-warning text-warning-foreground" },
   COMPLETED: { variant: "secondary", className: "bg-accent text-accent-foreground" },
+  REVISION: { variant: "secondary", className: "bg-warning text-warning-foreground" },
   CANCELLED: { variant: "outline", className: "text-muted-foreground line-through" },
 };
 

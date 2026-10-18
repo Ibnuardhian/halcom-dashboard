@@ -77,8 +77,10 @@ export type TeamMetrics = {
   /** Open requests that are Submitted or In progress with no assignee. */
   unassigned: number;
   inProgress: number;
-  /** Open requests waiting for an answer from Sales (the SLA clock is paused). */
+  /** Open requests that still have the retired Waiting for Sales status (older requests; the SLA clock is paused). */
   waitingForSales: number;
+  /** Completed BOQs SOA are revising. */
+  revision: number;
   /** Open requests past the SLA deadline (not counting those waiting for Sales). */
   overdue: number;
   /** Open requests between the SLA's expected date and its deadline. */
@@ -120,6 +122,7 @@ export function computeTeamMetrics(requests: readonly MetricRequest[], range: Sl
     unassigned: 0,
     inProgress: 0,
     waitingForSales: 0,
+    revision: 0,
     overdue: 0,
     dueNow: 0,
     pastNeededBy: 0,
@@ -150,6 +153,7 @@ export function computeTeamMetrics(requests: readonly MetricRequest[], range: Sl
       if (request.status === "SUBMITTED") metrics.backlog += 1;
       if (request.status === "IN_PROGRESS") metrics.inProgress += 1;
       if (request.status === "WAITING_FOR_SALES") metrics.waitingForSales += 1;
+      if (request.status === "REVISION") metrics.revision += 1;
       if (request.assigneeId === null && request.status !== "WAITING_FOR_SALES") metrics.unassigned += 1;
       if (sla.state === "overdue") metrics.overdue += 1;
       if (sla.state === "due_soon") metrics.dueNow += 1;

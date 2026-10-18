@@ -69,15 +69,15 @@ describe("requests reach the team that owns them", () => {
     expect(rows[0]!.href).toBe(`/request/${requestCode}`);
   });
 
-  it("tells Sales when SOA changes the status of their request, and asks for input when it is waiting", async () => {
+  it("tells Sales when SOA changes the status of their request, including a revision", async () => {
     const { sales, soa, boq } = await scene();
 
     await changeRequestStatus(db, soa, { requestId: boq.id, to: "IN_PROGRESS" });
-    await changeRequestStatus(db, soa, { requestId: boq.id, to: "WAITING_FOR_SALES", reason: "Which cabling standard?" });
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "COMPLETED" });
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
 
     const rows = await mine(sales.id, boq.code);
-    expect(rows.map((n) => n.title)).toEqual([`${boq.code} is now In progress`, `${boq.code} needs your input`]);
-    expect(rows[1]!.body).toBe("Which cabling standard?");
+    expect(rows.map((n) => n.title)).toEqual([`${boq.code} is now In progress`, `${boq.code} is now Completed`, `${boq.code} is now Revision`]);
     expect(await mine(soa.id, boq.code)).toHaveLength(1); // only the original arrival: SOA is not told about its own change
   });
 

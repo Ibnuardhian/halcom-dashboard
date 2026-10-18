@@ -98,8 +98,11 @@ enum RequestType {
 enum RequestStatus {
   SUBMITTED
   IN_PROGRESS
+  // Legacy: no longer offered. Requests that were already waiting keep it until SOA or Purchasing move them on the board.
   WAITING_FOR_SALES
   COMPLETED
+  // A completed BOQ that is being revised (BOQ only).
+  REVISION
   CANCELLED
 }
 

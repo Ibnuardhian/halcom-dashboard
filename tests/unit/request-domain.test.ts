@@ -6,11 +6,15 @@ import { formatDateText, parseRecipients, resolveRecipients, singleLine, templat
 import { addWorkingDays, formatSlaRange, isValidSlaRange, parseSlaRange, slaOf, waitingMs } from "@/domain/requests/sla";
 import { DEFAULT_TEMPLATES, renderBody, renderSubject, validateTemplate, variablesIn } from "@/domain/requests/template";
 import {
+  ACTIVE_STATUSES,
   allowedTransitions,
+  boardColumns,
   canHandOver,
+  columnOf,
   nextRequestType,
   canTransition,
   isOpen,
+  isRetired,
   REQUEST_STATUSES,
   reasonRequired,
 } from "@/domain/requests/status";
@@ -57,31 +61,55 @@ describe("request codes", () => {
 
 describe("request statuses", () => {
   it("allows the confirmed transitions only", () => {
-    expect(canTransition("SUBMITTED", "IN_PROGRESS")).toBe(true);
-    expect(canTransition("IN_PROGRESS", "COMPLETED")).toBe(true);
-    expect(canTransition("COMPLETED", "IN_PROGRESS")).toBe(true);
-    expect(canTransition("SUBMITTED", "COMPLETED")).toBe(true); // no manual In progress step in between
-    expect(canTransition("SUBMITTED", "WAITING_FOR_SALES")).toBe(true);
-    expect(canTransition("WAITING_FOR_SALES", "COMPLETED")).toBe(false);
-    expect(canTransition("COMPLETED", "CANCELLED")).toBe(false);
+    expect(canTransition("SUBMITTED", "IN_PROGRESS", "BOQ")).toBe(true);
+    expect(canTransition("IN_PROGRESS", "COMPLETED", "RFQ")).toBe(true);
+    expect(canTransition("SUBMITTED", "COMPLETED", "RFQ")).toBe(true); // no manual In progress step in between
+    expect(canTransition("COMPLETED", "CANCELLED", "BOQ")).toBe(false);
+    expect(canTransition("IN_PROGRESS", "SUBMITTED", "BOQ")).toBe(false);
+  });
+
+  it("no longer lets anyone move a request into Waiting for Sales, but moves an older one on", () => {
+    for (const from of ACTIVE_STATUSES) for (const type of REQUEST_TYPES) expect(canTransition(from, "WAITING_FOR_SALES", type)).toBe(false);
+    expect(allowedTransitions("WAITING_FOR_SALES", "RFQ")).toEqual(["IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+    expect(ACTIVE_STATUSES).not.toContain("WAITING_FOR_SALES");
+    expect(REQUEST_STATUSES).toContain("WAITING_FOR_SALES"); // stored values of older requests stay valid
+    expect(isRetired("WAITING_FOR_SALES")).toBe(true);
+    expect(columnOf("WAITING_FOR_SALES")).toBe("IN_PROGRESS");
+  });
+
+  it("has Revision for a BOQ only, and only after it was completed", () => {
+    expect(allowedTransitions("COMPLETED", "BOQ")).toEqual(["REVISION"]);
+    expect(allowedTransitions("COMPLETED", "RFQ")).toEqual(["IN_PROGRESS"]); // an RFQ or PO is reopened, with a reason
+    expect(allowedTransitions("COMPLETED", "PO")).toEqual(["IN_PROGRESS"]);
+    expect(allowedTransitions("REVISION", "BOQ")).toEqual(["COMPLETED", "CANCELLED"]);
+    for (const from of ["SUBMITTED", "IN_PROGRESS"] as const) expect(canTransition(from, "REVISION", "BOQ")).toBe(false);
+    for (const type of ["RFQ", "PO"] as const) expect(canTransition("COMPLETED", "REVISION", type)).toBe(false);
   });
 
   it("treats cancelled as terminal and never allows a no-op transition", () => {
-    expect(allowedTransitions("CANCELLED")).toEqual([]);
-    for (const status of REQUEST_STATUSES) expect(canTransition(status, status)).toBe(false);
+    expect(allowedTransitions("CANCELLED", "BOQ")).toEqual([]);
+    for (const status of REQUEST_STATUSES) for (const type of REQUEST_TYPES) expect(canTransition(status, status, type)).toBe(false);
   });
 
-  it("requires a reason to wait, cancel or reopen", () => {
-    expect(reasonRequired("IN_PROGRESS", "WAITING_FOR_SALES")).toBe(true);
+  it("requires a reason to cancel or reopen, not to start, complete or revise", () => {
     expect(reasonRequired("SUBMITTED", "CANCELLED")).toBe(true);
+    expect(reasonRequired("REVISION", "CANCELLED")).toBe(true);
     expect(reasonRequired("COMPLETED", "IN_PROGRESS")).toBe(true);
     expect(reasonRequired("SUBMITTED", "IN_PROGRESS")).toBe(false);
-    expect(reasonRequired("WAITING_FOR_SALES", "IN_PROGRESS")).toBe(false);
     expect(reasonRequired("IN_PROGRESS", "COMPLETED")).toBe(false);
+    expect(reasonRequired("COMPLETED", "REVISION")).toBe(false);
+    expect(reasonRequired("REVISION", "COMPLETED")).toBe(false);
   });
 
-  it("knows which statuses are open", () => {
-    expect(REQUEST_STATUSES.filter(isOpen)).toEqual(["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES"]);
+  it("knows which statuses are open: a revision is open work", () => {
+    expect(REQUEST_STATUSES.filter(isOpen)).toEqual(["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"]);
+  });
+
+  it("shows the board columns of a type: Revision on the BOQ board only", () => {
+    expect(boardColumns("BOQ")).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "REVISION", "CANCELLED"]);
+    expect(boardColumns("RFQ")).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+    expect(boardColumns("PO")).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+    expect(boardColumns(null)).toContain("REVISION");
   });
 
   it("continues the flow BOQ -> RFQ -> PO only from a completed BOQ or RFQ", () => {
@@ -89,6 +117,7 @@ describe("request statuses", () => {
     expect(canHandOver("RFQ", "COMPLETED")).toBe(true);
     expect(canHandOver("BOQ", "IN_PROGRESS")).toBe(false);
     expect(canHandOver("RFQ", "WAITING_FOR_SALES")).toBe(false);
+    expect(canHandOver("BOQ", "REVISION")).toBe(false); // continue once the revision is completed
     expect(canHandOver("PO", "COMPLETED")).toBe(false);
     expect([nextRequestType("BOQ"), nextRequestType("RFQ"), nextRequestType("PO")]).toEqual(["RFQ", "PO", null]);
   });
@@ -240,7 +269,10 @@ describe("SLA", () => {
     const result = slaOf({ ...base, status: "IN_PROGRESS", history, now: at("2026-10-20T05:00:00Z") });
     expect(result.dueAt.toISOString()).toBe("2026-10-20T09:00:00.000Z");
     expect(result.state).toBe("due_soon");
-    expect(slaOf({ ...base, status: "WAITING_FOR_SALES", now: at("2026-10-25T00:00:00Z") }).state).toBe("paused");
+    expect(slaOf({ ...base, status: "WAITING_FOR_SALES", now: at("2026-10-25T00:00:00Z") }).state).toBe("paused"); // older requests only
+    // A BOQ in Revision keeps the result of its first completion: it is not counted late for the time the revision takes.
+    const completedAt = at("2026-10-20T01:00:00Z");
+    expect(slaOf({ ...base, status: "REVISION", completedAt, now: at("2026-11-30T00:00:00Z") }).state).toBe("met");
   });
 
   it("is met or late once completed, and has no state when cancelled", () => {
@@ -264,7 +296,7 @@ describe("SLA", () => {
 });
 
 describe("flowSteps", () => {
-  const req = (code: string, type: "BOQ" | "RFQ" | "PO", status: "SUBMITTED" | "IN_PROGRESS" | "WAITING_FOR_SALES" | "COMPLETED" | "CANCELLED", flowStopped = false) => ({ code, type, status, flowStopped });
+  const req = (code: string, type: "BOQ" | "RFQ" | "PO", status: "SUBMITTED" | "IN_PROGRESS" | "WAITING_FOR_SALES" | "COMPLETED" | "REVISION" | "CANCELLED", flowStopped = false) => ({ code, type, status, flowStopped });
   const states = (requests: Parameters<typeof flowSteps>[0]) => flowSteps(requests).map((step) => step.state);
 
   it("starts with nothing done", () => {
@@ -274,6 +306,7 @@ describe("flowSteps", () => {
   it("follows BOQ -> RFQ -> PO", () => {
     expect(states([req("B", "BOQ", "IN_PROGRESS")])).toEqual(["open", "not_started", "not_started"]);
     expect(states([req("B", "BOQ", "WAITING_FOR_SALES")])).toEqual(["waiting", "not_started", "not_started"]);
+    expect(states([req("B", "BOQ", "REVISION")])).toEqual(["open", "not_started", "not_started"]); // a BOQ being revised is open work again
     expect(states([req("B", "BOQ", "COMPLETED"), req("R", "RFQ", "SUBMITTED")])).toEqual(["done", "open", "not_started"]);
     expect(states([req("B", "BOQ", "COMPLETED"), req("R", "RFQ", "COMPLETED"), req("P", "PO", "COMPLETED")])).toEqual(["done", "done", "done"]);
   });

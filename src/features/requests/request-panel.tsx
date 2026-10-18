@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { canContinueFlow, canSeeEmail, canWorkOn } from "@/domain/requests/access";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatSlaRange, slaOf } from "@/domain/requests/sla";
-import { allowedTransitions, canHandOver, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, isOpen, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
 import type { Role } from "@/domain/access/roles";
 import { formatUtc } from "@/features/dashboards/format";
@@ -16,7 +16,7 @@ import type { RequestDetail } from "@/server/requests/queries";
 import { getTeamSetting } from "@/server/settings/team-settings";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
-import { NextStepForm, PhaseForm, StatusForm, WaitingResponseForm } from "./forms";
+import { NextStepForm, PhaseForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -28,15 +28,11 @@ import { StatusBadge, TypeBadge } from "./status-badges";
  */
 export async function RequestPanel({ request, viewer, inProject = false }: { request: RequestDetail; viewer: { id: string; role: Role }; inProject?: boolean }) {
   const mayWork = canWorkOn(viewer.role, request.type);
-  const transitions = allowedTransitions(request.status);
   const next = nextRequestType(request.type);
   const ownsProject = salesActsOn(request.project, viewer.id);
   const decided = request.handovers.length > 0;
   const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
-  // The Sales owner answers a request that waits for Sales. The team's question is the reason of the last change to that status.
-  const question = request.status === "WAITING_FOR_SALES" ? ([...request.statusHistory].reverse().find((entry) => entry.toStatus === "WAITING_FOR_SALES")?.reason ?? null) : null;
-  const maySalesAnswer = request.status === "WAITING_FOR_SALES" && viewer.role === "SALES" && ownsProject;
-  const mayPhase = mayWork && request.type === "BOQ" && request.status !== "COMPLETED" && request.status !== "CANCELLED";
+  const mayPhase = mayWork && request.type === "BOQ" && isOpen(request.status);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
@@ -119,32 +115,14 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
         </CardContent>
       </Card>
 
-      {maySalesAnswer ? (
-        <Card className="border-warning">
-          <CardHeader>
-            <CardTitle className="text-base">
-              <h3>The team is waiting for your answer</h3>
-            </CardTitle>
-            <CardDescription>{question ? `They asked: ${question}` : "They need more information from Sales."}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <WaitingResponseForm requestId={request.id} />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {mayWork && transitions.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              <h3>Update status</h3>
-            </CardTitle>
-            <CardDescription>Currently {REQUEST_STATUS_LABELS[request.status]}. Every change is recorded with who made it and when.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StatusForm requestId={request.id} from={request.status} options={transitions} />
-          </CardContent>
-        </Card>
+      {mayWork && allowedTransitions(request.status, request.type).length > 0 ? (
+        <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          Status is {REQUEST_STATUS_LABELS[request.status]}. It is changed by dragging this request&apos;s card on the{" "}
+          <Link href={`/requests/${request.type.toLowerCase()}?view=board`} className="underline underline-offset-4">
+            {request.type} board
+          </Link>
+          . Questions to Sales and revision details go by email, which keeps the history.
+        </p>
       ) : null}
 
       {mayPhase ? (

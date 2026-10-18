@@ -52,7 +52,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
         <StatTile label="Backlog" value={metrics.backlog} href={to("status=SUBMITTED")} note="Submitted, nobody has started" />
         <StatTile label="Overdue" value={metrics.overdue} href={to("sla=overdue")} note="Past the SLA deadline" />
         <StatTile label="Due now" value={metrics.dueNow} href={to("sla=due_soon")} note="Between the expected date and the deadline" />
-        <StatTile label="Waiting for Sales" value={metrics.waitingForSales} href={to("status=WAITING_FOR_SALES")} note="SLA clock paused" />
+        {team === "SOA" ? <StatTile label="In revision" value={metrics.revision} href={to("status=REVISION")} note="Completed BOQs being revised" /> : null}
         <StatTile label="Past needed-by date" value={metrics.pastNeededBy} href={to("deadline=past")} note="Open, and the date asked for has passed" />
         <StatTile label={`Needed in ${UPCOMING_DAYS} days`} value={metrics.upcomingDeadlines} href={to("deadline=soon")} note="Open, needed by today or soon" />
         {team === "SOA" ? (
@@ -69,8 +69,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
           note={measured === 0 ? `No ${copy.noun} completed in the last ${METRICS_WINDOW_DAYS} days` : `${metrics.slaMet} of ${measured} completed in the last ${METRICS_WINDOW_DAYS} days met the deadline`}
         />
         <StatTile label={team === "PURCHASING" ? "Quotation turnaround" : "Turnaround"} value={formatDuration(metrics.avgTurnaroundHours)} note={`Created to completed, average of ${metrics.completedInWindow} in ${METRICS_WINDOW_DAYS} days`} />
-        <StatTile label="Waiting time" value={formatDuration(metrics.avgWaitingHours)} note="Average time spent waiting for Sales" />
-        <StatTile label="Processing time" value={formatDuration(metrics.avgProcessingHours)} note={`Turnaround minus queue (${formatDuration(metrics.avgQueueHours)}) and waiting`} />
+        <StatTile label="Processing time" value={formatDuration(metrics.avgProcessingHours)} note={`Turnaround minus the time in the queue (${formatDuration(metrics.avgQueueHours)})`} />
       </section>
       {team === "PURCHASING" && otherOpen !== null ? (
         <p className="mb-6 text-sm text-muted-foreground">

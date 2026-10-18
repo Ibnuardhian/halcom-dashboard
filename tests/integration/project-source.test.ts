@@ -188,15 +188,13 @@ describe("the SOA workflow for a project from another source", () => {
     await expect(createRequest(db, as(soa, "SOA"), { projectId: internal.value.id, type: "BOQ", title: "t" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
-  it("lets any salesperson act on a project whose sales is Other: commercial details, answering, and the next step", async () => {
+  it("lets any salesperson act on a project whose sales is Other: commercial details and the next step", async () => {
     const [soa, sales, other] = await Promise.all([makeUser("SOA"), makeUser("SALES"), makeUser("SALES")]);
     const project = await otherProject(sales);
     const boq = await createRequest(db, as(sales, "SALES"), { projectId: project.id, type: "BOQ", title: "BOQ" });
     if (!boq.ok) throw new Error(boq.message);
 
     await expect(updateCommercialDetails(db, as(other, "SALES"), { projectId: project.id, values: { estimatedValue: "5000" } })).resolves.toMatchObject({ ok: true });
-    await changeRequestStatus(db, as(soa, "SOA"), { requestId: boq.value.id, to: "WAITING_FOR_SALES", reason: "Which brand?" });
-    await expect(changeRequestStatus(db, as(other, "SALES"), { requestId: boq.value.id, to: "IN_PROGRESS", reason: "Hikvision" })).resolves.toMatchObject({ ok: true });
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: boq.value.id, to: "COMPLETED" });
     await expect(handOverToPurchasing(db, as(other, "SALES"), { sourceId: boq.value.id, targetType: "RFQ" })).resolves.toMatchObject({ ok: true });
   });

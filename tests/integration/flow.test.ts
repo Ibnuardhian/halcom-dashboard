@@ -119,43 +119,90 @@ describe("a PO follows an RFQ", () => {
   });
 });
 
-describe("a request that waits for Sales", () => {
-  async function waiting() {
+describe("Waiting for Sales is retired", () => {
+  async function started() {
     const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
     const project = await makeProject(sales);
     const created = await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "needs input" });
     if (!created.ok) throw new Error(created.message);
     await changeRequestStatus(db, soa, { requestId: created.value.id, to: "IN_PROGRESS" });
-    await changeRequestStatus(db, soa, { requestId: created.value.id, to: "WAITING_FOR_SALES", reason: "Which cameras?" });
     return { sales, soa, id: created.value.id, code: created.value.code };
   }
 
-  it("lets the Sales owner answer, which puts it back In progress, records the answer and tells the team", async () => {
-    const { sales, soa, id, code } = await waiting();
+  it("cannot be chosen any more: nobody moves a request into it, from any status", async () => {
+    const { soa, id } = await started();
 
-    expect(await changeRequestStatus(db, sales, { requestId: id, to: "IN_PROGRESS" })).toMatchObject({ ok: false, code: "INVALID_INPUT" }); // the answer is required
-    expect(await changeRequestStatus(db, sales, { requestId: id, to: "IN_PROGRESS", reason: "Hikvision DS-2CD, 40 pcs" })).toMatchObject({ ok: true, value: { status: "IN_PROGRESS" } });
-
-    const history = await db.requestStatusHistory.findMany({ where: { requestId: id }, orderBy: { changedAt: "asc" } });
-    expect(history.at(-1)).toMatchObject({ fromStatus: "WAITING_FOR_SALES", toStatus: "IN_PROGRESS", changedById: sales.id, reason: "Hikvision DS-2CD, 40 pcs" });
-    await expect(db.notification.count({ where: { recipientId: soa.id, title: `${code}: Sales answered` } })).resolves.toBe(1);
+    expect(await changeRequestStatus(db, soa, { requestId: id, to: "WAITING_FOR_SALES", reason: "Which cameras?" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    await expect(db.request.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({ status: "IN_PROGRESS" });
   });
 
-  it("lets the Sales owner cancel it with a reason, and nothing else", async () => {
-    const { sales, id } = await waiting();
+  it("no longer lets Sales change a status: the team that works on the request moves it", async () => {
+    const { sales, id } = await started();
+    // An older request that still has the retired status.
+    await db.request.update({ where: { id }, data: { status: "WAITING_FOR_SALES" } });
 
-    expect(await changeRequestStatus(db, sales, { requestId: id, to: "COMPLETED", reason: "x" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
-    expect(await changeRequestStatus(db, sales, { requestId: id, to: "CANCELLED", reason: "No longer needed" })).toMatchObject({ ok: true, value: { status: "CANCELLED" } });
-  });
-
-  it("is refused for another salesperson, and for the owner once the request is not waiting", async () => {
-    const { sales, soa, id } = await waiting();
-    const other = await actorOf("SALES");
-
-    expect(await changeRequestStatus(db, other, { requestId: id, to: "IN_PROGRESS", reason: "hi" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
-    await changeRequestStatus(db, sales, { requestId: id, to: "IN_PROGRESS", reason: "answer" });
+    expect(await changeRequestStatus(db, sales, { requestId: id, to: "IN_PROGRESS", reason: "Hikvision" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
     expect(await changeRequestStatus(db, sales, { requestId: id, to: "CANCELLED", reason: "late" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
-    expect(await changeRequestStatus(db, soa, { requestId: id, to: "COMPLETED" })).toMatchObject({ ok: true });
+    await expect(db.request.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({ status: "WAITING_FOR_SALES" });
+  });
+
+  it("lets SOA move an older waiting request on (In progress, Completed or Cancelled), keeping its history", async () => {
+    const { soa, id } = await started();
+    await db.request.update({ where: { id }, data: { status: "WAITING_FOR_SALES" } });
+
+    expect(await changeRequestStatus(db, soa, { requestId: id, to: "IN_PROGRESS" })).toMatchObject({ ok: true, value: { status: "IN_PROGRESS" } });
+    const history = await db.requestStatusHistory.findMany({ where: { requestId: id }, orderBy: { changedAt: "asc" } });
+    expect(history.at(-1)).toMatchObject({ fromStatus: "WAITING_FOR_SALES", toStatus: "IN_PROGRESS", reason: null });
+  });
+});
+
+describe("Revision of a completed BOQ", () => {
+  it("moves a completed BOQ to Revision without a reason, keeps the first completion, and completes it again", async () => {
+    const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
+    const project = await makeProject(sales);
+    const boq = await completedRequest(sales, soa, project.id, "BOQ");
+    const first = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
+    expect(first.completedAt).toBeInstanceOf(Date);
+
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" })).toMatchObject({ ok: true, value: { status: "REVISION" } });
+    const revising = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
+    expect(revising).toMatchObject({ status: "REVISION" });
+    expect(revising.completedAt?.getTime()).toBe(first.completedAt?.getTime());
+
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "COMPLETED" })).toMatchObject({ ok: true });
+    const again = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
+    expect(again).toMatchObject({ status: "COMPLETED" });
+    expect(again.completedAt?.getTime()).toBe(first.completedAt?.getTime()); // a revision does not make the SLA late
+    const history = await db.requestStatusHistory.findMany({ where: { requestId: boq.id }, orderBy: { changedAt: "asc" } });
+    expect(history.slice(-2).map((row) => [row.fromStatus, row.toStatus])).toEqual([["COMPLETED", "REVISION"], ["REVISION", "COMPLETED"]]);
+  });
+
+  it("exists for a BOQ only, only after completion, and a BOQ in revision cannot be continued yet", async () => {
+    const [sales, soa, purchasing] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("PURCHASING")]);
+    const project = await makeProject(sales);
+    const fresh = await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "fresh" });
+    const rfq = await completedRequest(sales, purchasing, project.id, "RFQ");
+    const boq = await completedRequest(sales, soa, project.id, "BOQ");
+    if (!fresh.ok) throw new Error(fresh.message);
+
+    expect(await changeRequestStatus(db, soa, { requestId: fresh.value.id, to: "REVISION" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect(await changeRequestStatus(db, purchasing, { requestId: rfq.id, to: "REVISION" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
+    expect(await handOverToPurchasing(db, sales, { sourceId: boq.id, targetType: "RFQ" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    // Only SOA (and admins) revise a BOQ.
+    expect(await changeRequestStatus(db, sales, { requestId: boq.id, to: "COMPLETED" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(await changeRequestStatus(db, purchasing, { requestId: boq.id, to: "COMPLETED" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+  });
+
+  it("a revision needs a reason only to be cancelled, and the SOA phase can still be set while revising", async () => {
+    const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
+    const project = await makeProject(sales);
+    const boq = await completedRequest(sales, soa, project.id, "BOQ");
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
+
+    expect(await setRequestPhase(db, soa, { requestId: boq.id, phase: "SIZING" })).toMatchObject({ ok: true });
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED", reason: "Customer dropped the project" })).toMatchObject({ ok: true });
   });
 });
 
@@ -174,16 +221,16 @@ describe("less manual status work", () => {
     expect(history[0]).toMatchObject({ fromStatus: null, toStatus: "IN_PROGRESS" });
   });
 
-  it("a new request can be completed, or put to Sales, without a manual In progress step; whoever acts first owns it", async () => {
+  it("a new request can be completed without a manual In progress step; whoever acts first owns it", async () => {
     const [sales, soa, purchasing] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("PURCHASING")]);
     const project = await makeProject(sales);
-    const boq = await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "straight to waiting" });
+    const boq = await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "straight to done" });
     const rfq = await createRequest(db, sales, { projectId: project.id, type: "RFQ", title: "straight to done" });
     if (!boq.ok || !rfq.ok) throw new Error("setup");
 
-    expect(await changeRequestStatus(db, soa, { requestId: boq.value.id, to: "WAITING_FOR_SALES", reason: "Which brand?" })).toMatchObject({ ok: true });
+    expect(await changeRequestStatus(db, soa, { requestId: boq.value.id, to: "COMPLETED" })).toMatchObject({ ok: true });
     expect(await changeRequestStatus(db, purchasing, { requestId: rfq.value.id, to: "COMPLETED" })).toMatchObject({ ok: true });
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "WAITING_FOR_SALES", assigneeId: soa.id });
+    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", assigneeId: soa.id });
     await expect(db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", assigneeId: purchasing.id });
   });
 

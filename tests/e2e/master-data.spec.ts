@@ -204,6 +204,9 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     const purchasing = await inNewContext(browser, "PURCHASING");
     await purchasing.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "RFQ Requests" }).click();
     await expect(purchasing).toHaveURL(/\/requests\/rfq$/);
+    // Purchasing open the RFQ list as the board, where statuses are changed; the table is one click away.
+    await expect(purchasing.getByRole("group", { name: "Request board" })).toBeVisible();
+    await purchasing.getByRole("navigation", { name: "View" }).getByRole("link", { name: "List" }).click();
     for (const column of ["Request ID", "Project", "Requester", "Principal / Solution", "Item details", "Status", "SLA", "PIC"]) {
       await expect(purchasing.getByRole("columnheader", { name: new RegExp(column) })).toBeVisible();
     }
@@ -221,14 +224,14 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     await expect(purchasing.getByText(`48 port switches for ${id}`)).toBeVisible();
 
     // A narrower search shows one row; a search that matches nothing says so.
-    await purchasing.goto(`/requests/rfq?q=Bravo+${id}`);
+    await purchasing.goto(`/requests/rfq?view=list&q=Bravo+${id}`);
     await expect(purchasing.getByRole("link", { name: bravoRfq })).toBeVisible();
     await expect(purchasing.getByRole("link", { name: alphaRfq })).toHaveCount(0);
-    await purchasing.goto(`/requests/rfq?q=nothing-${id}`);
+    await purchasing.goto(`/requests/rfq?view=list&q=nothing-${id}`);
     await expect(purchasing.getByText("No requests match this search or filter.")).toBeVisible();
 
     // Sorting by project reverses with a second click, and the choice lives in the URL.
-    await purchasing.goto(`/requests/rfq?q=${id}`);
+    await purchasing.goto(`/requests/rfq?view=list&q=${id}`);
     await purchasing.getByRole("link", { name: "Project", exact: true }).click();
     await expect(purchasing).toHaveURL(/sort=project&dir=asc/);
     await expect(purchasing.getByRole("columnheader", { name: /Project/ })).toHaveAttribute("aria-sort", "ascending");
@@ -237,7 +240,7 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     await expect(purchasing.getByRole("columnheader", { name: /Project/ })).toHaveAttribute("aria-sort", "descending");
 
     // The open-requests filter keeps working next to the search.
-    await purchasing.goto(`/requests/rfq?q=${id}&status=open`);
+    await purchasing.goto(`/requests/rfq?view=list&q=${id}&status=open`);
     await expect(purchasing.getByRole("link", { name: alphaRfq })).toBeVisible();
     await purchasing.getByRole("link", { name: "Completed", exact: true }).click();
     await expect(purchasing).toHaveURL(/status=COMPLETED/);

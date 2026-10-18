@@ -39,6 +39,29 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
   return page.url().split("/").pop()!;
 }
 
+/**
+ * Drags a request's card to a column of its board: the only place SOA and Purchasing change a status. The page is searched for the
+ * request code so its card is on the board whatever else is there. A cancellation (or reopening) asks for a reason first.
+ */
+async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, column: string, reason?: string): Promise<void> {
+  await page.goto(`/requests/${type.toLowerCase()}?view=board&q=${code}`);
+  const card = page.locator(`[data-request="${code}"]`);
+  await expect(card).toBeVisible();
+  const target = page.locator(`[data-column="${column}"]`);
+  // A drag before the page is interactive does nothing, so the whole step is retried.
+  await expect(async () => {
+    await card.dragTo(target);
+    if (reason !== undefined) {
+      await page.getByRole("dialog").getByLabel("Reason").fill(reason, { timeout: 3000 });
+      await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Reopen request)$/ }).click({ timeout: 3000 });
+    }
+    await expect(target.locator(`[data-request="${code}"]`)).toBeVisible({ timeout: 4000 });
+  }).toPass({ timeout: 45_000 });
+  // It stays there after a reload: the move was saved, not only shown.
+  await page.reload();
+  await expect(page.locator(`[data-column="${column}"] [data-request="${code}"]`)).toBeVisible();
+}
+
 async function asRole(browser: Browser, role: Parameters<typeof signIn>[1]): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -150,7 +173,7 @@ test.describe("projects and requests", () => {
     await soa.goto(requestUrl);
     await expect(soa.getByRole("heading", { level: 1, name: /^RFQ-SA-/ })).toBeVisible();
     await expect(soa.getByRole("heading", { name: /Email text/ })).toHaveCount(0);
-    await expect(soa.getByRole("button", { name: "Update status" })).toHaveCount(0);
+    await expect(soa.getByText(/dragging this request/)).toHaveCount(0); // SOA do not work on an RFQ: no board hint
     await soa.context().close();
   });
 
@@ -483,15 +506,10 @@ test.describe("projects and requests", () => {
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/request/${boq}`);
     await expect(soa.getByRole("button", { name: "Continue to RFQ" })).toHaveCount(0); // not completed yet
-    await soa.getByLabel("Change status to").selectOption("In progress");
-    await soa.getByRole("button", { name: "Update status" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible();
-    await soa.reload();
-    await soa.getByLabel("Change status to").selectOption("Completed");
-    await soa.getByRole("button", { name: "Update status" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible();
+    await moveCard(soa, "BOQ", boq, "IN_PROGRESS");
+    await moveCard(soa, "BOQ", boq, "COMPLETED");
 
-    await soa.reload();
+    await soa.goto(`/request/${boq}`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
     await expect(soa).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/);
     const rfq = soa.url().split("/").pop()!;
@@ -512,55 +530,33 @@ test.describe("projects and requests", () => {
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/request/${rfq}`);
     // A handed-over request arrives In progress by itself: the team only has to complete it.
-    await expect(purchasing.getByText("Currently In progress.")).toBeVisible();
-    await purchasing.getByLabel("Change status to").selectOption("Completed");
-    await purchasing.getByRole("button", { name: "Update status" }).click();
-    await expect(purchasing.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible();
+    await expect(purchasing.getByText("Status is In progress.")).toBeVisible();
+    await moveCard(purchasing, "RFQ", rfq, "COMPLETED");
+    await purchasing.goto(`/request/${rfq}`);
     await expect(purchasing.getByLabel("Subject", { exact: true })).toHaveCount(0); // Purchasing does not send these emails
 
     const finance = await asRole(browser, "FINANCE");
     await finance.goto(`/request/${rfq}`);
     await expect(finance.getByRole("heading", { level: 1, name: rfq })).toBeVisible();
-    await expect(finance.getByRole("button", { name: "Update status" })).toHaveCount(0);
+    await expect(finance.getByText(/dragging this request/)).toHaveCount(0); // Finance only reads
     await expect(finance.getByLabel("Subject", { exact: true })).toHaveCount(0);
     await soa.context().close();
     await purchasing.context().close();
     await finance.context().close();
   });
 
-  test("Sales answer a request that waits for them and decide the next step of BOQ, RFQ and PO", async ({ page, browser }) => {
+  test("Sales decide the next step of a completed BOQ and RFQ, and can change their mind", async ({ page, browser }) => {
     test.setTimeout(180_000); // two signed-in users and several cold page compiles
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Flow demo");
     const boq = await createRequest(page, projectCode, "BOQ", "BOQ for the flow");
 
+    // SOA completes it on the board; there is no Waiting for Sales column any more.
     const soa = await asRole(browser, "SOA");
-    const setStatus = async (to: string, reason?: string) => {
-      await soa.goto(`/request/${boq}`);
-      await expect(async () => {
-        await soa.getByLabel("Change status to").selectOption(to);
-        if (reason) await soa.getByLabel(/^Reason/).fill(reason);
-        await soa.getByRole("button", { name: "Update status" }).click();
-        await expect(soa.getByRole("status").filter({ hasText: "Status updated." })).toBeVisible({ timeout: 2500 });
-      }).toPass({ timeout: 40_000 });
-    };
-    await setStatus("In progress");
-    await setStatus("Waiting for Sales", "Which camera brand?");
-
-    // Sales see the question and answer it, which puts the request back In progress.
-    await page.goto(`/request/${boq}`);
-    await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toBeVisible();
-    await expect(page.getByText("They asked: Which camera brand?")).toBeVisible();
-    await expect(async () => {
-      await page.getByLabel("Your answer *").fill("Hikvision, 40 pieces");
-      await page.getByRole("button", { name: "Send answer and continue" }).click();
-      // The request is In progress again, so the answer form (and its message) goes away.
-      await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toHaveCount(0, { timeout: 6000 });
-    }).toPass({ timeout: 40_000 });
-    await page.reload();
-    await expect(page.getByRole("heading", { name: "The team is waiting for your answer" })).toHaveCount(0);
-
-    await setStatus("Completed");
+    await soa.goto(`/requests/boq?view=board&q=${boq}`);
+    await expect(soa.locator('[data-column="WAITING_FOR_SALES"]')).toHaveCount(0);
+    await moveCard(soa, "BOQ", boq, "IN_PROGRESS");
+    await moveCard(soa, "BOQ", boq, "COMPLETED");
 
     // The BOQ is done: Sales decide whether it continues to an RFQ. They say no, and the project's flow shows it.
     await page.goto(`/request/${boq}`);
@@ -581,30 +577,80 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("Not continuing – decided by")).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
-      await expect(page).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/, { timeout: 4000 });
+      await expect(page).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
     }).toPass({ timeout: 40_000 });
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQDone");
     await soa.context().close();
   });
 
-  test("a status change that needs a reason cannot be saved without one", async ({ page, browser }) => {
+  test("SOA revise a completed BOQ on the board; an RFQ has no Revision column", async ({ page, browser }) => {
+    test.setTimeout(180_000);
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Revision demo");
+    const boq = await createRequest(page, projectCode, "BOQ", "BOQ to revise");
+    const rfq = await createRequest(page, projectCode, "RFQ", "RFQ without revision");
+
+    const soa = await asRole(browser, "SOA");
+    // Revision exists only after Completed: a fresh card cannot be dropped on it, a completed one can.
+    await moveCard(soa, "BOQ", boq, "COMPLETED");
+    await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
+    await expect(soa.getByRole("dialog")).toHaveCount(0);
+    await soa.goto(`/request/${boq}`);
+    await expect(soa.getByText("Status is Revision.")).toBeVisible();
+    await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
+    await moveCard(soa, "BOQ", boq, "COMPLETED");
+    await soa.goto(`/request/${boq}`);
+    await soa.getByText(/^Status history/).click();
+    await expect(soa.getByRole("table").getByRole("cell", { name: "Revision" }).first()).toBeVisible();
+
+    const purchasing = await asRole(browser, "PURCHASING");
+    await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);
+    await expect(purchasing.locator(`[data-request="${rfq}"]`)).toBeVisible();
+    await expect(purchasing.locator('[data-column="REVISION"]')).toHaveCount(0);
+    await expect(purchasing.locator('[data-column="SUBMITTED"]')).toBeVisible();
+    await soa.context().close();
+    await purchasing.context().close();
+  });
+
+  test("cancelling a card on the board asks for a reason, which the history keeps", async ({ page, browser }) => {
+    test.setTimeout(120_000);
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Reason demo");
     const boq = await createRequest(page, projectCode, "BOQ", "BOQ needing a reason");
 
     const soa = await asRole(browser, "SOA");
+    await soa.goto(`/requests/boq?view=board&q=${boq}`);
+    const card = soa.locator(`[data-request="${boq}"]`);
+    await expect(card).toBeVisible();
+    await expect(async () => {
+      await card.dragTo(soa.locator('[data-column="CANCELLED"]'));
+      await expect(soa.getByRole("dialog", { name: `Cancel ${boq}?` })).toBeVisible({ timeout: 3000 });
+    }).toPass({ timeout: 40_000 });
+    // It cannot be confirmed without a reason, and keeping it as it is leaves the card where it was.
+    await expect(soa.getByRole("button", { name: "Cancel request" })).toBeDisabled();
+    await soa.getByRole("button", { name: "Keep it as it is" }).click();
+    await expect(soa.locator(`[data-column="SUBMITTED"] [data-request="${boq}"]`)).toBeVisible();
+
+    await moveCard(soa, "BOQ", boq, "CANCELLED", "Customer cancelled the tender");
     await soa.goto(`/request/${boq}`);
-    await soa.getByLabel("Change status to").selectOption("Cancelled");
-    await expect(soa.getByLabel("Reason *")).toBeVisible();
-    await soa.getByLabel("Reason *").fill("Customer cancelled the tender");
-    await soa.getByRole("button", { name: "Update status" }).click();
-    // Cancelled is final, so the status form disappears once the change is saved.
-    await expect(soa.getByRole("button", { name: "Update status" })).toHaveCount(0);
-    await soa.reload();
     await soa.getByText(/^Status history/).click(); // the history is collapsed at the end of the page
     await expect(soa.getByRole("cell", { name: "Customer cancelled the tender" })).toBeVisible();
+    // Cancelled is final: the card cannot be dragged on.
+    await soa.goto(`/requests/boq?view=board&q=${boq}`);
+    await expect(soa.locator(`[data-column="CANCELLED"] [data-request="${boq}"]`)).toHaveAttribute("draggable", "false");
     await soa.context().close();
+  });
+
+  test("Finance sees the board but cannot drag a card", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Read only board");
+    const boq = await createRequest(page, projectCode, "BOQ", "BOQ on a read-only board");
+
+    const finance = await asRole(browser, "FINANCE");
+    await finance.goto(`/requests/boq?view=board&q=${boq}`);
+    await expect(finance.locator(`[data-request="${boq}"]`)).toHaveAttribute("draggable", "false");
+    await finance.context().close();
   });
 
   test("lists filter by type and status, and the overview counts link to them", async ({ page }) => {
