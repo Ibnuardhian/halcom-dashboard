@@ -104,7 +104,7 @@ describe("handing a request to a PIC", () => {
       [ibnu.name, null],
     ]);
     expect(history.every((row) => row.changedByName === soa.name)).toBe(true);
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ picId: null, assigneeId: null }); // the login account is not the assignee
+    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ picId: null }); // the login account is not the assignee
     await expect(db.auditEvent.count({ where: { action: "request.pic_assigned", entityId: boq.id } })).resolves.toBe(3);
   });
 
@@ -150,7 +150,7 @@ describe("handing a request to a PIC", () => {
     const moved = await changeRequestStatus(db, actor(soa), { requestId: boq.id, to: "IN_PROGRESS" });
 
     expect(moved.ok).toBe(true);
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ status: "IN_PROGRESS", assigneeId: null, picId: null });
+    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ status: "IN_PROGRESS", picId: null });
   });
 });
 

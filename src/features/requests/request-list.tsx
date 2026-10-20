@@ -40,11 +40,12 @@ export function listParamsFrom(searchParams: Record<string, string | string[] | 
     deadline: one("deadline"),
     mine: one("mine"),
     view: one("view"),
+    types: one("types"),
   };
 }
 
 /** `assignee`, `sla`, `deadline` and `mine` are the drill-downs the dashboards link to; `view=board` shows the rows as a board. */
-export type ListParams = { status?: string; q?: string; sort?: string; dir?: string; page?: string; assignee?: string; sla?: string; deadline?: string; mine?: string; view?: string };
+export type ListParams = { status?: string; q?: string; sort?: string; dir?: string; page?: string; assignee?: string; sla?: string; deadline?: string; mine?: string; view?: string; types?: string };
 
 const SLA_FILTERS = ["overdue", "due_soon"] as const satisfies readonly SlaState[];
 const DEADLINE_FILTERS = ["past", "soon"] as const;
@@ -71,6 +72,9 @@ export async function RequestList({
   title?: string;
 }) {
   const filter = parseStatusFilter(params.status);
+  // `types=RFQ,PO` narrows the all-types list to some types (the Purchasing dashboard counts RFQ and PO together).
+  const types = type ? undefined : REQUEST_TYPES.filter((t) => (params.types ?? "").split(",").includes(t));
+  const typeFilter = types && types.length > 0 ? types : undefined;
   const q = params.q?.trim().slice(0, 100) || undefined;
   const sort: RequestSort = REQUEST_SORTS.find((s) => s === params.sort) ?? "created";
   const defaultDir = (column: RequestSort) => (column === "created" ? "desc" : "asc");
@@ -85,6 +89,7 @@ export async function RequestList({
   const board = viewParam ? viewParam === "board" : type !== undefined && canWorkOn(viewer.role, type);
   const result = await searchRequests(getDb(), viewer, {
     type,
+    types: typeFilter,
     status: filter.kind === "status" ? filter.status : undefined,
     openOnly: filter.kind === "open" || Boolean(slaState || deadline),
     assignee,
@@ -102,6 +107,7 @@ export async function RequestList({
   /** A link to this list with some parts changed; `null` clears a part, an omitted part stays as it is. */
   const href = (next: { status?: string | null; q?: string | null; sort?: RequestSort; dir?: "asc" | "desc"; page?: number; view?: "board" | "list" }) => {
     const query = new URLSearchParams();
+    if (typeFilter) query.set("types", typeFilter.join(","));
     if (assignee) query.set("assignee", assignee);
     if (slaState) query.set("sla", slaState);
     if (deadline) query.set("deadline", deadline);
@@ -137,6 +143,7 @@ export async function RequestList({
     slaState ? `SLA: ${SLA_STATE_LABELS[slaState]}` : null,
     deadline ? DEADLINE_LABELS[deadline] : null,
     mine ? "On your projects" : null,
+    typeFilter ? `Types: ${typeFilter.join(", ")}` : null,
   ].filter((text): text is string => text !== null);
 
   return (

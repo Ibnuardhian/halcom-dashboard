@@ -137,10 +137,15 @@ describe("the Purchasing dashboard", () => {
 
     const dashboard = await getTeamDashboard(db, as(purchasing, "PURCHASING"), "PURCHASING");
 
-    const openRfq = await db.request.count({ where: { type: "RFQ", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] }, project: { deletedAt: null } } });
-    const openPo = await db.request.count({ where: { type: "PO", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] }, project: { deletedAt: null } } });
-    await within(async () => openRfq, dashboard.metrics.open);
-    await within(async () => openPo, dashboard.otherOpen ?? -100);
+    // Purchasing counts its RFQ and its PO together (D-036).
+    const open = await db.request.count({ where: { type: { in: ["RFQ", "PO"] }, status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] }, project: { deletedAt: null } } });
+    const total = await db.request.count({ where: { type: { in: ["RFQ", "PO"] }, project: { deletedAt: null } } });
+    const done = await db.request.count({ where: { type: { in: ["RFQ", "PO"] }, status: "COMPLETED", project: { deletedAt: null } } });
+    await within(async () => open, dashboard.metrics.open);
+    await within(async () => total, dashboard.summary.total);
+    await within(async () => done, dashboard.summary.done);
+    expect(dashboard.summary.byStatus.reduce((sum, row) => sum + row.count, 0)).toBe(dashboard.summary.total);
+    expect(dashboard.summary.completionPct).toBeCloseTo((dashboard.summary.done / dashboard.summary.total) * 100, 5);
     expect(dashboard.awaitingHandoff).toBeNull();
     expect(dashboard.metrics.completedInWindow).toBeGreaterThanOrEqual(1);
   });

@@ -26,8 +26,7 @@ export const OBSOLETE_DEV_ACCOUNTS: Readonly<Record<string, string>> = {
   "jihan.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
   "mira.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
   "tim.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
-  "ibnu.ardhiansyah@example.invalid": "Sender of tickets in the RFQ tracker (D-035); the account exists only so history can name them. Inactive, nobody knows its password.",
-  "adityo@example.invalid": "SOA signs in with the shared SOA account; Adityo is now a PIC (an assignee), not a login. Kept because the history refers to this account.",
+  "adityo@example.invalid": "SOA signs in with the shared SOA account; Adityo is a SOA PIC, not a login (D-036). Kept, inactive, because the history and 32 projects refer to this account.",
 };
 
 const cell = (text: string) => text.replaceAll("|", "\\|");

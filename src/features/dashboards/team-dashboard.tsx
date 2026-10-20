@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { BarList } from "@/components/charts/bar-list";
+import { ChartCard } from "@/components/charts/chart-card";
+import { DonutChart } from "@/components/charts/donut-chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDuration, formatPct, METRICS_WINDOW_DAYS, UPCOMING_DAYS } from "@/domain/requests/metrics";
@@ -13,17 +16,18 @@ import { StatTile } from "./stat-tile";
 const COPY = {
   SOA: {
     title: "Technical Dashboard",
-    summary: "The BOQ requests SOA works on: what is open, what is late, who carries the load and where requests wait.",
+    summary: "The BOQ requests SOA works on: how many are done, what is open, what is late, who carries the load and where requests wait.",
     noun: "BOQ",
-    base: `${REQUESTS_PATH}/boq`,
+    base: `${REQUESTS_PATH}/boq?`,
     emptyText: "No BOQ request has been raised yet, so there is nothing to measure.",
   },
   PURCHASING: {
     title: "Purchasing Dashboard",
-    summary: "The RFQ requests Purchasing works on: what is open, what is late, who carries the load and how fast quotations come back.",
-    noun: "RFQ",
-    base: `${REQUESTS_PATH}/rfq`,
-    emptyText: "No RFQ request has been raised yet, so there is nothing to measure.",
+    summary: "The RFQ and PO requests Purchasing works on: how many are done, what is open, what is late, who carries the load and how fast quotations come back.",
+    noun: "RFQ & PO",
+    // One list of both types: the numbers on this page count RFQ and PO together.
+    base: `${REQUESTS_PATH}?types=RFQ,PO&`,
+    emptyText: "No RFQ or PO request has been raised yet, so there is nothing to measure.",
   },
 } as const;
 
@@ -32,9 +36,9 @@ const COPY = {
  * (src/domain/requests/metrics.ts holds the definitions) and links to the filtered list behind it.
  */
 export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; team: "SOA" | "PURCHASING" }) {
-  const { metrics, otherOpen, awaitingHandoff, rfqInProgress } = await getTeamDashboard(getDb(), viewer, team);
+  const { metrics, summary, awaitingHandoff } = await getTeamDashboard(getDb(), viewer, team);
   const copy = COPY[team];
-  const to = (query: string) => `${copy.base}?${query}`;
+  const to = (query: string) => `${copy.base}${query}`;
   const measured = metrics.slaMet + metrics.slaLate;
   const empty = metrics.open === 0 && metrics.completedInWindow === 0 && metrics.workload.length === 0;
 
@@ -47,6 +51,36 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
         </p>
       ) : null}
 
+      <section aria-label={`Total ${copy.noun}`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label={`Total ${copy.noun}`} value={summary.total} href={to("")} note="Every request of the team, open or closed" />
+        <StatTile label="Done" value={summary.done} href={to("status=COMPLETED")} note="Completed" />
+        <StatTile label="Completion rate" value={formatPct(summary.completionPct)} note={`Done over total (${summary.done} of ${summary.total}); cancelled requests count in the total`} />
+        <StatTile label="On going" value={summary.onGoing} href={to("status=IN_PROGRESS")} note="In progress now" />
+      </section>
+
+      <section aria-label="Status and PIC charts" className="mb-6 grid gap-4 lg:grid-cols-2">
+        <ChartCard title={`${copy.noun} by status`} description="Share of the team's requests in each status.">
+          <DonutChart
+            unit="requests"
+            items={summary.byStatus.map((row) => ({ key: row.status, label: REQUEST_STATUS_LABELS[row.status], value: row.count, href: to(`status=${row.status}`) }))}
+          />
+        </ChartCard>
+        <ChartCard title={`${copy.noun} per PIC`} description="Requests handed to each PIC of the team, with how many are done and on going. A PIC with none is listed too.">
+          <BarList
+            items={summary.byPic.map((row) => ({
+              key: row.picId ?? "none",
+              label: row.name,
+              value: row.total,
+              display: String(row.total),
+              note: `${row.done} done · ${row.onGoing} on going`,
+              neutral: row.picId === null,
+              href: to(`assignee=${row.picId ?? "none"}`),
+            }))}
+            allowEmpty
+          />
+        </ChartCard>
+      </section>
+
       <section aria-label={`${copy.noun} requests now`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label={`Open ${copy.noun} requests`} value={metrics.open} href={to("status=open")} note="Not completed or cancelled" />
         <StatTile label="Backlog" value={metrics.backlog} href={to("status=SUBMITTED")} note="Submitted, nobody has started" />
@@ -58,7 +92,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
         {team === "SOA" ? (
           <StatTile label="Awaiting handoff" value={awaitingHandoff ?? 0} href={HANDOFFS_PATH} note="Completed BOQs nobody has continued or stopped" />
         ) : (
-          <StatTile label={`${copy.noun}s in progress`} value={rfqInProgress ?? 0} href={to("status=IN_PROGRESS")} note="With Purchasing, quotation or vendor answer pending (vendor response is not a separate status yet)" />
+          <StatTile label="In progress" value={metrics.inProgress} href={to("status=IN_PROGRESS")} note="With Purchasing, quotation or vendor answer pending (vendor response is not a separate status yet)" />
         )}
       </section>
 
@@ -71,22 +105,13 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
         <StatTile label={team === "PURCHASING" ? "Quotation turnaround" : "Turnaround"} value={formatDuration(metrics.avgTurnaroundHours)} note={`Created to completed, average of ${metrics.completedInWindow} in ${METRICS_WINDOW_DAYS} days`} />
         <StatTile label="Processing time" value={formatDuration(metrics.avgProcessingHours)} note={`Turnaround minus the time in the queue (${formatDuration(metrics.avgQueueHours)})`} />
       </section>
-      {team === "PURCHASING" && otherOpen !== null ? (
-        <p className="mb-6 text-sm text-muted-foreground">
-          {otherOpen} PO request{otherOpen === 1 ? " is" : "s are"} open for Purchasing as well.{" "}
-          <Link href={`${REQUESTS_PATH}/po?status=open`} className="underline underline-offset-4">
-            View PO requests
-          </Link>
-        </p>
-      ) : null}
-
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
               <h2>Workload by assignee</h2>
             </CardTitle>
-            <CardDescription>Open requests per person. A request is assigned to whoever first starts it.</CardDescription>
+            <CardDescription>Open requests per PIC. A PIC is who a request is handed to; the team&apos;s login is shared.</CardDescription>
           </CardHeader>
           <CardContent>
             {metrics.workload.length === 0 ? (

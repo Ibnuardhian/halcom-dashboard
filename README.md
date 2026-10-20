@@ -190,7 +190,7 @@ Take a backup first (Backups page or `pg_dump`).
 
 ### Loading the RFQ tracker
 
-`prisma/data/hit_rfq_tickets_2026-10-20.csv` (git-ignored: customer names and e-mail addresses) is the RFQ ticket sheet. `npm run db:import-rfq` turns each ticket into an RFQ request with its status history, PIC and project (D-035). It reports first with `--dry-run`, runs in one transaction, only adds and skips tickets already loaded, so it is safe to repeat.
+`prisma/data/hit_rfq_tickets_2026-10-20.csv` (git-ignored: customer names and e-mail addresses) is the RFQ ticket sheet. `npm run db:import-rfq` turns each ticket into an RFQ request with its status history (the response date is the move to In progress), PIC and project, and creates the project when it does not exist (D-035, D-036). Tickets from Adityo and Ibnu are raised through the shared SOA login and name them as SOA PICs. `--rebuild` brings tickets loaded earlier up to the current rules (development only, dry run first). It reports first with `--dry-run`, runs in one transaction, only adds and skips tickets already loaded, so it is safe to repeat.
 
 For a **new database**, `npm run db:rfq-sql` writes the same data as one SQL file, `prisma/data/hit_rfq_tickets_import.sql`. Load it after the schema and the development accounts exist:
 

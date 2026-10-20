@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTeamMetrics, deadlineState, formatDuration, formatPct, jakartaDay, summariseRequests, type MetricRequest } from "@/domain/requests/metrics";
+import { computeTeamMetrics, deadlineState, formatDuration, formatPct, jakartaDay, summariseRequests, summariseStatuses, type MetricRequest } from "@/domain/requests/metrics";
 
 // Wednesday 21 October 2026, 12:00 UTC (19:00 in Jakarta).
 const now = new Date("2026-10-21T12:00:00Z");
@@ -160,5 +160,47 @@ describe("formatting", () => {
     expect(formatDuration(24)).toBe("1 day");
     expect(formatPct(null)).toBe("–");
     expect(formatPct(66.6)).toBe("67%");
+  });
+});
+
+describe("summariseStatuses", () => {
+  const request = (code: string, status: MetricRequest["status"], assigneeId: string | null, assigneeName: string | null): MetricRequest => ({
+    code,
+    status,
+    createdAt: new Date("2026-10-01T00:00:00Z"),
+    completedAt: status === "COMPLETED" ? new Date("2026-10-02T00:00:00Z") : null,
+    requiredBy: null,
+    assigneeId,
+    assigneeName,
+    history: [],
+  });
+  const pics = [
+    { id: "gita", name: "Gita", isActive: true },
+    { id: "soraya", name: "Soraya", isActive: true },
+    { id: "old", name: "Old", isActive: false },
+  ];
+
+  it("counts total, done and on going, and the completion rate over the total", () => {
+    const summary = summariseStatuses(
+      [request("a", "COMPLETED", "gita", "Gita"), request("b", "COMPLETED", "gita", "Gita"), request("c", "IN_PROGRESS", "soraya", "Soraya"), request("d", "CANCELLED", null, null)],
+      pics,
+    );
+
+    expect(summary).toMatchObject({ total: 4, done: 2, onGoing: 1 });
+    expect(summary.completionPct).toBe(50);
+    expect(summary.byStatus.find((row) => row.status === "CANCELLED")?.count).toBe(1);
+    expect(summary.byStatus.reduce((sum, row) => sum + row.count, 0)).toBe(4);
+  });
+
+  it("lists every active PIC even with no request, puts unassigned last, and leaves an inactive PIC out unless it has requests", () => {
+    const summary = summariseStatuses([request("a", "COMPLETED", "gita", "Gita"), request("b", "SUBMITTED", null, null)], pics);
+
+    expect(summary.byPic.map((row) => [row.name, row.total, row.done, row.onGoing])).toEqual([["Gita", 1, 1, 0], ["Soraya", 0, 0, 0], ["Unassigned", 1, 0, 0]]);
+    const withOld = summariseStatuses([request("a", "IN_PROGRESS", "old", "Old (inactive)")], pics);
+    expect(withOld.byPic.find((row) => row.picId === "old")).toMatchObject({ name: "Old (inactive)", total: 1, onGoing: 1 });
+  });
+
+  it("has no completion rate without requests", () => {
+    expect(summariseStatuses([], pics)).toMatchObject({ total: 0, completionPct: null });
   });
 });

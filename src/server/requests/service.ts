@@ -373,7 +373,7 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
     await notify(tx, {
       actorId: actor.id,
       // The team that owns the request type is told too: its tickets are handed to PICs, who are not accounts, so the team's accounts are the audience.
-      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(source.assigneeId ? [source.assigneeId] : []), ...(await usersWithRole(tx, OWNING_ROLE[source.type]))],
+      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(await usersWithRole(tx, OWNING_ROLE[source.type]))],
       kind: "request.flow_stopped",
       title: `${source.code}: not continuing to ${next}`,
       body: note,
@@ -421,8 +421,6 @@ export async function changeRequestStatus(
       data: {
         status: to,
         // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
-        // The first answer of the team: the first time the request is taken up or completed. A cancellation is not an answer.
-        respondedAt: request.respondedAt ?? (to === "IN_PROGRESS" || to === "COMPLETED" ? now : null),
         completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
       },
     });

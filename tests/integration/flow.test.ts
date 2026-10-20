@@ -215,7 +215,7 @@ describe("less manual status work", () => {
     const rfq = await handOverToPurchasing(db, sales, { sourceId: boq.id, targetType: "RFQ" });
     if (!rfq.ok) throw new Error(rfq.message);
 
-    await expect(db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).resolves.toMatchObject({ status: "IN_PROGRESS", assigneeId: null });
+    await expect(db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).resolves.toMatchObject({ status: "IN_PROGRESS" });
     const history = await db.requestStatusHistory.findMany({ where: { requestId: rfq.value.id } });
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ fromStatus: null, toStatus: "IN_PROGRESS" });
@@ -230,8 +230,8 @@ describe("less manual status work", () => {
 
     expect(await changeRequestStatus(db, soa, { requestId: boq.value.id, to: "COMPLETED" })).toMatchObject({ ok: true });
     expect(await changeRequestStatus(db, purchasing, { requestId: rfq.value.id, to: "COMPLETED" })).toMatchObject({ ok: true });
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", assigneeId: null, picId: null });
-    await expect(db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", assigneeId: null, picId: null }); // PICs are handed work by hand
+    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", picId: null });
+    await expect(db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", picId: null }); // PICs are handed work by hand
   });
 
   it("setting the SOA phase on a BOQ nobody had touched starts it", async () => {
@@ -242,7 +242,7 @@ describe("less manual status work", () => {
 
     expect(await setRequestPhase(db, soa, { requestId: boq.value.id, phase: "ASSESSMENT" })).toMatchObject({ ok: true });
 
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "IN_PROGRESS", phase: "ASSESSMENT", assigneeId: null });
+    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "IN_PROGRESS", phase: "ASSESSMENT" });
     const history = await db.requestStatusHistory.findMany({ where: { requestId: boq.value.id }, orderBy: { changedAt: "asc" } });
     expect(history.at(-1)).toMatchObject({ fromStatus: "SUBMITTED", toStatus: "IN_PROGRESS", changedById: soa.id });
   });

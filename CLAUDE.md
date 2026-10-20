@@ -15,10 +15,11 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 **State:** branch `wip/single-view-master-data`. The E2E clean-up listed here before is **done**: every spec passes (last full run 127/130; the three that failed were one stale
 locator, fixed, and two sign-in/count flakes under parallel workers that pass alone). Typecheck and lint clean, unit 328/328, integration 317/317, `next build` ok.
 
-**Done in D-035 (see DECISIONS.md):** request code prefix is one letter (two only if the letter is taken; `users.code_prefix`), RFQ tracker CSV imported
-(`npm run db:import-rfq`: 27 requests, 27 projects in the dev DB), one SQL file for a new database (`npm run db:rfq-sql` writes `prisma/data/hit_rfq_tickets_import.sql`, verified identical
-to the importer on an empty DB), three FK indexes, new request columns for the e-mail ids and the first response. Migrations `20261026100000_code_prefix_and_request_email` and
-`20261026110000_code_prefix_max_length` are applied to the dev DB (run `db:migrate:deploy` and `docker compose restart app` on another device).
+**Done in D-035 and D-036 (see DECISIONS.md):** request code prefix is one letter (two only if the letter is taken; `users.code_prefix`); RFQ tracker CSV imported
+(`npm run db:import-rfq`, `--rebuild` for tickets loaded earlier; 27 requests and 27 projects in the dev DB); one SQL file for a new database (`npm run db:rfq-sql`, verified against the importer on an empty DB);
+three FK indexes. D-036 (asked by the product owner): dropped `requests.email_link`, `email_message_id`, `email_conversation_id`, `responded_at` (the response date is an In progress step in the history),
+and the deprecated `projects.stage`, `projects.status`, `requests.assignee_id`; Adityo and Ibnu are SOA PICs (`requests.raised_by_pic_id`, raised through the shared SOA login; their projects name them as Technical PIC (SOA), not as Sales name); the SOA and Purchasing dashboards share a summary with status and per-PIC charts, Purchasing counting RFQ and PO. Migrations through
+`20261027110000_drop_deprecated_columns` are applied to the dev DB (run `db:migrate:deploy` and `docker compose restart app` on another device; back up first: the last two drop data).
 
 **Still open / asked:** deploying to Oracle Cloud Always Free with automatic deploys (no files written yet; the plan was given in chat: Ampere A1 VM, Docker, `compose.prod.yaml`,
 Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8, T-9 (no first-superadmin bootstrap, no login rate limit) still stand, so the app is not ready

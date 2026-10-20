@@ -252,6 +252,26 @@ test.describe("each role sees its own modules", () => {
 });
 
 test.describe("dashboards use the stored requests", () => {
+  test("the Purchasing and SOA dashboards share the same summary: total, done, completion rate, on going, status and per-PIC charts", async ({ browser }) => {
+    test.setTimeout(120_000);
+    for (const [role, path, noun] of [["PURCHASING", "/dashboard/purchasing", "RFQ & PO"], ["SOA", "/dashboard/soa", "BOQ"]] as const) {
+      const page = await asRole(browser, role);
+      await page.goto(path);
+      const summary = page.getByRole("region", { name: `Total ${noun}` });
+      for (const label of [`Total ${noun}`, "Done", "Completion rate", "On going"]) await expect(summary.getByText(label, { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: `${noun} by status` })).toBeVisible();
+      await expect(page.getByRole("heading", { name: `${noun} per PIC` })).toBeVisible();
+      await page.context().close();
+    }
+    // Purchasing counts RFQ and PO together, and its numbers link to a list of both.
+    const purchasing = await asRole(browser, "PURCHASING");
+    await purchasing.goto("/dashboard/purchasing");
+    await purchasing.getByRole("link", { name: /^Total RFQ & PO/ }).click();
+    await expect(purchasing).toHaveURL(/\/requests\?types=RFQ,PO/);
+    await expect(purchasing.getByText("Types: RFQ, PO")).toBeVisible();
+    await purchasing.context().close();
+  });
+
   test("SOA's technical dashboard counts a new BOQ and every number links to the filtered list", async ({ browser }) => {
     test.setTimeout(120_000);
     const sales = await asRole(browser, "SALES");
@@ -297,7 +317,7 @@ test.describe("dashboards use the stored requests", () => {
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto("/dashboard/purchasing");
     await expect(purchasing.getByRole("heading", { level: 1, name: "Purchasing Dashboard" })).toBeVisible();
-    await expect(purchasing.getByRole("link", { name: /^Open RFQ requests/ })).toBeVisible();
+    await expect(purchasing.getByRole("link", { name: /^Open RFQ & PO requests/ })).toBeVisible();
     await expect(purchasing.getByText("SLA compliance")).toBeVisible();
     await expect(purchasing.getByRole("heading", { name: "Workload by assignee" })).toBeVisible();
 

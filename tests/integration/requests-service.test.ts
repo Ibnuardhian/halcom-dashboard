@@ -164,7 +164,7 @@ describe("createRequest", () => {
     const request = await makeRequest(sales, project.id, "BOQ", { description: "Details", requiredBy: "2026-11-05" });
 
     const stored = await db.request.findUniqueOrThrow({ where: { id: request.id }, include: { statusHistory: true } });
-    expect(stored).toMatchObject({ status: "SUBMITTED", assigneeId: null, requesterId: sales.id, projectId: project.id, sourceRequestId: null });
+    expect(stored).toMatchObject({ status: "SUBMITTED", requesterId: sales.id, projectId: project.id, sourceRequestId: null });
     expect(stored.requiredBy?.toISOString().slice(0, 10)).toBe("2026-11-05");
     expect(stored.statusHistory).toHaveLength(1);
     expect(stored.statusHistory[0]).toMatchObject({ fromStatus: null, toStatus: "SUBMITTED", changedById: sales.id });
@@ -213,7 +213,7 @@ describe("changeRequestStatus", () => {
     expect((await advance(soa, boq.id, "COMPLETED")).ok).toBe(true);
 
     const done = await db.request.findUniqueOrThrow({ where: { id: boq.id }, include: { statusHistory: { orderBy: { changedAt: "asc" } } } });
-    expect(done).toMatchObject({ status: "COMPLETED", assigneeId: null }); // PICs are chosen, not taken from the login
+    expect(done).toMatchObject({ status: "COMPLETED" }); // PICs are chosen, not taken from the login
     expect(done.completedAt).toBeInstanceOf(Date);
     expect(done.statusHistory.map((row) => [row.fromStatus, row.toStatus])).toEqual([
       [null, "SUBMITTED"],

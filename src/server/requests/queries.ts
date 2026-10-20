@@ -568,6 +568,8 @@ const REQUEST_DETAIL = {
   project: true,
   requester: { select: { name: true, role: true, email: true } },
   pic: { select: { name: true, isActive: true } },
+  // The SOA person who raised it, when SOA did (SOA signs in with one shared account).
+  raisedByPic: { select: { name: true } },
   source: { select: { code: true } },
   handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
   flowStoppedBy: { select: { name: true } },

@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { computeTeamMetrics, monthlyReport, summariseRequests, type MonthlyRow, type MetricRequest, type RequesterSummary, type TeamMetrics } from "@/domain/requests/metrics";
+import { computeTeamMetrics, monthlyReport, summariseRequests, summariseStatuses, type StatusSummary, type MonthlyRow, type MetricRequest, type RequesterSummary, type TeamMetrics } from "@/domain/requests/metrics";
 import { OWNING_ROLE, type RequestType } from "@/domain/requests/types";
 import { getTeamSettings } from "@/server/settings/team-settings";
 
@@ -24,9 +24,9 @@ const SELECT = {
   statusHistory: { select: { toStatus: true, changedAt: true } },
 } satisfies Prisma.RequestSelect;
 
-async function load(db: PrismaClient, scope: { type?: RequestType; ownerId?: string }): Promise<(MetricRequest & { type: RequestType })[]> {
+async function load(db: PrismaClient, scope: { type?: RequestType; types?: readonly RequestType[]; ownerId?: string }): Promise<(MetricRequest & { type: RequestType })[]> {
   const rows = await db.request.findMany({
-    where: { type: scope.type, project: { deletedAt: null, salesOwnerId: scope.ownerId } },
+    where: { type: scope.type ?? (scope.types ? { in: [...scope.types] } : undefined), project: { deletedAt: null, salesOwnerId: scope.ownerId } },
     select: SELECT,
   });
   return rows.map((row) => ({
@@ -43,31 +43,27 @@ async function load(db: PrismaClient, scope: { type?: RequestType; ownerId?: str
   }));
 }
 
+/** What each team counts: SOA its BOQ requests, Purchasing its RFQ and PO requests (D-036). */
+export const TEAM_TYPES: Record<"SOA" | "PURCHASING", readonly RequestType[]> = { SOA: ["BOQ"], PURCHASING: ["RFQ", "PO"] };
+
 export type TeamDashboard = {
   team: "SOA" | "PURCHASING";
   metrics: TeamMetrics;
-  /** Open requests of the team's other request type that its navigation does not list (PO for Purchasing); null for SOA. */
-  otherOpen: number | null;
+  /** Total, done, completion rate, on going, the split by status and the requests per PIC. */
+  summary: StatusSummary;
   /** SOA: completed BOQs whose next step nobody decided yet. */
   awaitingHandoff: number | null;
-  /** Purchasing: RFQs the team is working on now, as vendor response is not tracked as a status of its own. */
-  rfqInProgress: number | null;
 };
 
 /**
- * The dashboard numbers of SOA (its BOQ requests) or Purchasing (its RFQ requests). Computed from every request of the team
+ * The dashboard numbers of SOA (its BOQ requests) or Purchasing (its RFQ and PO requests). Computed from every request of the team
  * and its status history, against the SLA the superadmin set for the team.
  */
 export async function getTeamDashboard(db: PrismaClient, viewer: Viewer, team: "SOA" | "PURCHASING", now: Date = new Date()): Promise<TeamDashboard> {
   assertPermitted(viewer);
-  const type: RequestType = team === "SOA" ? "BOQ" : "RFQ";
-  const [requests, settings] = await Promise.all([load(db, { type }), getTeamSettings(db)]);
+  const [requests, settings, pics] = await Promise.all([load(db, { types: TEAM_TYPES[team] }), getTeamSettings(db), db.pic.findMany({ where: { team }, select: { id: true, name: true, isActive: true } })]);
   const metrics = computeTeamMetrics(requests, settings[team].sla, now);
-  const [otherOpen, awaitingHandoff] = await Promise.all([
-    team === "PURCHASING" ? db.request.count({ where: { type: "PO", status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES"] }, project: { deletedAt: null } } }) : Promise.resolve(null),
-    team === "SOA" ? countAwaitingHandoff(db) : Promise.resolve(null),
-  ]);
-  return { team, metrics, otherOpen, awaitingHandoff, rfqInProgress: team === "PURCHASING" ? metrics.inProgress : null };
+  return { team, metrics, summary: summariseStatuses(requests, pics), awaitingHandoff: team === "SOA" ? await countAwaitingHandoff(db) : null };
 }
 
 /** BOQ requests per month for the last six months: received, completed, SLA and turnaround. For SOA's Technical Reports. */

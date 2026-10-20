@@ -3,8 +3,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { parseRfqTickets } from "@/server/import/rfq-tickets";
-import { importRfqTickets, planFromDatabase } from "@/server/import/rfq-tickets-db";
-import { changeRequestStatus, createProject } from "@/server/requests/service";
+import { importRfqTickets, planFromDatabase, rebuildRfqTickets } from "@/server/import/rfq-tickets-db";
+import { createProject } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
 const db = getDb();
@@ -64,22 +64,6 @@ describe("request code prefixes", () => {
     }
     await expect(db.user.update({ where: { id: user.id }, data: { codePrefix: null } })).resolves.toBeTruthy();
   });
-
-  it("records the first answer once, when the request is first taken up or completed", async () => {
-    const sales = await makeUser("SALES");
-    const code = await raise(sales, "answer");
-    const request = await db.request.findUniqueOrThrow({ where: { code } });
-    expect(request.respondedAt).toBeNull();
-    // An RFQ is worked by Purchasing.
-    const purchasing = await makeUser("PURCHASING");
-
-    await changeRequestStatus(db, { id: purchasing.id, role: "PURCHASING" }, { requestId: request.id, to: "IN_PROGRESS" });
-    const first = (await db.request.findUniqueOrThrow({ where: { code } })).respondedAt;
-    await changeRequestStatus(db, { id: purchasing.id, role: "PURCHASING" }, { requestId: request.id, to: "COMPLETED" });
-
-    expect(first).not.toBeNull();
-    expect((await db.request.findUniqueOrThrow({ where: { code } })).respondedAt).toEqual(first);
-  });
 });
 
 describe("RFQ ticket import", () => {
@@ -91,58 +75,75 @@ describe("RFQ ticket import", () => {
       `,2026-10-07,,gusti.nirmala@example.test,Cust B ${tag},Project B ${tag},Failed,Soraya,No quote in time,,<b-${tag}@x>,`,
       `,2026-10-08,2026-10-09,satrio.akbar@example.test,Cust C ${tag},Project C ${tag},On Going,Gita & Soraya,Waiting for photo,,<c-${tag}@x>,`,
       `,2026-10-09,,adityo.prabowo@example.test,Cust D ${tag},Project D ${tag},Baru,,,,<d-${tag}@x>,`,
+      `,2026-10-10,2026-10-11,ibnu.ardhiansyah@example.test,Cust E ${tag},Project E ${tag},Done,Gita,,,<e-${tag}@x>,`,
     ].join("\n");
   }
-  const planFor = async (tag: string) => {
+  const planFor = async (tag: string, rebuild = false) => {
     const { rows, problems } = parseRfqTickets(sheet(tag));
     expect(problems).toEqual([]);
-    const { plan, problems: planProblems } = await planFromDatabase(db, rows, `test sheet ${tag}`);
+    const { plan, problems: planProblems } = await planFromDatabase(db, rows, `test sheet ${tag}`, { rebuild });
     expect(planProblems).toEqual([]);
     return plan!;
   };
 
   async function ensureAccounts() {
     // The importer needs the accounts that `db:seed` creates (it never creates a working account itself).
-    for (const [email, role] of [["purchasing@example.invalid", "PURCHASING"], ["superadmin@example.invalid", "SUPERADMIN"], ["satrio@example.invalid", "SALES"]] as const) {
+    for (const [email, role] of [["purchasing@example.invalid", "PURCHASING"], ["superadmin@example.invalid", "SUPERADMIN"], ["satrio@example.invalid", "SALES"], ["soa@example.invalid", "SOA"]] as const) {
       if (!(await db.user.findUnique({ where: { email } }))) await makeUser(role, { email });
     }
   }
+  const load = (tag: string) =>
+    db.request.findMany({
+      where: { importedFrom: `test sheet ${tag}` },
+      orderBy: { createdAt: "asc" },
+      include: { pic: true, raisedByPic: true, requester: true, project: { include: { salesOwner: true } }, statusHistory: { orderBy: [{ changedAt: "asc" }, { toStatus: "asc" }] }, picAssignments: true },
+    });
 
-  it("adds the requests with their history, PIC, e-mail ids and projects; a second run adds nothing", async () => {
+  it("adds the requests with their history, PICs and projects; a second run adds nothing", async () => {
     await ensureAccounts();
     const tag = randomBytes(3).toString("hex");
     const plan = await planFor(tag);
 
     const dry = await importRfqTickets(db, plan, { dryRun: true });
-    expect(dry.requestsToCreate).toHaveLength(4);
+    expect(dry.requestsToCreate).toHaveLength(5);
     expect(await db.request.count({ where: { importedFrom: `test sheet ${tag}` } })).toBe(0);
 
     const summary = await importRfqTickets(db, plan, { fileName: `test sheet ${tag}` });
-    expect(summary.requestsToCreate).toHaveLength(4);
+    expect(summary.requestsToCreate).toHaveLength(5);
 
-    const requests = await db.request.findMany({
-      where: { importedFrom: `test sheet ${tag}` },
-      orderBy: { createdAt: "asc" },
-      include: { pic: true, requester: true, project: { include: { salesOwner: true } }, statusHistory: { orderBy: { changedAt: "asc" } }, picAssignments: true },
-    });
-    expect(requests.map((r) => r.status)).toEqual(["COMPLETED", "CANCELLED", "IN_PROGRESS", "SUBMITTED"]);
+    const requests = await load(tag);
+    expect(requests.map((r) => r.status)).toEqual(["COMPLETED", "CANCELLED", "IN_PROGRESS", "SUBMITTED", "COMPLETED"]);
     for (const request of requests) expect(request.code).toMatch(/^RFQ-[A-Z0-9]{1,3}-26\d{4}$/);
-    const [done, failed, going, fresh] = requests;
-    expect(done).toMatchObject({ emailLink: "https://example.test/a", emailMessageId: `<a-${tag}@x>`, emailConversationId: "conv-a", pic: { name: "Gita" } });
-    expect(done!.respondedAt).toEqual(new Date("2026-10-07T08:00:00Z"));
-    expect(done!.completedAt).toEqual(new Date("2026-10-07T08:00:00Z"));
-    expect(done!.statusHistory.map((h) => [h.fromStatus, h.toStatus])).toEqual([[null, "SUBMITTED"], ["SUBMITTED", "COMPLETED"]]);
-    expect(failed!.statusHistory.at(-1)).toMatchObject({ toStatus: "CANCELLED", reason: "No quote in time" });
+    const [done, failed, going, fresh, soaDone] = requests;
+
+    // The response date is the move to In progress; the outcome follows it.
+    expect(done!.statusHistory.map((h) => [h.fromStatus, h.toStatus])).toEqual([[null, "SUBMITTED"], ["SUBMITTED", "IN_PROGRESS"], ["IN_PROGRESS", "COMPLETED"]]);
+    expect(done!.statusHistory[1]!.changedAt).toEqual(new Date("2026-10-07T08:00:00Z"));
+    expect(done!.completedAt).toEqual(new Date("2026-10-07T10:00:00Z"));
+    expect(done!.pic?.name).toBe("Gita");
+    expect(failed!.statusHistory.map((h) => h.toStatus)).toEqual(["SUBMITTED", "CANCELLED"]);
+    expect(failed!.statusHistory.at(-1)).toMatchObject({ reason: "No quote in time" });
     expect(failed!.completedAt).toBeNull();
+    expect(going!.statusHistory.at(-1)).toMatchObject({ toStatus: "IN_PROGRESS", reason: "Waiting for photo" });
     expect(going!.pic?.name).toBe("Gita"); // "Gita & Soraya": the first is assigned
     expect(going!.description).toContain("Gita & Soraya");
     expect(going!.picAssignments).toHaveLength(1);
     expect(fresh!.statusHistory).toHaveLength(1);
     expect(fresh!.pic).toBeNull();
-    // Gusti's projects belong to Satrio; an SOA sender's project has no Sales PIC.
+
+    // Gusti's projects belong to Satrio.
     expect(failed!.requester.email).toBe("gusti@example.invalid");
     expect(failed!.project.salesOwner?.email).toBe("satrio@example.invalid");
-    expect(fresh!.project).toMatchObject({ sourceType: "OTHER", salesOwnerId: null, externalSourceName: "Adityo Prabowo" });
+    // A SOA person's ticket is raised through the shared SOA login and names the SOA PIC; the project has no Sales PIC.
+    expect(fresh!.requester.email).toBe("soa@example.invalid");
+    expect(fresh!.raisedByPic).toMatchObject({ name: "Adityo", team: "SOA" });
+    expect(fresh!.project).toMatchObject({ sourceType: "OTHER", salesOwnerId: null, externalSourceName: "Internal SOA request" });
+    expect((await db.project.findUniqueOrThrow({ where: { id: fresh!.projectId }, include: { technicalPic: true } })).technicalPic).toMatchObject({ email: "adityo@example.invalid", role: "SOA" });
+    expect(soaDone!.requester.email).toBe("soa@example.invalid");
+    expect(soaDone!.raisedByPic?.name).toBe("Ibnu");
+    expect(done!.raisedByPic).toBeNull();
+    // No "Ibnu" or "Adityo" login is made for the SOA people.
+    expect(await db.user.count({ where: { email: "ibnu.ardhiansyah@example.invalid", requestsCreated: { some: {} } } })).toBe(0);
 
     // The counters continue after the imported numbers, so the next new request does not collide.
     const counter = await db.codeCounter.findUniqueOrThrow({ where: { scope: `RFQ-${done!.code.split("-")[1]}-26` } });
@@ -150,8 +151,8 @@ describe("RFQ ticket import", () => {
 
     const again = await importRfqTickets(db, await planFor(tag), { fileName: `test sheet ${tag}` });
     expect(again.requestsToCreate).toHaveLength(0);
-    expect(again.requestsExisting).toHaveLength(4);
-    expect(await db.request.count({ where: { importedFrom: `test sheet ${tag}` } })).toBe(4);
+    expect(again.requestsExisting).toHaveLength(5);
+    expect(await db.request.count({ where: { importedFrom: `test sheet ${tag}` } })).toBe(5);
   });
 
   it("writes nothing when a step fails", async () => {
@@ -167,5 +168,42 @@ describe("RFQ ticket import", () => {
     expect(await db.request.count({ where: { importedFrom: `test sheet ${tag}` } })).toBe(0);
     expect(await db.project.count({ where: { importedFrom: `test sheet ${tag}` } })).toBe(projectsBefore);
     expect(await db.customer.count({ where: { name: { contains: tag } } })).toBe(0);
+  });
+
+  it("rebuilds tickets that were loaded earlier to the current rules, replacing only their own history, and leaves the append-only guard in place", async () => {
+    await ensureAccounts();
+    const tag = randomBytes(3).toString("hex");
+    await importRfqTickets(db, await planFor(tag), { fileName: `test sheet ${tag}` });
+    const before = await load(tag);
+    const historyBefore = before.map((r) => r.statusHistory.map((h) => [h.fromStatus, h.toStatus, h.changedAt.toISOString(), h.reason]));
+    // The request that is wrong the way the first load was: raised by the wrong account, with no SOA PIC.
+    const soaTicket = before.find((r) => r.raisedByPic?.name === "Adityo")!;
+    const satrio = await db.user.findUniqueOrThrow({ where: { email: "satrio@example.invalid" } });
+    await db.request.update({ where: { id: soaTicket.id }, data: { requesterId: satrio.id, raisedByPicId: null } });
+
+    const result = await rebuildRfqTickets(db, await planFor(tag, true), { fileName: `test sheet ${tag}` });
+
+    expect(result.historyRowsReplaced).toBe(historyBefore.flat().length);
+    const after = await load(tag);
+    expect(after.find((r) => r.id === soaTicket.id)).toMatchObject({ requester: { email: "soa@example.invalid" }, raisedByPic: { name: "Adityo" } });
+    expect(after.map((r) => r.code)).toEqual(before.map((r) => r.code)); // a rebuild is a fresh import: the same codes
+    expect(after.map((r) => r.statusHistory.map((h) => [h.fromStatus, h.toStatus, h.changedAt.toISOString(), h.reason]))).toEqual(historyBefore);
+    // The triggers are back on: history is append-only again.
+    await expect(db.requestStatusHistory.updateMany({ where: { requestId: soaTicket.id }, data: { reason: "x" } })).rejects.toThrow(/append-only/);
+    await expect(db.requestStatusHistory.deleteMany({ where: { requestId: soaTicket.id } })).rejects.toThrow(/append-only/);
+    expect(await db.auditEvent.count({ where: { entityType: "import", entityId: `test sheet ${tag}`, action: "import.rfq_tickets_rebuilt" } })).toBe(1);
+  });
+
+  it("refuses to rebuild a request that was changed in the application since it was imported", async () => {
+    await ensureAccounts();
+    const tag = randomBytes(3).toString("hex");
+    await importRfqTickets(db, await planFor(tag), { fileName: `test sheet ${tag}` });
+    const [first] = await load(tag);
+    const actor = await db.user.findUniqueOrThrow({ where: { email: "superadmin@example.invalid" } });
+    await db.auditEvent.create({ data: { actorId: actor.id, action: "request.status_changed", entityType: "request", entityId: first!.id, after: {} } });
+
+    await expect(rebuildRfqTickets(db, await planFor(tag, true), { fileName: `test sheet ${tag}` })).rejects.toThrow(/changed in the application/);
+    // Nothing was touched, triggers included.
+    await expect(db.requestStatusHistory.deleteMany({ where: { requestId: first!.id } })).rejects.toThrow(/append-only/);
   });
 });

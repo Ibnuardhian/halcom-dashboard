@@ -293,6 +293,50 @@ export function summariseRequests(
   return summary;
 }
 
+export type PicLoad = { picId: string | null; name: string; total: number; done: number; onGoing: number };
+
+export type StatusSummary = {
+  total: number;
+  /** Completed. */
+  done: number;
+  /** In progress (a Submitted request nobody has started is not on going yet). */
+  onGoing: number;
+  /** Done over total, as a percentage; null without requests. */
+  completionPct: number | null;
+  /** Every status with its count, in the order of the board; statuses nobody holds are included with 0. */
+  byStatus: { status: RequestStatus; count: number }[];
+  /** Requests per PIC. Every active PIC of the team is listed, with 0 if they have none; "Unassigned" appears only when there are such requests. */
+  byPic: PicLoad[];
+};
+
+/**
+ * The whole picture of a team's requests, open or closed: how many there are, how many are done and on going, the completion rate
+ * (done / total, cancelled requests count in the total) and the split by status and by PIC. `pics` is the team's PIC list, so a PIC
+ * with no request yet still has a row.
+ */
+export function summariseStatuses(requests: readonly MetricRequest[], pics: readonly { id: string; name: string; isActive: boolean }[]): StatusSummary {
+  const byStatus = REQUEST_STATUSES.map((status) => ({ status, count: requests.filter((r) => r.status === status).length })).filter((row) => row.count > 0 || row.status !== "WAITING_FOR_SALES");
+  const rows = new Map<string | null, PicLoad>();
+  for (const pic of pics) if (pic.isActive) rows.set(pic.id, { picId: pic.id, name: pic.name, total: 0, done: 0, onGoing: 0 });
+  for (const request of requests) {
+    const key = request.assigneeId;
+    const row = rows.get(key) ?? { picId: key, name: key === null ? "Unassigned" : (request.assigneeName ?? "PIC"), total: 0, done: 0, onGoing: 0 };
+    row.total += 1;
+    if (request.status === "COMPLETED") row.done += 1;
+    if (request.status === "IN_PROGRESS") row.onGoing += 1;
+    rows.set(key, row);
+  }
+  const done = requests.filter((r) => r.status === "COMPLETED").length;
+  return {
+    total: requests.length,
+    done,
+    onGoing: requests.filter((r) => r.status === "IN_PROGRESS").length,
+    completionPct: requests.length === 0 ? null : (done / requests.length) * 100,
+    byStatus,
+    byPic: [...rows.values()].sort((a, b) => (a.picId === null ? 1 : 0) - (b.picId === null ? 1 : 0) || b.total - a.total || a.name.localeCompare(b.name)),
+  };
+}
+
 /** `1.5 days`, `5 hours`, or an en dash without a value. Under a day it is hours so short times are not shown as 0. */
 export function formatDuration(hours: number | null): string {
   if (hours === null) return "–";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRfqTickets, planRfqImport, splitPics, ticketKey, type TicketRow } from "@/server/import/rfq-tickets";
+import { parseRfqTickets, planRfqImport, splitPics, stepsOf, ticketKey, type TicketRow } from "@/server/import/rfq-tickets";
 import { renderRfqSql, sqlText } from "@/server/import/rfq-tickets-sql";
 
 const HEADER = "TicketID,Tanggal Masuk,Tanggal Response,Pengirim,Customer,Project,Status,PIC,Catatan,LinkEmail,MessageID,CoversationID";
@@ -15,7 +15,15 @@ describe("reading the tracker sheet", () => {
   it("reads a row, trims names and pads the cells the sheet leaves out", () => {
     const [row] = rows(",2026-10-12,2026-10-13,Satrio.Akbar@example.test,Apotek Alpro ,Zebra TC22,Done,Gita & Soraya");
 
-    expect(row).toMatchObject({ ticketId: null, entryDate: "2026-10-12", responseDate: "2026-10-13", senderEmail: "satrio.akbar@example.test", customer: "Apotek Alpro", statusLabel: "Done", pics: ["Gita", "Soraya"], note: null, emailLink: null });
+    expect(row).toMatchObject({ ticketId: null, entryDate: "2026-10-12", responseDate: "2026-10-13", senderEmail: "satrio.akbar@example.test", customer: "Apotek Alpro", statusLabel: "Done", pics: ["Gita", "Soraya"], note: null });
+  });
+
+  it("keeps no mail link or conversation id: only the Message-ID is read, to give the ticket a stable key", () => {
+    const [row] = rows(",2026-10-12,2026-10-13,satrio.akbar@example.test,C,P,Done,Gita,,https://mail.example.test/x,<m1@x>,conv-1");
+
+    expect(row).not.toHaveProperty("emailLink");
+    expect(row).not.toHaveProperty("conversationId");
+    expect(row!.messageId).toBe("<m1@x>");
   });
 
   it("splits more than one PIC", () => {
@@ -54,6 +62,38 @@ describe("reading the tracker sheet", () => {
   });
 });
 
+describe("the status moves of a ticket", () => {
+  const T = (iso: string) => new Date(iso);
+
+  it("makes the response date the move to In progress, and the outcome follows the same day", () => {
+    expect(stepsOf({ entryDate: "2026-10-06", responseDate: "2026-10-07", note: null }, "COMPLETED")).toEqual([
+      { from: "SUBMITTED", to: "IN_PROGRESS", at: T("2026-10-07T08:00:00Z"), reason: null },
+      { from: "IN_PROGRESS", to: "COMPLETED", at: T("2026-10-07T10:00:00Z"), reason: null },
+    ]);
+  });
+
+  it("keeps the note as the reason of the last move, and a cancellation goes through In progress when the team answered", () => {
+    expect(stepsOf({ entryDate: "2026-10-06", responseDate: "2026-10-08", note: "No quote in time" }, "CANCELLED")).toEqual([
+      { from: "SUBMITTED", to: "IN_PROGRESS", at: T("2026-10-08T08:00:00Z"), reason: null },
+      { from: "IN_PROGRESS", to: "CANCELLED", at: T("2026-10-08T10:00:00Z"), reason: "No quote in time" },
+    ]);
+  });
+
+  it("moves a ticket without a response date straight to its outcome on the day it came in", () => {
+    expect(stepsOf({ entryDate: "2026-10-06", responseDate: null, note: "No quote in time" }, "CANCELLED")).toEqual([
+      { from: "SUBMITTED", to: "CANCELLED", at: T("2026-10-06T10:00:00Z"), reason: "No quote in time" },
+    ]);
+    expect(stepsOf({ entryDate: "2026-10-06", responseDate: null, note: null }, "IN_PROGRESS")).toEqual([{ from: "SUBMITTED", to: "IN_PROGRESS", at: T("2026-10-06T10:00:00Z"), reason: null }]);
+  });
+
+  it("leaves an open ticket with the one move to In progress, whose reason is the note", () => {
+    expect(stepsOf({ entryDate: "2026-10-06", responseDate: "2026-10-09", note: "Waiting for photo" }, "IN_PROGRESS")).toEqual([
+      { from: "SUBMITTED", to: "IN_PROGRESS", at: T("2026-10-09T08:00:00Z"), reason: "Waiting for photo" },
+    ]);
+    expect(stepsOf({ entryDate: "2026-10-06", responseDate: null, note: null }, "SUBMITTED")).toEqual([]);
+  });
+});
+
 describe("planning the import", () => {
   const plan = (lines: string[], context = {}) => {
     const result = planRfqImport(rows(...lines), context);
@@ -76,15 +116,37 @@ describe("planning the import", () => {
     expect(Object.fromEntries(p.prefixes.map((x) => [x.email, x.prefix]))).toEqual({ "satrio@example.invalid": "S", "gusti@example.invalid": "G" });
   });
 
-  it("keeps the ticket ids the sheet already has, decides the sender's letter from them, and numbers on from them", () => {
+  it("raises a SOA person's tickets through the shared SOA login and records the person as a SOA PIC", () => {
     const p = plan([
+      ",2026-10-06,2026-10-07,satrio.akbar@example.test,C0,P0,Done,Gita,,,m0",
       ",2026-10-15,2026-10-15,ibnu.ardhiansyah@example.test,C1,P1,Done,Gita,,,m1",
       "RFQ-A-260002,2026-10-20,,adityo.prabowo@example.test,C2,P2,Baru,,,,m2",
-      "RFQ-A-260003,2026-10-20,,adityo.prabowo@example.test,C3,P3,Baru,,,,m3",
     ]);
+    const ibnu = p.tickets.find((t) => t.title === "P1")!;
+    const adityo = p.tickets.find((t) => t.title === "P2")!;
 
-    expect(p.tickets.map((t) => t.code).sort()).toEqual(["RFQ-A-260002", "RFQ-A-260003", "RFQ-I-260001"]);
-    expect(p.counters.find((c) => c.scope === "RFQ-A-26")?.last).toBe(3);
+    expect(ibnu).toMatchObject({ requesterEmail: "soa@example.invalid", raisedByPic: "Ibnu" });
+    expect(adityo).toMatchObject({ requesterEmail: "soa@example.invalid", raisedByPic: "Adityo", code: "RFQ-A-260002" });
+    // The login's own letter is taken the way anyone's is: "S" is Satrio's, so the SOA login gets two letters.
+    expect(ibnu.code).toBe("RFQ-SO-260001");
+    expect(p.prefixes.find((x) => x.email === "soa@example.invalid")?.prefix).toBe("SO");
+    // The sheet's own code stays as written and its number is kept, but the shared login does not take the letter "A".
+    expect(p.counters.find((c) => c.scope === "RFQ-A-26")?.last).toBe(2);
+    expect(p.prefixes.some((x) => x.prefix === "A")).toBe(false);
+    expect(p.pics.filter((x) => x.team === "SOA").map((x) => x.name).sort()).toEqual(["Adityo", "Ibnu"]);
+    // Their projects have no Sales PIC and no Sales name: the person is the project's Technical PIC (SOA).
+    expect(p.projects.find((x) => x.name === "P1")).toMatchObject({ ownerEmail: null, externalSourceName: "Internal SOA request", technicalPicEmail: "ibnu.ardhiansyah@example.invalid" });
+    expect(p.projects.find((x) => x.name === "P2")).toMatchObject({ ownerEmail: null, externalSourceName: "Internal SOA request", technicalPicEmail: "adityo@example.invalid" });
+    expect(JSON.stringify(p.projects)).not.toMatch(/Ibnu"|Adityo"/); // neither name is written as a Sales name
+    expect(p.accounts.filter((a) => a.role === "SOA" && a.historyOnly).map((a) => a.email).sort()).toEqual(["adityo@example.invalid", "ibnu.ardhiansyah@example.invalid"]);
+  });
+
+  it("keeps the ticket ids the sheet already has, decides the sender's letter from them, and numbers on from them", () => {
+    const p = plan(["RFQ-S-260003,2026-10-15,2026-10-15,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1", ",2026-10-20,,satrio.akbar@example.test,C2,P2,Baru,,,,m2"]);
+
+    expect(p.tickets.map((t) => t.code)).toEqual(["RFQ-S-260003", "RFQ-S-260004"]);
+    expect(p.counters.find((c) => c.scope === "RFQ-S-26")?.last).toBe(4);
+    expect(p.prefixes).toEqual([{ email: "satrio@example.invalid", prefix: "S" }]);
   });
 
   it("gives a second person with the same letter their first two letters, and continues after what exists", () => {
@@ -96,7 +158,7 @@ describe("planning the import", () => {
     expect(p.tickets.map((t) => t.code)).toEqual(["RFQ-S-260005", "RFQ-GU-260001"]);
   });
 
-  it("maps the sheet's statuses, with the response and outcome times and the note as the reason", () => {
+  it("maps the sheet's statuses and writes the moves", () => {
     const p = plan([
       ",2026-10-06,2026-10-07,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1",
       ",2026-10-06,,satrio.akbar@example.test,C2,P2,Failed,Soraya,No quote in time,,m2",
@@ -105,16 +167,18 @@ describe("planning the import", () => {
     ]);
     const by = Object.fromEntries(p.tickets.map((t) => [t.title, t]));
 
-    expect(by["P1"]).toMatchObject({ status: "COMPLETED", respondedAt: new Date("2026-10-07T08:00:00Z"), completedAt: new Date("2026-10-07T08:00:00Z") });
-    expect(by["P2"]).toMatchObject({ status: "CANCELLED", respondedAt: null, completedAt: null, note: "No quote in time" });
-    expect(by["P2"]?.outcomeAt).toEqual(new Date("2026-10-06T10:00:00Z"));
-    expect(by["P3"]).toMatchObject({ status: "IN_PROGRESS", completedAt: null, note: "Waiting for photo" });
-    expect(by["P4"]).toMatchObject({ status: "SUBMITTED", outcomeAt: null, picName: null });
+    expect(by["P1"]).toMatchObject({ status: "COMPLETED", completedAt: new Date("2026-10-07T10:00:00Z") });
+    expect(by["P1"]?.steps.map((s) => s.to)).toEqual(["IN_PROGRESS", "COMPLETED"]);
+    expect(by["P2"]).toMatchObject({ status: "CANCELLED", completedAt: null });
+    expect(by["P2"]?.steps.at(-1)).toMatchObject({ to: "CANCELLED", reason: "No quote in time" });
+    expect(by["P3"]).toMatchObject({ status: "IN_PROGRESS", completedAt: null });
+    expect(by["P3"]?.steps).toHaveLength(1);
+    expect(by["P4"]).toMatchObject({ status: "SUBMITTED", steps: [], picName: null });
     // The ticket came in at 09:00 Jakarta time.
     expect(by["P1"]?.createdAt).toEqual(new Date("2026-10-06T02:00:00Z"));
   });
 
-  it("makes one project per customer and project, owned as D-031 says: Gusti's go to Satrio, an SOA or admin sender has no Sales PIC", () => {
+  it("makes one project per customer and project, owned as D-031 says: Gusti's go to Satrio", () => {
     const p = plan([
       ",2026-10-06,2026-10-07,gusti.nirmala@example.test,C1,P1,Done,Gita,,,m1",
       ",2026-10-07,2026-10-07,adityo.prabowo@example.test,C2,P2,Done,Gita,,,m2",
@@ -123,7 +187,6 @@ describe("planning the import", () => {
 
     expect(p.projects).toHaveLength(2);
     expect(p.projects.find((x) => x.name === "P1")).toMatchObject({ ownerEmail: "satrio@example.invalid", externalSourceName: null });
-    expect(p.projects.find((x) => x.name === "P2")).toMatchObject({ ownerEmail: null, externalSourceName: "Adityo Prabowo" });
     expect(p.tickets.filter((t) => t.projectKey === p.projects.find((x) => x.name === "P1")!.key)).toHaveLength(2);
   });
 
@@ -132,7 +195,7 @@ describe("planning the import", () => {
 
     expect(p.tickets[0]).toMatchObject({ picName: "Gita", picNames: ["Gita", "Soraya"] });
     expect(p.tickets[0]?.description).toContain("PIC in the tracker: Gita & Soraya.");
-    expect(p.pics.map((x) => x.name)).toEqual(["Gita", "Soraya"]);
+    expect(p.pics.filter((x) => x.team === "PURCHASING").map((x) => x.name)).toEqual(["Gita", "Soraya"]);
   });
 
   it("stops on a sender nobody mapped, and on the same ticket twice", () => {
@@ -142,9 +205,22 @@ describe("planning the import", () => {
   });
 
   it("refuses a sheet code whose letter belongs to somebody else", () => {
-    const result = planRfqImport(rows("RFQ-A-260002,2026-10-20,,adityo.prabowo@example.test,C,P,Baru,,,,m1"), { existingPrefixes: new Map([["dzaki@example.invalid", "A"]]) });
+    const result = planRfqImport(rows("RFQ-S-260002,2026-10-20,,satrio.akbar@example.test,C,P,Baru,,,,m1"), { existingPrefixes: new Map([["dzaki@example.invalid", "S"]]) });
 
     expect(result.problems[0]).toMatch(/belongs to someone else/);
+  });
+
+  it("keeps the code a ticket already has while it fits its prefix, and gives a new number of the new prefix when the requester changed", () => {
+    const lines = [",2026-10-06,2026-10-07,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1", ",2026-10-15,2026-10-15,ibnu.ardhiansyah@example.test,C2,P2,Done,Gita,,,m2"];
+    const [first, second] = rows(...lines);
+    const p = plan(lines, {
+      existingPrefixes: new Map([["satrio@example.invalid", "S"]]),
+      // The counters are far ahead of the kept codes: the kept code must not move, and the new one continues after the counter.
+      existingCounters: new Map([["RFQ-S-26", 19], ["RFQ-SO-26", 1]]),
+      existingCodes: new Map([[ticketKey(first!), "RFQ-S-260004"], [ticketKey(second!), "RFQ-I-260001"]]),
+    });
+
+    expect(p.tickets.map((t) => [t.title, t.code])).toEqual([["P1", "RFQ-S-260004"], ["P2", "RFQ-SO-260002"]]);
   });
 
   it("gives a ticket the same key every time", () => {
@@ -156,7 +232,10 @@ describe("planning the import", () => {
 
 describe("the SQL file", () => {
   const plan = planRfqImport(
-    rows(",2026-10-06,2026-10-07,gusti.nirmala@example.test,O'Neil Co,\"Kabel; DROP TABLE users; --\",Done,Gita,It's done,https://example.test/a?b=1,<m@x>,c1"),
+    rows(
+      ",2026-10-06,2026-10-07,gusti.nirmala@example.test,O'Neil Co,\"Kabel; DROP TABLE users; --\",Done,Gita,It's done,https://example.test/a?b=1,<m@x>,c1",
+      ",2026-10-08,2026-10-09,ibnu.ardhiansyah@example.test,C2,P2,On Going,Soraya,Waiting,,<n@x>,",
+    ),
   ).plan!;
   const sql = (transaction?: boolean) => renderRfqSql(plan, { lockedPasswordHash: "scrypt$locked", generatedAt: new Date("2026-10-20T00:00:00Z"), transaction });
 
@@ -181,11 +260,15 @@ describe("the SQL file", () => {
     expect(text).toContain("WHERE NOT EXISTS (SELECT 1 FROM requests r WHERE r.submission_key = s.ticket_key)");
   });
 
-  it("carries the planned code, the prefix and the locked hash of the history-only account", () => {
+  it("carries the planned code, the prefix, the status moves and the SOA PIC, and no mail columns", () => {
     const text = sql();
 
     expect(text).toContain("'RFQ-G-260001'");
     expect(text).toContain("('gusti@example.invalid', 'G')");
     expect(text).toContain("'scrypt$locked'");
+    expect(text).toContain("rfq_stage_steps");
+    expect(text).toContain("'SOA'::\"PicTeam\"");
+    expect(text).toContain("raised_by_pic_id");
+    expect(text).not.toMatch(/email_link|email_message_id|email_conversation_id|responded_at|https:\/\/example\.test/);
   });
 });

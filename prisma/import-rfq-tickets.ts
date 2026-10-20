@@ -2,6 +2,7 @@
 //   docker compose run --rm app npm run db:import-rfq -- [file.csv] --dry-run        report only, writes nothing
 //   docker compose run --rm app npm run db:import-rfq -- [file.csv]                  import (one transaction; only adds; safe to repeat)
 //   docker compose run --rm app npm run db:rfq-sql -- [file.csv] [--out=file.sql]    write the SQL file, touches no database
+//   docker compose run --rm app npm run db:import-rfq -- --rebuild [--dry-run]      bring tickets loaded earlier up to the current rules (development only)
 // The CSV and the SQL hold customer names and e-mail addresses: they live in prisma/data/ (git-ignored).
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -10,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { getDb } from "@/lib/db";
 import { hashPassword } from "@/server/auth/password";
 import { parseRfqTickets, planRfqImport, RFQ_IMPORT_SOURCE } from "@/server/import/rfq-tickets";
-import { importRfqTickets, planFromDatabase } from "@/server/import/rfq-tickets-db";
+import { importRfqTickets, planFromDatabase, rebuildRfqTickets } from "@/server/import/rfq-tickets-db";
 import { renderRfqSql } from "@/server/import/rfq-tickets-sql";
 import { writeDevAccountsFile } from "./dev-accounts";
 
@@ -53,11 +54,26 @@ async function main(): Promise<void> {
   }
   const db = getDb();
   try {
-    const { plan, problems: planProblems } = await planFromDatabase(db, rows, source);
+    const rebuild = flag("rebuild");
+    const { plan, problems: planProblems } = await planFromDatabase(db, rows, source, { rebuild });
     if (!plan) {
       console.error("Nothing was imported:");
       for (const problem of planProblems) console.error(`  - ${problem}`);
       process.exitCode = 1;
+      return;
+    }
+    if (rebuild) {
+      // What would change for the tickets that are already there.
+      const present = await db.request.findMany({ where: { submissionKey: { in: plan.tickets.map((t) => t.key) } }, select: { submissionKey: true, code: true } });
+      const was = new Map(present.map((r) => [r.submissionKey!, r.code]));
+      const recoded = plan.tickets.filter((t) => was.has(t.key) && was.get(t.key) !== t.code);
+      console.log(`Rebuild ${flag("dry-run") ? "(dry run, nothing written)" : ""}: ${was.size} of ${plan.tickets.length} ticket(s) are in the database, ${plan.tickets.length - was.size} would be added.`);
+      for (const ticket of recoded) console.log(`  ${was.get(ticket.key)} becomes ${ticket.code}`);
+      console.log(`  SOA PICs raising tickets: ${plan.tickets.filter((t) => t.raisedByPic).length} (${[...new Set(plan.tickets.flatMap((t) => (t.raisedByPic ? [t.raisedByPic] : [])))].join(", ")})`);
+      if (flag("dry-run")) return;
+      const result = await rebuildRfqTickets(db, plan, { fileName: source });
+      console.log(`Rebuilt in one transaction: ${result.historyRowsReplaced} status history row(s) replaced, ${result.added} added, ${result.recoded.length} recoded, prefixes released: ${result.prefixesReleased.join(", ") || "none"}.`);
+      if (appEnv === "development") await writeDevAccountsFile(db);
       return;
     }
     const summary = await importRfqTickets(db, plan, { dryRun: flag("dry-run"), fileName: source });

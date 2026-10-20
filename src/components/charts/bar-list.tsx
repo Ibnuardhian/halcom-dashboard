@@ -10,9 +10,9 @@ const LINK = "block rounded-md outline-none transition-colors hover:bg-accent/60
  * Horizontal bars, one row per category, largest first as given. Every row carries its exact value as text, so
  * nothing depends on colour or on reading the bar length. One measure on one axis starting at zero.
  */
-export function BarList({ items, color = 0 }: { items: BarItem[]; color?: number }) {
+export function BarList({ items, color = 0, allowEmpty = false }: { items: BarItem[]; color?: number; allowEmpty?: boolean }) {
   const max = Math.max(0, ...items.map((item) => item.value));
-  if (items.length === 0 || max === 0) return <ChartEmpty>No values entered yet.</ChartEmpty>;
+  if (items.length === 0 || (max === 0 && !allowEmpty)) return <ChartEmpty>No values entered yet.</ChartEmpty>;
   return (
     <ul className="flex flex-col gap-2.5">
       {items.map((item) => {
@@ -26,7 +26,7 @@ export function BarList({ items, color = 0 }: { items: BarItem[]; color?: number
               </span>
             </div>
             <div className="h-2 rounded-full bg-muted" aria-hidden>
-              <div className="h-2 rounded-r-full rounded-l-sm" style={{ width: `${Math.max(2, (item.value / max) * 100)}%`, background: seriesColor(color, item.neutral) }} />
+              <div className="h-2 rounded-r-full rounded-l-sm" style={{ width: `${max === 0 ? 0 : Math.max(2, (item.value / max) * 100)}%`, background: seriesColor(color, item.neutral) }} />
             </div>
           </>
         );

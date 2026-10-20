@@ -84,7 +84,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
                 </Link>
               </Fact>
             )}
-            <Fact label="Requested by">{request.requester.name}</Fact>
+            <Fact label="Requested by">{request.raisedByPic ? `${request.raisedByPic.name} (SOA PIC, through the shared SOA login)` : request.requester.name}</Fact>
             <Fact label="Needed by">{formatDateOnly(request.requiredBy)}</Fact>
             <Fact label="Created">{formatUtc(request.createdAt)}</Fact>
             {request.completedAt ? <Fact label="Completed">{formatUtc(request.completedAt)}</Fact> : null}

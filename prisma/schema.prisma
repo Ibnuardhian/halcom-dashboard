@@ -42,7 +42,6 @@ model User {
   audits            AuditEvent[]
   ownedProjects     Project[]              @relation("ProjectSalesOwner")
   requestsCreated   Request[]              @relation("RequestRequester")
-  requestsHandled   Request[]              @relation("RequestAssignee")
   flowStopped       Request[]              @relation("RequestFlowStoppedBy")
   statusChanges     RequestStatusHistory[]
   picAssignments    RequestPicAssignment[] @relation("AssignmentChangedBy")
@@ -130,15 +129,6 @@ enum RequestStatus {
   CANCELLED
 }
 
-enum ProjectStatus {
-  ACTIVE
-  ON_HOLD
-  CLOSED
-  WON
-  LOST
-  COMPLETED
-}
-
 // Sales' own progress scale and status (their tracking sheet's Progress and Status columns).
 // Keep in sync with src/domain/projects/progress.ts.
 enum ProjectProgress {
@@ -165,19 +155,6 @@ enum SoaPhase {
   ASSESSMENT
   SIZING
   POC
-}
-
-// Pipeline stage of a project, as used in the sales export (docs/requirements/PIPELINE.md).
-// Stage is where the opportunity is; status is whether work on it is live, paused, won or lost.
-enum ProjectStage {
-  NEW_OPPORTUNITY
-  ASSESSMENT
-  SIZING_BOQ
-  POC
-  QUOTATION
-  NEGOTIATION
-  WON
-  LOST
 }
 
 // Where a project came from. INTERNAL_SALES is the company's own Sales team (the project has a Sales PIC); OTHER is work SOA
@@ -263,8 +240,6 @@ model Project {
   endUserCompany String        @map("end_user_company")
   name           String
   description    String?
-  // Deprecated: replaced by `trackStatus`. No longer read or written by the application; a later migration drops it.
-  status         ProjectStatus @default(ACTIVE)
   // Target closing date.
   targetDate     DateTime?     @map("target_date") @db.Date
   // Null only for a project whose source is OTHER (a database check keeps the two in step).
@@ -279,8 +254,6 @@ model Project {
 
   // Commercial fields (Sales-owned; assumption docs/requirements/RBAC.md A-10). Currency is not stored: the
   // sales export holds plain numbers, assumed to be IDR.
-  // Deprecated: replaced by `progress`. No longer read or written by the application; a later migration drops it.
-  stage             ProjectStage @default(NEW_OPPORTUNITY)
   // Sales' Progress (each step stands for a win probability) and Status, and when the quote went out.
   progress          ProjectProgress @default(QUALIFY)
   trackStatus       TrackStatus     @default(ON_TRACK) @map("track_status")
@@ -354,8 +327,6 @@ model Project {
   changes          ProjectChange[]
   actions          ProjectAction[]
 
-  @@index([status])
-  @@index([stage])
   @@index([progress])
   @@index([salesOwnerId])
   @@index([sourceType])
@@ -380,9 +351,6 @@ model Request {
   description     String        @default("")
   requiredBy      DateTime?     @map("required_by") @db.Date
   requesterId     String        @map("requester_id") @db.Uuid
-  // Deprecated: the operational assignee is now `picId` (a PIC, not a login account). Kept for the rows that were assigned before;
-  // the application no longer writes it.
-  assigneeId      String?       @map("assignee_id") @db.Uuid
   // The PIC working on it. Null means "unassigned", which is shown explicitly (brief §6.3).
   picId           String?       @map("pic_id") @db.Uuid
   // Set on an RFQ or PO that was handed over from a completed BOQ.
@@ -391,12 +359,9 @@ model Request {
   phase           SoaPhase?
   submissionKey   String?       @unique @map("submission_key")
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
-  // When the team first answered it (the "Tanggal Response" of the RFQ tracker). Set once, when the request first leaves Submitted.
-  respondedAt     DateTime?     @map("responded_at") @db.Timestamptz(3)
-  // The e-mail the request came from: a link to the mail, and the ids that find its thread again.
-  emailLink           String?   @map("email_link")
-  emailMessageId      String?   @map("email_message_id")
-  emailConversationId String?   @map("email_conversation_id")
+  // The SOA PIC who raised it, when SOA raised it (SOA signs in with one shared account, so the person is a PIC). Null for a request
+  // raised by Sales or Purchasing, whose account is the person.
+  raisedByPicId   String?       @map("raised_by_pic_id") @db.Uuid
   // The file an imported request came from; null for a request raised in the application.
   importedFrom    String?       @map("imported_from")
   // Sales decided not to continue to the next step after this completed BOQ or RFQ (BOQ -> RFQ -> PO).
@@ -408,7 +373,7 @@ model Request {
 
   project       Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
   requester     User                   @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
-  assignee      User?                  @relation("RequestAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  raisedByPic   Pic?                   @relation("RequestRaisedBy", fields: [raisedByPicId], references: [id], onDelete: Restrict)
   pic           Pic?                   @relation(fields: [picId], references: [id], onDelete: Restrict)
   picAssignments RequestPicAssignment[]
   flowStoppedBy User?                  @relation("RequestFlowStoppedBy", fields: [flowStoppedById], references: [id], onDelete: Restrict)
@@ -420,6 +385,7 @@ model Request {
   @@unique([sourceRequestId, type])
   @@index([projectId])
   @@index([picId])
+  @@index([raisedByPicId])
   @@index([requesterId])
   @@index([type, status])
   @@index([status])
@@ -509,6 +475,7 @@ model Pic {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   requests         Request[]
+  raisedRequests   Request[]              @relation("RequestRaisedBy")
   assignedTo       RequestPicAssignment[] @relation("AssignmentTo")
   assignedFrom     RequestPicAssignment[] @relation("AssignmentFrom")
 
