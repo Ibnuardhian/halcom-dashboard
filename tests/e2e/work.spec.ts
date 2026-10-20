@@ -44,7 +44,9 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
  * request code so its card is on the board whatever else is there. A cancellation (or reopening) asks for a reason first.
  */
 async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, column: string, reason?: string): Promise<void> {
-  await page.goto(`/requests/${type.toLowerCase()}?view=board&q=${code}`);
+  await expect(async () => {
+    await page.goto(`/requests/${type.toLowerCase()}?view=board&q=${code}`);
+  }).toPass({ timeout: 30_000 });
   const card = page.locator(`[data-request="${code}"]`);
   await expect(card).toBeVisible();
   const target = page.locator(`[data-column="${column}"]`);
@@ -78,7 +80,7 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "CCTV AI");
     const code = await createRequest(page, projectCode, "BOQ", "BOQ for 40 cameras");
 
-    expect(code).toMatch(/^BOQ-SA-\d{2}\d{4,}$/); // initials of sales@example.invalid
+    expect(code).toMatch(/^BOQ-S[A-Z]*-\d{2}\d{4,}$/); // one letter of sales@example.invalid, more only if another person holds it
     await expect(page.locator(`li#request-${code} > details[open]`)).toBeVisible(); // the new request is open on its project page
     await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("BOQ", "CCTV AI"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("soa-group@example.invalid");
@@ -112,13 +114,13 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Request summary").fill("BOQ from the combined form");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-SA-\d{2}\d{4,}/);
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-S[A-Z]*-\d{2}\d{4,}/);
     const subject = await page.getByLabel("Subject", { exact: true }).inputValue();
     expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
     const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (PRJ-\d+)/)![1]!;
 
     await page.goto(`/projects/${projectCode}`);
-    await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-SA-/ })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
     await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
   });
 
@@ -231,14 +233,14 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Request summary").fill("Price for 10 servers");
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-SA-\d{2}\d{4,}/);
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-S[A-Z]*-\d{2}\d{4,}/);
     await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "RFQ routing demo"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     const requestUrl = page.url();
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(requestUrl);
-    await expect(soa.locator(`li[id^="request-RFQ-SA-"] > details[open]`)).toBeVisible();
+    await expect(soa.locator(`li[id^="request-RFQ-S"] > details[open]`)).toBeVisible();
     await expect(soa.getByRole("heading", { name: /Email text/ })).toHaveCount(0);
     await expect(soa.getByText(/dragging this request/)).toHaveCount(0); // SOA do not work on an RFQ: no board hint
     await soa.context().close();
@@ -556,7 +558,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("");
 
-    expect(rfq).toMatch(/^RFQ-SA-/);
+    expect(rfq).toMatch(/^RFQ-S[A-Z]*-/);
 
     // The flow is BOQ -> RFQ -> PO: the BOQ was skipped, but a PO waits for the RFQ to be completed.
     await page.goto(`/projects/${projectCode}`);
@@ -582,16 +584,19 @@ test.describe("projects and requests", () => {
     await expect(soa).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
     const rfq = new URL(soa.url()).searchParams.get("request")!;
 
-    await expect(soa.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
-    await expect(soa.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
-    expect(await soa.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
-    await soa.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
+    // The project page holds the BOQ and the RFQ; the RFQ is the open one, and its email text is what is checked.
+    const rfqPanel = soa.locator(`li#request-${rfq}`);
+    await rfqPanel.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
+    const email = soa.getByRole("dialog");
+    await expect(email.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
+    await expect(email.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
+    expect(await email.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
     await expect(soa.getByText("Reply inside the original [HITBOQ] email thread")).toBeVisible();
-    await expect(soa.getByRole("link", { name: boq })).toBeVisible();
+    await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
     // The BOQ now lists its RFQ, and the next-step buttons are gone: it has been continued.
     await soa.goto(`/request/${boq}`);
-    await expect(soa.getByRole("link", { name: rfq })).toBeVisible();
+    await expect(soa.getByRole("link", { name: rfq }).first()).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0);
 
     // Purchasing sees it and works on it; Finance sees it read-only.
@@ -669,8 +674,10 @@ test.describe("projects and requests", () => {
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
     await moveCard(soa, "BOQ", boq, "COMPLETED");
     await soa.goto(`/request/${boq}`);
-    await soa.getByText(/^Status history/).click();
-    await expect(soa.getByRole("table").getByRole("cell", { name: "Revision" }).first()).toBeVisible();
+    // The project page holds both requests; the history belongs to the BOQ that is open.
+    const boqPanel = soa.locator(`li#request-${boq}`);
+    await boqPanel.getByText(/^Status history/).click();
+    await expect(boqPanel.getByRole("table").getByRole("cell", { name: "Revision" }).first()).toBeVisible();
 
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);
@@ -743,7 +750,7 @@ test.describe("projects and requests", () => {
 });
 
 test.describe("access to the work modules", () => {
-  test("Finance and Management read but cannot create; Purchasing has no New request menu", async ({ page }) => {
+  test("Finance and Management read but cannot create; Purchasing has no New request menu and raises only an RFQ", async ({ page }) => {
     await signIn(page, "FINANCE");
     await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "New request" })).toHaveCount(0);
     await expectNotFound(page, "/projects/new", "Project details");
@@ -756,7 +763,10 @@ test.describe("access to the work modules", () => {
     const pPage = await purchasing.newPage();
     await signIn(pPage, "PURCHASING");
     await expect(pPage.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "New request" })).toHaveCount(0);
-    await expectNotFound(pPage, "/requests/new", "Request details");
+    // Purchasing raises an RFQ for an existing project from its own list, and only an RFQ (the form offers nothing else).
+    await pPage.goto("/requests/new");
+    await expect(pPage.getByLabel("Request type")).toHaveValue("RFQ");
+    await expect(pPage.getByLabel("Request type").locator("option")).toHaveCount(1);
     await purchasing.close();
   });
 

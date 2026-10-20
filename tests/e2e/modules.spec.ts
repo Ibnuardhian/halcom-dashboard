@@ -355,7 +355,6 @@ test.describe("a project from another source (Other)", () => {
       await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
     }).toPass({ timeout: 60_000 });
 
-    await soa.getByRole("link", { name: /^PRJ-\d+/ }).first().click();
     await expect(soa.locator("#overview").getByText("Dev Sales").first()).toBeVisible(); // the Sales PIC
     await expect(soa.getByText("None (project from another source)")).toHaveCount(0);
 
@@ -419,7 +418,6 @@ test.describe("a project from another source (Other)", () => {
     }).toPass({ timeout: 60_000 });
 
     // The project page names the source and has no internal Sales PIC; SOA's source form is there.
-    await soa.getByRole("link", { name: /^PRJ-\d+/ }).first().click();
     await expect(soa.getByText("None (project from another source)")).toBeVisible();
     await expect(soa.getByText(source).first()).toBeVisible();
     await expect(soa.getByText("MP-2026-7").first()).toBeVisible();
@@ -483,7 +481,8 @@ test.describe("a project from another source (Other)", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Customers" })).toBeVisible();
     await page.getByPlaceholder("Search customers").fill(company);
     await page.getByRole("button", { name: "Search" }).click();
-    await expect(page.getByRole("link", { name: company })).toBeVisible();
+    // The name opens the customer's dialog, so it is a button.
+    await expect(page.getByRole("button", { name: company })).toBeVisible();
   });
 
   test("Customers are closed to SOA and Finance", async ({ browser }) => {
