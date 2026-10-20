@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { isRevisionNotification } from "@/domain/notifications/kinds";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatUtc } from "@/features/dashboards/format";
 import { markAllReadAction, markReadAction } from "@/features/notifications/actions";
@@ -46,10 +47,11 @@ async function Notifications() {
         <ul className="flex flex-col gap-2">
           {rows.map((row) => (
             <li key={row.id}>
-              <Card className={row.readAt === null ? "border-primary/50 bg-accent/40" : undefined}>
+              <Card className={isRevisionNotification(row.kind) ? (row.readAt === null ? "border-destructive bg-destructive/10" : "border-destructive/40") : row.readAt === null ? "border-primary/50 bg-accent/40" : undefined}>
                 <CardContent className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link href={row.href} className="font-medium text-primary underline-offset-4 hover:underline">
+                    {isRevisionNotification(row.kind) ? <span className="mb-1 inline-block rounded bg-destructive px-1.5 py-px text-[11px] font-semibold tracking-wide text-white uppercase">Revision</span> : null}
+                    <Link href={row.href} className={isRevisionNotification(row.kind) ? "block font-medium text-destructive underline-offset-4 hover:underline" : "font-medium text-primary underline-offset-4 hover:underline"}>
                       {row.title}
                     </Link>
                     {row.body ? <p className="mt-0.5 text-sm break-words text-muted-foreground">{row.body}</p> : null}

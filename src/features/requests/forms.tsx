@@ -16,7 +16,7 @@ import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/dom
 import { MarginInput } from "@/features/projects/margin-input";
 import { MoneyInput } from "@/features/projects/money-input";
 import type { PicOption } from "@/domain/pics/teams";
-import { assignPicAction, createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
+import { assignPicAction, createProjectAction, createRequestAction, handOverAction, requestRevisionAction, setPhaseAction } from "./actions";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -433,6 +433,26 @@ export function PhaseForm({ requestId, current }: { requestId: string; current: 
       </Button>
       <div className="sm:col-span-2">
         <FormStatus state={state} />
+      </div>
+    </form>
+  );
+}
+
+/** Sales send a completed BOQ back for a revision: the reason is the change the customer asked for. */
+export function RevisionForm({ requestId }: { requestId: string }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(requestRevisionAction, null);
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="requestId" value={requestId} />
+      <Field id={`revision-reason-${requestId}`} label="What needs to change? *" hint="The ticket goes straight to Revision and SOA is told. Up to 500 characters.">
+        <Textarea id={`revision-reason-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
+      </Field>
+      <FormStatus state={state} />
+      <div>
+        <Button type="submit" variant="destructive" disabled={pending}>
+          {pending ? "Sending…" : "Request revision"}
+        </Button>
       </div>
     </form>
   );

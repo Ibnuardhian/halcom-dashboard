@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { can } from "@/domain/access/permissions";
 import { salesActsOn } from "@/domain/projects/source";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +19,7 @@ import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
 import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
-import { AssignPicForm, NextStepForm, PhaseForm } from "./forms";
+import { AssignPicForm, NextStepForm, PhaseForm, RevisionForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -34,7 +35,11 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   const ownsProject = salesActsOn(request.project, viewer.id);
   const decided = request.handovers.length > 0;
   const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
+  // The latest time this BOQ was sent back (by Sales from the request page, or by SOA on the board), with the reason that was given.
+  const revisionEntry = [...request.statusHistory].reverse().find((row) => row.toStatus === "REVISION") ?? null;
   const mayPhase = mayWork && request.type === "BOQ" && isOpen(request.status);
+  // Sales (on a project they act on) and admins can send a completed BOQ back to SOA; it goes straight to the Revision stage.
+  const mayRevise = can(viewer.role, "requests.revise") && request.type === "BOQ" && request.status === "COMPLETED" && (viewer.role !== "SALES" || ownsProject);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
@@ -150,6 +155,31 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           </CardHeader>
           <CardContent>
             <AssignPicForm requestId={request.id} current={request.picId ?? ""} pics={pics} teamLabel={PIC_TEAM_LABELS[picTeamOf(request.type)]} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {request.status === "REVISION" ? (
+        <div role="status" data-testid="revision-banner" className="rounded-xl border border-destructive bg-destructive/10 px-4 py-3 text-sm">
+          <p className="font-semibold text-destructive">In revision</p>
+          <p>
+            {revisionEntry
+              ? `Sent back on ${formatUtc(revisionEntry.changedAt)} by ${revisionEntry.changedBy.name}${revisionEntry.reason ? `: ${revisionEntry.reason}` : "."}`
+              : "This BOQ was sent back for changes."}
+          </p>
+        </div>
+      ) : null}
+
+      {mayRevise ? (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h3>Request a revision</h3>
+            </CardTitle>
+            <CardDescription>The customer wants changes to this completed BOQ. Describe them: the ticket moves straight to Revision and SOA is told.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RevisionForm requestId={request.id} />
           </CardContent>
         </Card>
       ) : null}

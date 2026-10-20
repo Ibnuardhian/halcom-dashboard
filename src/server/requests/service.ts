@@ -13,7 +13,8 @@ import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { nextProjectCode, nextRequestCode } from "./codes";
 import { ensureCustomer } from "./master-data";
-import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
+import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
+import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, revisionSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
 
 export type Actor = { id: string; role: Role };
 
@@ -430,7 +431,7 @@ export async function changeRequestStatus(
     await notify(tx, {
       actorId: actor.id,
       recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : [])],
-      kind: "request.status_changed",
+      kind: to === "REVISION" ? REVISION_STARTED_KIND : "request.status_changed",
       title: `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
       body: reason,
       href: `/request/${request.code}`,
@@ -439,6 +440,51 @@ export async function changeRequestStatus(
   });
 }
 
+
+/**
+ * Sales ask for a revision of a completed BOQ (the customer wants changes, agreed with Sales by email). The ticket goes straight to the
+ * Revision stage, the reason is kept in the status history, and SOA (the team and the project's technical PIC) is told with a notification
+ * that is shown in red. Only a Completed BOQ can be sent back, and a salesperson only on a project they act on (their own, or one from
+ * another source). Admins may do it for a project. SOA moves a BOQ to Revision on the board as before; this is the Sales side of it.
+ */
+export async function requestRevision(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
+  const parsed = revisionSchema.safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
+  if (!can(claimedActor.role, "requests.revise")) return fail("FORBIDDEN");
+  const { requestId, reason } = parsed.data;
+
+  return db.$transaction(async (tx) => {
+    const actor = await loadActor(tx, claimedActor);
+    if (!actor || !can(actor.role, "requests.revise")) return fail("FORBIDDEN");
+
+    await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
+    const request = await tx.request.findUnique({
+      where: { id: requestId },
+      include: { project: { select: { salesOwnerId: true, sourceType: true, technicalPicId: true, deletedAt: true, endUserCompany: true, name: true } } },
+    });
+    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (actor.role === "SALES" && !salesActsOn(request.project, actor.id)) return fail("FORBIDDEN");
+    if (request.type !== "BOQ") return fail("INVALID_STATE", "A revision can be asked for on a BOQ only.");
+    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Only a completed BOQ can be sent back for a revision.");
+
+    const now = new Date();
+    // The first completion stays (a revision does not make the SLA late), exactly as when SOA moves the card to Revision.
+    await tx.request.update({ where: { id: request.id }, data: { status: "REVISION" } });
+    await tx.requestStatusHistory.create({
+      data: { requestId: request.id, fromStatus: request.status, toStatus: "REVISION", changedById: actor.id, changedAt: now, reason },
+    });
+    await audit(tx, actor.id, "request", "request.revision_requested", request.id, { status: request.status }, { status: "REVISION", reason });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: [...(await usersWithRole(tx, OWNING_ROLE.BOQ)), request.project.technicalPicId],
+      kind: REVISION_REQUESTED_KIND,
+      title: `${request.code}: revision requested`,
+      body: `${request.project.endUserCompany} – ${request.project.name}: ${reason}`,
+      href: `/request/${request.code}`,
+    });
+    return succeed({ code: request.code });
+  });
+}
 /**
  * SOA labels a BOQ request with the part of the work it is on: Assessment, Sizing or POC (or clears the label).
  * Only people who work on BOQ requests may do it, and only on a BOQ that is still open. The change is audited and

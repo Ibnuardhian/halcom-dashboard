@@ -8,7 +8,7 @@ import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
 import { assignRequestPic } from "@/server/pics/service";
-import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setRequestPhase, stopFlow } from "@/server/requests/service";
+import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, requestRevision, setRequestPhase, stopFlow } from "@/server/requests/service";
 
 // Each action checks the sign-in (and, where one permission fits, that permission) on the server;
 // the service then re-checks the actor and the record-specific rules inside its transaction.
@@ -123,4 +123,15 @@ export async function setPhaseAction(_previous: FormState, formData: FormData): 
   revalidatePath(`/request/${result.value.code}`);
   revalidatePath(REQUESTS_PATH);
   return { ok: true, message: "Phase saved." };
+}
+
+/** Sales send a completed BOQ back to SOA for a revision. The service checks who may, that the BOQ is completed, and that a reason came. */
+export async function requestRevisionAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const result = await requestRevision(getDb(), { id: user.id, role: user.role }, { requestId: text(formData, "requestId"), reason: text(formData, "reason") });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath(`/request/${result.value.code}`);
+  revalidatePath(REQUESTS_PATH);
+  revalidatePath("/notifications");
+  return { ok: true, message: `${result.value.code} is now in Revision. SOA has been told.` };
 }

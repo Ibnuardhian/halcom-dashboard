@@ -97,4 +97,7 @@ export const statusChangeSchema = z.object({
   reason: optionalText(500),
 });
 
+/** Sales ask for a revision of a completed BOQ; the reason is the change the customer asked for. */
+export const revisionSchema = z.object({ requestId: z.uuid(), reason: z.string().trim().min(1, "Say what needs to change.").max(500) });
+
 export const uuidSchema = z.uuid();
