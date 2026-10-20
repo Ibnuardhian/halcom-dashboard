@@ -276,12 +276,20 @@ export async function listPrincipalOptions(db: PrismaClient, viewer: Viewer) {
 /** Projects a request can be added to: the ones that are On Track. */
 export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer, sourceType?: ProjectSourceType) {
   assertPermitted(can(viewer.role, "projects.view"));
-  return db.project.findMany({
+  const projects = await db.project.findMany({
     where: { trackStatus: "ON_TRACK", deletedAt: null, sourceType },
     orderBy: { createdAt: "desc" },
     take: LIST_LIMIT,
-    select: { id: true, code: true, endUserCompany: true, name: true },
+    select: { id: true, code: true, endUserCompany: true, name: true, salesOwner: { select: { id: true, name: true } }, technicalPic: { select: { id: true, name: true } } },
   });
+  // The Sales PIC and the technical (SOA) PIC come along so a form can narrow the list by them and show who a request concerns.
+  return projects.map(({ salesOwner, technicalPic, ...project }) => ({
+    ...project,
+    salesPicId: salesOwner?.id ?? null,
+    salesPicName: salesOwner?.name ?? null,
+    soaPicId: technicalPic?.id ?? null,
+    soaPicName: technicalPic?.name ?? null,
+  }));
 }
 
 export type RequestRow = {

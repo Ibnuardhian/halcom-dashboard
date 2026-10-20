@@ -13,10 +13,12 @@ describe("what each operational role may do", () => {
     );
   });
 
-  it("gives Purchasing the RFQ and PO work and the shared views, and no way to create or edit projects or requests", () => {
+  it("gives Purchasing the RFQ and PO work, the right to raise an RFQ, and the shared views, and no way to create projects, BOQs or POs or edit projects", () => {
     expect(sorted(permissionsFor("PURCHASING"))).toEqual(
-      ["dashboard.purchasing.view", "dashboard.shared.view", "projects.view", "requests.view", "requests.work.purchasing"].sort(),
+      ["dashboard.purchasing.view", "dashboard.shared.view", "projects.view", "requests.create.rfq", "requests.view", "requests.work.purchasing"].sort(),
     );
+    expect(can("PURCHASING", "requests.create")).toBe(false);
+    expect(can("PURCHASING", "projects.create")).toBe(false);
   });
 
   it("gives Sales their own targets and request-raising, but no technical, handoff or finance module", () => {

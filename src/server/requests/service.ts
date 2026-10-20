@@ -103,10 +103,13 @@ async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, requ
   await tx.requestStatusHistory.create({ data: { requestId: created.id, fromStatus: null, toStatus: "SUBMITTED", changedById: actor.id } });
   await audit(tx, actor.id, "request", "request.created", created.id, null, { code, type: request.type, projectId });
   // The team that owns this kind of request (SOA for a BOQ, Purchasing for an RFQ or a PO) is told it arrived.
-  const project = await tx.project.findUnique({ where: { id: projectId }, select: { endUserCompany: true, name: true } });
+  const project = await tx.project.findUnique({ where: { id: projectId }, select: { endUserCompany: true, name: true, salesOwnerId: true, technicalPicId: true } });
+  // An RFQ that Purchasing raised itself is still the Sales PIC's project: the Sales PIC and the technical (SOA) PIC are told too. It already
+  // shows on the Sales dashboard, which counts requests by the project's owner.
+  const alsoTold = actor.role === "PURCHASING" ? [project?.salesOwnerId ?? null, project?.technicalPicId ?? null] : [];
   await notify(tx, {
     actorId: actor.id,
-    recipientIds: await usersWithRole(tx, OWNING_ROLE[request.type]),
+    recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[request.type])), ...alsoTold],
     kind: "request.created",
     title: `New ${request.type} request ${code}`,
     body: `${project?.endUserCompany} – ${project?.name}: ${request.title}`,
@@ -223,7 +226,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
 export async function createRequest(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<CreatedRecord>> {
   const parsed = createRequestSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
-  if (!can(claimedActor.role, "requests.create") && !can(claimedActor.role, "requests.create.external")) return fail("FORBIDDEN");
+  if (!can(claimedActor.role, "requests.create") && !can(claimedActor.role, "requests.create.external") && !can(claimedActor.role, "requests.create.rfq")) return fail("FORBIDDEN");
   const { projectId, type, title, description, requiredBy, submissionKey } = parsed.data;
 
   const existing = () => db.request.findUnique({ where: { submissionKey: submissionKey! }, select: { id: true, code: true } });

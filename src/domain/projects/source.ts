@@ -139,5 +139,7 @@ export function canRaiseWithNewProject(role: Role, type: "BOQ" | "RFQ" | "PO", s
  */
 export function canRaiseRequestOn(role: Role, type: "BOQ" | "RFQ" | "PO", sourceType: ProjectSourceType): boolean {
   if (can(role, "requests.create")) return true;
+  // Purchasing may raise an RFQ (and only an RFQ) on any project.
+  if (type === "RFQ" && can(role, "requests.create.rfq")) return true;
   return can(role, "requests.create.external") && type === "BOQ" && sourceType === "OTHER";
 }

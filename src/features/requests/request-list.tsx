@@ -199,11 +199,11 @@ export async function RequestList({
               </Link>
             ))}
           </nav>
-          {can(viewer.role, "requests.create") || can(viewer.role, "requests.create.external") ? (
-            // SOA raise a BOQ together with its project, in the one New project form (BOQ already chosen); others use the request form.
-            can(viewer.role, "requests.create") ? (
+          {can(viewer.role, "requests.create") || can(viewer.role, "requests.create.external") || can(viewer.role, "requests.create.rfq") ? (
+            // SOA raise a BOQ together with its project, in the one New project form (BOQ already chosen); Purchasing raise an RFQ for an existing project; others use the request form.
+            can(viewer.role, "requests.create") || can(viewer.role, "requests.create.rfq") ? (
               <Link href={type ? `${NEW_REQUEST_PATH}?type=${type}` : NEW_REQUEST_PATH} className={buttonVariants()}>
-                New request
+                {can(viewer.role, "requests.create") ? "New request" : "New RFQ request"}
               </Link>
             ) : (
               <Link href={`/projects/new?type=${type ?? "BOQ"}`} className={buttonVariants()}>

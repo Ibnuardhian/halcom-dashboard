@@ -208,39 +208,121 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
   );
 }
 
-export type ProjectOption = { id: string; code: string; endUserCompany: string; name: string };
+export type ProjectOption = {
+  id: string;
+  code: string;
+  endUserCompany: string;
+  name: string;
+  salesPicId?: string | null;
+  salesPicName?: string | null;
+  soaPicId?: string | null;
+  soaPicName?: string | null;
+};
 
+const ANY_PIC = "";
+const NO_PIC = "none";
+
+/** The distinct PICs of a list of projects, as select options, by name. */
+function picOptions(projects: readonly ProjectOption[], idOf: (p: ProjectOption) => string | null | undefined, nameOf: (p: ProjectOption) => string | null | undefined) {
+  const seen = new Map<string, string>();
+  for (const project of projects) {
+    const id = idOf(project);
+    const name = nameOf(project);
+    if (id && name) seen.set(id, name);
+  }
+  return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+}
+
+/**
+ * `picFilters` (Purchasing): the projects can be narrowed by their Sales PIC and their SOA PIC, and the chosen project's two PICs are
+ * shown. Nothing here changes who the PICs are: they are the project's own, and the request reaches them through the project.
+ */
 export function RequestForm({
   projects,
   defaultProjectId,
   defaultType,
   types,
   submissionKey,
+  picFilters = false,
 }: {
   projects: ProjectOption[];
   defaultProjectId: string;
   defaultType: RequestType;
   types: readonly RequestType[];
   submissionKey: string;
+  picFilters?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(createRequestAction, null);
   const [type, setType] = useState<RequestType>(defaultType);
+  const [projectId, setProjectId] = useState(defaultProjectId);
+  const [salesFilter, setSalesFilter] = useState(ANY_PIC);
+  const [soaFilter, setSoaFilter] = useState(ANY_PIC);
+
+  const matches = (project: ProjectOption, sales: string, soa: string) =>
+    (sales === ANY_PIC || (sales === NO_PIC ? !project.salesPicId : project.salesPicId === sales)) && (soa === ANY_PIC || (soa === NO_PIC ? !project.soaPicId : project.soaPicId === soa));
+  const visible = picFilters ? projects.filter((project) => matches(project, salesFilter, soaFilter)) : projects;
+  const chosen = projects.find((project) => project.id === projectId);
+  // A filter that leaves out the chosen project clears the choice, so a hidden project can never be submitted by accident.
+  function changeFilters(sales: string, soa: string) {
+    setSalesFilter(sales);
+    setSoaFilter(soa);
+    if (chosen && !matches(chosen, sales, soa)) setProjectId("");
+  }
 
   return (
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="submissionKey" value={submissionKey} />
+      {picFilters ? (
+        <>
+          <Field id="request-sales-pic" label="Sales PIC" hint="Optional. Narrows the projects to the ones this salesperson owns.">
+            <NativeSelect id="request-sales-pic" value={salesFilter} onChange={(event) => changeFilters(event.target.value, soaFilter)}>
+              <option value={ANY_PIC}>Any Sales PIC</option>
+              {picOptions(projects, (p) => p.salesPicId, (p) => p.salesPicName).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+              <option value={NO_PIC}>No Sales PIC (project from another source)</option>
+            </NativeSelect>
+          </Field>
+          <Field id="request-soa-pic" label="SOA PIC" hint="Optional. Narrows the projects to the ones this technical PIC covers.">
+            <NativeSelect id="request-soa-pic" value={soaFilter} onChange={(event) => changeFilters(salesFilter, event.target.value)}>
+              <option value={ANY_PIC}>Any SOA PIC</option>
+              {picOptions(projects, (p) => p.soaPicId, (p) => p.soaPicName).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+              <option value={NO_PIC}>No SOA PIC yet</option>
+            </NativeSelect>
+          </Field>
+        </>
+      ) : null}
       <Field id="request-project" label="Project *">
-        <NativeSelect id="request-project" name="projectId" required defaultValue={defaultProjectId}>
+        <NativeSelect id="request-project" name="projectId" required value={projectId} onChange={(event) => setProjectId(event.target.value)}>
           <option value="" disabled>
             Select a project
           </option>
-          {projects.map((project) => (
+          {visible.map((project) => (
             <option key={project.id} value={project.id}>
               {project.code} · {project.endUserCompany} – {project.name}
             </option>
           ))}
         </NativeSelect>
       </Field>
+      {picFilters ? (
+        <div className="text-sm sm:self-end sm:pb-1.5" aria-live="polite" data-testid="request-project-pics">
+          {chosen ? (
+            <p>
+              <span className="text-muted-foreground">Sales PIC:</span> {chosen.salesPicName ?? "None (project from another source)"} ·{" "}
+              <span className="text-muted-foreground">SOA PIC:</span> {chosen.soaPicName ?? "None yet"}
+              <span className="block text-xs text-muted-foreground">The RFQ goes to Purchasing and is shown to these PICs; it appears on the Sales dashboard of the Sales PIC.</span>
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Choose a project to see its Sales PIC and SOA PIC.</p>
+          )}
+        </div>
+      ) : null}
       <Field id="request-type" label="Request type *" hint={`Goes to ${OWNING_TEAM_LABELS[type]}.`}>
         <NativeSelect id="request-type" name="type" required value={type} onChange={(event) => setType(event.target.value as RequestType)}>
           {types.map((option) => (

@@ -67,6 +67,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "requests.view": { category: "request-workflow", label: "View requests", description: "See the request lists, request pages and their history." },
   "requests.create": { category: "request-workflow", label: "Raise requests", description: "Raise a BOQ, RFQ or PO request for a project." },
   "requests.create.external": { category: "request-workflow", label: "Raise requests for external projects", description: "Raise a request on a project whose source is Other." },
+  "requests.create.rfq": { category: "request-workflow", label: "Raise RFQ requests", description: "Raise an RFQ request (only an RFQ) for an existing project, for example Purchasing on behalf of the project's Sales and SOA PICs." },
   "requests.email": { category: "request-workflow", label: "Request email text", description: "Copy the email text of a request to send to the team." },
   "requests.work.boq": { category: "request-workflow", label: "Work BOQ requests", description: "Change the status of BOQ requests and hand them to a PIC (SOA)." },
   "requests.work.purchasing": { category: "request-workflow", label: "Work RFQ & PO requests", description: "Change the status of RFQ and PO requests and hand them to a PIC (Purchasing)." },

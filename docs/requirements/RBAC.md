@@ -56,6 +56,7 @@ both call `can()`; the menu is derived from it, and
 | `pics.manage` (create, rename, deactivate the PICs of SOA and Purchasing) | ✔ | ✔ | – | – | – | – | – |
 | `customers.view` (Customers page) | ✔ | ✔ | ✔ | – | – | – | – |
 | `requests.create.external` (SOA: raise a BOQ on a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
+| `requests.create.rfq` (Purchasing: raise an RFQ, and only an RFQ, for an existing project; the project's Sales and SOA PICs are notified and it shows on the Sales dashboard) | ✔ | ✔ | – | – | ✔ | – | – |
 | `targets.edit` (own sales targets) | ✔ | – | ✔ | – | – | – | – |
 | `handoffs.view` (Purchasing Handoff list) | ✔ | ✔ | – | ✔ | – | – | – |
 | `reports.technical.view` (monthly BOQ report) | ✔ | ✔ | – | ✔ | – | – | ✔ |
@@ -87,7 +88,7 @@ categories, each with a label, a description and its identifier. Dashboards are 
 | 2 | User & Role Management | `users.view`, `users.manage`, `users.manage-privileged` |
 | 3 | Permission Management | `permissions.view`, `permissions.manage` |
 | 4 | Project Management | `projects.view`, `.create`, `.create.external`, `.assign-sales`, `.import`, `.edit.source`, `.edit.technical`, `.edit.commercial`, `.delete`, `.reassign`, `.post-update` |
-| 5 | Request, BOQ, RFQ & Handoffs | `requests.view`, `.create`, `.create.external`, `.email`, `.work.boq`, `.work.purchasing`, `.handover`, `handoffs.view` |
+| 5 | Request, BOQ, RFQ & Handoffs | `requests.view`, `.create`, `.create.external`, `.create.rfq`, `.email`, `.work.boq`, `.work.purchasing`, `.handover`, `handoffs.view` |
 | 6 | Master Data, Principals, Customers & PICs | `masterdata.manage`, `pics.manage`, `customers.view` |
 | 7 | Sales Pipeline & Targets | `targets.edit` |
 | 8 | Finance & Crosscheck | `finance.crosscheck.view` |

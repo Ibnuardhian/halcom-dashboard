@@ -41,6 +41,7 @@ export type Permission =
   | "requests.view"
   | "requests.create"
   | "requests.create.external"
+  | "requests.create.rfq"
   | "requests.email"
   | "requests.work.boq"
   | "requests.work.purchasing"
@@ -81,6 +82,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "requests.view",
   "requests.create",
   "requests.create.external",
+  "requests.create.rfq",
   "requests.email",
   "requests.work.boq",
   "requests.work.purchasing",
@@ -138,6 +140,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.import",
     "projects.edit.source",
     "requests.create.external",
+    "requests.create.rfq",
     "projects.edit.technical",
     "projects.post-update",
     "masterdata.manage",
@@ -174,6 +177,8 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     ownDashboardPermission("PURCHASING"),
     ...READ_WORK,
     "requests.work.purchasing",
+    // Purchasing raises an RFQ for an existing project (it is also shown to the project's Sales and SOA PICs); never a BOQ or a PO.
+    "requests.create.rfq",
   ]),
   // Finance reads: values, quotation and PO references, audit history. Nothing here lets Finance change a project or a request.
   FINANCE: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("FINANCE"), "finance.crosscheck.view", ...READ_WORK]),
