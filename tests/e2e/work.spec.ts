@@ -34,9 +34,9 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
     await page.getByLabel("Summary").fill(title);
     await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/request\/(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
-  return page.url().split("/").pop()!;
+  return new URL(page.url()).searchParams.get("request")!;
 }
 
 /**
@@ -79,7 +79,7 @@ test.describe("projects and requests", () => {
     const code = await createRequest(page, projectCode, "BOQ", "BOQ for 40 cameras");
 
     expect(code).toMatch(/^BOQ-SA-\d{2}\d{4,}$/); // initials of sales@example.invalid
-    await expect(page.getByRole("heading", { level: 1, name: code })).toBeVisible();
+    await expect(page.locator(`li#request-${code} > details[open]`)).toBeVisible(); // the new request is open on its project page
     await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("BOQ", "CCTV AI"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("soa-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("soa-cc@example.invalid");
@@ -112,7 +112,7 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Request summary").fill("BOQ from the combined form");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
-    await expect(page).toHaveURL(/\/request\/BOQ-SA-\d{2}\d{4,}$/);
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-SA-\d{2}\d{4,}/);
     const subject = await page.getByLabel("Subject", { exact: true }).inputValue();
     expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
     const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (PRJ-\d+)/)![1]!;
@@ -231,14 +231,14 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Request summary").fill("Price for 10 servers");
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
-    await expect(page).toHaveURL(/\/request\/RFQ-SA-\d{2}\d{4,}$/);
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-SA-\d{2}\d{4,}/);
     await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "RFQ routing demo"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     const requestUrl = page.url();
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(requestUrl);
-    await expect(soa.getByRole("heading", { level: 1, name: /^RFQ-SA-/ })).toBeVisible();
+    await expect(soa.locator(`li[id^="request-RFQ-SA-"] > details[open]`)).toBeVisible();
     await expect(soa.getByRole("heading", { name: /Email text/ })).toHaveCount(0);
     await expect(soa.getByText(/dragging this request/)).toHaveCount(0); // SOA do not work on an RFQ: no board hint
     await soa.context().close();
@@ -579,8 +579,8 @@ test.describe("projects and requests", () => {
 
     await soa.goto(`/request/${boq}`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
-    await expect(soa).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/);
-    const rfq = soa.url().split("/").pop()!;
+    await expect(soa).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
+    const rfq = new URL(soa.url()).searchParams.get("request")!;
 
     await expect(soa.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
     await expect(soa.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
@@ -605,7 +605,7 @@ test.describe("projects and requests", () => {
 
     const finance = await asRole(browser, "FINANCE");
     await finance.goto(`/request/${rfq}`);
-    await expect(finance.getByRole("heading", { level: 1, name: rfq })).toBeVisible();
+    await expect(finance.locator(`li#request-${rfq} > details[open]`)).toBeVisible();
     await expect(finance.getByText(/dragging this request/)).toHaveCount(0); // Finance only reads
     await expect(finance.getByLabel("Subject", { exact: true })).toHaveCount(0);
     await soa.context().close();
@@ -645,7 +645,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("Not continuing – decided by")).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
-      await expect(page).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
     }).toPass({ timeout: 40_000 });
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQDone");

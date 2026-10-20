@@ -34,9 +34,9 @@ async function createBoq(page: Page, projectCode: string, title: string): Promis
   await expect(async () => {
     await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/request\/BOQ-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
-  return page.url().split("/").pop()!;
+  return new URL(page.url()).searchParams.get("request")!;
 }
 
 const card = (page: Page, heading: string) => page.getByRole("heading", { level: 2, name: heading }).locator("xpath=ancestor::*[@data-slot='card'][1]");

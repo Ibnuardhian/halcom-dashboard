@@ -52,9 +52,9 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
     await page.getByLabel("Summary").fill("Quote forty PoE switches");
     await page.getByLabel("Details").fill("48-port, managed.");
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
-  const code = page.url().split("/").pop()!;
+  const code = new URL(page.url()).searchParams.get("request")!;
   await expect(page.getByText("Quote forty PoE switches").first()).toBeVisible();
   await signOut(page);
 

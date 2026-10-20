@@ -24,9 +24,9 @@ async function createBoq(page: Page, projectCode: string, title: string): Promis
   await expect(async () => {
     await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/request\/BOQ-[A-Z0-9]+-\d{6,}$/, { timeout: 45_000 });
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });
-  return page.url().split("/").pop()!;
+  return new URL(page.url()).searchParams.get("request")!;
 }
 
 /** Drags a BOQ's card to a column of the BOQ board, the way SOA moves a status. */

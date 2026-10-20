@@ -270,7 +270,7 @@ test.describe("dashboards use the stored requests", () => {
       await sales.getByText(/^BOQ – /).click();
       await sales.getByLabel("Request summary").fill("Counted BOQ");
       await sales.getByRole("button", { name: /Create project and BOQ request/ }).click();
-      await expect(sales).toHaveURL(/\/request\/BOQ-/, { timeout: 4000 });
+      await expect(sales).toHaveURL(/\?request=BOQ-/, { timeout: 4000 });
     }).toPass({ timeout: 45_000 });
 
     await soa.reload();
@@ -352,7 +352,7 @@ test.describe("a project from another source (Other)", () => {
       await soa.getByText(/^BOQ – /).click();
       await soa.getByLabel("Request summary").fill("BOQ untuk Sales terdaftar");
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
-      await expect(soa).toHaveURL(/\/request\/BOQ-/, { timeout: 15_000 });
+      await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
     }).toPass({ timeout: 60_000 });
 
     await soa.getByRole("link", { name: /^PRJ-\d+/ }).first().click();
@@ -415,7 +415,7 @@ test.describe("a project from another source (Other)", () => {
       await soa.getByText(/^BOQ – /).click();
       await soa.getByLabel("Request summary").fill("BOQ untuk mitra");
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
-      await expect(soa).toHaveURL(/\/request\/BOQ-/, { timeout: 4000 });
+      await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 4000 });
     }).toPass({ timeout: 60_000 });
 
     // The project page names the source and has no internal Sales PIC; SOA's source form is there.

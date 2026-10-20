@@ -24,9 +24,9 @@ async function createRfq(page: Page, projectCode: string, title: string, details
     await page.getByLabel("Summary").fill(title);
     await page.getByLabel("Details").fill(details);
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/request\/RFQ-[A-Z0-9]+-\d{6,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
-  return page.url().split("/").pop()!;
+  return new URL(page.url()).searchParams.get("request")!;
 }
 
 /** Saves the classification form; the button is clicked again if the page was not interactive yet. */
@@ -199,7 +199,7 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     await expect(async () => {
       await page.getByLabel("Summary").fill(`BOQ ${id}`);
       await page.getByRole("button", { name: "Create request" }).click();
-      await expect(page).toHaveURL(/\/request\/BOQ-/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
     }).toPass({ timeout: 45_000 });
 
     const purchasing = await inNewContext(browser, "PURCHASING");
