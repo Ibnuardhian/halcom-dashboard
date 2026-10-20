@@ -55,8 +55,10 @@ both call `can()`; the menu is derived from it, and
 | `projects.import` (import projects from an Excel sheet) | ✔ | ✔ | – | ✔ | – | – | – |
 | `pics.manage` (create, rename, deactivate the PICs of SOA and Purchasing) | ✔ | ✔ | – | – | – | – | – |
 | `customers.view` (Customers page) | ✔ | ✔ | ✔ | – | – | – | – |
+| `customers.edit` (fill in a customer's industry in the Customers page modal) | ✔ | ✔ | ✔ | – | – | – | – |
 | `requests.create.external` (SOA: raise a BOQ on a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
 | `requests.create.rfq` (Purchasing: raise an RFQ, and only an RFQ, for an existing project; the project's Sales and SOA PICs are notified and it shows on the Sales dashboard) | ✔ | ✔ | – | – | ✔ | – | – |
+| `requests.revise` (Sales: send a completed BOQ back to SOA for changes; it goes straight to Revision and SOA is notified in red; Sales only on projects they act on) | ✔ | ✔ | ✔ | – | – | – | – |
 | `targets.edit` (own sales targets) | ✔ | – | ✔ | – | – | – | – |
 | `handoffs.view` (Purchasing Handoff list) | ✔ | ✔ | – | ✔ | – | – | – |
 | `reports.technical.view` (monthly BOQ report) | ✔ | ✔ | – | ✔ | – | – | ✔ |

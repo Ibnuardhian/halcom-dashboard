@@ -245,3 +245,22 @@ describe("the guide's statements match the application's rules", () => {
     expect(REQUEST_STATUSES.filter((status) => !isRetired(status) && allowedTransitions(status, "RFQ").includes("WAITING_FOR_SALES"))).toEqual([]);
   });
 });
+
+describe("the revision flow the guide describes", () => {
+  it("lets Sales and admins send a completed BOQ back, and nobody who works it or only reads", () => {
+    for (const role of ["SALES", "ADMIN", "SUPERADMIN"] as const) expect(can(role, "requests.revise"), role).toBe(true);
+    for (const role of ["SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) expect(can(role, "requests.revise"), role).toBe(false);
+  });
+
+  it("reaches Revision only from Completed, and for a BOQ only", () => {
+    expect(allowedTransitions("COMPLETED", "BOQ")).toEqual(["REVISION"]);
+    expect(allowedTransitions("COMPLETED", "RFQ")).not.toContain("REVISION");
+    expect(allowedTransitions("SUBMITTED", "BOQ")).not.toContain("REVISION");
+  });
+
+  it("is a step in the chart that hands over to SOA", () => {
+    const step = GUIDE_NODES_BY_ID.get("sales.revise")!;
+    expect(step.role).toBe("SALES");
+    expect(GUIDE_EDGES.some((edge) => edge.from === "sales.revise" && GUIDE_NODES_BY_ID.get(edge.to)?.role === "SOA")).toBe(true);
+  });
+});

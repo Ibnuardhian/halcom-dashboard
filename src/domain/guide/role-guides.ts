@@ -15,6 +15,8 @@ export const ROLE_GUIDES: Record<Role, RoleGuide> = {
       "The commercial fields of your own projects (and of projects from another source)",
       "New projects and BOQ, RFQ and PO requests",
       "The decision to continue a completed BOQ or RFQ on your projects",
+      "Sending a completed BOQ back to SOA for a revision",
+      "A customer's industry (Customers page)",
       "Your own sales targets",
     ],
     cannot: ["Technical fields (SOA)", "Request status and PIC (SOA and Purchasing)", "The commercial fields of another salesperson's project"],

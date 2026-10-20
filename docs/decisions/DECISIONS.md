@@ -577,3 +577,20 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   `tests/e2e/guide.spec.ts` covers highlighting for all seven roles, hover, click, keyboard, zoom, tabs, role-specific links and the small-screen list.
 - **Not covered.** The guide describes what exists today. Request attachments are not built, so the guide does not mention them. The BOQ,
   quotation and PO documents themselves are prepared outside the application; the guide says so.
+
+## D-034 Gross-profit-only targets, customer industry, Sales revision requests
+
+- **Sales Targets take gross profit only.** The target form has no revenue box. Revenue stays on the Sales Targets scorecard as **won (after the PO)** and
+  **weighted forecast**, with no target and no "reached" column. `sales_targets.revenue_target` is kept (no data is dropped): a value saved by an
+  earlier version is never shown, changed or lost, and clearing the gross profit target keeps a row that still holds one. A save is an update or a create,
+  not an upsert: an upsert proposes an insert first, and a row with no target at all breaks the table's check.
+- **Customer industry.** `customers.industry` (nullable text, migration `20261025100000_customer_industry`) is filled in on the Customers page: the customer's
+  name opens a window with an Industry box that suggests the industries already in use. New permission `customers.edit` (Sales, Admin, Superadmin: the roles
+  that open the page). Charts, filters, the project page and exports use the customer's industry first and fall back to the free text a project carried from
+  the sales export (`effectiveIndustry`). Any role with `customers.edit` may edit any customer's industry (a customer is shared master data, not one salesperson's).
+- **Sales revision requests.** New permission `requests.revise` (Sales, Admin, Superadmin). On a **Completed BOQ** the request page shows "Request a revision"
+  with a required reason (up to 500 characters). The BOQ moves straight to Revision (the first completion date is kept, so the SLA does not run late), the reason
+  is in the status history and the audit log, and SOA (the team and the project's technical PIC) is notified. A salesperson may do it only on a project they act on
+  (their own, or one from another source). RFQ and PO have no Revision status: Purchasing reopens them. Revision notifications (this one, and SOA moving a BOQ to
+  Revision on the board) are red in the list with the word Revision, and the bell badge turns red while one is unread; a banner on the request page keeps
+  "In revision" and the reason in view.
