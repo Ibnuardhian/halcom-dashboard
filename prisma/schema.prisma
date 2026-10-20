@@ -32,6 +32,8 @@ model User {
   // One role per user (assumption A-1 in docs/requirements/RBAC.md).
   role         Role
   isActive     Boolean  @default(true) @map("is_active")
+  // The prefix of this person's request codes (RFQ-S-260001): one letter of the e-mail address, more if that letter is taken. Set once.
+  codePrefix   String?  @unique @map("code_prefix")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -105,6 +107,7 @@ model AuditEvent {
   actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
+  @@index([actorId])
   @@index([createdAt])
   @@map("audit_events")
 }
@@ -360,6 +363,7 @@ model Project {
   @@index([purchasingPicId])
   @@index([customerId])
   @@index([principalId])
+  @@index([solutionCategoryId])
   @@index([deletedAt])
   @@map("projects")
 }
@@ -387,6 +391,14 @@ model Request {
   phase           SoaPhase?
   submissionKey   String?       @unique @map("submission_key")
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
+  // When the team first answered it (the "Tanggal Response" of the RFQ tracker). Set once, when the request first leaves Submitted.
+  respondedAt     DateTime?     @map("responded_at") @db.Timestamptz(3)
+  // The e-mail the request came from: a link to the mail, and the ids that find its thread again.
+  emailLink           String?   @map("email_link")
+  emailMessageId      String?   @map("email_message_id")
+  emailConversationId String?   @map("email_conversation_id")
+  // The file an imported request came from; null for a request raised in the application.
+  importedFrom    String?       @map("imported_from")
   // Sales decided not to continue to the next step after this completed BOQ or RFQ (BOQ -> RFQ -> PO).
   flowStoppedAt   DateTime?     @map("flow_stopped_at") @db.Timestamptz(3)
   flowStoppedById String?       @map("flow_stopped_by_id") @db.Uuid
@@ -408,6 +420,7 @@ model Request {
   @@unique([sourceRequestId, type])
   @@index([projectId])
   @@index([picId])
+  @@index([requesterId])
   @@index([type, status])
   @@index([status])
   @@index([createdAt])

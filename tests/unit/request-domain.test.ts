@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codeScope, formatCode, initialsFromEmail, PROJECT_CODE_WIDTH, twoDigitYear } from "@/domain/requests/codes";
+import { CODE_PREFIX_PATTERN, codeScope, formatCode, nameLetters, pickCodePrefix, PROJECT_CODE_WIDTH, twoDigitYear } from "@/domain/requests/codes";
 import { canContinueFlow } from "@/domain/requests/access";
 import { flowSteps } from "@/domain/requests/flow";
 import { formatDateText, parseRecipients, resolveRecipients, singleLine, templateValues } from "@/domain/requests/email";
@@ -21,24 +21,42 @@ import {
 import { OWNING_ROLE, REQUEST_TYPES, SUBJECT_TAGS, typeFromSlug, typeSlug } from "@/domain/requests/types";
 
 describe("request codes", () => {
-  it("builds initials from the parts of the email address", () => {
-    expect(initialsFromEmail("ibnu.ardhian@halcom.co.id")).toBe("IA");
-    expect(initialsFromEmail("Budi.S.Pratama@x.id")).toBe("BSP");
-    expect(initialsFromEmail("a.b.c.d@x.id")).toBe("ABC");
-    expect(initialsFromEmail("first_last-name@x.id")).toBe("FLN");
+  it("takes one letter, the first letter of the e-mail address", () => {
+    const none = new Set<string>();
+    expect(pickCodePrefix("satrio.akbar@halcominovasi.co.id", none)).toBe("S");
+    expect(pickCodePrefix("adityo.prabowo@halcominovasi.co.id", none)).toBe("A");
+    expect(pickCodePrefix("Dzaki@halcominovasi.co.id", none)).toBe("D");
+    expect(pickCodePrefix("mas.dzaki@example.invalid", none)).toBe("M");
   });
 
-  it("uses the first two letters when the address has one part", () => {
-    expect(initialsFromEmail("sales@example.invalid")).toBe("SA");
-    expect(initialsFromEmail("x@example.invalid")).toBe("X");
+  it("gives a second person with the same letter their first two letters, a third person three", () => {
+    expect(pickCodePrefix("soraya@x.id", new Set(["S"]))).toBe("SO");
+    expect(pickCodePrefix("satrio@x.id", new Set(["S", "SO"]))).toBe("SA");
+    expect(pickCodePrefix("sofia@x.id", new Set(["S", "SO"]))).toBe("SOF");
+    // Three characters is all a code has room for: after that comes two letters and a digit.
+    expect(pickCodePrefix("sofia@x.id", new Set(["S", "SO", "SOF"]))).toBe("SO2");
+    expect(pickCodePrefix("sofia@x.id", new Set(["S", "SO", "SOF", "SO2"]))).toBe("SO3");
+    // Only the prefixes that are taken matter, not the order people arrive in.
+    expect(pickCodePrefix("soraya@x.id", new Set(["SA"]))).toBe("S");
   });
 
-  it("falls back to XX instead of an empty code segment", () => {
-    expect(initialsFromEmail("@example.invalid")).toBe("XX");
-    expect(initialsFromEmail("...@example.invalid")).toBe("XX");
+  it("ignores digits, dots and case in the address, and never returns an empty prefix", () => {
+    expect(nameLetters("Budi.S_Pratama+7@x.id")).toBe("BUDISPRATAMA");
+    expect(pickCodePrefix("1234@x.id", new Set())).toBe("X");
+    expect(pickCodePrefix("@x.id", new Set(["X"]))).toBe("X2");
   });
 
-  it("formats codes as TYPE-INITIALS-YY0001", () => {
+  it("falls back to a number when every length of the name is taken", () => {
+    expect(pickCodePrefix("ab@x.id", new Set(["A", "AB"]))).toBe("AB2");
+    expect(pickCodePrefix("ab@x.id", new Set(["A", "AB", "AB2"]))).toBe("AB3");
+  });
+
+  it("only produces prefixes the database accepts", () => {
+    for (const email of ["a@x", "satrio.akbar@x", "@x", "9@x", "ab@x"]) expect(CODE_PREFIX_PATTERN.test(pickCodePrefix(email, new Set(["A", "AB", "X"])))).toBe(true);
+  });
+
+  it("formats codes as TYPE-PREFIX-YY0001", () => {
+    expect(formatCode(codeScope("RFQ", "S", "26"), 1)).toBe("RFQ-S-260001");
     expect(formatCode(codeScope("RFQ", "IA", "26"), 1)).toBe("RFQ-IA-260001");
     expect(formatCode(codeScope("BOQ", "IA", "26"), 42)).toBe("BOQ-IA-260042");
     expect(formatCode(codeScope("PO", "SA", "27"), 12345)).toBe("PO-SA-2712345");

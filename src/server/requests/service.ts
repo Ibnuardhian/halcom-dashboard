@@ -88,7 +88,7 @@ type NewRequest = { type: RequestType; title: string; description: string | null
 
 /** Inserts a request with its first status-history row and audit event, inside the caller's transaction. */
 async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, request: NewRequest, submissionKey: string | null) {
-  const code = await nextRequestCode(tx, request.type, actor.email, new Date());
+  const code = await nextRequestCode(tx, request.type, actor, new Date());
   const created = await tx.request.create({
     data: {
       code,
@@ -300,7 +300,7 @@ export async function handOverToPurchasing(
       if (again) return succeed({ ...again, created: false });
       if (source.project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
 
-      const code = await nextRequestCode(tx, targetType, actor.email, new Date());
+      const code = await nextRequestCode(tx, targetType, actor, new Date());
       // A handed-over request arrives In progress: the team does not have to accept it first.
       const request = await tx.request.create({
         data: {
@@ -421,6 +421,8 @@ export async function changeRequestStatus(
       data: {
         status: to,
         // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
+        // The first answer of the team: the first time the request is taken up or completed. A cancellation is not an answer.
+        respondedAt: request.respondedAt ?? (to === "IN_PROGRESS" || to === "COMPLETED" ? now : null),
         completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
       },
     });

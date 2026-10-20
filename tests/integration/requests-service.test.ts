@@ -118,7 +118,7 @@ describe("createProject", () => {
 });
 
 describe("createRequest", () => {
-  it("numbers requests TYPE-INITIALS-YY0001 with a separate counter per type and per initials", async () => {
+  it("numbers requests TYPE-PREFIX-YY0001 with a separate counter per type and per prefix", async () => {
     const ibnu = await actorOf("SALES", "qa.one");
     const other = await actorOf("SALES", "qa.two");
     const project = await makeProject(ibnu);
@@ -132,11 +132,17 @@ describe("createRequest", () => {
     const po1 = await makeRequest(ibnu, project.id, "PO"); // a PO follows a completed RFQ
     const otherRfq = await makeRequest(other, project.id, "RFQ");
 
-    expect(rfq1.code).toBe(`RFQ-QO-${YY}0001`);
-    expect(rfq2.code).toBe(`RFQ-QO-${YY}0002`);
-    expect(boq1.code).toBe(`BOQ-QO-${YY}0001`);
-    expect(po1.code).toBe(`PO-QO-${YY}0001`);
-    expect(otherRfq.code).toBe(`RFQ-QT-${YY}0001`);
+    // One letter of the address; the prefix depends on who already holds it in this database, so the test reads it from the first code.
+    const first = rfq1.code.split("-")[1]!;
+    const second = otherRfq.code.split("-")[1]!;
+    expect(first).toMatch(/^Q[A-Z0-9]{0,2}$/);
+    expect(second).toMatch(/^Q[A-Z0-9]{0,2}$/);
+    expect(second).not.toBe(first);
+    expect(rfq1.code).toBe(`RFQ-${first}-${YY}0001`);
+    expect(rfq2.code).toBe(`RFQ-${first}-${YY}0002`);
+    expect(boq1.code).toBe(`BOQ-${first}-${YY}0001`);
+    expect(po1.code).toBe(`PO-${first}-${YY}0001`);
+    expect(otherRfq.code).toBe(`RFQ-${second}-${YY}0001`);
   });
 
   it("never hands out the same code twice under concurrency", async () => {
@@ -308,7 +314,8 @@ describe("handOverToPurchasing", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value).toMatchObject({ created: true, code: `RFQ-SH-${YY}0001` });
+    expect(result.value).toMatchObject({ created: true });
+    expect(result.value.code).toMatch(new RegExp(`^RFQ-S[A-Z0-9]{0,2}-${YY}0001$`)); // SOA's own prefix: one letter of so.ho@, more only if taken
     const rfq = await db.request.findUniqueOrThrow({ where: { id: result.value.id }, include: { statusHistory: true } });
     expect(rfq).toMatchObject({
       type: "RFQ",
