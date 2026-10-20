@@ -16,6 +16,18 @@ const allowedDevOrigins = [
     .filter(Boolean),
 ];
 
+// Server Actions (sign-in, every form) compare the Origin header with the forwarded host. Behind a tunnel or reverse proxy
+// that rewrites the Origin (a VS Code dev tunnel, ngrok), they differ and the action is refused with a 500. The same
+// ALLOWED_DEV_ORIGINS names (wildcards such as *.devtunnels.ms work) are accepted there as well.
+// Next.js matches this list against the Origin header, which a tunnel that rewrites it leaves as the local address, so the
+// local addresses are listed too (the app is published on the host's loopback only; the port is APP_HOST_PORT).
+const hostPort = process.env.APP_HOST_PORT || "3000";
+const serverActionOrigins = [
+  `localhost:${hostPort}`,
+  `127.0.0.1:${hostPort}`,
+  ...allowedDevOrigins.filter((origin) => origin !== "127.0.0.1"),
+];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins,
   // Self-contained server bundle used by the production Docker image.
@@ -30,7 +42,7 @@ const nextConfig: NextConfig = {
   // page load is followed by "Compiled in 2ms" and a full reload, endlessly. Compiling from scratch costs a few seconds at
   // start-up, so the cache is off for the dev servers (`app` and the disposable `app-test`).
   // A project import posts the .xlsx file itself to a server action (5 MB at most, checked again on the server).
-  experimental: { turbopackFileSystemCacheForDev: false, serverActions: { bodySizeLimit: "6mb" } },
+  experimental: { turbopackFileSystemCacheForDev: false, serverActions: { bodySizeLimit: "6mb", allowedOrigins: serverActionOrigins } },
   // Pages show one person's data. no-store keeps the browser's back/forward cache and any shared cache from showing the
   // last person's page to the next one on the same machine after a sign-out or an account switch.
   async headers() {
