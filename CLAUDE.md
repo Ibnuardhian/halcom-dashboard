@@ -10,34 +10,24 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 [docs/requirements/OPEN_QUESTIONS.md](docs/requirements/OPEN_QUESTIONS.md) ·
 [docs/requirements/RBAC.md](docs/requirements/RBAC.md) · [docs/requirements/PIPELINE.md](docs/requirements/PIPELINE.md)
 
-## RESUME HERE (written 2026-10-20, before a context compact and a change of device)
+## RESUME HERE (rewritten 2026-10-20, after D-035)
 
-**State:** branch `wip/single-view-master-data`, everything committed and pushed up to `9c646a1` (page merge). Decisions D-033 (User Guide) and D-034
-(gross-profit-only targets, customer industry, Sales revision) are in `docs/decisions/DECISIONS.md`. Migration `20261025100000_customer_industry` is new:
-run `docker compose run --rm app npm run db:migrate:deploy` on a device whose database does not have it, then `docker compose restart app`.
+**State:** branch `wip/single-view-master-data`. The E2E clean-up listed here before is **done**: every spec passes (last full run 127/130; the three that failed were one stale
+locator, fixed, and two sign-in/count flakes under parallel workers that pass alone). Typecheck and lint clean, unit 328/328, integration 317/317, `next build` ok.
 
-**First thing to do on the other device: sort out the 12 failing E2E tests.** Last run of `work`, `modules`, `master-data` and `admin-tools` specs
-(71 tests): 59 passed, 12 failed. The failing ones are `admin-tools.spec.ts:94`, `modules.spec.ts:333/385/459`, `work.spec.ts:190/286/372/568/655/746/772/802`.
-Method (the machine used before was overloaded, so a full run gives false failures):
-1. `docker compose stop app` (frees CPU and RAM), then `docker compose --profile test up -d --force-recreate app-test`.
-2. One test at a time: `docker compose --profile test run --rm e2e npx playwright test tests/e2e/<file>:<line> --workers=1 --timeout=300000`.
-3. A failure that says the page stayed on /login or the form shows "Signing in…" is the slow server (a pre-existing problem), not the code: rerun it once.
-4. Likely needs a test update, caused by our own changes (not by load): `work:746` (Purchasing can now open /requests/new: requests.create.rfq),
-   `work:286` (the target form has no revenue box any more), and any assertion that expects the request on its own page: `work:568`, `work:655`, `modules:333/385/459`
-   (the request now opens inside its project page, `/projects/PRJ-n?request=CODE`; the heading is the project's, not the request code).
-5. `work:190` and `admin-tools:94` also failed on the code before these changes (checked with `git stash`); they fail only at sign-in under load.
-6. When clean: commit, push, `docker compose start app`, `docker compose restart app`.
+**Done in D-035 (see DECISIONS.md):** request code prefix is one letter (two only if the letter is taken; `users.code_prefix`), RFQ tracker CSV imported
+(`npm run db:import-rfq`: 27 requests, 27 projects in the dev DB), one SQL file for a new database (`npm run db:rfq-sql` writes `prisma/data/hit_rfq_tickets_import.sql`, verified identical
+to the importer on an empty DB), three FK indexes, new request columns for the e-mail ids and the first response. Migrations `20261026100000_code_prefix_and_request_email` and
+`20261026110000_code_prefix_max_length` are applied to the dev DB (run `db:migrate:deploy` and `docker compose restart app` on another device).
 
-**Passing on a quiet machine, so do not redo:** `request-page`, `revision`, `purchasing-rfq`, `customer-industry` and `guide` specs; unit 310/310; integration for
-targets, revision, customer industry, purchasing RFQ, notifications; typecheck and lint clean; `npm run build` ok (before the page merge: rerun it).
+**Still open / asked:** deploying to Oracle Cloud Always Free with automatic deploys (no files written yet; the plan was given in chat: Ampere A1 VM, Docker, `compose.prod.yaml`,
+Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8, T-9 (no first-superadmin bootstrap, no login rate limit) still stand, so the app is not ready
+for real users. Whether the Request and Project lists should also merge is undecided. `prisma/data/hit_rfq_tickets_import.sql` and the CSV hold customer data: never commit them.
+The user's git identity is not configured on the first device: commits used `git -c user.name=Ibnuardhian -c user.email=ibnuardhian@gmail.com`.
 
-**Not done / asked:** an open decision whether the Request and Project lists should also merge (only the request detail page was merged; the lists stay separate).
-Four older sign-in E2E tests that fail under load were never investigated. The user's git identity is not configured on the first device: commits used
-`git -c user.name=Ibnuardhian -c user.email=ibnuardhian@gmail.com`.
-
-**Environment notes learned this session:** Docker Desktop may be off (start `C:\Users\user\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`);
-the Playwright image is about 700 MB and downloads slowly the first time; run no other Docker command during an E2E run; after editing source the test server must be
-recreated (`--force-recreate app-test`) because file watching is off; heredocs with apostrophes break in this shell, write files with the Write tool.
+**Environment notes:** Docker Desktop may be off (start `C:\Program Files\Docker\Docker\Docker Desktop.exe`); run no other Docker command during an E2E run; after editing source the test
+server must be recreated (`--force-recreate app-test`); stop `app` before a long E2E run; a bash heredoc that contains backslashes or apostrophes can fail silently, write scripts with the Write tool.
+The scratch database `halcom_fresh_check` in the `db-test` container is a throwaway used to check the seed and the SQL file; it may be removed.
 
 ## Latest progress
 
@@ -95,6 +85,8 @@ recreated (`--force-recreate app-test`) because file watching is off; heredocs w
   one **Admin Dashboard** for Admin and Superadmin (both addresses and permissions kept), `npm run db:cleanup-dev` (applied to the dev DB: PRJ-035/036 and their
   three requests marked deleted, 18 notifications removed, 5 obsolete accounts deleted, `gusti` and `adityo` deactivated), repeatable seeds (`db:seed`, `db:seed:sample`).
   Migration `20261024100000_role_permission_overrides`. Backup before the cleanup: `backups/pre-dev-cleanup-2026-10-18.dump`.
+
+- **Added 2026-10-20 (D-035):** one-letter request code prefix, RFQ tracker import and its SQL file, indexes (see RESUME HERE).
 
 ## Architecture decisions
 

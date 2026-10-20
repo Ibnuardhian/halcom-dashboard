@@ -188,6 +188,20 @@ marks the test projects of that day deleted the way the application does (their 
 created that day through the form, was not imported from the sales export and has a placeholder company such as `PT ABCD`; everything else is reported and left alone.
 Take a backup first (Backups page or `pg_dump`).
 
+### Loading the RFQ tracker
+
+`prisma/data/hit_rfq_tickets_2026-10-20.csv` (git-ignored: customer names and e-mail addresses) is the RFQ ticket sheet. `npm run db:import-rfq` turns each ticket into an RFQ request with its status history, PIC and project (D-035). It reports first with `--dry-run`, runs in one transaction, only adds and skips tickets already loaded, so it is safe to repeat.
+
+For a **new database**, `npm run db:rfq-sql` writes the same data as one SQL file, `prisma/data/hit_rfq_tickets_import.sql`. Load it after the schema and the development accounts exist:
+
+```powershell
+docker compose run --rm app npm run db:migrate:deploy
+docker compose run --rm app npm run db:seed
+docker compose exec -T db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1' < prisma/data/hit_rfq_tickets_import.sql
+```
+
+Request codes are `RFQ-S-260001`: the type, one letter from the requester's e-mail address (two if another person already has that letter), the year and a number.
+
 ### Correcting Sales accounts and project ownership
 
 `npm run db:remap-owners` applies the reviewed ownership correction of D-031 (rename `mas.dzaki@` to `dzaki@`, move the projects of `soraya@` to
@@ -221,6 +235,8 @@ docker compose run --rm app npm run db:remap-owners -- --apply   # apply
 | Apply migrations | `docker compose run --rm app npm run db:migrate:deploy` |
 | Migration status | `docker compose run --rm app npm run db:migrate:status` |
 | Seed development data | `docker compose run --rm app npm run db:seed`, then `npm run db:seed:sample` |
+| Load the RFQ tracker (CSV) | `docker compose run --rm app npm run db:import-rfq -- --dry-run`, then without `--dry-run` |
+| Write the RFQ tracker as one SQL file | `docker compose run --rm app npm run db:rfq-sql` (writes `prisma/data/hit_rfq_tickets_import.sql`) |
 | Clean up development data (dry run) | `docker compose run --rm app npm run db:cleanup-dev` |
 | SQL shell | `docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB'` |
 

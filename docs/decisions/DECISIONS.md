@@ -245,9 +245,9 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
 
 - **Date:** 2026-10-17 · **Status:** Confirmed by the user (format); counter scope is an assumption
 - **Decision:**
-  - Requests: `BOQ-<initials>-YY0001`, `RFQ-<initials>-YY0001`, `PO-<initials>-YY0001`, for example `RFQ-IA-260001`.
-    The sequence restarts per type, per initials and per year (assumption, OPEN_QUESTIONS T-13). Initials come from the
-    requester's email address: `ibnu.ardhian@x` gives `IA`, `sales@x` gives `SA`. The two-digit year uses the Asia/Jakarta time zone.
+  - Requests: `BOQ-<prefix>-YY0001`, `RFQ-<prefix>-YY0001`, `PO-<prefix>-YY0001`, for example `RFQ-S-260001`.
+    The sequence restarts per type, per prefix and per year (assumption, OPEN_QUESTIONS T-13). The two-digit year uses the Asia/Jakarta time zone.
+    **The prefix rule was changed by D-035:** it is one letter, no longer the initials of the address parts (the old `ibnu.ardhian@x` gave `IA`, `sales@x` gave `SA`).
   - Projects: `PRJ-001`, `PRJ-002`, ... one unbroken sequence, matching the sales export. The counter continues after the
     highest imported number.
   - Numbers come from the `code_counters` table, taken atomically inside the creating transaction, so concurrent
@@ -594,3 +594,28 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   (their own, or one from another source). RFQ and PO have no Revision status: Purchasing reopens them. Revision notifications (this one, and SOA moving a BOQ to
   Revision on the board) are red in the list with the word Revision, and the bell badge turns red while one is unread; a banner on the request page keeps
   "In revision" and the reason in view.
+
+## D-035 One-letter code prefix, RFQ tracker import, SQL for a new database, indexes
+
+- **Date:** 2026-10-20 · **Status:** Implemented (migrations `20261026100000_code_prefix_and_request_email`, `20261026110000_code_prefix_max_length`, additive)
+- **Request code prefix** (`users.code_prefix`, unique). The prefix is the **first letter of the person's e-mail address** (`satrio.akbar@` gives `S`, `adityo.prabowo@` gives `A`, as in the
+  tracker's own `RFQ-A-260002`). If another person already holds that letter, the next person takes the **first two letters** (`soraya@` gives `SO`), then three; a code has room for three
+  characters only (`requests_code_format_chk`), so after that comes two letters and a digit. It is chosen the first time the person raises a request, under an advisory lock, and kept, so a code never
+  changes. Requests that already exist keep their codes (`BOQ-SA-...`); a person's numbering for the new prefix starts at 1.
+- **RFQ tracker import** (`npm run db:import-rfq`, dry run with `--dry-run`; development and test only; one transaction; only adds; safe to repeat). The sheet's 27 tickets became 27 RFQ
+  requests with their status history, PIC assignment and projects. Rules, all in `src/server/import/rfq-tickets.ts`:
+  - Status: Done is Completed, Failed is Cancelled (the note is the reason), On Going is In progress, Baru is Submitted. Dates in the sheet carry no time: a ticket came in at 09:00, was answered
+    at 15:00 and an undated outcome is set at 17:00 (Asia/Jakarta); these times are assumptions. `Tanggal Response` is stored as `requests.responded_at` (new), set by the application the first time a
+    request is taken up or completed. `LinkEmail`, `MessageID` and the conversation id are stored on the request (`email_link`, `email_message_id`, `email_conversation_id`).
+  - Every RFQ belongs to a project, so each ticket made one (one per customer and project name). A sender who is a Sales account owns it; Gusti's go to Satrio (D-031); an SOA or admin sender (Adityo,
+    Ibnu) has no Sales PIC, so the project is source Other with their name. A sender with no account is created **inactive, with a password nobody knows**, only so history can name them.
+  - "Gita & Soraya" is two people but a request has one PIC: the first is assigned and the whole text is kept in the description. Tickets that already have an id keep it.
+  - Applied to the development database on 2026-10-20 after a `pg_dump` (`backups/pre-rfq-import-2026-10-20.dump`): 27 requests, 27 projects (3 source Other), 5 code prefixes.
+- **SQL for a new database** (`npm run db:rfq-sql`, writes `prisma/data/hit_rfq_tickets_import.sql`, touches no database). It is generated from the same plan, so it cannot disagree with the importer:
+  loaded into an empty database (migrations, `db:seed`, then the file) it produced rows identical to the importer's on every compared column. One transaction, only adds, repeatable.
+  It holds customer names and e-mail addresses, so it stays in the git-ignored `prisma/data/`.
+- **Database review and optimisation.** The tables already follow the business flow (project, then BOQ, RFQ, PO with their history), so the schema was not rebuilt: a rebuild would mean dropping
+  tables that hold history, which the safety rules forbid, and nothing in the flow required it. What was added: the e-mail and response columns above and three indexes on foreign keys that had none
+  (`requests.requester_id`, `projects.solution_category_id`, `audit_events.actor_id`). Measured on 80,000 requests and 120,000 audit events (rolled back afterwards): the requests of one person
+  6.4 ms to 0.3 ms, the audit events of one actor 6.2 ms to 0.4 ms. Left alone on purpose, as candidates for a later reviewed migration: the deprecated columns `projects.stage`, `projects.status`,
+  `requests.assignee_id` and their indexes.
