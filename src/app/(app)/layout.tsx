@@ -5,7 +5,7 @@ import { can } from "@/domain/access/permissions";
 import { ROLE_LABELS } from "@/domain/access/roles";
 import { logoutAction, switchAccountAction } from "@/features/auth/actions";
 import { SessionKeepAlive } from "@/features/auth/session-keep-alive";
-import { ACCOUNT_PATH, NOTIFICATIONS_PATH, navSectionsFor } from "@/features/navigation/links";
+import { ACCOUNT_PATH, GUIDE_PATH, NOTIFICATIONS_PATH, navSectionsFor } from "@/features/navigation/links";
 import { ThemeSwitcher } from "@/features/theme/theme-switcher";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
@@ -37,6 +37,7 @@ async function AuthenticatedShell({ children }: { children: React.ReactNode }) {
       user={{ name: user.name, roleLabel: ROLE_LABELS[user.role] }}
       accountHref={ACCOUNT_PATH}
       notifications={{ href: NOTIFICATIONS_PATH, unread }}
+      guideHref={GUIDE_PATH}
       controls={can(user.role, "theme.switch") ? <ThemeSwitcher /> : null}
       signOut={
         <div className="flex flex-col gap-2">

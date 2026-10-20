@@ -555,3 +555,25 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
   from an outside source. Every record has a fixed name or an idempotency key (`seed-dev-v1:...`), so repeating either command adds nothing and
   never overwrites a change made in the application. Routine seeding never deletes, resets or truncates. Migrations stay separate
   (`db:migrate:deploy`). The sales export is not part of the seed: it is real data and stays git-ignored.
+
+## D-033 User Guide: interactive workflow chart and role-by-role steps
+
+- **One page, every role.** `/guide` (header link "User Guide") needs only a signed-in session, no permission. Nothing on it is data: it describes the workflow,
+  and what it highlights and links to follows the viewer's permissions.
+- **One definition.** `src/domain/guide/workflow.ts` holds every step once (role, kind, action, input, output, recipient, grid position, step-by-step
+  instructions, page links) and the arrows between them. The flowchart, its popovers, the list for small screens and the role tabs are all drawn from it.
+  `role-guides.ts` keeps "Can read", "Can edit" and "Cannot" apart for each role (everyone reads, only the owner edits).
+- **Highlighting from permissions.** A role's lane is highlighted when the account's own role is that role, or when the account holds every permission in
+  `GUIDE_ROLE_CAPABILITY` for it (an Admin therefore lights Sales, SOA, Purchasing, Finance, Management and Admin, not Superadmin). The function takes a
+  list of roles, so an account with several roles is highlighted for all of them. Colour has one meaning on the chart, the viewer's roles; a step's role,
+  kind and next recipient are text and icons, and arrows differ by line style (handoff thick, within a role thin, information or setup dashed).
+- **Interaction.** Hover, focus, click, tap or Enter open a step's details; Escape, the close button, a click on empty chart or a second click closes them.
+  The popover is fixed to the screen (never clipped by the chart's scrolling). The chart scrolls, drags and zooms (50% to 150%, fit to width); below `md` a
+  list of the same steps replaces it.
+- **Restricted detail.** The step-by-step instructions of Admin and Superadmin are not sent to the browser of anyone who does not hold those roles; links
+  appear only for pages the viewer may open (each link lists the permission its page requires; a unit test compares it with the page's `requirePermission`).
+- **Checked.** `tests/unit/guide.test.ts` pins each stated rule to the code that enforces it (flow order, who decides after a BOQ or RFQ, who works which
+  request, read-only roles, reasons for cancelling and reopening) and checks the chart geometry (no overlapping steps, no arrow through a third step).
+  `tests/e2e/guide.spec.ts` covers highlighting for all seven roles, hover, click, keyboard, zoom, tabs, role-specific links and the small-screen list.
+- **Not covered.** The guide describes what exists today. Request attachments are not built, so the guide does not mention them. The BOQ,
+  quotation and PO documents themselves are prepared outside the application; the guide says so.

@@ -49,6 +49,8 @@ export const TECHNICAL_REPORTS_PATH = "/reports/technical";
 export const FINANCE_REPORTS_PATH = "/reports/finance";
 export const NEW_REQUEST_PATH = "/requests/new";
 export const ACCOUNT_PATH = "/account";
+/** Open to every signed-in role: it needs no permission, and what it highlights and links to follows the viewer's permissions. */
+export const GUIDE_PATH = "/guide";
 export const NOTIFICATIONS_PATH = "/notifications";
 
 /**
