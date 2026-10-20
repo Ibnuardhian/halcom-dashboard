@@ -303,26 +303,27 @@ test.describe("projects and requests", () => {
     await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
     await expect(async () => {
       // The boxes reset when the page becomes interactive, so they are filled again on every try.
-      await page.getByLabel("Q1 revenue target").fill("1.000");
       await page.getByLabel("Q1 gross profit target").fill("100");
-      await page.getByLabel("Q2 revenue target").fill("2000");
       await page.getByRole("button", { name: `Save my ${year} targets` }).click();
-      await expect(page.getByRole("status").filter({ hasText: "Saved targets for Q1, Q2." })).toBeVisible({ timeout: 4000 });
+      await expect(page.getByRole("status").filter({ hasText: "Saved targets for Q1." })).toBeVisible({ timeout: 4000 });
     }).toPass({ timeout: 20_000 });
 
     const card = (name: string) => page.getByRole("heading", { level: 2, name, exact: true }).locator("xpath=ancestor::*[@data-slot='card'][1]");
+    // Only gross profit is a target. Revenue stays on the scorecard as won (after the PO) and forecast, with no target and no box.
     const revenue = card("Revenue");
-    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("1.000");
-    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("400");
-    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("40%");
-    await expect(revenue.getByRole("row", { name: /Q2/ })).toContainText("2.000");
-    await expect(revenue.getByRole("row", { name: new RegExp(`${year} total`) })).toContainText("3.000");
+    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("400"); // won after the PO: the final value
+    await expect(revenue.getByRole("columnheader", { name: "Target" })).toHaveCount(0);
+    await expect(page.getByText("Revenue won (after PO)").first()).toBeVisible();
+    await expect(page.getByText("Revenue forecast (weighted)")).toBeVisible();
+    await expect(page.getByLabel("Q1 revenue target")).toHaveCount(0);
     const profit = card("Gross profit");
-    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("40"); // 10% of 400
+    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("100"); // the target
+    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("40"); // won: 10% of 400
+    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("40%"); // 40 of 100
     await expect(profit.getByRole("row", { name: /Q2/ })).toContainText("Not set");
 
-    await page.reload(); // the saved targets come back into the form
-    await expect(page.getByLabel("Q1 revenue target")).toHaveValue("1.000");
+    await page.reload(); // the saved target comes back into the form
+    await expect(page.getByLabel("Q1 gross profit target")).toHaveValue("100");
   });
 
   test("the progress chart names the steps without their percentages", async ({ page }) => {

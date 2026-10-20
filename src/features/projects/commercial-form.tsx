@@ -20,7 +20,7 @@ const HINTS: Partial<Record<CommercialField, string>> = {
   estimatedValue: "Dots are added as you type, for example 1.200.000.000",
   quoteReleasedAt: "Date the quotation was submitted to the customer. Filled with today when you move to Propose; change or clear it when the schedule moves.",
   targetDate: "Date the deal should close",
-  finalValue: "The agreed PO value once known; counts toward your revenue target",
+  finalValue: "The agreed PO value once known; with the target margin, gives the gross profit counted toward your target",
   wonDate: "Set when the project is closed as won; decides which quarter it counts in",
 };
 

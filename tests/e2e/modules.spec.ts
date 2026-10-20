@@ -209,7 +209,7 @@ test.describe("persistent login and switching accounts", () => {
     await expectNotFound(page, "/handoffs", "Ready for handoff");
     await expectNotFound(page, "/finance/crosscheck?role=FINANCE", "Financial Crosscheck");
     await expectNotFound(page, "/admin/permissions", "Expand all");
-    await expectNotFound(page, "/targets", "Revenue target");
+    await expectNotFound(page, "/targets", "Gross profit target");
   });
 });
 
