@@ -10,6 +10,7 @@ import {
   type ProjectEditableField,
 } from "@/domain/projects/fields";
 import { ACTION_BODY_MAX_LENGTH, ACTION_KINDS } from "@/domain/projects/actions";
+import { salesActsOn } from "@/domain/projects/source";
 import { notify, projectAudience } from "@/server/notifications/service";
 import {
   COMMERCIAL_FIELDS,
@@ -222,7 +223,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     const project = await tx.project.findUnique({ where: { id: projectId } });
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
-    if (actor.role === "SALES" && project.salesOwnerId !== actor.id) {
+    if (actor.role === "SALES" && !salesActsOn(project, actor.id)) {
       return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;
     }
 
@@ -241,6 +242,11 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     // Closing a project as won with no won date puts it in the quarter it was closed in (today), so it counts toward the target.
     if (submitted.progress === "CLOSED_WON" && current.progress !== "CLOSED_WON" && current.wonDate === null && (submitted.wonDate ?? null) === null) {
       submitted.wonDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    }
+    // Moving to Propose (30%) means the quotation was submitted: with no date yet, today is filled in. It stays editable (and can be
+    // cleared) afterwards, so a date typed in the same change wins and later schedule changes are free.
+    if (submitted.progress === "PROPOSE" && current.progress !== "PROPOSE" && current.quoteReleasedAt === null && (submitted.quoteReleasedAt ?? null) === null) {
+      submitted.quoteReleasedAt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
     }
     const changes = diffCommercial(current, submitted);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies CommercialResult;

@@ -15,7 +15,7 @@ function text(formData: FormData, name: string): string {
 /** Saves the signed-in salesperson's targets for one year. */
 export async function saveTargetsAction(_previous: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const quarters = Object.fromEntries(QUARTERS.map((q) => [q, { revenue: text(formData, `revenue-${q}`), grossProfit: text(formData, `grossProfit-${q}`) }]));
+  const quarters = Object.fromEntries(QUARTERS.map((q) => [q, { grossProfit: text(formData, `grossProfit-${q}`) }]));
   const result = await saveSalesTargets(getDb(), { id: user.id, role: user.role }, { year: text(formData, "year"), quarters });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath("/dashboard/sales");

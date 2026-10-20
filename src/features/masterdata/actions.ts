@@ -26,12 +26,13 @@ export async function createMasterRecordAction(kind: string, name: string): Prom
   return { ok: true, id: result.value.id, name: result.value.name };
 }
 
-/** Saves the Principal and Solution picked on a project. */
+/** Saves the Principals and Solution picked on a project. */
 export async function setProjectMasterDataAction(_previous: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const result = await setProjectMasterData(getDb(), { id: user.id, role: user.role }, {
     projectId: text(formData, "projectId"),
-    principalId: text(formData, "principalId"),
+    // The form always carries the whole list (an empty list clears it).
+    principalIds: formData.getAll("principalIds").filter((value): value is string => typeof value === "string"),
     solutionId: text(formData, "solutionId"),
   });
   if (!result.ok) return { ok: false, message: result.message };

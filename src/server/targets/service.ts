@@ -8,7 +8,7 @@ import { QUARTERS, summariseTargets, type Quarter, type TargetSummary } from "@/
 type Viewer = { id: string; role: Role };
 
 /**
- * The revenue and gross-profit picture of one calendar year: the targets entered, what was won and what the open pipeline
+ * The gross-profit picture of one calendar year (revenue figures are still computed but no longer shown): the targets entered, what was won and what the open pipeline
  * is expected to bring, per quarter. `salesOwnerId` narrows it to one salesperson; without it every Sales person's
  * projects and targets are added together.
  */
@@ -47,18 +47,18 @@ export async function getTargetSummary(db: PrismaClient, viewer: Viewer, options
   );
 }
 
-export type StoredTargets = Record<Quarter, { revenue: number | null; grossProfit: number | null }>;
+export type StoredTargets = Record<Quarter, { grossProfit: number | null }>;
 
-/** One salesperson's own targets for a year, for the form. */
+/** One salesperson's own gross-profit targets for a year, for the form. */
 export async function getOwnTargets(db: PrismaClient, viewer: Viewer, year: number): Promise<StoredTargets> {
   if (!can(viewer.role, "targets.edit")) throw new Error("Forbidden: missing permission for this query.");
   const rows = await db.salesTarget.findMany({ where: { salesUserId: viewer.id, year } });
-  const result = Object.fromEntries(QUARTERS.map((q) => [q, { revenue: null, grossProfit: null }])) as StoredTargets;
-  for (const row of rows) result[row.quarter as Quarter] = { revenue: row.revenueTarget?.toNumber() ?? null, grossProfit: row.grossProfitTarget?.toNumber() ?? null };
+  const result = Object.fromEntries(QUARTERS.map((q) => [q, { grossProfit: null }])) as StoredTargets;
+  for (const row of rows) result[row.quarter as Quarter] = { grossProfit: row.grossProfitTarget?.toNumber() ?? null };
   return result;
 }
 
-const quarterValues = z.object({ revenue: z.string().max(40).nullish(), grossProfit: z.string().max(40).nullish() }).strict();
+const quarterValues = z.object({ grossProfit: z.string().max(40).nullish() }).strict();
 
 const saveSchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
@@ -70,9 +70,10 @@ export type SaveTargetsResult =
   | { ok: false; code: "FORBIDDEN" | "INVALID_INPUT"; message: string };
 
 /**
- * Sales enter their own revenue and gross-profit targets for the four quarters of a year. A blank box means "no target":
- * a quarter with both boxes blank has no row. Only the signed-in salesperson's own targets can be written, whoever
- * is named in the request. The change and its audit event (who, which quarter, from, to) commit together.
+ * Sales enter their own gross-profit target for the four quarters of a year (there is no revenue target). A blank box means
+ * "no target": a quarter with a blank box has no target. A revenue target stored by an earlier version is left as it is, never
+ * shown and never written. Only the signed-in salesperson's own targets can be written, whoever is named in the request. The
+ * change and its audit event (who, which quarter, from, to) commit together.
  */
 export async function saveSalesTargets(db: PrismaClient, claimedActor: Viewer, input: unknown): Promise<SaveTargetsResult> {
   const parsed = saveSchema.safeParse(input);
@@ -80,13 +81,11 @@ export async function saveSalesTargets(db: PrismaClient, claimedActor: Viewer, i
   if (!can(claimedActor.role, "targets.edit")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
   const { year, quarters } = parsed.data;
 
-  const wanted = new Map<Quarter, { revenue: number | null; grossProfit: number | null }>();
+  const wanted = new Map<Quarter, number | null>();
   for (const quarter of QUARTERS) {
-    const revenue = parseAmount(`Q${quarter} revenue target`, quarters[quarter].revenue);
-    if (!revenue.ok) return { ok: false, code: "INVALID_INPUT", message: revenue.message };
     const grossProfit = parseAmount(`Q${quarter} gross profit target`, quarters[quarter].grossProfit);
     if (!grossProfit.ok) return { ok: false, code: "INVALID_INPUT", message: grossProfit.message };
-    wanted.set(quarter, { revenue: revenue.value, grossProfit: grossProfit.value });
+    wanted.set(quarter, grossProfit.value);
   }
 
   return db.$transaction(async (tx) => {
@@ -99,20 +98,19 @@ export async function saveSalesTargets(db: PrismaClient, claimedActor: Viewer, i
     const changed: Quarter[] = [];
     for (const quarter of QUARTERS) {
       const row = existing.find((r) => r.quarter === quarter);
-      const was = { revenue: row?.revenueTarget?.toNumber() ?? null, grossProfit: row?.grossProfitTarget?.toNumber() ?? null };
+      const was = row?.grossProfitTarget?.toNumber() ?? null;
       const now = wanted.get(quarter)!;
-      if (was.revenue === now.revenue && was.grossProfit === now.grossProfit) continue;
+      if (was === now) continue;
       changed.push(quarter);
-      before[`Q${quarter}`] = was;
-      after[`Q${quarter}`] = now;
-      if (now.revenue === null && now.grossProfit === null) {
+      before[`Q${quarter}`] = { grossProfit: was };
+      after[`Q${quarter}`] = { grossProfit: now };
+      if (now === null && (row?.revenueTarget ?? null) === null) {
         await tx.salesTarget.deleteMany({ where: { salesUserId: actor.id, year, quarter } });
+      } else if (row) {
+        // Update, not upsert: an upsert proposes an insert first, and a row with no target at all breaks the table's check even when the update would not.
+        await tx.salesTarget.update({ where: { salesUserId_year_quarter: { salesUserId: actor.id, year, quarter } }, data: { grossProfitTarget: now } });
       } else {
-        await tx.salesTarget.upsert({
-          where: { salesUserId_year_quarter: { salesUserId: actor.id, year, quarter } },
-          create: { salesUserId: actor.id, year, quarter, revenueTarget: now.revenue, grossProfitTarget: now.grossProfit },
-          update: { revenueTarget: now.revenue, grossProfitTarget: now.grossProfit },
-        });
+        await tx.salesTarget.create({ data: { salesUserId: actor.id, year, quarter, grossProfitTarget: now } });
       }
     }
     if (changed.length > 0) {

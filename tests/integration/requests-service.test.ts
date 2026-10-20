@@ -98,10 +98,12 @@ describe("createProject", () => {
   });
 
   it("rejects roles without the permission, blank names, bad dates and deactivated users", async () => {
-    for (const role of ["SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
+    for (const role of ["PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
       const result = await createProject(db, await actorOf(role), { endUserCompany: "PT ABC", name: "X" });
       expect(result).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
+    // SOA register a project for a salesperson they choose, so one without a Sales PIC is invalid rather than forbidden.
+    expect(await createProject(db, await actorOf("SOA"), { endUserCompany: "PT ABC", name: "X" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     const sales = await actorOf("SALES");
     expect(await createProject(db, sales, { endUserCompany: "   ", name: "X" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await createProject(db, sales, { endUserCompany: "A", name: "" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
@@ -116,7 +118,7 @@ describe("createProject", () => {
 });
 
 describe("createRequest", () => {
-  it("numbers requests TYPE-INITIALS-YY0001 with a separate counter per type and per initials", async () => {
+  it("numbers requests TYPE-PREFIX-YY0001 with a separate counter per type and per prefix", async () => {
     const ibnu = await actorOf("SALES", "qa.one");
     const other = await actorOf("SALES", "qa.two");
     const project = await makeProject(ibnu);
@@ -130,11 +132,17 @@ describe("createRequest", () => {
     const po1 = await makeRequest(ibnu, project.id, "PO"); // a PO follows a completed RFQ
     const otherRfq = await makeRequest(other, project.id, "RFQ");
 
-    expect(rfq1.code).toBe(`RFQ-QO-${YY}0001`);
-    expect(rfq2.code).toBe(`RFQ-QO-${YY}0002`);
-    expect(boq1.code).toBe(`BOQ-QO-${YY}0001`);
-    expect(po1.code).toBe(`PO-QO-${YY}0001`);
-    expect(otherRfq.code).toBe(`RFQ-QT-${YY}0001`);
+    // One letter of the address; the prefix depends on who already holds it in this database, so the test reads it from the first code.
+    const first = rfq1.code.split("-")[1]!;
+    const second = otherRfq.code.split("-")[1]!;
+    expect(first).toMatch(/^Q[A-Z0-9]{0,2}$/);
+    expect(second).toMatch(/^Q[A-Z0-9]{0,2}$/);
+    expect(second).not.toBe(first);
+    expect(rfq1.code).toBe(`RFQ-${first}-${YY}0001`);
+    expect(rfq2.code).toBe(`RFQ-${first}-${YY}0002`);
+    expect(boq1.code).toBe(`BOQ-${first}-${YY}0001`);
+    expect(po1.code).toBe(`PO-${first}-${YY}0001`);
+    expect(otherRfq.code).toBe(`RFQ-${second}-${YY}0001`);
   });
 
   it("never hands out the same code twice under concurrency", async () => {
@@ -195,44 +203,50 @@ describe("createRequest", () => {
 });
 
 describe("changeRequestStatus", () => {
-  it("walks a BOQ through its statuses, recording assignee, completion time and history", async () => {
+  it("walks a BOQ through its statuses, recording completion time and history", async () => {
     const sales = await actorOf("SALES", "qa.flow");
     const soa = await actorOf("SOA", "soa.flow");
     const project = await makeProject(sales);
     const boq = await makeRequest(sales, project.id, "BOQ");
 
     expect((await advance(soa, boq.id, "IN_PROGRESS")).ok).toBe(true);
-    expect((await advance(soa, boq.id, "WAITING_FOR_SALES", "Need the floor plan")).ok).toBe(true);
-    expect((await advance(soa, boq.id, "IN_PROGRESS")).ok).toBe(true);
     expect((await advance(soa, boq.id, "COMPLETED")).ok).toBe(true);
 
     const done = await db.request.findUniqueOrThrow({ where: { id: boq.id }, include: { statusHistory: { orderBy: { changedAt: "asc" } } } });
-    expect(done).toMatchObject({ status: "COMPLETED", assigneeId: soa.id });
+    expect(done).toMatchObject({ status: "COMPLETED", assigneeId: null }); // PICs are chosen, not taken from the login
     expect(done.completedAt).toBeInstanceOf(Date);
     expect(done.statusHistory.map((row) => [row.fromStatus, row.toStatus])).toEqual([
       [null, "SUBMITTED"],
       ["SUBMITTED", "IN_PROGRESS"],
-      ["IN_PROGRESS", "WAITING_FOR_SALES"],
-      ["WAITING_FOR_SALES", "IN_PROGRESS"],
       ["IN_PROGRESS", "COMPLETED"],
     ]);
-    expect(done.statusHistory[2]).toMatchObject({ reason: "Need the floor plan", changedById: soa.id });
+    expect(done.statusHistory[1]).toMatchObject({ reason: null, changedById: soa.id });
 
-    // Reopening needs a reason, clears completed_at and keeps the earlier completion in the history.
-    expect(await advance(soa, boq.id, "IN_PROGRESS")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
-    expect((await advance(soa, boq.id, "IN_PROGRESS", "Customer changed the scope")).ok).toBe(true);
-    const reopened = await db.request.findUniqueOrThrow({ where: { id: boq.id }, include: { statusHistory: true } });
+    // A completed BOQ is not reopened: it goes to Revision, which needs no reason and keeps the completion time.
+    expect(await advance(soa, boq.id, "IN_PROGRESS", "Customer changed the scope")).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect((await advance(soa, boq.id, "REVISION")).ok).toBe(true);
+    const revising = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
+    expect(revising).toMatchObject({ status: "REVISION" });
+    expect(revising.completedAt?.getTime()).toBe(done.completedAt?.getTime());
+
+    // An RFQ is reopened instead: it needs a reason, clears completed_at and keeps the earlier completion in the history.
+    const purchasing = await actorOf("PURCHASING", "purchasing.reopen");
+    const rfq = await makeRequest(sales, project.id, "RFQ");
+    await advance(purchasing, rfq.id, "COMPLETED");
+    expect(await advance(purchasing, rfq.id, "IN_PROGRESS")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect((await advance(purchasing, rfq.id, "IN_PROGRESS", "Vendor changed the price")).ok).toBe(true);
+    const reopened = await db.request.findUniqueOrThrow({ where: { id: rfq.id }, include: { statusHistory: true } });
     expect(reopened).toMatchObject({ status: "IN_PROGRESS", completedAt: null });
     expect(reopened.statusHistory.filter((row) => row.toStatus === "COMPLETED")).toHaveLength(1);
   });
 
-  it("requires a reason to wait or cancel, and refuses transitions that are not allowed", async () => {
+  it("requires a reason to cancel, and refuses transitions that are not allowed", async () => {
     const sales = await actorOf("SALES", "qa.rules");
     const soa = await actorOf("SOA", "soa.rules");
     const project = await makeProject(sales);
     const boq = await makeRequest(sales, project.id, "BOQ");
 
-    expect(await advance(soa, boq.id, "WAITING_FOR_SALES")).toMatchObject({ ok: false, code: "INVALID_INPUT" }); // waiting needs a reason
+    expect(await advance(soa, boq.id, "WAITING_FOR_SALES", "Need the floor plan")).toMatchObject({ ok: false, code: "INVALID_STATE" }); // retired
     expect(await advance(soa, boq.id, "CANCELLED")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect((await advance(soa, boq.id, "CANCELLED", "Customer cancelled")).ok).toBe(true);
     const final = await advance(soa, boq.id, "IN_PROGRESS");
@@ -300,7 +314,8 @@ describe("handOverToPurchasing", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value).toMatchObject({ created: true, code: `RFQ-SH-${YY}0001` });
+    expect(result.value).toMatchObject({ created: true });
+    expect(result.value.code).toMatch(new RegExp(`^RFQ-S[A-Z0-9]{0,2}-${YY}0001$`)); // SOA's own prefix: one letter of so.ho@, more only if taken
     const rfq = await db.request.findUniqueOrThrow({ where: { id: result.value.id }, include: { statusHistory: true } });
     expect(rfq).toMatchObject({
       type: "RFQ",

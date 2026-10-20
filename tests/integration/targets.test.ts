@@ -18,8 +18,8 @@ async function actorOf(role: Role) {
   return { id: user.id, role: user.role };
 }
 
-const blank = { revenue: "", grossProfit: "" };
-const quarters = (overrides: Record<number, { revenue: string; grossProfit: string }> = {}) => ({ 1: blank, 2: blank, 3: blank, 4: blank, ...overrides });
+const blank = { grossProfit: "" };
+const quarters = (overrides: Record<number, { grossProfit: string }> = {}) => ({ 1: blank, 2: blank, 3: blank, 4: blank, ...overrides });
 // Test files share one database and the year is part of the key, so each test uses its own year.
 const yearOf = () => 2100 - Math.floor(Math.random() * 90);
 
@@ -30,25 +30,25 @@ describe("saveSalesTargets", () => {
 
     const result = await saveSalesTargets(db, sales, {
       year,
-      quarters: quarters({ 1: { revenue: "2.500.000.000", grossProfit: "300000000" }, 3: { revenue: "1000", grossProfit: "" } }),
+      quarters: quarters({ 1: { grossProfit: "300.000.000" }, 3: { grossProfit: "1000" } }),
     });
 
     expect(result).toEqual({ ok: true, changed: [1, 3] });
     expect(await getOwnTargets(db, sales, year)).toEqual({
-      1: { revenue: 2_500_000_000, grossProfit: 300_000_000 },
-      2: { revenue: null, grossProfit: null },
-      3: { revenue: 1000, grossProfit: null },
-      4: { revenue: null, grossProfit: null },
+      1: { grossProfit: 300_000_000 },
+      2: { grossProfit: null },
+      3: { grossProfit: 1000 },
+      4: { grossProfit: null },
     });
     const audit = await db.auditEvent.findMany({ where: { action: "targets.saved", actorId: sales.id } });
     expect(audit).toHaveLength(1);
-    expect(audit[0]).toMatchObject({ before: { Q1: { revenue: null, grossProfit: null } }, after: { Q1: { revenue: 2_500_000_000, grossProfit: 300_000_000 } } });
+    expect(audit[0]).toMatchObject({ before: { Q1: { grossProfit: null } }, after: { Q1: { grossProfit: 300_000_000 } } });
   });
 
   it("changes nothing and audits nothing when nothing changed, and a blank pair removes the quarter", async () => {
     const sales = await actorOf("SALES");
     const year = yearOf();
-    const input = { year, quarters: quarters({ 2: { revenue: "500", grossProfit: "50" } }) };
+    const input = { year, quarters: quarters({ 2: { grossProfit: "50" } }) };
     await saveSalesTargets(db, sales, input);
 
     expect(await saveSalesTargets(db, sales, input)).toEqual({ ok: true, changed: [] });
@@ -61,15 +61,39 @@ describe("saveSalesTargets", () => {
   it("refuses everyone but Sales, bad numbers, and a year outside the range", async () => {
     const year = yearOf();
     for (const role of ["ADMIN", "SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
-      await expect(saveSalesTargets(db, await actorOf(role), { year, quarters: quarters({ 1: { revenue: "1", grossProfit: "" } }) })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+      await expect(saveSalesTargets(db, await actorOf(role), { year, quarters: quarters({ 1: { grossProfit: "1" } }) })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
     const sales = await actorOf("SALES");
-    await expect(saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { revenue: "-5", grossProfit: "" } }) })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
-    await expect(saveSalesTargets(db, sales, { year, quarters: quarters({ 4: { revenue: "", grossProfit: "abc" } }) })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { grossProfit: "-5" } }) })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(saveSalesTargets(db, sales, { year, quarters: quarters({ 4: { grossProfit: "abc" } }) })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(saveSalesTargets(db, sales, { year: 1999, quarters: quarters() })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(saveSalesTargets(db, sales, { year, quarters: { ...quarters(), 5: blank } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await db.user.update({ where: { id: sales.id }, data: { isActive: false } });
-    await expect(saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { revenue: "1", grossProfit: "" } }) })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { grossProfit: "1" } }) })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+  });
+
+  it("takes gross profit only: a revenue figure in the request is refused", async () => {
+    const sales = await actorOf("SALES");
+    const year = yearOf();
+
+    const result = await saveSalesTargets(db, sales, { year, quarters: { 1: { revenue: "1000", grossProfit: "10" }, 2: blank, 3: blank, 4: blank } });
+
+    expect(result).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(db.salesTarget.count({ where: { salesUserId: sales.id, year } })).resolves.toBe(0);
+  });
+
+  it("leaves a revenue target stored by an earlier version as it is: never shown, never changed, never lost", async () => {
+    const sales = await actorOf("SALES");
+    const year = yearOf();
+    await db.salesTarget.create({ data: { salesUserId: sales.id, year, quarter: 1, revenueTarget: 500 } });
+
+    expect(await getOwnTargets(db, sales, year)).toMatchObject({ 1: { grossProfit: null } });
+    expect(await saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { grossProfit: "50" } }) })).toEqual({ ok: true, changed: [1] });
+    await expect(db.salesTarget.findFirstOrThrow({ where: { salesUserId: sales.id, year, quarter: 1 } })).resolves.toMatchObject({ grossProfitTarget: expect.anything(), revenueTarget: expect.anything() });
+    // Clearing the gross profit target keeps the row (it still holds the old revenue figure); the form shows nothing for it.
+    expect(await saveSalesTargets(db, sales, { year, quarters: quarters() })).toEqual({ ok: true, changed: [1] });
+    expect((await db.salesTarget.findFirstOrThrow({ where: { salesUserId: sales.id, year, quarter: 1 } })).revenueTarget?.toNumber()).toBe(500);
+    expect(await getOwnTargets(db, sales, year)).toMatchObject({ 1: { grossProfit: null } });
   });
 
   it("only ever writes the signed-in salesperson's own rows, whatever else the request names", async () => {
@@ -77,8 +101,8 @@ describe("saveSalesTargets", () => {
     const other = await actorOf("SALES");
     const year = yearOf();
 
-    await saveSalesTargets(db, sales, { year, salesUserId: other.id, quarters: quarters({ 1: { revenue: "10", grossProfit: "" } }) }).catch(() => undefined);
-    await saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { revenue: "10", grossProfit: "" } }) });
+    await saveSalesTargets(db, sales, { year, salesUserId: other.id, quarters: quarters({ 1: { grossProfit: "10" } }) }).catch(() => undefined);
+    await saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { grossProfit: "10" } }) });
 
     await expect(db.salesTarget.count({ where: { salesUserId: other.id } })).resolves.toBe(0);
     await expect(db.salesTarget.count({ where: { salesUserId: sales.id, year } })).resolves.toBe(1);
@@ -99,7 +123,7 @@ describe("getTargetSummary", () => {
     const sales = await actorOf("SALES");
     const year = yearOf();
     const tag = randomBytes(3).toString("hex");
-    await saveSalesTargets(db, sales, { year, quarters: quarters({ 2: { revenue: "1000", grossProfit: "100" } }) });
+    await saveSalesTargets(db, sales, { year, quarters: quarters({ 2: { grossProfit: "100" } }) });
 
     const make = async (name: string) => {
       const created = await createProject(db, sales, { endUserCompany: `PT ${tag}`, name });
@@ -116,9 +140,9 @@ describe("getTargetSummary", () => {
 
     const summary = await getTargetSummary(db, sales, { year, salesOwnerId: sales.id });
 
-    expect(summary.quarters[1]!.revenue).toEqual({ target: 1000, won: 600, forecast: 20 }); // 400 × 5% (Qualify, the starting step)
+    expect(summary.quarters[1]!.revenue).toEqual({ target: null, won: 600, forecast: 20 }); // no revenue target any more; the figures are still computed // 400 × 5% (Qualify, the starting step)
     expect(summary.quarters[1]!.grossProfit).toEqual({ target: 100, won: 120, forecast: 2 });
-    expect(summary.total.revenue).toEqual({ target: 1000, won: 600, forecast: 20 });
+    expect(summary.total.revenue).toEqual({ target: null, won: 600, forecast: 20 });
   });
 
   it("closing a project as won without a won date puts it in today's quarter", async () => {

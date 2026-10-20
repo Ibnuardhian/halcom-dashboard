@@ -10,16 +10,28 @@ export const MASTER_KIND_LABELS: Record<MasterKind, string> = { principal: "Prin
 
 export const MASTER_NAME_MAX_LENGTH = 120;
 
+/** The most principals one project can be built on. */
+export const MAX_PROJECT_PRINCIPALS = 20;
+
+/** The principal names of a project in the order they were chosen; a project that only has the single legacy link still lists it. */
+export function principalNamesOf(project: { principals?: readonly { principal: { name: string } }[]; principal?: { name: string } | null }): string[] {
+  const linked = (project.principals ?? []).map((link) => link.principal.name);
+  if (linked.length > 0) return linked;
+  return project.principal ? [project.principal.name] : [];
+}
+
 export type MasterOption = { id: string; name: string };
 
-/** The options that match what was typed: a name that contains it, ignoring case, the closest (starts with it) first. */
+const squash = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** The options that match what was typed: a name that contains it, ignoring case and extra spaces, the closest (starts with it) first. */
 export function filterMasterOptions(options: readonly MasterOption[], typed: string): MasterOption[] {
-  const needle = typed.trim().toLowerCase();
+  const needle = squash(typed);
   if (needle === "") return [...options];
   const starts: MasterOption[] = [];
   const contains: MasterOption[] = [];
   for (const option of options) {
-    const name = option.name.toLowerCase();
+    const name = squash(option.name);
     if (name.startsWith(needle)) starts.push(option);
     else if (name.includes(needle)) contains.push(option);
   }
@@ -28,6 +40,6 @@ export function filterMasterOptions(options: readonly MasterOption[], typed: str
 
 /** True when the typed name is already a record (same name ignoring case and spacing): then "create" is not offered, selecting is. */
 export function hasExactMatch(options: readonly MasterOption[], typed: string): boolean {
-  const key = typed.trim().replace(/\s+/g, " ").toLowerCase();
-  return key !== "" && options.some((option) => option.name.trim().replace(/\s+/g, " ").toLowerCase() === key);
+  const key = squash(typed);
+  return key !== "" && options.some((option) => squash(option.name) === key);
 }

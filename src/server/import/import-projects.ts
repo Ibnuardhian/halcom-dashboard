@@ -136,6 +136,7 @@ export async function importProjects(
           },
           select: { id: true },
         });
+        if (principalId) await tx.projectPrincipal.create({ data: { projectId: project.id, principalId, position: 0 } });
         // The export's current and next action become the first entries of the project's update feed (no author).
         const feed = [
           { kind: "CURRENT" as const, body: row.currentAction },

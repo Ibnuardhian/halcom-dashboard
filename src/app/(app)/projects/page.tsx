@@ -6,15 +6,19 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { can } from "@/domain/access/permissions";
+import { FILTER_EXTERNAL, FILTER_NONE, readDrillFilters } from "@/domain/projects/drilldown";
+import { FUNNEL_STEPS } from "@/domain/projects/funnel";
 import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
+import { PROJECT_SOURCE_TYPES, SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatPercent } from "@/features/projects/format";
+import { ImportDialog } from "@/features/projects/import-dialog";
 import { formatDateOnly } from "@/features/requests/format";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
-import { listPrincipalOptions, listProjects, PROJECT_SHOW_LABELS, PROJECT_SHOWS, type ProjectFilter } from "@/server/requests/queries";
+import { DEFAULT_PROJECT_PAGE_SIZE, listPrincipalOptions, PROJECT_PAGE_SIZES, PROJECT_SHOW_LABELS, PROJECT_SHOWS, searchProjects, type ProjectFilter, type ProjectPageSize } from "@/server/requests/queries";
 
 export default function ProjectsPage({ searchParams }: PageProps<"/projects">) {
   return (
@@ -35,13 +39,68 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const progress = PROJECT_PROGRESSES.find((p) => p === one(query.progress));
   const trackStatus = TRACK_STATUSES.find((s) => s === one(query.status));
   const principals = await listPrincipalOptions(getDb(), viewer);
-  const principalId = principals.find((p) => p.id === one(query.principal))?.id;
+  // The Overview charts link here with filters (D-031); the principal select shows a single principal, any others stay as hidden fields.
+  const drill = readDrillFilters(query);
+  const principalId = drill.principal?.length === 1 ? principals.find((p) => p.id === drill.principal![0])?.id : undefined;
+  const otherPrincipals = principalId ? [] : (drill.principal ?? []);
   const show = PROJECT_SHOWS.find((s) => s === one(query.show));
+  const sourceType = PROJECT_SOURCE_TYPES.find((s) => s === one(query.source));
   // "mine" is the salesperson's view of the tiles; it only ever narrows to the signed-in user's own projects.
   const mine = one(query.mine) === "1";
-  const filter: ProjectFilter = { search, progress, trackStatus, principalId, show, salesOwnerId: mine ? viewer.id : undefined };
-  const projects = await listProjects(getDb(), viewer, filter);
-  const filtered = Boolean(search || progress || trackStatus || principalId || show || mine);
+  const filter: ProjectFilter = {
+    search,
+    progress,
+    trackStatus,
+    principalId,
+    show,
+    sourceType,
+    salesOwnerId: mine ? viewer.id : undefined,
+    reached: drill.reached,
+    principalKeys: otherPrincipals,
+    solutionKeys: drill.solution,
+    ownerKeys: drill.owner,
+    industryKeys: drill.industry,
+  };
+  // Names for the chart filters, so the page says what it is showing.
+  const [solutionNames, ownerNames] = await Promise.all([
+    drill.solution?.some((key) => key !== FILTER_NONE) ? getDb().solutionCategory.findMany({ where: { id: { in: drill.solution.filter((key) => key !== FILTER_NONE) } }, select: { id: true, name: true } }) : [],
+    drill.owner?.some((key) => key !== FILTER_NONE && key !== FILTER_EXTERNAL) ? getDb().user.findMany({ where: { id: { in: drill.owner.filter((key) => key !== FILTER_NONE && key !== FILTER_EXTERNAL) } }, select: { id: true, name: true } }) : [],
+  ]);
+  const describe = (keys: readonly string[] | undefined, names: readonly { id: string; name: string }[], noneLabel: string, extraLabel?: string) =>
+    (keys ?? []).map((key) => (key === FILTER_NONE ? noneLabel : key === FILTER_EXTERNAL ? (extraLabel ?? noneLabel) : (names.find((n) => n.id === key)?.name ?? "unknown"))).join(", ");
+  const chartFilters = [
+    drill.reached ? `reached ${FUNNEL_STEPS.find((step) => step.key === drill.reached)?.label ?? drill.reached} or later` : null,
+    otherPrincipals.length > 0 ? `principal: ${describe(otherPrincipals, principals, "Not set")}` : null,
+    drill.solution?.length ? `solution: ${describe(drill.solution, solutionNames, "Not set")}` : null,
+    drill.industry?.length ? `industry: ${drill.industry.map((key) => (key === FILTER_NONE ? "Not set" : key)).join(", ")}` : null,
+    drill.owner?.length ? `Sales PIC: ${describe(drill.owner, ownerNames, "Not set", "Other (no internal Sales PIC)")}` : null,
+  ].filter((text): text is string => text !== null);
+  // Rows per page: 25, 50, 100 or all. Anything else falls back to the default; the page number is clamped by the query.
+  const wantedSize = one(query.per);
+  const pageSize: ProjectPageSize = wantedSize === "all" ? "all" : (PROJECT_PAGE_SIZES.find((size) => String(size) === wantedSize) ?? DEFAULT_PROJECT_PAGE_SIZE);
+  const result = await searchProjects(getDb(), viewer, filter, { page: Number(one(query.page)) || 1, pageSize });
+  const projects = result.rows;
+  // Every link of the table keeps the filters, so paging never loses them.
+  const href = (next: { page?: number; per?: ProjectPageSize }) => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (progress) params.set("progress", progress);
+    if (trackStatus) params.set("status", trackStatus);
+    if (principalId) params.set("principal", principalId);
+    for (const key of otherPrincipals) params.append("principal", key);
+    if (drill.reached) params.set("reached", drill.reached);
+    for (const name of ["solution", "industry", "owner"] as const) for (const value of drill[name] ?? []) params.append(name, value);
+    if (show) params.set("show", show);
+    if (sourceType) params.set("source", sourceType);
+    if (mine) params.set("mine", "1");
+    const per = next.per ?? pageSize;
+    if (per !== DEFAULT_PROJECT_PAGE_SIZE) params.set("per", String(per));
+    if (next.page && next.page > 1) params.set("page", String(next.page));
+    const text = params.toString();
+    return text ? `${PROJECTS_PATH}?${text}` : PROJECTS_PATH;
+  };
+  const firstShown = projects.length === 0 ? 0 : pageSize === "all" ? 1 : (result.page - 1) * pageSize + 1;
+  const filtered = Boolean(search || progress || trackStatus || principalId || show || sourceType || mine || chartFilters.length > 0);
 
   return (
     <>
@@ -50,10 +109,14 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
         summary="Every project in the pipeline, newest first. Values are plain numbers (assumed IDR); weighted value is estimated value times probability."
       />
       <div className="mb-4 flex flex-col gap-3">
-        <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto]">
+        <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]">
           {show ? <input type="hidden" name="show" value={show} /> : null}
           {mine ? <input type="hidden" name="mine" value="1" /> : null}
-          <Input name="q" defaultValue={search} placeholder="Search code, customer, project, PIC or principal" aria-label="Search projects" maxLength={100} />
+          {drill.reached ? <input type="hidden" name="reached" value={drill.reached} /> : null}
+          {otherPrincipals.map((key) => <input key={`principal-${key}`} type="hidden" name="principal" value={key} />)}
+          {(["solution", "industry", "owner"] as const).flatMap((name) => (drill[name] ?? []).map((value) => <input key={`${name}-${value}`} type="hidden" name={name} value={value} />))}
+          {pageSize !== DEFAULT_PROJECT_PAGE_SIZE ? <input type="hidden" name="per" value={String(pageSize)} /> : null}
+          <Input name="q" defaultValue={search} placeholder="Search code, customer, project, PIC, principal or external source" aria-label="Search projects" maxLength={100} />
           <NativeSelect name="progress" defaultValue={progress ?? ""} aria-label="Progress">
             <option value="">All progress</option>
             {PROJECT_PROGRESSES.map((p) => (
@@ -78,14 +141,23 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               </option>
             ))}
           </NativeSelect>
+          <NativeSelect name="source" defaultValue={sourceType ?? ""} aria-label="Project source">
+            <option value="">All sources</option>
+            {PROJECT_SOURCE_TYPES.map((s) => (
+              <option key={s} value={s}>
+                {SOURCE_LABELS[s]}
+              </option>
+            ))}
+          </NativeSelect>
           <button type="submit" className={buttonVariants({ variant: "outline" })}>
             Filter
           </button>
         </form>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="text-sm text-muted-foreground">
-            {projects.length} project{projects.length === 1 ? "" : "s"}
+            {result.total} project{result.total === 1 ? "" : "s"}
             {show ? <> · {PROJECT_SHOW_LABELS[show]}{mine ? ", yours" : ""}</> : null}
+            {chartFilters.length > 0 ? <> · {chartFilters.join(" · ")}</> : null}
             {filtered ? (
               <>
                 {" "}
@@ -96,11 +168,14 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               </>
             ) : null}
           </p>
-          {can(viewer.role, "projects.create") ? (
-            <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>
-              New project
-            </Link>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {can(viewer.role, "projects.import") ? <ImportDialog /> : null}
+            {can(viewer.role, "projects.create") || can(viewer.role, "projects.create.external") ? (
+              <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>
+                New project
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
       {projects.length === 0 ? (
@@ -116,7 +191,8 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               <TableHead>Project</TableHead>
               <TableHead>Progress</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="hidden lg:table-cell">Principal</TableHead>
+              <TableHead className="hidden lg:table-cell">Principals</TableHead>
+              <TableHead className="hidden md:table-cell">Source</TableHead>
               <TableHead className="hidden md:table-cell">Sales PIC</TableHead>
               <TableHead className="hidden xl:table-cell">Technical PIC</TableHead>
               <TableHead className="hidden text-right lg:table-cell">Estimated</TableHead>
@@ -143,6 +219,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
                   <TrackStatusBadge status={project.trackStatus} />
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">{project.principalName ?? "–"}</TableCell>
+                <TableCell className="hidden md:table-cell">{SOURCE_LABELS[project.sourceType]}</TableCell>
                 <TableCell className="hidden md:table-cell">{project.salesOwnerName}</TableCell>
                 <TableCell className="hidden xl:table-cell">{project.technicalPicName ?? "–"}</TableCell>
                 <TableCell className="hidden text-right tabular-nums lg:table-cell">{formatAmount(project.estimatedValue)}</TableCell>
@@ -157,6 +234,45 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           </TableBody>
         </Table>
       )}
+      {result.total > 0 ? (
+        <nav aria-label="Pages" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <p className="text-muted-foreground">
+            Showing {firstShown}–{firstShown + projects.length - 1} of {result.total}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <div role="group" aria-label="Rows per page" className="flex items-center gap-1">
+              <span className="text-muted-foreground">Rows per page</span>
+              {([...PROJECT_PAGE_SIZES, "all"] as const).map((size) => (
+                <Link
+                  key={size}
+                  href={href({ per: size, page: 1 })}
+                  aria-current={pageSize === size ? "true" : undefined}
+                  className={buttonVariants({ variant: pageSize === size ? "default" : "outline", size: "sm" })}
+                >
+                  {size === "all" ? "All" : size}
+                </Link>
+              ))}
+            </div>
+            {result.pageCount > 1 ? (
+              <div className="flex items-center gap-2">
+                {result.page > 1 ? (
+                  <Link href={href({ page: result.page - 1 })} rel="prev" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Previous
+                  </Link>
+                ) : null}
+                <span className="text-muted-foreground">
+                  Page {result.page} of {result.pageCount}
+                </span>
+                {result.page < result.pageCount ? (
+                  <Link href={href({ page: result.page + 1 })} rel="next" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Next
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </nav>
+      ) : null}
     </>
   );
 }

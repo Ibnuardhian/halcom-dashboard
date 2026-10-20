@@ -16,6 +16,9 @@ export default defineConfig({
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
+          // The files share one database per run, and the dashboard tests compare whole-table counts with what the dashboards
+          // report, so the files run one after another. Tests inside a file still run in order.
+          fileParallelism: false,
           globalSetup: ["tests/integration/global-setup.ts"],
         },
       },

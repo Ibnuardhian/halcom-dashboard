@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { REQUEST_STATUSES, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { ACTIVE_STATUSES, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, REQUEST_TYPES, typeSlug } from "@/domain/requests/types";
 import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import type { WorkStats } from "@/server/requests/queries";
@@ -50,7 +50,7 @@ export function WorkOverview({ stats }: { stats: WorkStats }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Type</TableHead>
-                {REQUEST_STATUSES.map((status) => (
+                {ACTIVE_STATUSES.map((status) => (
                   <TableHead key={status} className="text-right">
                     {REQUEST_STATUS_LABELS[status]}
                   </TableHead>
@@ -61,7 +61,7 @@ export function WorkOverview({ stats }: { stats: WorkStats }) {
               {REQUEST_TYPES.map((type) => (
                 <TableRow key={type}>
                   <TableCell className="font-mono font-medium">{type}</TableCell>
-                  {REQUEST_STATUSES.map((status) => {
+                  {ACTIVE_STATUSES.map((status) => {
                     const count = stats.statusCounts[type][status];
                     return (
                       <TableCell key={status} className="text-right tabular-nums">

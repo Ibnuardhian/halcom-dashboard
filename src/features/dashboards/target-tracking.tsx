@@ -18,7 +18,7 @@ function Bar({ percent }: { percent: number | null }) {
   );
 }
 
-function FiguresRow({ label, sub, figures, bold }: { label: string; sub?: string; figures: Figures; bold?: boolean }) {
+function FiguresRow({ label, sub, figures, bold, withTarget = true }: { label: string; sub?: string; figures: Figures; bold?: boolean; withTarget?: boolean }) {
   const reached = percentOf(figures.won, figures.target);
   const outlook = percentOf(figures.won + figures.forecast, figures.target);
   return (
@@ -26,18 +26,20 @@ function FiguresRow({ label, sub, figures, bold }: { label: string; sub?: string
       <TableCell className="whitespace-nowrap">
         {label} {sub ? <span className="text-xs font-normal text-muted-foreground">{sub}</span> : null}
       </TableCell>
-      <TableCell className="text-right tabular-nums">{figures.target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(figures.target)}</TableCell>
+      {withTarget ? <TableCell className="text-right tabular-nums">{figures.target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(figures.target)}</TableCell> : null}
       <TableCell className="text-right tabular-nums">{formatAmount(figures.won)}</TableCell>
-      <TableCell>
-        <Bar percent={reached} />
-      </TableCell>
-      <TableCell className="hidden text-right tabular-nums md:table-cell">{formatAmount(figures.forecast)}</TableCell>
-      <TableCell className="hidden text-right tabular-nums lg:table-cell">{outlook === null ? "–" : `${outlook}%`}</TableCell>
+      {withTarget ? (
+        <TableCell>
+          <Bar percent={reached} />
+        </TableCell>
+      ) : null}
+      <TableCell className={withTarget ? "hidden text-right tabular-nums md:table-cell" : "text-right tabular-nums"}>{formatAmount(figures.forecast)}</TableCell>
+      {withTarget ? <TableCell className="hidden text-right tabular-nums lg:table-cell">{outlook === null ? "–" : `${outlook}%`}</TableCell> : <TableCell className="text-right tabular-nums">{formatAmount(figures.won + figures.forecast)}</TableCell>}
     </TableRow>
   );
 }
 
-function Section({ title, description, summary, pick }: { title: string; description: string; summary: TargetSummary; pick: "revenue" | "grossProfit" }) {
+function Section({ title, description, summary, pick, withTarget = true }: { title: string; description: string; summary: TargetSummary; pick: "revenue" | "grossProfit"; withTarget?: boolean }) {
   return (
     <Card>
       <CardHeader>
@@ -51,20 +53,20 @@ function Section({ title, description, summary, pick }: { title: string; descrip
           <TableHeader>
             <TableRow>
               <TableHead>Quarter</TableHead>
-              <TableHead className="text-right">Target</TableHead>
-              <TableHead className="text-right">Won so far</TableHead>
-              <TableHead className="text-right">Reached</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Forecast (weighted)</TableHead>
-              <TableHead className="hidden text-right lg:table-cell">Won + forecast</TableHead>
+              {withTarget ? <TableHead className="text-right">Target</TableHead> : null}
+              <TableHead className="text-right">{withTarget ? "Won so far" : "Revenue won (after PO)"}</TableHead>
+              {withTarget ? <TableHead className="text-right">Reached</TableHead> : null}
+              <TableHead className={withTarget ? "hidden text-right md:table-cell" : "text-right"}>Forecast (weighted)</TableHead>
+              <TableHead className={withTarget ? "hidden text-right lg:table-cell" : "text-right"}>Won + forecast</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {summary.quarters.map((q) => (
-              <FiguresRow key={q.quarter} label={`Q${q.quarter}`} sub={QUARTER_MONTHS[q.quarter]} figures={q[pick]} />
+              <FiguresRow key={q.quarter} label={`Q${q.quarter}`} sub={QUARTER_MONTHS[q.quarter]} figures={q[pick]} withTarget={withTarget} />
             ))}
           </TableBody>
           <TableFooter>
-            <FiguresRow label={`${summary.year} total`} figures={summary.total[pick]} bold />
+            <FiguresRow label={`${summary.year} total`} figures={summary.total[pick]} bold withTarget={withTarget} />
           </TableFooter>
         </Table>
       </CardContent>
@@ -73,7 +75,7 @@ function Section({ title, description, summary, pick }: { title: string; descrip
 }
 
 /**
- * Where a salesperson stands against their revenue and gross-profit targets, quarter by quarter, and the form to enter
+ * Where a salesperson stands against their gross-profit target, quarter by quarter, and the form to enter
  * those targets. An admin opening the page sees everyone added together and no form.
  */
 export function TargetTracking({
@@ -106,10 +108,10 @@ export function TargetTracking({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          ["Revenue target", summary.total.revenue.target],
-          ["Revenue won", summary.total.revenue.won],
           ["Gross profit target", summary.total.grossProfit.target],
           ["Gross profit won", summary.total.grossProfit.won],
+          ["Revenue won (after PO)", summary.total.revenue.won],
+          ["Revenue forecast (weighted)", summary.total.revenue.forecast],
         ].map(([label, value]) => (
           <div key={label as string} className="rounded-xl p-4 ring-1 ring-foreground/10">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label as string}</span>
@@ -118,15 +120,15 @@ export function TargetTracking({
         ))}
       </div>
 
-      <Section title="Revenue" description="Won is the final PO value of projects closed as won in the quarter. Forecast is estimated value × the probability of the Progress step, for open projects expected to close in it." summary={summary} pick="revenue" />
-      <Section title="Gross profit" description="Value × the project's target margin, counted the same way." summary={summary} pick="grossProfit" />
+      <Section title="Revenue" description="No revenue target is set. Won is the final PO value of projects closed as won in the quarter (after the PO). Forecast is estimated value × the probability of the Progress step, for open projects expected to close in it." summary={summary} pick="revenue" withTarget={false} />
+      <Section title="Gross profit" description="Won is the final value of projects closed as won in the quarter (the estimate until one is entered) × the project's target margin. Forecast is the same for open projects expected to close in it, weighted by the probability of the Progress step." summary={summary} pick="grossProfit" />
 
       {notes.wonWithoutDate + notes.wonWithoutMargin + notes.openWithoutTargetDate > 0 ? (
         <div role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
           <p className="font-medium">Not counted yet, because the project is missing something:</p>
           <ul className="mt-1 list-disc pl-5">
             {notes.wonWithoutDate > 0 ? <li>{notes.wonWithoutDate} won project(s) without a won date.</li> : null}
-            {notes.wonWithoutMargin > 0 ? <li>{notes.wonWithoutMargin} won project(s) without a target margin (they count in revenue, not in gross profit).</li> : null}
+            {notes.wonWithoutMargin > 0 ? <li>{notes.wonWithoutMargin} won project(s) without a target margin (they add nothing to gross profit).</li> : null}
             {notes.openWithoutTargetDate > 0 ? <li>{notes.openWithoutTargetDate} open project(s) with a value but no target closing date.</li> : null}
           </ul>
         </div>

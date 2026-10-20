@@ -1,11 +1,16 @@
-import type { PrismaClient } from "@/generated/prisma/client";
+import { effectiveIndustry } from "@/domain/customers/industry";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { isOpen, REQUEST_STATUSES, type RequestStatus } from "@/domain/requests/status";
+import { FILTER_EXTERNAL, FILTER_NONE, industryKey, progressesReaching } from "@/domain/projects/drilldown";
+import { principalNamesOf } from "@/domain/projects/master-data";
 import { weightedValue } from "@/domain/projects/pipeline";
+import { salesSideName, type ProjectSourceType } from "@/domain/projects/source";
 import { PROGRESS_PERCENT, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
 import type { SoaPhase } from "@/domain/requests/phase";
-import { slaOf, type Sla } from "@/domain/requests/sla";
+import { deadlineState } from "@/domain/requests/metrics";
+import { slaOf, type Sla, type SlaState } from "@/domain/requests/sla";
 import { OWNING_ROLE, REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
 import { getTeamSettings } from "@/server/settings/team-settings";
 
@@ -28,7 +33,9 @@ export type ProjectRow = {
   trackStatus: TrackStatus;
   principalName: string | null;
   solutionName: string | null;
+  /** The Sales PIC, or the external company of a project from another source. */
   salesOwnerName: string;
+  sourceType: ProjectSourceType;
   technicalPicName: string | null;
   estimatedValue: number | null;
   /** The win probability of the project's Progress step. */
@@ -63,6 +70,14 @@ export type ProjectFilter = {
   principalId?: string;
   show?: ProjectShow;
   salesOwnerId?: string;
+  /** Only projects from this source. */
+  sourceType?: ProjectSourceType;
+  /** The filters the Overview charts send (D-031). Several values of one filter mean "any of them"; "none" is the chart's "Not set". */
+  reached?: string;
+  principalKeys?: readonly string[];
+  solutionKeys?: readonly string[];
+  ownerKeys?: readonly string[];
+  industryKeys?: readonly string[];
 };
 
 function showWhere(show: ProjectShow | undefined) {
@@ -77,7 +92,7 @@ function showWhere(show: ProjectShow | undefined) {
         progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] },
         trackStatus: { not: "DONE" as TrackStatus },
         estimatedValue: { not: null },
-        AND: [{ OR: [{ targetMargin: { not: null } }, { targetMarginValue: { not: null } }] }],
+        OR: [{ targetMargin: { not: null } }, { targetMarginValue: { not: null } }],
       };
     case "won":
       return { progress: "CLOSED_WON" as ProjectProgress };
@@ -93,67 +108,146 @@ function byCodeDescending(a: { code: string }, b: { code: string }): number {
   return Number(b.code.slice(4)) - Number(a.code.slice(4));
 }
 
+/** The database side of the chart filters: each one is an OR over its values, and the filters are ANDed together. */
+function chartClauses(filter: ProjectFilter): Prisma.ProjectWhereInput[] {
+  const clauses: Prisma.ProjectWhereInput[] = [];
+  const reaching = filter.reached ? progressesReaching(filter.reached) : null;
+  if (reaching) clauses.push({ progress: { in: reaching } });
+  if (filter.principalKeys?.length) {
+    const ids = filter.principalKeys.filter((key) => key !== FILTER_NONE);
+    clauses.push({
+      OR: [
+        ...(ids.length > 0 ? [{ principals: { some: { principalId: { in: ids } } } }, { principalId: { in: ids } }] : []),
+        ...(filter.principalKeys.includes(FILTER_NONE) ? [{ principals: { none: {} }, principalId: null }] : []),
+      ],
+    });
+  }
+  if (filter.solutionKeys?.length) {
+    const ids = filter.solutionKeys.filter((key) => key !== FILTER_NONE);
+    clauses.push({ OR: [...(ids.length > 0 ? [{ solutionCategoryId: { in: ids } }] : []), ...(filter.solutionKeys.includes(FILTER_NONE) ? [{ solutionCategoryId: null }] : [])] });
+  }
+  if (filter.ownerKeys?.length) {
+    const ids = filter.ownerKeys.filter((key) => key !== FILTER_NONE && key !== FILTER_EXTERNAL);
+    clauses.push({ OR: [...(ids.length > 0 ? [{ salesOwnerId: { in: ids } }] : []), ...(filter.ownerKeys.includes(FILTER_EXTERNAL) || filter.ownerKeys.includes(FILTER_NONE) ? [{ salesOwnerId: null }] : [])] });
+  }
+  return clauses;
+}
+
+function projectWhere(filter: ProjectFilter): Prisma.ProjectWhereInput {
+  const search = filter.search?.trim();
+  return {
+    deletedAt: null,
+    ...showWhere(filter.show),
+    // An explicit progress or status from the filter boxes narrows further and wins over the tile's own range.
+    ...(filter.progress ? { progress: filter.progress } : {}),
+    ...(filter.trackStatus ? { trackStatus: filter.trackStatus } : {}),
+    salesOwnerId: filter.salesOwnerId,
+    sourceType: filter.sourceType,
+    // Each of these is an OR of its own, so they sit in an AND next to the tile's range above.
+    AND: [
+      ...(filter.principalId ? [{ OR: [{ principals: { some: { principalId: filter.principalId } } }, { principalId: filter.principalId }] }] : []),
+      ...chartClauses(filter),
+      ...(search
+        ? [
+            {
+              OR: [
+                { code: { contains: search, mode: "insensitive" as const } },
+                { endUserCompany: { contains: search, mode: "insensitive" as const } },
+                { name: { contains: search, mode: "insensitive" as const } },
+                { salesOwner: { name: { contains: search, mode: "insensitive" as const } } },
+                { externalSourceName: { contains: search, mode: "insensitive" as const } },
+                { externalContact: { contains: search, mode: "insensitive" as const } },
+                { externalReference: { contains: search, mode: "insensitive" as const } },
+                { technicalPic: { name: { contains: search, mode: "insensitive" as const } } },
+                { principal: { name: { contains: search, mode: "insensitive" as const } } },
+                { principals: { some: { principal: { name: { contains: search, mode: "insensitive" as const } } } } },
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
+const PROJECT_ROW_INCLUDE = {
+  salesOwner: { select: { name: true } },
+  technicalPic: { select: { name: true } },
+  principal: { select: { name: true } },
+  principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
+  solutionCategory: { select: { name: true } },
+  requests: { select: { status: true } },
+} as const;
+
+type ProjectWithRelations = Prisma.ProjectGetPayload<{ include: typeof PROJECT_ROW_INCLUDE }>;
+
+function toProjectRow(project: ProjectWithRelations): ProjectRow {
+  const estimatedValue = numberOrNull(project.estimatedValue);
+  return {
+    id: project.id,
+    code: project.code,
+    endUserCompany: project.endUserCompany,
+    name: project.name,
+    progress: project.progress,
+    trackStatus: project.trackStatus,
+    principalName: principalNamesOf(project).join(", ") || null,
+    solutionName: project.solutionCategory?.name ?? null,
+    salesOwnerName: salesSideName(project),
+    sourceType: project.sourceType,
+    technicalPicName: project.technicalPic?.name ?? null,
+    estimatedValue,
+    probability: PROGRESS_PERCENT[project.progress],
+    weightedValue: weightedValue(estimatedValue, project.progress),
+    finalValue: numberOrNull(project.finalValue),
+    targetDate: project.targetDate,
+    nextAction: project.nextAction,
+    openRequests: project.requests.filter((request) => isOpen(request.status)).length,
+    totalRequests: project.requests.length,
+    updatedAt: project.updatedAt,
+  };
+}
+
 export async function listProjects(db: PrismaClient, viewer: Viewer, filter: ProjectFilter = {}): Promise<ProjectRow[]> {
   assertPermitted(can(viewer.role, "projects.view"));
-  const search = filter.search?.trim();
   const projects = await db.project.findMany({
-    where: {
-      deletedAt: null,
-      ...showWhere(filter.show),
-      // An explicit progress or status from the filter boxes narrows further and wins over the tile's own range.
-      ...(filter.progress ? { progress: filter.progress } : {}),
-      ...(filter.trackStatus ? { trackStatus: filter.trackStatus } : {}),
-      principalId: filter.principalId,
-      salesOwnerId: filter.salesOwnerId,
-      ...(search
-        ? {
-            OR: [
-              { code: { contains: search, mode: "insensitive" } },
-              { endUserCompany: { contains: search, mode: "insensitive" } },
-              { name: { contains: search, mode: "insensitive" } },
-              { salesOwner: { name: { contains: search, mode: "insensitive" } } },
-              { technicalPic: { name: { contains: search, mode: "insensitive" } } },
-              { principal: { name: { contains: search, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-    },
+    where: projectWhere(filter),
     // Newest first before the cap, so the cap never drops the newest projects (the list is then ordered by project number).
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: LIST_LIMIT,
-    include: {
-      salesOwner: { select: { name: true } },
-      technicalPic: { select: { name: true } },
-      principal: { select: { name: true } },
-      solutionCategory: { select: { name: true } },
-      requests: { select: { status: true } },
-    },
+    include: PROJECT_ROW_INCLUDE,
   });
-  const rows = projects.sort(byCodeDescending).map((project) => {
-    const estimatedValue = numberOrNull(project.estimatedValue);
-    return {
-      id: project.id,
-      code: project.code,
-      endUserCompany: project.endUserCompany,
-      name: project.name,
-      progress: project.progress,
-      trackStatus: project.trackStatus,
-      principalName: project.principal?.name ?? null,
-      solutionName: project.solutionCategory?.name ?? null,
-      salesOwnerName: project.salesOwner.name,
-      technicalPicName: project.technicalPic?.name ?? null,
-      estimatedValue,
-      probability: PROGRESS_PERCENT[project.progress],
-      weightedValue: weightedValue(estimatedValue, project.progress),
-      finalValue: numberOrNull(project.finalValue),
-      targetDate: project.targetDate,
-      nextAction: project.nextAction,
-      openRequests: project.requests.filter((request) => isOpen(request.status)).length,
-      totalRequests: project.requests.length,
-      updatedAt: project.updatedAt,
-    };
-  });
+  const rows = projects.sort(byCodeDescending).map(toProjectRow);
   return filter.show === "weighted" ? rows.filter((row) => (row.weightedValue ?? 0) > 0) : rows;
+}
+
+/** The page sizes of the Projects table; "all" shows every project that matches. */
+export const PROJECT_PAGE_SIZES = [25, 50, 100] as const;
+export const DEFAULT_PROJECT_PAGE_SIZE = 25;
+export type ProjectPageSize = (typeof PROJECT_PAGE_SIZES)[number] | "all";
+export type ProjectPage = { rows: ProjectRow[]; total: number; page: number; pageCount: number; pageSize: ProjectPageSize };
+
+/**
+ * One page of the Projects table: the same filters as `listProjects`, ordered by project number (newest first), without the list cap
+ * (the database counts and the page is cut here, so "all" really is all). A page past the end shows the last page.
+ */
+export async function searchProjects(db: PrismaClient, viewer: Viewer, filter: ProjectFilter = {}, paging: { page?: number; pageSize?: ProjectPageSize } = {}): Promise<ProjectPage> {
+  assertPermitted(can(viewer.role, "projects.view"));
+  const pageSize = paging.pageSize ?? DEFAULT_PROJECT_PAGE_SIZE;
+  // Only what ordering and the "weighted" filter need is read for every match; the full rows are read for one page.
+  const keys = await db.project.findMany({ where: projectWhere(filter), select: { id: true, code: true, estimatedValue: true, progress: true, industry: true, customer: { select: { industry: true } } } });
+  // The Industry chart groups free text (trimmed, lower-case), so that filter is applied here the same way instead of in SQL.
+  const industries = filter.industryKeys?.length ? new Set(filter.industryKeys) : null;
+  const ordered = keys
+    .filter((key) => filter.show !== "weighted" || (weightedValue(numberOrNull(key.estimatedValue), key.progress) ?? 0) > 0)
+    .filter((key) => !industries || industries.has(industryKey(effectiveIndustry(key.customer?.industry, key.industry)) ?? FILTER_NONE))
+    .sort(byCodeDescending);
+  const total = ordered.length;
+  const pageCount = pageSize === "all" ? 1 : Math.max(Math.ceil(total / pageSize), 1);
+  const page = Math.min(Math.max(Math.trunc(paging.page ?? 1) || 1, 1), pageCount);
+  const slice = pageSize === "all" ? ordered : ordered.slice((page - 1) * pageSize, page * pageSize);
+  const found = await db.project.findMany({ where: { id: { in: slice.map((key) => key.id) } }, include: PROJECT_ROW_INCLUDE });
+  const position = new Map(slice.map((key, index) => [key.id, index]));
+  const rows = found.sort((a, b) => position.get(a.id)! - position.get(b.id)!).map(toProjectRow);
+  return { rows, total, page, pageCount, pageSize };
 }
 
 /** Principals that at least one project uses, for the filter. */
@@ -169,20 +263,34 @@ export async function listPicOptions(db: PrismaClient, viewer: Viewer) {
   return { sales: of("SALES"), soa: of("SOA"), purchasing: of("PURCHASING") };
 }
 
+/** Active Sales accounts, for handing a project from another source to an internal Sales PIC and for SOA registering a project for one. */
+export async function listSalesPeopleOptions(db: PrismaClient, viewer: Viewer) {
+  assertPermitted(can(viewer.role, "projects.edit.source") || can(viewer.role, "projects.assign-sales"));
+  return db.user.findMany({ where: { isActive: true, role: "SALES" }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+}
+
 export async function listPrincipalOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.principal.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 
 /** Projects a request can be added to: the ones that are On Track. */
-export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer) {
+export async function listActiveProjectOptions(db: PrismaClient, viewer: Viewer, sourceType?: ProjectSourceType) {
   assertPermitted(can(viewer.role, "projects.view"));
-  return db.project.findMany({
-    where: { trackStatus: "ON_TRACK", deletedAt: null },
+  const projects = await db.project.findMany({
+    where: { trackStatus: "ON_TRACK", deletedAt: null, sourceType },
     orderBy: { createdAt: "desc" },
     take: LIST_LIMIT,
-    select: { id: true, code: true, endUserCompany: true, name: true },
+    select: { id: true, code: true, endUserCompany: true, name: true, salesOwner: { select: { id: true, name: true } }, technicalPic: { select: { id: true, name: true } } },
   });
+  // The Sales PIC and the technical (SOA) PIC come along so a form can narrow the list by them and show who a request concerns.
+  return projects.map(({ salesOwner, technicalPic, ...project }) => ({
+    ...project,
+    salesPicId: salesOwner?.id ?? null,
+    salesPicName: salesOwner?.name ?? null,
+    soaPicId: technicalPic?.id ?? null,
+    soaPicName: technicalPic?.name ?? null,
+  }));
 }
 
 export type RequestRow = {
@@ -193,9 +301,13 @@ export type RequestRow = {
   /** The part of the BOQ work SOA is on (BOQ requests only). */
   phase: SoaPhase | null;
   title: string;
+  /** The item details Sales or SOA wrote on the request. */
+  description: string;
   projectCode: string;
   endUserCompany: string;
   projectName: string;
+  principalName: string | null;
+  solutionName: string | null;
   requesterName: string;
   assigneeName: string | null;
   requiredBy: Date | null;
@@ -216,42 +328,88 @@ export type RequestFilter = {
   requesterId?: string;
   /** Requests on the projects a person owns (Sales PIC), whoever raised them: a moved project brings its requests along. */
   projectOwnerId?: string;
+  /** A person's id, or "none" for requests nobody has taken (the workload chart's drill-down). */
+  assignee?: string;
+  /** Requests whose SLA stands at this state; used by the dashboards' overdue and due-now numbers. */
+  slaState?: SlaState;
+  /** Requests whose needed-by date has passed ("past") or falls within the coming week ("soon"); open requests only. */
+  deadline?: "past" | "soon";
+  /** Free text: matches the request, project, End User, requester, PIC, Principal and Solution. */
+  q?: string;
   limit?: number;
 };
 
-export async function listRequests(db: PrismaClient, viewer: Viewer, filter: RequestFilter = {}): Promise<RequestRow[]> {
-  assertPermitted(can(viewer.role, "requests.view"));
-  const requests = await db.request.findMany({
-    where: {
-      project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
-      type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
-      status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
-      projectId: filter.projectId,
-      requesterId: filter.requesterId,
-    },
-    orderBy: { createdAt: "desc" },
-    take: Math.min(filter.limit ?? LIST_LIMIT, LIST_LIMIT),
-    include: {
-      project: { select: { code: true, endUserCompany: true, name: true } },
-      requester: { select: { name: true } },
-      assignee: { select: { name: true } },
-      statusHistory: { select: { toStatus: true, changedAt: true } },
-    },
-  });
-  const settings = await getTeamSettings(db);
-  const now = new Date();
-  return requests.map((request) => ({
+/** The SLA state and deadline are computed in code, so a list filtered by them reads more rows before it narrows down. */
+const FILTERED_READ_LIMIT = 2000;
+const needsComputedFilter = (filter: RequestFilter) => Boolean(filter.slaState || filter.deadline);
+
+function matchesComputedFilter(row: RequestRow, filter: RequestFilter, now: Date): boolean {
+  if (filter.slaState && row.sla.state !== filter.slaState) return false;
+  return !filter.deadline || deadlineState({ status: row.status, requiredBy: row.requiredBy }, now) === filter.deadline;
+}
+
+const ROW_INCLUDE = {
+  project: { select: { code: true, endUserCompany: true, name: true, principal: { select: { name: true } }, principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } }, solutionCategory: { select: { name: true } } } },
+  requester: { select: { name: true } },
+  // The PIC (an operational assignee, not a login account) is who the request is handed to.
+  pic: { select: { name: true } },
+  statusHistory: { select: { toStatus: true, changedAt: true } },
+} as const;
+
+/** Typed text is matched literally: LIKE wildcards in a search (`%`, `_`) and the escape character itself are escaped. */
+const escapeLike = (text: string) => text.replace(/[\\%_]/g, (char) => "\\" + char);
+
+function requestWhere(filter: RequestFilter) {
+  const q = filter.q?.trim() ? escapeLike(filter.q.trim()) : undefined;
+  return {
+    project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
+    picId: filter.assignee === undefined ? undefined : filter.assignee === "none" ? null : filter.assignee,
+    type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
+    status: filter.status ?? (filter.openOnly ? { in: REQUEST_STATUSES.filter(isOpen) } : undefined),
+    projectId: filter.projectId,
+    requesterId: filter.requesterId,
+    ...(q
+      ? {
+          OR: [
+            { code: { contains: q, mode: "insensitive" as const } },
+            { title: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
+            { requester: { name: { contains: q, mode: "insensitive" as const } } },
+            { pic: { name: { contains: q, mode: "insensitive" as const } } },
+            { project: { code: { contains: q, mode: "insensitive" as const } } },
+            { project: { name: { contains: q, mode: "insensitive" as const } } },
+            { project: { endUserCompany: { contains: q, mode: "insensitive" as const } } },
+            { project: { principal: { name: { contains: q, mode: "insensitive" as const } } } },
+            { project: { principals: { some: { principal: { name: { contains: q, mode: "insensitive" as const } } } } } },
+            { project: { solutionCategory: { name: { contains: q, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+type RequestWithRelations = Awaited<ReturnType<typeof findWithRelations>>[number];
+
+function findWithRelations(db: PrismaClient, args: { where: ReturnType<typeof requestWhere>; orderBy: Prisma.RequestOrderByWithRelationInput | Prisma.RequestOrderByWithRelationInput[]; take?: number; skip?: number }) {
+  return db.request.findMany({ ...args, include: ROW_INCLUDE });
+}
+
+function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeof getTeamSettings>>, now: Date): RequestRow {
+  return {
     id: request.id,
     code: request.code,
     type: request.type,
     status: request.status,
     phase: request.phase,
     title: request.title,
+    description: request.description,
     projectCode: request.project.code,
     endUserCompany: request.project.endUserCompany,
     projectName: request.project.name,
+    principalName: principalNamesOf(request.project).join(", ") || null,
+    solutionName: request.project.solutionCategory?.name ?? null,
     requesterName: request.requester.name,
-    assigneeName: request.assignee?.name ?? null,
+    assigneeName: request.pic?.name ?? null,
     requiredBy: request.requiredBy,
     createdAt: request.createdAt,
     flowStopped: request.flowStoppedAt !== null,
@@ -263,7 +421,78 @@ export async function listRequests(db: PrismaClient, viewer: Viewer, filter: Req
       range: settings[OWNING_ROLE[request.type] as "SOA" | "PURCHASING"].sla,
       now,
     }),
-  }));
+  };
+}
+
+export async function listRequests(db: PrismaClient, viewer: Viewer, filter: RequestFilter = {}): Promise<RequestRow[]> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const limit = Math.min(filter.limit ?? LIST_LIMIT, LIST_LIMIT);
+  const computed = needsComputedFilter(filter);
+  const requests = await findWithRelations(db, {
+    where: requestWhere(filter),
+    orderBy: { createdAt: "desc" },
+    take: computed ? FILTERED_READ_LIMIT : limit,
+  });
+  const settings = await getTeamSettings(db);
+  const now = new Date();
+  const rows = requests.map((request) => toRow(request, settings, now));
+  return computed ? rows.filter((row) => matchesComputedFilter(row, filter, now)).slice(0, limit) : rows;
+}
+
+export const REQUEST_SORTS = ["created", "code", "project", "requester", "status", "sla", "needed"] as const;
+export type RequestSort = (typeof REQUEST_SORTS)[number];
+export const REQUEST_PAGE_SIZE = 20;
+/** The most requests an SLA sort looks at: the SLA is computed, so it cannot be sorted by the database. */
+const SLA_SORT_LIMIT = 1000;
+
+export type RequestPage = { rows: RequestRow[]; total: number; page: number; pageCount: number; pageSize: number };
+
+/** One page of requests with search (`q`), the usual filters and a sort. Used by the RFQ list. */
+export async function searchRequests(
+  db: PrismaClient,
+  viewer: Viewer,
+  filter: RequestFilter & { sort?: RequestSort; dir?: "asc" | "desc"; page?: number; pageSize?: number },
+): Promise<RequestPage> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const pageSize = Math.min(Math.max(filter.pageSize ?? REQUEST_PAGE_SIZE, 1), 100);
+  const sort = filter.sort ?? "created";
+  const dir = filter.dir ?? "desc";
+  const where = requestWhere(filter);
+  const computed = needsComputedFilter(filter);
+  const settings = await getTeamSettings(db);
+  const now = new Date();
+
+  if (sort === "sla" || computed) {
+    // The SLA state and a sort by SLA are computed, so these read more rows and filter, sort and page in memory.
+    const all = await findWithRelations(db, { where, orderBy: { createdAt: "desc" }, take: computed ? FILTERED_READ_LIMIT : SLA_SORT_LIMIT });
+    const sign = dir === "asc" ? 1 : -1;
+    const matching = all.map((request) => toRow(request, settings, now)).filter((row) => !computed || matchesComputedFilter(row, filter, now));
+    if (sort === "sla") matching.sort((a, b) => sign * (a.sla.dueAt.getTime() - b.sla.dueAt.getTime()) || a.code.localeCompare(b.code));
+    const memoryTotal = computed ? matching.length : await db.request.count({ where });
+    const memoryPageCount = Math.max(Math.ceil(memoryTotal / pageSize), 1);
+    const memoryPage = Math.min(Math.max(Math.trunc(filter.page ?? 1) || 1, 1), memoryPageCount);
+    return { rows: matching.slice((memoryPage - 1) * pageSize, memoryPage * pageSize), total: memoryTotal, page: memoryPage, pageCount: memoryPageCount, pageSize };
+  }
+
+  const total = await db.request.count({ where });
+  const pageCount = Math.max(Math.ceil(total / pageSize), 1);
+  const page = Math.min(Math.max(Math.trunc(filter.page ?? 1) || 1, 1), pageCount);
+  const orderBy: Prisma.RequestOrderByWithRelationInput[] = [
+    sort === "code"
+      ? { code: dir }
+      : sort === "project"
+        ? { project: { code: dir } }
+        : sort === "requester"
+          ? { requester: { name: dir } }
+          : sort === "status"
+            ? { status: dir }
+            : sort === "needed"
+              ? { requiredBy: { sort: dir, nulls: "last" } }
+              : { createdAt: dir },
+    { id: "asc" },
+  ];
+  const found = await findWithRelations(db, { where, orderBy, take: pageSize, skip: (page - 1) * pageSize });
+  return { rows: found.map((request) => toRow(request, settings, now)), total, page, pageCount, pageSize };
 }
 
 export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: string) {
@@ -274,8 +503,9 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
       purchasingPic: { select: { name: true } },
-      customer: { select: { name: true } },
+      customer: { select: { name: true, industry: true } },
       principal: { select: { name: true } },
+      principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
       solutionCategory: { select: { name: true } },
     },
   });
@@ -310,10 +540,34 @@ export async function listPendingDecisions(db: PrismaClient, viewer: Viewer, own
   return rows.map((row) => ({ code: row.code, type: row.type, title: row.title, projectCode: row.project.code, endUserCompany: row.project.endUserCompany, projectName: row.project.name, completedAt: row.completedAt }));
 }
 
+export type HandoverRow = { code: string; type: RequestType; status: RequestStatus; sourceCode: string; projectCode: string; endUserCompany: string; projectName: string; createdAt: Date; handedBy: string };
+
+/** The latest requests created by continuing a completed BOQ (or RFQ) to the next step, newest first. */
+export async function listRecentHandovers(db: PrismaClient, viewer: Viewer, limit = 20): Promise<HandoverRow[]> {
+  assertPermitted(can(viewer.role, "requests.view"));
+  const rows = await db.request.findMany({
+    where: { sourceRequestId: { not: null }, project: { deletedAt: null } },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: { source: { select: { code: true } }, project: { select: { code: true, endUserCompany: true, name: true } }, requester: { select: { name: true } } },
+  });
+  return rows.map((row) => ({
+    code: row.code,
+    type: row.type,
+    status: row.status,
+    sourceCode: row.source?.code ?? "",
+    projectCode: row.project.code,
+    endUserCompany: row.project.endUserCompany,
+    projectName: row.project.name,
+    createdAt: row.createdAt,
+    handedBy: row.requester.name,
+  }));
+}
+
 const REQUEST_DETAIL = {
   project: true,
   requester: { select: { name: true, role: true, email: true } },
-  assignee: { select: { name: true } },
+  pic: { select: { name: true, isActive: true } },
   source: { select: { code: true } },
   handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
   flowStoppedBy: { select: { name: true } },
@@ -342,13 +596,17 @@ export type WorkStats = {
   unassignedOpen: number;
 };
 
-/** Real counts for the dashboards. Nothing here is estimated: an empty system shows zeros. */
-export async function getWorkStats(db: PrismaClient, viewer: Viewer): Promise<WorkStats> {
+/**
+ * Real counts for the dashboards. Nothing here is estimated: an empty system shows zeros. With `projectOwnerId` every count is
+ * limited to the projects that Sales account owns (a salesperson's own dashboard); the caller passes the signed-in user, never input.
+ */
+export async function getWorkStats(db: PrismaClient, viewer: Viewer, projectOwnerId?: string): Promise<WorkStats> {
   assertPermitted(can(viewer.role, "requests.view"));
+  const projectWhere = { deletedAt: null, ...(projectOwnerId ? { salesOwnerId: projectOwnerId } : {}) };
   const [projectsActive, groups, unassignedOpen] = await Promise.all([
-    db.project.count({ where: { trackStatus: "ON_TRACK", deletedAt: null } }),
-    db.request.groupBy({ by: ["type", "status"], where: { project: { deletedAt: null } }, _count: { _all: true } }),
-    db.request.count({ where: { project: { deletedAt: null }, assigneeId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
+    db.project.count({ where: { trackStatus: "ON_TRACK", ...projectWhere } }),
+    db.request.groupBy({ by: ["type", "status"], where: { project: projectWhere }, _count: { _all: true } }),
+    db.request.count({ where: { project: projectWhere, picId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
   ]);
   const zero = () => Object.fromEntries(REQUEST_STATUSES.map((status) => [status, 0])) as Record<RequestStatus, number>;
   const statusCounts = Object.fromEntries(REQUEST_TYPES.map((type) => [type, zero()])) as WorkStats["statusCounts"];

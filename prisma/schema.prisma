@@ -32,20 +32,25 @@ model User {
   // One role per user (assumption A-1 in docs/requirements/RBAC.md).
   role         Role
   isActive     Boolean  @default(true) @map("is_active")
+  // The prefix of this person's request codes (RFQ-S-260001): one letter of the e-mail address, more if that letter is taken. Set once.
+  codePrefix   String?  @unique @map("code_prefix")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   sessions          Session[]
+  deviceCredentials DeviceCredential[]
   audits            AuditEvent[]
   ownedProjects     Project[]              @relation("ProjectSalesOwner")
   requestsCreated   Request[]              @relation("RequestRequester")
   requestsHandled   Request[]              @relation("RequestAssignee")
   flowStopped       Request[]              @relation("RequestFlowStoppedBy")
   statusChanges     RequestStatusHistory[]
+  picAssignments    RequestPicAssignment[] @relation("AssignmentChangedBy")
   technicalProjects Project[]              @relation("ProjectTechnicalPic")
   purchasingProjects Project[]             @relation("ProjectPurchasingPic")
   deletedProjects   Project[]              @relation("ProjectDeletedBy")
   teamSettings      TeamSetting[]          @relation("TeamSettingUpdatedBy")
+  rolePermissionChanges RolePermissionOverride[] @relation("RolePermissionUpdatedBy")
   projectChanges    ProjectChange[]
   projectActions    ProjectAction[]
   notifications     Notification[]
@@ -69,6 +74,24 @@ model Session {
   @@map("sessions")
 }
 
+// An account remembered on one browser, so Switch Account needs no password again (never for ADMIN or SUPERADMIN). The browser holds a
+// random token and this row's id in an HttpOnly cookie; only a salted SHA-256 of the token is stored.
+model DeviceCredential {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  salt       String
+  tokenHash  String    @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("device_credentials")
+}
+
 // Append-only: the migration installs triggers that reject UPDATE, DELETE and
 // TRUNCATE (brief §6.3 and §11 `audit_logs`).
 model AuditEvent {
@@ -84,6 +107,7 @@ model AuditEvent {
   actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
+  @@index([actorId])
   @@index([createdAt])
   @@map("audit_events")
 }
@@ -98,8 +122,11 @@ enum RequestType {
 enum RequestStatus {
   SUBMITTED
   IN_PROGRESS
+  // Legacy: no longer offered. Requests that were already waiting keep it until SOA or Purchasing move them on the board.
   WAITING_FOR_SALES
   COMPLETED
+  // A completed BOQ that is being revised (BOQ only).
+  REVISION
   CANCELLED
 }
 
@@ -153,12 +180,22 @@ enum ProjectStage {
   LOST
 }
 
+// Where a project came from. INTERNAL_SALES is the company's own Sales team (the project has a Sales PIC); OTHER is work SOA
+// registers that comes from an external sales company or another source (no internal Sales PIC; the external fields describe
+// it). Not the project's status and not a request type. Keep in sync with src/domain/projects/source.ts.
+enum ProjectSourceType {
+  INTERNAL_SALES
+  OTHER
+}
+
 // Master data. `nameKey` is the trimmed, lower-cased, single-spaced name: it makes "HPE" and "hpe "
 // the same record and is what the unique index guards.
 model Customer {
   id        String   @id @default(uuid(7)) @db.Uuid
   name      String
   nameKey   String   @unique @map("name_key")
+  // The customer's industry (Banking, Manufacturing...), filled in on the Customers page. Free text kept tidy by suggesting the existing ones.
+  industry  String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -175,7 +212,9 @@ model Principal {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  projects Project[]
+  // `projects` is the legacy first-principal link (Project.principalId); `projectLinks` is the full list a project is built on.
+  projects     Project[]
+  projectLinks ProjectPrincipal[]
 
   @@map("principals")
 }
@@ -190,6 +229,22 @@ model SolutionCategory {
   projects Project[]
 
   @@map("solution_categories")
+}
+
+// The principals (brands) a project is built on: one row per project and principal, so the same principal cannot be linked twice.
+// `position` keeps the order they were chosen in; the first one is also written to projects.principal_id.
+model ProjectPrincipal {
+  projectId   String   @map("project_id") @db.Uuid
+  principalId String   @map("principal_id") @db.Uuid
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  principal Principal @relation(fields: [principalId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, principalId])
+  @@index([principalId])
+  @@map("project_principals")
 }
 
 // Human-readable codes come from this counter: one row per scope (for example "RFQ-IA-26"
@@ -212,7 +267,15 @@ model Project {
   status         ProjectStatus @default(ACTIVE)
   // Target closing date.
   targetDate     DateTime?     @map("target_date") @db.Date
-  salesOwnerId   String        @map("sales_owner_id") @db.Uuid
+  // Null only for a project whose source is OTHER (a database check keeps the two in step).
+  salesOwnerId   String?       @map("sales_owner_id") @db.Uuid
+  // Every project that existed before this column was added is INTERNAL_SALES: each of them has a Sales owner, and no
+  // external source was ever recorded, so nothing is inferred.
+  sourceType         ProjectSourceType @default(INTERNAL_SALES) @map("source_type")
+  externalSourceName String?           @map("external_source_name")
+  externalContact    String?           @map("external_contact")
+  externalReference  String?           @map("external_reference")
+  sourceNotes        String?           @map("source_notes")
 
   // Commercial fields (Sales-owned; assumption docs/requirements/RBAC.md A-10). Currency is not stored: the
   // sales export holds plain numbers, assumed to be IDR.
@@ -237,6 +300,7 @@ model Project {
 
   // General information.
   customerId         String? @map("customer_id") @db.Uuid
+  // The first of the project's principals (see ProjectPrincipal), kept so lists, filters and exports that read one name keep working.
   principalId        String? @map("principal_id") @db.Uuid
   solutionCategoryId String? @map("solution_category_id") @db.Uuid
   industry           String?
@@ -278,11 +342,12 @@ model Project {
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedById String?   @map("deleted_by_id") @db.Uuid
 
-  salesOwner       User              @relation("ProjectSalesOwner", fields: [salesOwnerId], references: [id], onDelete: Restrict)
+  salesOwner       User?             @relation("ProjectSalesOwner", fields: [salesOwnerId], references: [id], onDelete: Restrict)
   technicalPic     User?             @relation("ProjectTechnicalPic", fields: [technicalPicId], references: [id], onDelete: Restrict)
   purchasingPic    User?             @relation("ProjectPurchasingPic", fields: [purchasingPicId], references: [id], onDelete: Restrict)
   customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
   principal        Principal?        @relation(fields: [principalId], references: [id], onDelete: Restrict)
+  principals       ProjectPrincipal[]
   solutionCategory SolutionCategory? @relation(fields: [solutionCategoryId], references: [id], onDelete: Restrict)
   deletedBy        User?             @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   requests         Request[]
@@ -293,10 +358,12 @@ model Project {
   @@index([stage])
   @@index([progress])
   @@index([salesOwnerId])
+  @@index([sourceType])
   @@index([technicalPicId])
   @@index([purchasingPicId])
   @@index([customerId])
   @@index([principalId])
+  @@index([solutionCategoryId])
   @@index([deletedAt])
   @@map("projects")
 }
@@ -313,14 +380,25 @@ model Request {
   description     String        @default("")
   requiredBy      DateTime?     @map("required_by") @db.Date
   requesterId     String        @map("requester_id") @db.Uuid
-  // Null means "unassigned", which is shown explicitly (brief §6.3).
+  // Deprecated: the operational assignee is now `picId` (a PIC, not a login account). Kept for the rows that were assigned before;
+  // the application no longer writes it.
   assigneeId      String?       @map("assignee_id") @db.Uuid
+  // The PIC working on it. Null means "unassigned", which is shown explicitly (brief §6.3).
+  picId           String?       @map("pic_id") @db.Uuid
   // Set on an RFQ or PO that was handed over from a completed BOQ.
   sourceRequestId String?       @map("source_request_id") @db.Uuid
   // Set by SOA on a BOQ request only (a database check keeps it off RFQ and PO).
   phase           SoaPhase?
   submissionKey   String?       @unique @map("submission_key")
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
+  // When the team first answered it (the "Tanggal Response" of the RFQ tracker). Set once, when the request first leaves Submitted.
+  respondedAt     DateTime?     @map("responded_at") @db.Timestamptz(3)
+  // The e-mail the request came from: a link to the mail, and the ids that find its thread again.
+  emailLink           String?   @map("email_link")
+  emailMessageId      String?   @map("email_message_id")
+  emailConversationId String?   @map("email_conversation_id")
+  // The file an imported request came from; null for a request raised in the application.
+  importedFrom    String?       @map("imported_from")
   // Sales decided not to continue to the next step after this completed BOQ or RFQ (BOQ -> RFQ -> PO).
   flowStoppedAt   DateTime?     @map("flow_stopped_at") @db.Timestamptz(3)
   flowStoppedById String?       @map("flow_stopped_by_id") @db.Uuid
@@ -331,6 +409,8 @@ model Request {
   project       Project                @relation(fields: [projectId], references: [id], onDelete: Restrict)
   requester     User                   @relation("RequestRequester", fields: [requesterId], references: [id], onDelete: Restrict)
   assignee      User?                  @relation("RequestAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  pic           Pic?                   @relation(fields: [picId], references: [id], onDelete: Restrict)
+  picAssignments RequestPicAssignment[]
   flowStoppedBy User?                  @relation("RequestFlowStoppedBy", fields: [flowStoppedById], references: [id], onDelete: Restrict)
   source        Request?               @relation("Handover", fields: [sourceRequestId], references: [id], onDelete: Restrict)
   handovers     Request[]              @relation("Handover")
@@ -339,6 +419,8 @@ model Request {
   // A repeated handover click cannot create a second RFQ (or PO) from the same BOQ.
   @@unique([sourceRequestId, type])
   @@index([projectId])
+  @@index([picId])
+  @@index([requesterId])
   @@index([type, status])
   @@index([status])
   @@index([createdAt])
@@ -408,6 +490,53 @@ model ProjectAction {
   @@map("project_actions")
 }
 
+// The team an operational PIC works for. Keep in sync with PIC_TEAMS in src/domain/pics/teams.ts.
+enum PicTeam {
+  SOA
+  PURCHASING
+}
+
+// An operational assignee of SOA or Purchasing tickets (Adityo, Ibnu...). It is not a login account: SOA and Purchasing each sign in
+// with one shared account, and the tickets are handed to PICs. A PIC is deactivated, never deleted, so the assignment history keeps its names.
+model Pic {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  team      PicTeam
+  name      String
+  // Trimmed, single-spaced, lower-cased name: one team cannot hold the same name twice.
+  nameKey   String   @map("name_key")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  requests         Request[]
+  assignedTo       RequestPicAssignment[] @relation("AssignmentTo")
+  assignedFrom     RequestPicAssignment[] @relation("AssignmentFrom")
+
+  @@unique([team, nameKey])
+  @@index([team, isActive])
+  @@map("pics")
+}
+
+// Who a request was handed to and by whom, one row per change. Append-only (the migration installs triggers), and a PIC row is never
+// deleted, so the history stays readable after a PIC is changed or deactivated.
+model RequestPicAssignment {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  requestId   String   @map("request_id") @db.Uuid
+  fromPicId   String?  @map("from_pic_id") @db.Uuid
+  toPicId     String?  @map("to_pic_id") @db.Uuid
+  changedById String   @map("changed_by_id") @db.Uuid
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  fromPic   Pic?    @relation("AssignmentFrom", fields: [fromPicId], references: [id], onDelete: Restrict)
+  toPic     Pic?    @relation("AssignmentTo", fields: [toPicId], references: [id], onDelete: Restrict)
+  changedBy User    @relation("AssignmentChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([requestId, changedAt])
+  @@index([toPicId])
+  @@map("request_pic_assignments")
+}
+
 // Something a person should look at: a request that reached their team, or a project change made by another
 // division. Rows are written in the same transaction as the change they describe.
 model Notification {
@@ -462,4 +591,20 @@ model SalesTarget {
   @@unique([salesUserId, year, quarter])
   @@index([year])
   @@map("sales_targets")
+}
+
+// What a superadmin changed in the permission editor: one row per role and permission whose state differs from the defaults in
+// src/domain/access/permissions.ts. Permissions themselves stay defined in code (D-013); a role with no row here has the defaults.
+// Every change is also written to audit_events with the before and after.
+model RolePermissionOverride {
+  role        Role
+  permission  String
+  granted     Boolean
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String?  @map("updated_by_id") @db.Uuid
+
+  updatedBy User? @relation("RolePermissionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@id([role, permission])
+  @@map("role_permission_overrides")
 }

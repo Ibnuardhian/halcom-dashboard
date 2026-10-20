@@ -1,9 +1,11 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { dashboardFromSlug } from "@/domain/access/dashboards";
 import { AdminDashboard } from "@/features/dashboards/admin-dashboard";
+import { FinanceDashboard } from "@/features/dashboards/finance-dashboard";
 import { PlannedDashboard } from "@/features/dashboards/planned-dashboard";
+import { TeamDashboard } from "@/features/dashboards/team-dashboard";
 import { ROLE_DASHBOARDS } from "@/features/dashboards/definitions";
 import { RoleQueue } from "@/features/dashboards/role-queue";
 import { SalesPipeline } from "@/features/dashboards/sales-pipeline";
@@ -24,17 +26,18 @@ async function RoleDashboard({ params, searchParams }: Pick<PageProps<"/dashboar
   const viewer = await requirePermission(`dashboard.${key}.view`);
 
   if (key === "admin" || key === "superadmin") {
-    return <AdminDashboard viewer={viewer} scope={key} />;
+    return <AdminDashboard viewer={viewer} />;
   }
   if (key === "sales") {
     const query = await searchParams;
     const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : "");
-    const view = one(query.view) === "charts" ? "charts" : one(query.view) === "tracking" ? "tracking" : "table";
-    const thisYear = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric" }).format(new Date()));
-    const wanted = Number(one(query.year));
-    const year = Number.isInteger(wanted) && wanted >= 2001 && wanted <= 2099 ? wanted : thisYear;
-    return <SalesPipeline viewer={viewer} view={view} year={year} />;
+    // Targets live on their own page; an old link to the tracking view goes there.
+    if (one(query.view) === "tracking") redirect(`/targets${one(query.year) ? `?year=${encodeURIComponent(one(query.year))}` : ""}`);
+    return <SalesPipeline viewer={viewer} view={one(query.view) === "charts" ? "charts" : "table"} />;
   }
+  if (key === "soa") return <TeamDashboard viewer={viewer} team="SOA" />;
+  if (key === "purchasing") return <TeamDashboard viewer={viewer} team="PURCHASING" />;
+  if (key === "finance") return <FinanceDashboard viewer={viewer} />;
   return (
     <PlannedDashboard definition={ROLE_DASHBOARDS[key]}>
       <RoleQueue viewer={viewer} dashboard={key} />

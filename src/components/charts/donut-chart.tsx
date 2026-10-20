@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { ChartEmpty, seriesColor } from "./chart-card";
 
-export type DonutItem = { key: string; label: string; value: number; display?: string; neutral?: boolean };
+/** `href`, when given, makes the slice's legend row a link to the records behind it. */
+export type DonutItem = { key: string; label: string; value: number; display?: string; neutral?: boolean; href?: string | null };
 
 const RADIUS = 15.9155; // circumference 100, so a stroke length is a percentage
 const GAP = 0.8;
+const LINK = "rounded-md outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * A donut for the composition of a whole (a few parts). The legend beside it is the data table: label, value and
@@ -37,15 +40,28 @@ export function DonutChart({ items, unit = "projects", centre }: { items: DonutI
           </text>
         </g>
       </svg>
-      <ul className="grid w-full min-w-0 gap-1.5 text-sm">
-        {parts.map((item, index) => (
-          <li key={item.key} className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: seriesColor(index, item.neutral) }} aria-hidden />
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            <span className="shrink-0 tabular-nums">{item.display ?? item.value}</span>
-            <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{Math.round((item.value / total) * 100)}%</span>
-          </li>
-        ))}
+      <ul className="grid w-full min-w-0 gap-1 text-sm">
+        {parts.map((item, index) => {
+          const row = (
+            <>
+              <span className="size-2.5 shrink-0 rounded-sm" style={{ background: seriesColor(index, item.neutral) }} aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="shrink-0 tabular-nums">{item.display ?? item.value}</span>
+              <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{Math.round((item.value / total) * 100)}%</span>
+            </>
+          );
+          return (
+            <li key={item.key}>
+              {item.href ? (
+                <Link href={item.href} aria-label={`${item.label}: ${item.display ?? item.value}. Show the projects.`} className={`flex items-center gap-2 px-1 py-0.5 ${LINK}`}>
+                  {row}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2 px-1 py-0.5">{row}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

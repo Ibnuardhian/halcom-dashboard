@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, UserRound, X } from "lucide-react";
+import { Bell, BookOpen, ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { APP_NAME, APP_TAGLINE } from "@/config/app";
 import type { NavSection } from "@/features/navigation/links";
@@ -20,7 +20,9 @@ type Props = {
   /** Optional navbar controls rendered by the server (for example the superadmin theme switcher). */
   controls?: React.ReactNode;
   /** Unread notifications of the signed-in user, and where the list lives. */
-  notifications: { href: string; unread: number };
+  notifications: { href: string; unread: number; urgent: boolean };
+  /** The User Guide, open to every signed-in role. */
+  guideHref: string;
   /** The sign-out form, a server action passed in by the layout. */
   signOut: React.ReactNode;
   children: React.ReactNode;
@@ -34,7 +36,7 @@ const PROFILE_MENU_ID = "profile-menu";
  * page. The sidebar button hides and shows the sidebar on a desktop; below `md` the sidebar is a drawer that closes on
  * navigation, on Escape and on a click outside.
  */
-export function AppShell({ sections, user, accountHref, controls, notifications, signOut, children }: Props) {
+export function AppShell({ sections, user, accountHref, controls, notifications, guideHref, signOut, children }: Props) {
   const pathname = usePathname();
   // The drawer is open only for the page it was opened on, so navigating closes it without an effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null);
@@ -131,7 +133,15 @@ export function AppShell({ sections, user, accountHref, controls, notifications,
 
           <div className="ml-auto flex items-center gap-2">
             {controls ? <div className="w-28 sm:w-32">{controls}</div> : null}
-            <NotificationBell href={notifications.href} unread={notifications.unread} active={isActivePath(pathname, notifications.href)} />
+            <Link
+              href={guideHref}
+              aria-current={isActivePath(pathname, guideHref) ? "page" : undefined}
+              className="flex h-9 items-center justify-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium hover:bg-muted aria-[current=page]:bg-muted"
+            >
+              <BookOpen aria-hidden className="size-4" />
+              <span className="sr-only sm:not-sr-only">User Guide</span>
+            </Link>
+            <NotificationBell href={notifications.href} unread={notifications.unread} urgent={notifications.urgent} active={isActivePath(pathname, notifications.href)} />
             <ProfileMenu user={user} accountHref={accountHref} signOut={signOut} />
           </div>
         </header>
@@ -144,8 +154,8 @@ export function AppShell({ sections, user, accountHref, controls, notifications,
 }
 
 /** A link to the notification list with the unread count; the count is also in the accessible name. */
-function NotificationBell({ href, unread, active }: { href: string; unread: number; active: boolean }) {
-  const label = unread === 0 ? "Notifications" : `Notifications, ${unread} unread`;
+function NotificationBell({ href, unread, urgent, active }: { href: string; unread: number; urgent: boolean; active: boolean }) {
+  const label = unread === 0 ? "Notifications" : `Notifications, ${unread} unread${urgent ? ", including a revision request" : ""}`;
   return (
     <Link
       href={href}
@@ -157,7 +167,7 @@ function NotificationBell({ href, unread, active }: { href: string; unread: numb
       {unread > 0 ? (
         <span
           aria-hidden
-          className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground tabular-nums"
+          className={cn("absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold tabular-nums", urgent ? "bg-destructive text-white" : "bg-primary text-primary-foreground")}
         >
           {unread > 99 ? "99+" : unread}
         </span>

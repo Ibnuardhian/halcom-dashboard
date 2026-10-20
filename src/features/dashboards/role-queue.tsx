@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DashboardKey } from "@/domain/access/dashboards";
 import { REQUESTS_PATH } from "@/features/navigation/links";
 import { RequestTable } from "@/features/requests/request-table";
 import { getDb } from "@/lib/db";
@@ -9,35 +8,7 @@ import { listRequests, type RequestFilter } from "@/server/requests/queries";
 
 type QueueConfig = { title: string; description: string; filter: RequestFilter; viewAllHref: string; empty: string };
 
-const QUEUES = (viewer: SessionUser): Record<Exclude<DashboardKey, "admin" | "superadmin">, QueueConfig> => ({
-  sales: {
-    title: "My requests",
-    description: "BOQ, RFQ and PO requests you submitted, newest first.",
-    filter: { requesterId: viewer.id, limit: 10 },
-    viewAllHref: REQUESTS_PATH,
-    empty: "You have not submitted any request yet.",
-  },
-  soa: {
-    title: "Open BOQ requests",
-    description: "BOQ requests that are not completed or cancelled, newest first.",
-    filter: { type: "BOQ", openOnly: true, limit: 10 },
-    viewAllHref: `${REQUESTS_PATH}/boq?status=open`,
-    empty: "No open BOQ requests.",
-  },
-  purchasing: {
-    title: "Open RFQ and PO requests",
-    description: "Requests from Sales and from SOA handovers, newest first.",
-    filter: { types: ["RFQ", "PO"], openOnly: true, limit: 10 },
-    viewAllHref: `${REQUESTS_PATH}?status=open`,
-    empty: "No open RFQ or PO requests.",
-  },
-  finance: {
-    title: "Recent requests",
-    description: "Read-only view of the latest requests across projects.",
-    filter: { limit: 10 },
-    viewAllHref: REQUESTS_PATH,
-    empty: "No requests yet.",
-  },
+const QUEUES = (): Record<"management", QueueConfig> => ({
   management: {
     title: "Open requests",
     description: "Everything that is still in progress, newest first.",
@@ -48,8 +19,8 @@ const QUEUES = (viewer: SessionUser): Record<Exclude<DashboardKey, "admin" | "su
 });
 
 /** A short work queue for a role's dashboard, read from the database. */
-export async function RoleQueue({ viewer, dashboard }: { viewer: SessionUser; dashboard: Exclude<DashboardKey, "admin" | "superadmin"> }) {
-  const config = QUEUES(viewer)[dashboard];
+export async function RoleQueue({ viewer, dashboard }: { viewer: SessionUser; dashboard: "management" }) {
+  const config = QUEUES()[dashboard];
   const rows = await listRequests(getDb(), viewer, config.filter);
   return (
     <Card className="mb-8">

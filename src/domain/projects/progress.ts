@@ -36,6 +36,17 @@ export const PROGRESS_NAMES: Record<ProjectProgress, string> = PROGRESS_NAME;
 /** "30% - Propose": the wording of the sheet's drop-down. */
 export const PROGRESS_LABELS = Object.fromEntries(PROJECT_PROGRESSES.map((p) => [p, `${PROGRESS_PERCENT[p]}% - ${PROGRESS_NAME[p]}`])) as Record<ProjectProgress, string>;
 
+/**
+ * What a step means in the sales process, where the name alone does not say it. Propose (30%) means the quotation was submitted
+ * ("Submit Quotation"): its date is the project's Quote released date, which stays editable when the schedule moves.
+ */
+export const PROGRESS_MEANINGS: Partial<Record<ProjectProgress, string>> = { PROPOSE: "Submit Quotation" };
+
+/** The wording of the Progress drop-down: the sheet's label, with what the step means where that helps. */
+export const PROGRESS_OPTION_LABELS = Object.fromEntries(
+  PROJECT_PROGRESSES.map((p) => [p, PROGRESS_MEANINGS[p] ? `${PROGRESS_LABELS[p]} (${PROGRESS_MEANINGS[p]})` : PROGRESS_LABELS[p]]),
+) as Record<ProjectProgress, string>;
+
 export const CLOSED_PROGRESSES: readonly ProjectProgress[] = ["CLOSED_WON", "CLOSED_LOST"];
 
 export function isProgress(value: unknown): value is ProjectProgress {

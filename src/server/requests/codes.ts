@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { codeScope, formatCode, initialsFromEmail, PROJECT_CODE_WIDTH, twoDigitYear } from "@/domain/requests/codes";
+import { codeScope, formatCode, pickCodePrefix, PROJECT_CODE_WIDTH, twoDigitYear } from "@/domain/requests/codes";
 import type { RequestType } from "@/domain/requests/types";
 
 type Tx = Prisma.TransactionClient;
@@ -19,8 +19,30 @@ async function nextSequence(tx: Tx, scope: string): Promise<number> {
   return value;
 }
 
-export async function nextRequestCode(tx: Tx, type: RequestType, requesterEmail: string, now: Date): Promise<string> {
-  const scope = codeScope(type, initialsFromEmail(requesterEmail), twoDigitYear(now));
+/** Serialises the choice of prefixes: two people raising their first request at once must not both take the same letter. */
+const PREFIX_LOCK_KEY = 7_201_026;
+
+/**
+ * The prefix of a person's request codes. Chosen the first time they raise a request (one letter of their e-mail address, more if
+ * another person already has it) and stored, so every later code of theirs carries the same prefix. The unique index on
+ * `users.code_prefix` is the last line of defence; the advisory lock keeps two first requests from racing for the same letter.
+ */
+export async function codePrefixFor(tx: Tx, user: { id: string; email: string }): Promise<string> {
+  const known = await tx.user.findUnique({ where: { id: user.id }, select: { codePrefix: true } });
+  if (known?.codePrefix) return known.codePrefix;
+
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${PREFIX_LOCK_KEY})`;
+  // Read again under the lock: another transaction may have given this person a prefix while this one waited.
+  const again = await tx.user.findUnique({ where: { id: user.id }, select: { codePrefix: true } });
+  if (again?.codePrefix) return again.codePrefix;
+  const taken = new Set((await tx.user.findMany({ where: { codePrefix: { not: null } }, select: { codePrefix: true } })).map((row) => row.codePrefix!));
+  const prefix = pickCodePrefix(user.email, taken);
+  await tx.user.update({ where: { id: user.id }, data: { codePrefix: prefix } });
+  return prefix;
+}
+
+export async function nextRequestCode(tx: Tx, type: RequestType, requester: { id: string; email: string }, now: Date): Promise<string> {
+  const scope = codeScope(type, await codePrefixFor(tx, requester), twoDigitYear(now));
   return formatCode(scope, await nextSequence(tx, scope));
 }
 

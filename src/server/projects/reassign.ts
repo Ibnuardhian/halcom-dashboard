@@ -57,6 +57,9 @@ export async function reassignProject(db: PrismaClient, claimedActor: Actor, inp
       const next = wanted === "" ? null : wanted;
       const current = project[slot.key];
       if (next === current) continue;
+      if (slot.key === "salesOwnerId" && project.sourceType === "OTHER") {
+        return { ok: false, code: "INVALID_INPUT", message: "This project's source is Other, so it has no internal Sales PIC. Change the project source first." };
+      }
       if (next === null && slot.required) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} is required.` };
 
       let toName: string | null = null;

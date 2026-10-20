@@ -3,11 +3,12 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { COMMERCIAL_FIELDS, type CommercialField } from "@/domain/projects/commercial";
-import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
+import { PROGRESS_OPTION_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { updateCommercialDetailsAction } from "./actions";
 import { MarginInput } from "./margin-input";
 import { MoneyInput } from "./money-input";
@@ -15,11 +16,11 @@ import { MoneyInput } from "./money-input";
 type Values = Record<CommercialField, string>;
 
 const HINTS: Partial<Record<CommercialField, string>> = {
-  progress: "Each step stands for a win probability, which the weighted pipeline uses.",
+  progress: "Each step stands for a win probability, which the weighted pipeline uses. 30% - Propose means the quotation was submitted.",
   estimatedValue: "Dots are added as you type, for example 1.200.000.000",
-  quoteReleasedAt: "Date the quotation was sent to the customer",
+  quoteReleasedAt: "Date the quotation was submitted to the customer. Filled with today when you move to Propose; change or clear it when the schedule moves.",
   targetDate: "Date the deal should close",
-  finalValue: "The agreed PO value once known; counts toward your revenue target",
+  finalValue: "The agreed PO value once known; with the target margin, gives the gross profit counted toward your target",
   wonDate: "Set when the project is closed as won; decides which quarter it counts in",
 };
 
@@ -46,7 +47,7 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
               <NativeSelect id={id} name={field} defaultValue={values[field]}>
                 {PROJECT_PROGRESSES.map((option) => (
                   <option key={option} value={option}>
-                    {PROGRESS_LABELS[option]}
+                    {PROGRESS_OPTION_LABELS[option]}
                   </option>
                 ))}
               </NativeSelect>
@@ -60,8 +61,10 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
               </NativeSelect>
             ) : kind === "amount" ? (
               <MoneyInput id={id} name={field} defaultValue={values[field]} />
+            ) : kind === "date" ? (
+              <DateInput id={id} name={field} label={COMMERCIAL_FIELDS[field].label} defaultValue={values[field]} />
             ) : (
-              <Input id={id} name={field} type={kind === "date" ? "date" : "text"} inputMode={kind === "date" ? undefined : "decimal"} defaultValue={values[field]} maxLength={40} />
+              <Input id={id} name={field} type="text" inputMode="decimal" defaultValue={values[field]} maxLength={40} />
             )}
             {HINTS[field] ? <span className="text-xs text-muted-foreground">{HINTS[field]}</span> : null}
           </div>

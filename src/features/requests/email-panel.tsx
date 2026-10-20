@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Check, Copy, Mail } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { buildMailto } from "@/domain/requests/mailto";
@@ -81,6 +81,8 @@ export type EmailPanelProps = {
  * The application never sends mail: the person reviews the draft in Outlook and sends it from there.
  */
 export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigured, hint }: EmailPanelProps) {
+  // Several requests share one page (a project and all its requests), so the field ids must be unique per panel.
+  const base = useId();
   const mailto = buildMailto({ to: to ?? [], cc, subject, body });
   return (
     <div className="flex flex-col gap-4">
@@ -112,10 +114,10 @@ export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigu
           APP_BASE_URL is not configured, so the text has no link to this request.
         </p>
       ) : null}
-      <CopyField id="email-to" label="To" value={(to ?? []).join("; ")} missing={to ? undefined : "(not configured)"} />
-      <CopyField id="email-cc" label="Cc" value={cc.join("; ")} />
-      <CopyField id="email-subject" label="Subject" value={subject} />
-      <CopyField id="email-body" label="Text" value={body} multiline />
+      <CopyField id={`${base}-to`} label="To" value={(to ?? []).join("; ")} missing={to ? undefined : "(not configured)"} />
+      <CopyField id={`${base}-cc`} label="Cc" value={cc.join("; ")} />
+      <CopyField id={`${base}-subject`} label="Subject" value={subject} />
+      <CopyField id={`${base}-body`} label="Text" value={body} multiline />
     </div>
   );
 }

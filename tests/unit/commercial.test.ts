@@ -145,11 +145,14 @@ describe("topSlices", () => {
 });
 
 describe("Sales navigation", () => {
-  it("gives Sales one pipeline page instead of the separate request lists", () => {
+  it("gives Sales one Request Center instead of the separate BOQ, RFQ and PO lists, and a page for their targets", () => {
     expect(navLinksFor("SALES").map((l) => [l.href, l.label])).toEqual([
       ["/dashboard", "Overview"],
       ["/dashboard/sales", "Sales Pipeline"],
       ["/projects", "Projects"],
+      ["/customers", "Customers"],
+      ["/targets", "Sales Targets"],
+      ["/requests", "Request Center"],
     ]);
   });
 });

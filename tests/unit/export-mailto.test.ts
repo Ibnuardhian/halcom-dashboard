@@ -68,6 +68,11 @@ describe("export columns", () => {
     targetDate: null,
     wonDate: null,
     salesPic: "Gusti",
+    sourceType: "INTERNAL_SALES",
+    externalSourceName: null,
+    externalContact: null,
+    externalReference: null,
+    sourceNotes: null,
     technicalPic: null,
     principal: "HPE",
     solution: null,
@@ -101,6 +106,14 @@ describe("export columns", () => {
     });
   });
 
+  it("exports the project source and the external source details", () => {
+    const external: ExportProject = { ...project, salesPic: null, sourceType: "OTHER", externalSourceName: "PT Mitra", externalContact: "Budi", externalReference: "MIT-7", sourceNotes: "via tender" };
+    const row = Object.fromEntries(EXPORT_COLUMNS.map((column) => [column.key, column.value(external)]));
+
+    expect(row).toMatchObject({ source: "Other", externalSource: "PT Mitra", externalContact: "Budi", externalReference: "MIT-7", sourceNotes: "via tender", salesPic: null });
+    expect(EXPORT_COLUMNS.find((column) => column.key === "source")!.value(project)).toBe("Internal Sales");
+  });
+
   it("offers the sales sheet's columns first", () => {
     const preset = EXPORT_COLUMNS.filter((column) => column.preset).map((column) => column.label);
 
@@ -112,6 +125,7 @@ describe("export columns", () => {
       "Quote Released",
       "Account Name",
       "Project Title",
+      "Project Source",
       "Estimated PO Value",
       "Estimated Gross Profit",
     ]);

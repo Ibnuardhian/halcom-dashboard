@@ -2,13 +2,32 @@
 
 Concise working context for the next session. It is not a substitute for the code, the brief or test
 evidence; reconcile it with `git status`, `git log` and a fresh test run before trusting it
-(AGENTS.md §2, §10). Last reconciled: 2026-10-17 (after projects, requests, the sales import and SOA edit log).
+(AGENTS.md §2, §10). Last reconciled: 2026-10-20 (after D-034; see RESUME HERE below).
 
 Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 [PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md](PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md) ·
 [README.md](README.md) · [docs/decisions/DECISIONS.md](docs/decisions/DECISIONS.md) ·
 [docs/requirements/OPEN_QUESTIONS.md](docs/requirements/OPEN_QUESTIONS.md) ·
 [docs/requirements/RBAC.md](docs/requirements/RBAC.md) · [docs/requirements/PIPELINE.md](docs/requirements/PIPELINE.md)
+
+## RESUME HERE (rewritten 2026-10-20, after D-035)
+
+**State:** branch `wip/single-view-master-data`. The E2E clean-up listed here before is **done**: every spec passes (last full run 127/130; the three that failed were one stale
+locator, fixed, and two sign-in/count flakes under parallel workers that pass alone). Typecheck and lint clean, unit 328/328, integration 317/317, `next build` ok.
+
+**Done in D-035 (see DECISIONS.md):** request code prefix is one letter (two only if the letter is taken; `users.code_prefix`), RFQ tracker CSV imported
+(`npm run db:import-rfq`: 27 requests, 27 projects in the dev DB), one SQL file for a new database (`npm run db:rfq-sql` writes `prisma/data/hit_rfq_tickets_import.sql`, verified identical
+to the importer on an empty DB), three FK indexes, new request columns for the e-mail ids and the first response. Migrations `20261026100000_code_prefix_and_request_email` and
+`20261026110000_code_prefix_max_length` are applied to the dev DB (run `db:migrate:deploy` and `docker compose restart app` on another device).
+
+**Still open / asked:** deploying to Oracle Cloud Always Free with automatic deploys (no files written yet; the plan was given in chat: Ampere A1 VM, Docker, `compose.prod.yaml`,
+Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8, T-9 (no first-superadmin bootstrap, no login rate limit) still stand, so the app is not ready
+for real users. Whether the Request and Project lists should also merge is undecided. `prisma/data/hit_rfq_tickets_import.sql` and the CSV hold customer data: never commit them.
+The user's git identity is not configured on the first device: commits used `git -c user.name=Ibnuardhian -c user.email=ibnuardhian@gmail.com`.
+
+**Environment notes:** Docker Desktop may be off (start `C:\Program Files\Docker\Docker\Docker Desktop.exe`); run no other Docker command during an E2E run; after editing source the test
+server must be recreated (`--force-recreate app-test`); stop `app` before a long E2E run; a bash heredoc that contains backslashes or apostrophes can fail silently, write scripts with the Write tool.
+The scratch database `halcom_fresh_check` in the `db-test` container is a throwaway used to check the seed and the SQL file; it may be removed.
 
 ## Latest progress
 
@@ -42,11 +61,38 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 
 - **Added 2026-10-19 (D-025):** project soft delete (superadmin), XLSX export, sales funnel, clickable pipeline tiles, PIC reassignment, margin as amount or percent, SLA range and email templates per team (`/admin/settings`), Waiting-for-Sales answer, BOQ -> RFQ -> PO decisions (a PO needs a completed RFQ). Migrations through `20261020140000_sla_range`. The Turbopack dev cache is off for dev servers (it caused endless reloads).
 
+- **Added 2026-10-18 (D-026, from `FEATURE_SPEC_LOGIN_ROLE_DASHBOARDS_SOA_OTHER.md`):** session renewal (12 h idle, 7 days at most,
+  `POST /api/session/renew`), **Switch Account** (revokes the session, quick-pick of accounts used on this browser, password always required),
+  audit of sign-in/out/switch; real SOA, Purchasing and Finance dashboards (`src/domain/requests/metrics.ts`, `src/server/dashboards`), Sales
+  dashboard additions, Request Center, Sales Targets page, BOQ board view, Purchasing Handoff, Technical Reports, Financial Crosscheck (read-only,
+  CSV), Permissions page, read-only SLA Policies for admin; **project source `OTHER`** (migration `20261021100000_project_source`: nullable
+  `sales_owner_id`, CHECK constraint; SOA registers these and raises their BOQ). Nav labels changed per role. Amended same day after T-17 answers: PO back in the Purchasing menu, `/customers` page, Sales can register "Other" (sales name; any salesperson acts on such a project; charts show "Other"). Remaining open: T-17 b to d. Merged with the remote commit f28d6bd (search/sort/pages on request lists, master data tests; its decision is now D-027). Final checks: tsc and lint clean, unit 215/215, integration 207/208 (PostgreSQL 18 assertion only), build ok, E2E full run 79/84 before the last test fixes, then the failing specs re-run green except the System page (PostgreSQL 18).
+  Integration test files now run one after another (`fileParallelism: false`).
+  **Checks run on the final code (2026-10-18, outside Docker: Node 22, PostgreSQL 16 with a `uuidv7()` shim in template1):** typecheck and lint
+  (0 warnings) exit 0; unit 208/208; integration 183/184 (the one failure asserts PostgreSQL 18 and cannot pass on 16); `next build` passes;
+  E2E rbac + modules + smoke 39/39, and work/superadmin specs pass except the System page (also asserts PostgreSQL 18) and "Sales answer a
+  request that waits for them", which **fails on the baseline commit too** (not caused by D-026). Not re-run in Docker: do that before merging.
+
+- **Added 2026-10-18 (D-031):** ownership correction script `npm run db:remap-owners` (dry run first; applied to the dev DB: 15 Dzaki, 18 Satrio, 5 Other),
+  operational **PICs** (`pics`, `/admin/pics`; SOA and Purchasing share one login each, requests are handed to PICs, workload counts PICs),
+  several principals per project (`project_principals`), Excel import (`/projects/import`), Overview charts that drill down to the Projects
+  list, Projects table pages (25/50/100/All), Sales Pipeline numbers scoped to the salesperson and ordered sales first.
+  Migrations `20261023100000_project_principals`, `20261023110000_operational_pics` (applied to the dev DB). `DEV_ACCOUNTS.md` is now generated
+  without a password. Heredocs that contain some quote patterns fail as a whole in this shell: write a script file with the Write tool instead.
+
+- **Added 2026-10-18 (D-032):** **permission editor** on `/admin/permissions` (Superadmin only, new `permissions.manage`; categories, labels, guards; the database holds
+  only deviations in `role_permission_overrides`, loaded at the start of every signed-in request into a `globalThis` snapshot so `can()` stays synchronous),
+  one **Admin Dashboard** for Admin and Superadmin (both addresses and permissions kept), `npm run db:cleanup-dev` (applied to the dev DB: PRJ-035/036 and their
+  three requests marked deleted, 18 notifications removed, 5 obsolete accounts deleted, `gusti` and `adityo` deactivated), repeatable seeds (`db:seed`, `db:seed:sample`).
+  Migration `20261024100000_role_permission_overrides`. Backup before the cleanup: `backups/pre-dev-cleanup-2026-10-18.dump`.
+
+- **Added 2026-10-20 (D-035):** one-letter request code prefix, RFQ tracker import and its SQL file, indexes (see RESUME HERE).
+
 ## Architecture decisions
 
 D-012 interim auth, D-013 RBAC, D-014 handover email (delivery part superseded by D-017), D-015 Cache Components rules,
 D-016 superadmin tooling, D-017 email copy-paste, D-018 numbering, D-019 pipeline and import, D-020 field-level edits and log,
-D-021 backup, D-022 shell and branding.
+D-021 backup, D-022 shell and branding, D-023 to D-025 pipeline/flow/SLA, D-026 sessions, dashboards and project source.
 Layering: pure rules in `src/domain` (`access`, `requests`, `projects`), use cases in `src/server`
 (`requests`, `projects`, `import`, `system`, `auth`, `users`), UI in `src/features` and `src/app`.
 Permissions are checked only through `can()` / `requirePermission()`; services re-check the stored actor inside the transaction.

@@ -6,43 +6,74 @@ export const REQUEST_STATUSES = [
   "IN_PROGRESS",
   "WAITING_FOR_SALES",
   "COMPLETED",
+  "REVISION",
   "CANCELLED",
 ] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
+/**
+ * Waiting for Sales is retired: nobody can move a request into it any more (what the team needs from Sales is asked and answered by
+ * email, which keeps the history). It stays a valid stored value because older requests, and their append-only status history, use it.
+ */
+export const RETIRED_STATUSES = ["WAITING_FOR_SALES"] as const satisfies readonly RequestStatus[];
+
+export const isRetired = (status: RequestStatus): boolean => (RETIRED_STATUSES as readonly RequestStatus[]).includes(status);
+
+/** The statuses that are offered: filters, columns and the badges of new work. */
+export const ACTIVE_STATUSES = REQUEST_STATUSES.filter((status) => !isRetired(status));
+
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   SUBMITTED: "Submitted",
   IN_PROGRESS: "In progress",
-  WAITING_FOR_SALES: "Waiting for Sales",
+  WAITING_FOR_SALES: "Waiting for Sales (retired)",
   COMPLETED: "Completed",
+  REVISION: "Revision",
   CANCELLED: "Cancelled",
 };
 
-const TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
-  // A request nobody has touched can be answered straight away: no manual "In progress" step in between.
-  SUBMITTED: ["IN_PROGRESS", "WAITING_FOR_SALES", "COMPLETED", "CANCELLED"],
-  IN_PROGRESS: ["WAITING_FOR_SALES", "COMPLETED", "CANCELLED"],
-  WAITING_FOR_SALES: ["IN_PROGRESS", "CANCELLED"],
-  // Reopening keeps the earlier completion in the status history (brief §6.3).
-  COMPLETED: ["IN_PROGRESS"],
-  CANCELLED: [],
-};
-
-export function allowedTransitions(from: RequestStatus): readonly RequestStatus[] {
-  return TRANSITIONS[from];
+/**
+ * Where a request can be dragged to on the board. Revision exists for a BOQ only, and only after it was completed: the customer asked
+ * for changes (agreed by email) and SOA reworks it. A request that still has the retired Waiting for Sales status can be moved on like
+ * one that is In progress.
+ */
+function transitionsOf(type: RequestType): Record<RequestStatus, readonly RequestStatus[]> {
+  return {
+    // A request nobody has touched can be answered straight away: no manual "In progress" step in between.
+    SUBMITTED: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
+    IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+    WAITING_FOR_SALES: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
+    // A BOQ is revised; an RFQ or PO is reopened, which keeps the earlier completion in the status history (brief §6.3).
+    COMPLETED: type === "BOQ" ? ["REVISION"] : ["IN_PROGRESS"],
+    REVISION: ["COMPLETED", "CANCELLED"],
+    CANCELLED: [],
+  };
 }
 
-export function canTransition(from: RequestStatus, to: RequestStatus): boolean {
-  return TRANSITIONS[from].includes(to);
+export function allowedTransitions(from: RequestStatus, type: RequestType): readonly RequestStatus[] {
+  return transitionsOf(type)[from];
 }
 
-/** Waiting, cancelling and reopening must say why, so waiting time cannot be hidden silently (brief §8.4). */
+export function canTransition(from: RequestStatus, to: RequestStatus, type: RequestType): boolean {
+  return allowedTransitions(from, type).includes(to);
+}
+
+/** Cancelling and reopening must say why, so they cannot be hidden silently (brief §8.4). A revision is discussed by email. */
 export function reasonRequired(from: RequestStatus, to: RequestStatus): boolean {
-  return to === "WAITING_FOR_SALES" || to === "CANCELLED" || (from === "COMPLETED" && to === "IN_PROGRESS");
+  return to === "CANCELLED" || (from === "COMPLETED" && to === "IN_PROGRESS");
 }
 
 export function isOpen(status: RequestStatus): boolean {
   return status !== "COMPLETED" && status !== "CANCELLED";
+}
+
+/** The columns of the board for a type, in the order work moves through them. Revision is a BOQ column only. */
+export function boardColumns(type: RequestType | null): readonly RequestStatus[] {
+  return ACTIVE_STATUSES.filter((status) => status !== "REVISION" || type === null || type === "BOQ");
+}
+
+/** The board column a request sits in: a retired status is shown where the work is, In progress. */
+export function columnOf(status: RequestStatus): RequestStatus {
+  return isRetired(status) ? "IN_PROGRESS" : status;
 }
 
 /**

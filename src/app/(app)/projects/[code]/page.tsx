@@ -1,3 +1,4 @@
+import { effectiveIndustry } from "@/domain/customers/industry";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { principalNamesOf } from "@/domain/projects/master-data";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
+import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn } from "@/domain/projects/source";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
@@ -19,6 +22,7 @@ import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
 import { ReassignPics } from "@/features/projects/reassign-pics";
+import { SourceForm } from "@/features/projects/source-form";
 import { ClassificationForm } from "@/features/masterdata/classification-form";
 import { ChangeLog } from "@/features/projects/change-log";
 import { ProjectFieldsForm } from "@/features/projects/edit-forms";
@@ -26,18 +30,19 @@ import { formatAmount, formatPercent } from "@/features/projects/format";
 import { Fact } from "@/features/requests/fact";
 import { formatDateOnly } from "@/features/requests/format";
 import { RequestPanel } from "@/features/requests/request-panel";
+import { ScrollToRequest } from "@/features/requests/scroll-to-request";
 import { ProgressBadge, StatusBadge, TrackStatusBadge, TypeBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
 import { isOpen } from "@/domain/requests/status";
 import { listMasterRecords } from "@/server/masterdata/service";
-import { getProjectByCode, listPicOptions, listProjectRequestDetails, listRequests } from "@/server/requests/queries";
+import { getProjectByCode, listPicOptions, listProjectRequestDetails, listRequests, listSalesPeopleOptions } from "@/server/requests/queries";
 
-export default function ProjectPage({ params }: PageProps<"/projects/[code]">) {
+export default function ProjectPage({ params, searchParams }: PageProps<"/projects/[code]">) {
   return (
     <Suspense fallback={<PageFallback />}>
-      <Project params={params} />
+      <Project params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -73,8 +78,11 @@ const SECTIONS = [
   ["requests", "Requests"],
 ] as const;
 
-async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">) {
+async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code]">, "params" | "searchParams">) {
   const viewer = await requirePermission("projects.view");
+  // `?request=CODE` (what /request/CODE leads to) opens that request and scrolls to it; the rest of the page is the project as always.
+  const focusParam = (await searchParams).request;
+  const focus = typeof focusParam === "string" ? focusParam : null;
   const project = await getProjectByCode(getDb(), viewer, (await params).code);
   if (!project) notFound();
   const picOptions = can(viewer.role, "projects.reassign") ? await listPicOptions(getDb(), viewer) : null;
@@ -89,12 +97,16 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
     listProjectActions(getDb(), viewer, project.id),
   ]);
   const soaPhases = requests.filter((r) => r.type === "BOQ" && r.phase !== null && r.status !== "COMPLETED" && r.status !== "CANCELLED");
-  const mayCreate = can(viewer.role, "requests.create") && project.trackStatus === "ON_TRACK";
+  // Sales and admins raise any request; SOA raises a BOQ on a project from another source (Other).
+  const raisable = REQUEST_TYPES.filter((type) => canRaiseRequestOn(viewer.role, type, project.sourceType));
+  const mayCreate = raisable.length > 0 && project.trackStatus === "ON_TRACK";
+  const mayEditSource = can(viewer.role, "projects.edit.source") && project.sourceType === "OTHER";
+  const salesPeople = mayEditSource ? await listSalesPeopleOptions(getDb(), viewer) : [];
   // SOA (and admins) edit the technical fields and post updates; commercial fields stay read-only for them.
   const mayEditTechnical = can(viewer.role, "projects.edit.technical");
   const mayPostUpdate = can(viewer.role, "projects.post-update");
   // Sales change their own projects; admins support any project (the service enforces the same rule).
-  const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || project.salesOwnerId === viewer.id);
+  const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
   const estimated = project.estimatedValue?.toNumber() ?? null;
   const finalValue = project.finalValue?.toNumber() ?? null;
   const marginPercent = project.targetMargin?.toNumber() ?? null;
@@ -133,6 +145,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
   return (
     <>
       <DashboardHeader title={`${project.endUserCompany} – ${project.name}`} summary={`Project ${project.code}`} />
+      {focus && details.some((r) => r.code === focus) ? <ScrollToRequest code={focus} /> : null}
       <nav aria-label="On this page" className="sticky top-0 z-10 -mx-4 mb-4 flex gap-1 overflow-x-auto border-b bg-background/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:px-0">
         {SECTIONS.map(([id, label]) => (
           <a key={id} href={`#${id}`} className="rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -156,11 +169,19 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
           <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
           <Fact label="End user">{project.customer?.name ?? project.endUserCompany}</Fact>
-          <Fact label="Industry">{project.industry ?? "–"}</Fact>
+          <Fact label="Industry">{effectiveIndustry(project.customer?.industry, project.industry) ?? "–"}</Fact>
           <Fact label="Location">{project.location ?? "–"}</Fact>
-          <Fact label="Principal">{project.principal?.name ?? "–"}</Fact>
+          <Fact label="Principals">{principalNamesOf(project).join(", ") || "–"}</Fact>
           <Fact label="Solution">{project.solutionCategory?.name ?? "–"}</Fact>
-          <Fact label="Sales PIC">{project.salesOwner.name}</Fact>
+          <Fact label="Project source">{SOURCE_LABELS[project.sourceType]}</Fact>
+          {project.sourceType === "OTHER" ? (
+            <>
+              <Fact label={EXTERNAL_SOURCE_LABELS.externalSourceName}>{project.externalSourceName}</Fact>
+              <Fact label={EXTERNAL_SOURCE_LABELS.externalContact}>{project.externalContact ?? "–"}</Fact>
+              <Fact label={EXTERNAL_SOURCE_LABELS.externalReference}>{project.externalReference ?? "–"}</Fact>
+            </>
+          ) : null}
+          <Fact label="Sales PIC">{project.salesOwner?.name ?? "None (project from another source)"}</Fact>
           <Fact label="Technical PIC (SOA)">{project.technicalPic?.name ?? "–"}</Fact>
           <Fact label="Purchasing PIC">{project.purchasingPic?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
@@ -179,6 +200,13 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
         <div className="mt-4 border-t pt-4">
           <Label>Description</Label>
           <Prose value={project.description} />
+          {project.sourceNotes ? (
+            <>
+              <div className="mt-4" />
+              <Label>{EXTERNAL_SOURCE_LABELS.sourceNotes}</Label>
+              <Prose value={project.sourceNotes} />
+            </>
+          ) : null}
           {project.lostNotes ? (
             <>
               <div className="mt-4" />
@@ -237,7 +265,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
               projectCode={project.code}
               principals={principals.map(({ id, name }) => ({ id, name }))}
               solutions={solutions.map(({ id, name }) => ({ id, name }))}
-              principalId={project.principalId ?? ""}
+              principalIds={project.principals.length > 0 ? project.principals.map((link) => link.principal.id) : project.principalId ? [project.principalId] : []}
               solutionId={project.solutionCategoryId ?? ""}
               canCreate={can(viewer.role, "masterdata.manage")}
             />
@@ -312,7 +340,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <FlowTracker requests={requests.map((r) => ({ code: r.code, type: r.type, status: r.status, flowStopped: r.flowStopped }))} />
           {mayCreate ? (
             <div className="flex flex-wrap gap-2">
-              {REQUEST_TYPES.filter((type) => type !== "PO" || requests.some((r) => r.type === "RFQ" && r.status === "COMPLETED")).map((type) => (
+              {raisable.filter((type) => type !== "PO" || requests.some((r) => r.type === "RFQ" && r.status === "COMPLETED")).map((type) => (
                 <Link
                   key={type}
                   href={`${NEW_REQUEST_PATH}?project=${project.code}&type=${type}`}
@@ -330,9 +358,12 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           ) : (
             <ul className="flex flex-col gap-3">
               {details.map((request) => (
-                <li key={request.id} id={`request-${request.code}`}>
+                <li key={request.id} id={`request-${request.code}`} className="scroll-mt-20">
                   {/* Open when it is the only open request (or the only one), so the next thing to do is in view; the rest are one click away. */}
-                  <details open={details.length === 1 || (isOpen(request.status) && details.filter((r) => isOpen(r.status)).length === 1)} className="rounded-xl ring-1 ring-foreground/10">
+                  <details
+                    open={focus !== null && details.some((r) => r.code === focus) ? request.code === focus : details.length === 1 || (isOpen(request.status) && details.filter((r) => isOpen(r.status)).length === 1)}
+                    className={request.code === focus ? "rounded-xl ring-2 ring-primary" : "rounded-xl ring-1 ring-foreground/10"}
+                  >
                     <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm select-none">
                       <span className="font-mono font-medium">{request.code}</span>
                       <TypeBadge type={request.type} />
@@ -349,6 +380,22 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           )}
         </div>
       </Section>
+
+      {mayEditSource ? (
+        <Section id="source" title="Project source" description="This project comes from another source, so it has no internal Sales PIC. Every change is written to the change log and the audit log.">
+          <SourceForm
+            projectId={project.id}
+            projectCode={project.code}
+            values={{
+              externalSourceName: project.externalSourceName,
+              externalContact: project.externalContact,
+              externalReference: project.externalReference,
+              sourceNotes: project.sourceNotes,
+            }}
+            salesPeople={salesPeople}
+          />
+        </Section>
+      ) : null}
 
       {can(viewer.role, "projects.reassign") && picOptions ? (
         <Section id="owners" title="Owners" description="Superadmin: move the project to other people. Its details, requests and history stay exactly as they are; the move is added to the change log.">
