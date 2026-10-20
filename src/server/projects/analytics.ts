@@ -1,3 +1,4 @@
+import { effectiveIndustry } from "@/domain/customers/industry";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -121,6 +122,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       targetMargin: true,
       targetMarginValue: true,
       industry: true,
+      customer: { select: { industry: true } },
       principal: { select: { id: true, name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
       solutionCategory: { select: { id: true, name: true } },
@@ -148,8 +150,9 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     if (brands.length === 0) add(principals, UNSET, UNSET, estimated, weighted, FILTER_NONE, project.id);
     for (const brand of brands) add(principals, brand.id, brand.name, estimated, weighted, brand.id, project.id);
     add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, estimated, weighted, project.solutionCategory ? undefined : FILTER_NONE, project.id);
-    const industry = project.industry?.trim() || UNSET;
-    add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(project.industry) ?? FILTER_NONE, project.id);
+    const projectIndustry = effectiveIndustry(project.customer?.industry, project.industry);
+    const industry = projectIndustry ?? UNSET;
+    add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(projectIndustry) ?? FILTER_NONE, project.id);
     // A project from another source has no internal Sales PIC; its numbers stay in the totals under one "external" row.
     add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted, project.salesOwner ? undefined : FILTER_EXTERNAL, project.id);
 

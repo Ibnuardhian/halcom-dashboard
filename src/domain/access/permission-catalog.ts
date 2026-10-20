@@ -68,6 +68,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "requests.create": { category: "request-workflow", label: "Raise requests", description: "Raise a BOQ, RFQ or PO request for a project." },
   "requests.create.external": { category: "request-workflow", label: "Raise requests for external projects", description: "Raise a request on a project whose source is Other." },
   "requests.create.rfq": { category: "request-workflow", label: "Raise RFQ requests", description: "Raise an RFQ request (only an RFQ) for an existing project, for example Purchasing on behalf of the project's Sales and SOA PICs." },
+  "requests.revise": { category: "request-workflow", label: "Request a revision", description: "Send a completed BOQ back to SOA for changes the customer asked for: the request goes straight to the Revision stage and SOA is told (Sales on their own projects)." },
   "requests.email": { category: "request-workflow", label: "Request email text", description: "Copy the email text of a request to send to the team." },
   "requests.work.boq": { category: "request-workflow", label: "Work BOQ requests", description: "Change the status of BOQ requests and hand them to a PIC (SOA)." },
   "requests.work.purchasing": { category: "request-workflow", label: "Work RFQ & PO requests", description: "Change the status of RFQ and PO requests and hand them to a PIC (Purchasing)." },
@@ -77,8 +78,9 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "masterdata.manage": { category: "master-data", label: "Manage master data", description: "Maintain principals, solution categories and customers, and classify projects with them." },
   "pics.manage": { category: "master-data", label: "Manage PICs", description: "Add, rename and deactivate the PICs SOA and Purchasing tickets are assigned to." },
   "customers.view": { category: "master-data", label: "View customers", description: "Open the Customers page." },
+  "customers.edit": { category: "master-data", label: "Edit customer details", description: "Fill in a customer's industry on the Customers page; charts, filters and exports use it for all of the customer's projects." },
 
-  "targets.edit": { category: "sales-pipeline", label: "Sales targets", description: "Open the Sales Targets page and set one's own revenue and gross-profit targets." },
+  "targets.edit": { category: "sales-pipeline", label: "Sales targets", description: "Open the Sales Targets page and set one's own gross-profit targets." },
 
   "finance.crosscheck.view": { category: "finance", label: "Financial Crosscheck", description: "Open the Financial Crosscheck page and download its CSV." },
 

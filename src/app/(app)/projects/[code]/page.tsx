@@ -1,3 +1,4 @@
+import { effectiveIndustry } from "@/domain/customers/industry";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -163,7 +164,7 @@ async function Project({ params }: Pick<PageProps<"/projects/[code]">, "params">
           <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
           <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
           <Fact label="End user">{project.customer?.name ?? project.endUserCompany}</Fact>
-          <Fact label="Industry">{project.industry ?? "–"}</Fact>
+          <Fact label="Industry">{effectiveIndustry(project.customer?.industry, project.industry) ?? "–"}</Fact>
           <Fact label="Location">{project.location ?? "–"}</Fact>
           <Fact label="Principals">{principalNamesOf(project).join(", ") || "–"}</Fact>
           <Fact label="Solution">{project.solutionCategory?.name ?? "–"}</Fact>

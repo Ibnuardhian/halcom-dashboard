@@ -1,3 +1,4 @@
+import { effectiveIndustry } from "@/domain/customers/industry";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -16,6 +17,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
     where: { deletedAt: null },
     include: {
       salesOwner: { select: { name: true } },
+      customer: { select: { industry: true } },
       technicalPic: { select: { name: true } },
       principal: { select: { name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
@@ -55,7 +57,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
         technicalPic: row.technicalPic?.name ?? null,
         principal: principalNamesOf(row).join("; ") || null,
         solution: row.solutionCategory?.name ?? null,
-        industry: row.industry,
+        industry: effectiveIndustry(row.customer?.industry, row.industry),
         location: row.location,
         currentAction: row.currentAction,
         nextAction: row.nextAction,

@@ -191,6 +191,8 @@ model Customer {
   id        String   @id @default(uuid(7)) @db.Uuid
   name      String
   nameKey   String   @unique @map("name_key")
+  // The customer's industry (Banking, Manufacturing...), filled in on the Customers page. Free text kept tidy by suggesting the existing ones.
+  industry  String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

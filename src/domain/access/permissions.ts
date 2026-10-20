@@ -37,11 +37,13 @@ export type Permission =
   | "pics.manage"
   | "targets.edit"
   | "customers.view"
+  | "customers.edit"
   | "projects.post-update"
   | "requests.view"
   | "requests.create"
   | "requests.create.external"
   | "requests.create.rfq"
+  | "requests.revise"
   | "requests.email"
   | "requests.work.boq"
   | "requests.work.purchasing"
@@ -78,11 +80,13 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "pics.manage",
   "targets.edit",
   "customers.view",
+  "customers.edit",
   "projects.post-update",
   "requests.view",
   "requests.create",
   "requests.create.external",
   "requests.create.rfq",
+  "requests.revise",
   "requests.email",
   "requests.work.boq",
   "requests.work.purchasing",
@@ -111,7 +115,7 @@ export function permissionChangeBlock(role: Role, permission: Permission, grante
 
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
-const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "requests.create", "requests.email"];
+const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "requests.create", "requests.email", "requests.revise"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;
@@ -131,6 +135,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "settings.view",
     "permissions.view",
     "customers.view",
+    "customers.edit",
     "handoffs.view",
     "finance.crosscheck.view",
     "reports.technical.view",
@@ -150,7 +155,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "requests.work.purchasing",
     "requests.handover",
   ]),
-  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK, "targets.edit", "customers.view"]),
+  SALES: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("SALES"), ...READ_WORK, ...SALES_WORK, "targets.edit", "customers.view", "customers.edit"]),
   SOA: new Set<Permission>([
     "dashboard.shared.view",
     ownDashboardPermission("SOA"),

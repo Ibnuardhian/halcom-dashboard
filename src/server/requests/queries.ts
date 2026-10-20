@@ -1,3 +1,4 @@
+import { effectiveIndustry } from "@/domain/customers/industry";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -232,12 +233,12 @@ export async function searchProjects(db: PrismaClient, viewer: Viewer, filter: P
   assertPermitted(can(viewer.role, "projects.view"));
   const pageSize = paging.pageSize ?? DEFAULT_PROJECT_PAGE_SIZE;
   // Only what ordering and the "weighted" filter need is read for every match; the full rows are read for one page.
-  const keys = await db.project.findMany({ where: projectWhere(filter), select: { id: true, code: true, estimatedValue: true, progress: true, industry: true } });
+  const keys = await db.project.findMany({ where: projectWhere(filter), select: { id: true, code: true, estimatedValue: true, progress: true, industry: true, customer: { select: { industry: true } } } });
   // The Industry chart groups free text (trimmed, lower-case), so that filter is applied here the same way instead of in SQL.
   const industries = filter.industryKeys?.length ? new Set(filter.industryKeys) : null;
   const ordered = keys
     .filter((key) => filter.show !== "weighted" || (weightedValue(numberOrNull(key.estimatedValue), key.progress) ?? 0) > 0)
-    .filter((key) => !industries || industries.has(industryKey(key.industry) ?? FILTER_NONE))
+    .filter((key) => !industries || industries.has(industryKey(effectiveIndustry(key.customer?.industry, key.industry)) ?? FILTER_NONE))
     .sort(byCodeDescending);
   const total = ordered.length;
   const pageCount = pageSize === "all" ? 1 : Math.max(Math.ceil(total / pageSize), 1);
@@ -502,7 +503,7 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
       purchasingPic: { select: { name: true } },
-      customer: { select: { name: true } },
+      customer: { select: { name: true, industry: true } },
       principal: { select: { name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
       solutionCategory: { select: { name: true } },
