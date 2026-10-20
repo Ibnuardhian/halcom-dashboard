@@ -2,13 +2,42 @@
 
 Concise working context for the next session. It is not a substitute for the code, the brief or test
 evidence; reconcile it with `git status`, `git log` and a fresh test run before trusting it
-(AGENTS.md §2, §10). Last reconciled: 2026-10-18 (after D-026: persistent login and Switch Account, role dashboards, project source Other).
+(AGENTS.md §2, §10). Last reconciled: 2026-10-20 (after D-034; see RESUME HERE below).
 
 Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 [PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md](PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md) ·
 [README.md](README.md) · [docs/decisions/DECISIONS.md](docs/decisions/DECISIONS.md) ·
 [docs/requirements/OPEN_QUESTIONS.md](docs/requirements/OPEN_QUESTIONS.md) ·
 [docs/requirements/RBAC.md](docs/requirements/RBAC.md) · [docs/requirements/PIPELINE.md](docs/requirements/PIPELINE.md)
+
+## RESUME HERE (written 2026-10-20, before a context compact and a change of device)
+
+**State:** branch `wip/single-view-master-data`, everything committed and pushed up to `9c646a1` (page merge). Decisions D-033 (User Guide) and D-034
+(gross-profit-only targets, customer industry, Sales revision) are in `docs/decisions/DECISIONS.md`. Migration `20261025100000_customer_industry` is new:
+run `docker compose run --rm app npm run db:migrate:deploy` on a device whose database does not have it, then `docker compose restart app`.
+
+**First thing to do on the other device: sort out the 12 failing E2E tests.** Last run of `work`, `modules`, `master-data` and `admin-tools` specs
+(71 tests): 59 passed, 12 failed. The failing ones are `admin-tools.spec.ts:94`, `modules.spec.ts:333/385/459`, `work.spec.ts:190/286/372/568/655/746/772/802`.
+Method (the machine used before was overloaded, so a full run gives false failures):
+1. `docker compose stop app` (frees CPU and RAM), then `docker compose --profile test up -d --force-recreate app-test`.
+2. One test at a time: `docker compose --profile test run --rm e2e npx playwright test tests/e2e/<file>:<line> --workers=1 --timeout=300000`.
+3. A failure that says the page stayed on /login or the form shows "Signing in…" is the slow server (a pre-existing problem), not the code: rerun it once.
+4. Likely needs a test update, caused by our own changes (not by load): `work:746` (Purchasing can now open /requests/new: requests.create.rfq),
+   `work:286` (the target form has no revenue box any more), and any assertion that expects the request on its own page: `work:568`, `work:655`, `modules:333/385/459`
+   (the request now opens inside its project page, `/projects/PRJ-n?request=CODE`; the heading is the project's, not the request code).
+5. `work:190` and `admin-tools:94` also failed on the code before these changes (checked with `git stash`); they fail only at sign-in under load.
+6. When clean: commit, push, `docker compose start app`, `docker compose restart app`.
+
+**Passing on a quiet machine, so do not redo:** `request-page`, `revision`, `purchasing-rfq`, `customer-industry` and `guide` specs; unit 310/310; integration for
+targets, revision, customer industry, purchasing RFQ, notifications; typecheck and lint clean; `npm run build` ok (before the page merge: rerun it).
+
+**Not done / asked:** an open decision whether the Request and Project lists should also merge (only the request detail page was merged; the lists stay separate).
+Four older sign-in E2E tests that fail under load were never investigated. The user's git identity is not configured on the first device: commits used
+`git -c user.name=Ibnuardhian -c user.email=ibnuardhian@gmail.com`.
+
+**Environment notes learned this session:** Docker Desktop may be off (start `C:\Users\user\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`);
+the Playwright image is about 700 MB and downloads slowly the first time; run no other Docker command during an E2E run; after editing source the test server must be
+recreated (`--force-recreate app-test`) because file watching is off; heredocs with apostrophes break in this shell, write files with the Write tool.
 
 ## Latest progress
 
