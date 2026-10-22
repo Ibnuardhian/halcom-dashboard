@@ -58,6 +58,8 @@ No code was changed in this phase. "Verify" says how a finding is confirmed clos
 
 Repository **public** (ARM runner `ubuntu-24.04-arm` usable; see P1-13 first). **No domain yet**: use `<ip>.sslip.io` for HTTPS. **Yes** to first-login password change and to the rate-limit numbers (5 per account and 20 per IP per 15 min, 15 min lockout). **Yes** to Object Storage + `age` + retention 14 daily / 8 weekly / 6 monthly. Rehearsal **locally with Docker**. Execution of every deploy step stays with the owner.
 
+Also answered: **P1-13 anonymize** staff names, the company e-mail domain and the personal address in tracked files (neutral names). **P1-12 keep** password-free Switch Account as built; I will still add the rate limit on that action, correct D-026 and the code comment, and document the risk in SECURITY.md.
+
 ## Questions that block Phase 2 (need your decision)
 
 New since the refresh: A) P1-13: scrub staff names and the company e-mail domain from the public repository (recommended), or keep the repository private? B) P1-12: keep password-free Switch Account in production as built, or restrict it (shorter TTL, off by default via env)?
