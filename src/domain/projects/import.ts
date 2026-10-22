@@ -39,7 +39,7 @@ export type ImportField = { key: ImportFieldKey; label: string; required: boolea
 export const IMPORT_FIELDS: readonly ImportField[] = [
   { key: "endUser", label: "End user", required: true, synonyms: ["end user", "end user company", "customer", "account", "account name", "company", "client"] },
   { key: "name", label: "Project name", required: true, synonyms: ["project", "project name", "project title", "title", "opportunity"] },
-  { key: "code", label: "Project ID", required: false, hint: "PRJ-001 style. Empty: the next number is given. A number that exists is a duplicate.", synonyms: ["project id", "project code", "id", "code", "no"] },
+  { key: "code", label: "Project ID", required: false, hint: "HIT-PROJ-001 style. Empty: the next number is given. A number that exists is a duplicate.", synonyms: ["project id", "project code", "id", "code", "no"] },
   { key: "description", label: "Description", required: false, synonyms: ["description", "details", "scope", "notes"] },
   { key: "salesPic", label: "Sales PIC", required: false, hint: "The email or the exact name of an active salesperson. Required for Internal Sales.", synonyms: ["sales pic", "sales", "salesperson", "sales person", "pic sales", "owner", "sales name"] },
   { key: "source", label: "Project source", required: false, hint: "Internal Sales (default) or Other.", synonyms: ["project source", "source", "source type"] },
@@ -189,7 +189,7 @@ export function splitPrincipals(text: string): string[] {
   return names;
 }
 
-const PROJECT_CODE = /^PRJ-\d{3,}$/;
+const PROJECT_CODE = /^HIT-PROJ-\d{3,}$/;
 const LIMITS = { endUser: 120, name: 120, description: 2000, name120: 120, industry: 120, location: 120, action: 2000 } as const;
 
 /**
@@ -214,7 +214,7 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
   if (raw.code !== "") {
     code = raw.code.trim().toUpperCase();
     if (!PROJECT_CODE.test(code)) {
-      errors.push(`Project ID "${raw.code}" must look like PRJ-001.`);
+      errors.push(`Project ID "${raw.code}" must look like HIT-PROJ-001.`);
       code = null;
     }
   }

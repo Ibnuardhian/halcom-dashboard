@@ -103,7 +103,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     next: "Submit a request",
     col: 0,
     row: 0,
-    action: "Register the opportunity as a project. You become its Sales PIC. The Project ID (PRJ-001, PRJ-002 and so on) is assigned when you save.",
+    action: "Register the opportunity as a project. You become its Sales PIC. The Project ID (HIT-PROJ-001, HIT-PROJ-002 and so on) is assigned when you save.",
     input: "End-user company and project name (required). Optional: target closing, progress, status, estimated PO value, description.",
     output: "A project with its Project ID. Every role can read it.",
     recipient: "You: raise a BOQ or RFQ request next, or choose one in the same form.",

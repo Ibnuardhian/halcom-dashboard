@@ -43,10 +43,10 @@ export function twoDigitYear(date: Date, timeZone: string = CODE_TIME_ZONE): str
 
 /**
  * Counter key. Request sequences restart per type, per prefix and per year. Project codes
- * (`PRJ-001`) run in one unbroken sequence, as in the sales export.
+ * (`HIT-PROJ-001`) run in one unbroken sequence, as in the sales export.
  */
 export function codeScope(prefix: RequestType | "PRJ", initials: string, yy: string): string {
-  return prefix === "PRJ" ? "PRJ-" : `${prefix}-${initials}-${yy}`;
+  return prefix === "PRJ" ? "HIT-PROJ-" : `${prefix}-${initials}-${yy}`;
 }
 
 /** `RFQ-S-260001`: scope plus a zero-padded counter of at least `width` digits (four for requests, three for projects). */
@@ -55,5 +55,5 @@ export function formatCode(scope: string, sequence: number, width = 4): string {
   return `${scope}${String(sequence).padStart(width, "0")}`;
 }
 
-/** `PRJ-007`. */
+/** `HIT-PROJ-007`. */
 export const PROJECT_CODE_WIDTH = 3;

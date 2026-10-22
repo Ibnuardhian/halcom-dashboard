@@ -46,7 +46,7 @@ export async function nextRequestCode(tx: Tx, type: RequestType, requester: { id
   return formatCode(scope, await nextSequence(tx, scope));
 }
 
-/** Project codes are PRJ-001, PRJ-002...: one sequence, continuing after the highest imported code. */
+/** Project codes are HIT-PROJ-001, HIT-PROJ-002...: one sequence, continuing after the highest imported code. */
 export async function nextProjectCode(tx: Tx): Promise<string> {
   const scope = codeScope("PRJ", "", "");
   return formatCode(scope, await nextSequence(tx, scope), PROJECT_CODE_WIDTH);

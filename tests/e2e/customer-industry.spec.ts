@@ -7,7 +7,7 @@ async function createProject(page: Page, company: string): Promise<string> {
     await page.getByLabel("End-user company").fill(company);
     await page.getByLabel("Project name").fill("Industry check");
     await page.getByRole("button", { name: "Create project" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }

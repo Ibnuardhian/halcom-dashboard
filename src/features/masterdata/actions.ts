@@ -37,7 +37,7 @@ export async function setProjectMasterDataAction(_previous: FormState, formData:
   });
   if (!result.ok) return { ok: false, message: result.message };
   const code = text(formData, "projectCode");
-  if (/^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  if (/^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   return { ok: true, message: result.value.changed.length === 0 ? "Nothing changed." : "Saved and logged." };
 }

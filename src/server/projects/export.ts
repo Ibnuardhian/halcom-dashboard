@@ -26,7 +26,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
     },
   });
   return rows
-    .sort((a, b) => Number(b.code.slice(4)) - Number(a.code.slice(4)))
+    .sort((a, b) => Number(b.code.slice(9)) - Number(a.code.slice(9)))
     .map((row) => {
       const estimatedValue = row.estimatedValue?.toNumber() ?? null;
       const finalValue = row.finalValue?.toNumber() ?? null;

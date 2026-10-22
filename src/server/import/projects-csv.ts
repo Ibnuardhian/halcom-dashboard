@@ -117,7 +117,7 @@ export function parseProjectsCsv(csv: string): ProjectsCsvResult {
   for (const record of records) {
     const code = (record["Project ID"] ?? "").trim();
     const where = code || "A row without a Project ID";
-    if (!/^PRJ-\d{3,}$/.test(code)) problems.push(`${where}: Project ID must look like PRJ-001.`);
+    if (!/^HIT-PROJ-\d{3,}$/.test(code)) problems.push(`${where}: Project ID must look like HIT-PROJ-001.`);
     if (seen.has(code)) problems.push(`${where}: duplicate Project ID in the file.`);
     seen.add(code);
 

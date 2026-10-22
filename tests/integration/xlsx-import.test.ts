@@ -133,7 +133,7 @@ describe("project import from an Excel sheet", () => {
     const { bytes, mapping } = sheet([good("r1", { Principals: `Gamma ${tag}` }), good("r2"), good("r3")]);
     const before = {
       projects: await db.project.count(),
-      counter: (await db.codeCounter.findUnique({ where: { scope: "PRJ-" } }))?.lastValue ?? 0,
+      counter: (await db.codeCounter.findUnique({ where: { scope: "HIT-PROJ-" } }))?.lastValue ?? 0,
       audit: await db.auditEvent.count({ where: { action: { in: ["project.imported", "import.projects", "principal.created"] } } }),
     };
 
@@ -151,7 +151,7 @@ describe("project import from an Excel sheet", () => {
     await expect(db.project.count()).resolves.toBe(before.projects);
     await expect(db.project.count({ where: { importedFrom: "rollback.xlsx" } })).resolves.toBe(0);
     await expect(db.principal.count({ where: { nameKey: { endsWith: tag } } })).resolves.toBe(0);
-    await expect(db.codeCounter.findUnique({ where: { scope: "PRJ-" } }).then((row) => row?.lastValue ?? 0)).resolves.toBe(before.counter);
+    await expect(db.codeCounter.findUnique({ where: { scope: "HIT-PROJ-" } }).then((row) => row?.lastValue ?? 0)).resolves.toBe(before.counter);
     await expect(db.auditEvent.count({ where: { action: { in: ["project.imported", "import.projects", "principal.created"] } } })).resolves.toBe(before.audit);
     // The same sheet imports normally afterwards.
     await expect(commitProjectImport(db, actor(soa), { bytes, mapping, fileName: "rollback.xlsx", mode: "atomic" })).resolves.toMatchObject({ ok: true, created: 3 });
@@ -159,18 +159,18 @@ describe("project import from an Excel sheet", () => {
 
   it("gives the next project numbers, and moves the counter past explicit Project IDs", async () => {
     const { soa, actor, good } = await setup();
-    const high = `PRJ-${String(9000 + Math.floor(Math.random() * 900)).padStart(3, "0")}`;
+    const high = `HIT-PROJ-${String(9000 + Math.floor(Math.random() * 900)).padStart(3, "0")}`;
     const { bytes, mapping } = sheet([good("auto1"), good("explicit", { "Project ID": high }), good("auto2")]);
 
     const result = await commitProjectImport(db, actor(soa), { bytes, mapping, fileName: "codes.xlsx", mode: "atomic" });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const numbers = result.codes.map((code) => Number(code.slice(4)));
+    const numbers = result.codes.map((code) => Number(code.slice(9)));
     expect(result.codes).toContain(high);
     // The rows without a Project ID were numbered after the explicit one, so nothing can collide.
-    const auto = result.codes.filter((code) => code !== high).map((code) => Number(code.slice(4)));
-    expect(auto.every((n) => n > Number(high.slice(4)))).toBe(true);
+    const auto = result.codes.filter((code) => code !== high).map((code) => Number(code.slice(9)));
+    expect(auto.every((n) => n > Number(high.slice(9)))).toBe(true);
     expect(new Set(numbers).size).toBe(3);
   });
 

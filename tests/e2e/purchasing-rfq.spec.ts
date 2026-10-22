@@ -14,7 +14,7 @@ async function createProject(page: Page, name: string): Promise<string> {
     await page.getByLabel("End-user company").fill("PT Purchasing RFQ");
     await page.getByLabel("Project name").fill(name);
     await page.getByRole("button", { name: "Create project" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
@@ -52,7 +52,7 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
     await page.getByLabel("Summary").fill("Quote forty PoE switches");
     await page.getByLabel("Details").fill("48-port, managed.");
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   const code = new URL(page.url()).searchParams.get("request")!;
   await expect(page.getByText("Quote forty PoE switches").first()).toBeVisible();

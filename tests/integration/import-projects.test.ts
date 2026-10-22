@@ -26,7 +26,7 @@ function csvRow(values: Record<string, string>): string {
 function fixture() {
   const tag = randomBytes(3).toString("hex");
   const first = 1000 + (parseInt(tag, 16) % 9_000_000); // far above anything the other tests create
-  const code = (offset: number) => `PRJ-${first + offset}`;
+  const code = (offset: number) => `HIT-PROJ-${first + offset}`;
   const sales = `Sales ${tag}`;
   const tech = `Tech ${tag}`;
   const rows = parseProjectsCsv(
@@ -165,14 +165,14 @@ describe("importProjects", () => {
   it("continues the project numbering after the highest imported code", async () => {
     const f = fixture();
     await importProjects(db, f.rows, { source: "counter.csv", password: PASSWORD });
-    const highest = Math.max(...f.codes.map((c) => Number(c.slice(4))));
+    const highest = Math.max(...f.codes.map((c) => Number(c.slice(9))));
     const sales = await makeUser("SALES");
 
     const created = await createProject(db, { id: sales.id, role: "SALES" }, { endUserCompany: `Customer ${f.tag}`, name: "Created later" });
 
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    expect(Number(created.value.code.slice(4))).toBeGreaterThan(highest);
+    expect(Number(created.value.code.slice(9))).toBeGreaterThan(highest);
     const project = await db.project.findUniqueOrThrow({ where: { id: created.value.id }, include: { customer: true } });
     expect(project.customer?.nameKey).toBe(`customer ${f.tag}`); // linked to the customer the import already made
   });
@@ -183,10 +183,10 @@ describe("database rules for the pipeline fields", () => {
     const sales = await makeUser("SALES");
     const base = { endUserCompany: "A", name: "B", salesOwnerId: sales.id };
 
-    await expect(db.project.create({ data: { ...base, code: "PRJ-701", probability: 101 } })).rejects.toThrow(/projects_probability_range_chk/);
-    await expect(db.project.create({ data: { ...base, code: "PRJ-702", estimatedValue: -1 } })).rejects.toThrow(/projects_values_not_negative_chk/);
-    await expect(db.project.create({ data: { ...base, code: "PRJ-7" } })).rejects.toThrow(/projects_code_format_chk/);
-    await expect(db.project.create({ data: { ...base, code: "PRJ-703", probability: 0, estimatedValue: 0 } })).resolves.toBeDefined();
+    await expect(db.project.create({ data: { ...base, code: "HIT-PROJ-701", probability: 101 } })).rejects.toThrow(/projects_probability_range_chk/);
+    await expect(db.project.create({ data: { ...base, code: "HIT-PROJ-702", estimatedValue: -1 } })).rejects.toThrow(/projects_values_not_negative_chk/);
+    await expect(db.project.create({ data: { ...base, code: "HIT-PROJ-7" } })).rejects.toThrow(/projects_code_format_chk/);
+    await expect(db.project.create({ data: { ...base, code: "HIT-PROJ-703", probability: 0, estimatedValue: 0 } })).resolves.toBeDefined();
   });
 
   it("keeps master-data names unique regardless of case and spacing", async () => {
