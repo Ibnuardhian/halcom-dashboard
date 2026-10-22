@@ -4,8 +4,8 @@ import { expectNotFound, expectOnDashboard, signIn, signInAs, submitLogin } from
 import { seedEmailFor } from "../../prisma/seed-users";
 
 const OWN_DASHBOARD_HEADING: Record<Role, string> = {
-  SUPERADMIN: "Superadmin dashboard",
-  ADMIN: "Admin dashboard",
+  SUPERADMIN: "Admin Dashboard",
+  ADMIN: "Admin Dashboard",
   SALES: "Sales Pipeline",
   SOA: "Technical Dashboard",
   PURCHASING: "Purchasing Dashboard",

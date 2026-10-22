@@ -2,13 +2,32 @@
 
 Concise working context for the next session. It is not a substitute for the code, the brief or test
 evidence; reconcile it with `git status`, `git log` and a fresh test run before trusting it
-(AGENTS.md §2, §10). Last reconciled: 2026-10-18 (after D-026: persistent login and Switch Account, role dashboards, project source Other).
+(AGENTS.md §2, §10). Last reconciled: 2026-10-20 (after D-034; see RESUME HERE below).
 
 Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
 [PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md](PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md) ·
 [README.md](README.md) · [docs/decisions/DECISIONS.md](docs/decisions/DECISIONS.md) ·
 [docs/requirements/OPEN_QUESTIONS.md](docs/requirements/OPEN_QUESTIONS.md) ·
 [docs/requirements/RBAC.md](docs/requirements/RBAC.md) · [docs/requirements/PIPELINE.md](docs/requirements/PIPELINE.md)
+
+## RESUME HERE (rewritten 2026-10-20, after D-035)
+
+**State:** branch `wip/single-view-master-data`. The E2E clean-up listed here before is **done**: every spec passes (last full run 127/130; the three that failed were one stale
+locator, fixed, and two sign-in/count flakes under parallel workers that pass alone). Typecheck and lint clean, unit 328/328, integration 317/317, `next build` ok.
+
+**Done in D-035 (see DECISIONS.md):** request code prefix is one letter (two only if the letter is taken; `users.code_prefix`), RFQ tracker CSV imported
+(`npm run db:import-rfq`: 27 requests, 27 projects in the dev DB), one SQL file for a new database (`npm run db:rfq-sql` writes `prisma/data/hit_rfq_tickets_import.sql`, verified identical
+to the importer on an empty DB), three FK indexes, new request columns for the e-mail ids and the first response. Migrations `20261026100000_code_prefix_and_request_email` and
+`20261026110000_code_prefix_max_length` are applied to the dev DB (run `db:migrate:deploy` and `docker compose restart app` on another device).
+
+**Still open / asked:** deploying to Oracle Cloud Always Free with automatic deploys (no files written yet; the plan was given in chat: Ampere A1 VM, Docker, `compose.prod.yaml`,
+Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8, T-9 (no first-superadmin bootstrap, no login rate limit) still stand, so the app is not ready
+for real users. Whether the Request and Project lists should also merge is undecided. `prisma/data/hit_rfq_tickets_import.sql` and the CSV hold customer data: never commit them.
+The user's git identity is not configured on the first device: commits used `git -c user.name=Ibnuardhian -c user.email=ibnuardhian@gmail.com`.
+
+**Environment notes:** Docker Desktop may be off (start `C:\Program Files\Docker\Docker\Docker Desktop.exe`); run no other Docker command during an E2E run; after editing source the test
+server must be recreated (`--force-recreate app-test`); stop `app` before a long E2E run; a bash heredoc that contains backslashes or apostrophes can fail silently, write scripts with the Write tool.
+The scratch database `halcom_fresh_check` in the `db-test` container is a throwaway used to check the seed and the SQL file; it may be removed.
 
 ## Latest progress
 
@@ -53,6 +72,21 @@ Canonical documents: [AGENTS.md](AGENTS.md) (charter) ·
   (0 warnings) exit 0; unit 208/208; integration 183/184 (the one failure asserts PostgreSQL 18 and cannot pass on 16); `next build` passes;
   E2E rbac + modules + smoke 39/39, and work/superadmin specs pass except the System page (also asserts PostgreSQL 18) and "Sales answer a
   request that waits for them", which **fails on the baseline commit too** (not caused by D-026). Not re-run in Docker: do that before merging.
+
+- **Added 2026-10-18 (D-031):** ownership correction script `npm run db:remap-owners` (dry run first; applied to the dev DB: 15 Dzaki, 18 Satrio, 5 Other),
+  operational **PICs** (`pics`, `/admin/pics`; SOA and Purchasing share one login each, requests are handed to PICs, workload counts PICs),
+  several principals per project (`project_principals`), Excel import (`/projects/import`), Overview charts that drill down to the Projects
+  list, Projects table pages (25/50/100/All), Sales Pipeline numbers scoped to the salesperson and ordered sales first.
+  Migrations `20261023100000_project_principals`, `20261023110000_operational_pics` (applied to the dev DB). `DEV_ACCOUNTS.md` is now generated
+  without a password. Heredocs that contain some quote patterns fail as a whole in this shell: write a script file with the Write tool instead.
+
+- **Added 2026-10-18 (D-032):** **permission editor** on `/admin/permissions` (Superadmin only, new `permissions.manage`; categories, labels, guards; the database holds
+  only deviations in `role_permission_overrides`, loaded at the start of every signed-in request into a `globalThis` snapshot so `can()` stays synchronous),
+  one **Admin Dashboard** for Admin and Superadmin (both addresses and permissions kept), `npm run db:cleanup-dev` (applied to the dev DB: PRJ-035/036 and their
+  three requests marked deleted, 18 notifications removed, 5 obsolete accounts deleted, `gusti` and `adityo` deactivated), repeatable seeds (`db:seed`, `db:seed:sample`).
+  Migration `20261024100000_role_permission_overrides`. Backup before the cleanup: `backups/pre-dev-cleanup-2026-10-18.dump`.
+
+- **Added 2026-10-20 (D-035):** one-letter request code prefix, RFQ tracker import and its SQL file, indexes (see RESUME HERE).
 
 ## Architecture decisions
 

@@ -46,6 +46,8 @@ export async function changeOwnPassword(
     await tx.session.deleteMany({
       where: { userId: user.id, ...(keepToken ? { tokenHash: { not: hashSessionToken(keepToken) } } : {}) },
     });
+    // A browser that remembered this account must not get in with the old password's trust.
+    await tx.deviceCredential.deleteMany({ where: { userId: user.id } });
     await tx.auditEvent.create({
       data: {
         actorId: user.id,

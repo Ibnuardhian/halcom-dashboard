@@ -34,7 +34,7 @@ async function SalesTargets({ searchParams }: Pick<PageProps<"/targets">, "searc
 
   return (
     <>
-      <DashboardHeader title="Sales Targets" summary={ownerId ? "Your revenue and gross-profit targets against what you have won, quarter by quarter." : "Everyone's targets added together. Each salesperson sets their own."} />
+      <DashboardHeader title="Sales Targets" summary={ownerId ? "Your gross-profit targets against what you have won, quarter by quarter." : "Everyone's targets added together. Each salesperson sets their own."} />
       <TargetTracking summary={summary} own={own} years={[year - 1, year, year + 1]} basePath="/targets" />
     </>
   );

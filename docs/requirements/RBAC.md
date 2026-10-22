@@ -51,13 +51,20 @@ both call `can()`; the menu is derived from it, and
 | `projects.post-update` (add current-action and next-action entries to the project feed) | ✔ | ✔ | – | ✔ | – | – | – |
 | `projects.create.external` (register a project whose sales is Other) | ✔ | ✔ | ✔ | ✔ | – | – | – |
 | `projects.edit.source` (edit the sales name of an Other project; hand it to an internal Sales PIC) | ✔ | ✔ | ✔ | ✔ | – | – | – |
+| `projects.assign-sales` (SOA: register an Internal Sales project for a salesperson they pick) | ✔ | – | – | ✔ | – | – | – |
+| `projects.import` (import projects from an Excel sheet) | ✔ | ✔ | – | ✔ | – | – | – |
+| `pics.manage` (create, rename, deactivate the PICs of SOA and Purchasing) | ✔ | ✔ | – | – | – | – | – |
 | `customers.view` (Customers page) | ✔ | ✔ | ✔ | – | – | – | – |
+| `customers.edit` (fill in a customer's industry in the Customers page modal) | ✔ | ✔ | ✔ | – | – | – | – |
 | `requests.create.external` (SOA: raise a BOQ on a project whose source is Other) | ✔ | ✔ | – | ✔ | – | – | – |
+| `requests.create.rfq` (Purchasing: raise an RFQ, and only an RFQ, for an existing project; the project's Sales and SOA PICs are notified and it shows on the Sales dashboard) | ✔ | ✔ | – | – | ✔ | – | – |
+| `requests.revise` (Sales: send a completed BOQ back to SOA for changes; it goes straight to Revision and SOA is notified in red; Sales only on projects they act on) | ✔ | ✔ | ✔ | – | – | – | – |
 | `targets.edit` (own sales targets) | ✔ | – | ✔ | – | – | – | – |
 | `handoffs.view` (Purchasing Handoff list) | ✔ | ✔ | – | ✔ | – | – | – |
 | `reports.technical.view` (monthly BOQ report) | ✔ | ✔ | – | ✔ | – | – | ✔ |
 | `finance.crosscheck.view` (read-only crosscheck and its CSV) | ✔ | ✔ | – | – | – | ✔ | ✔ |
-| `permissions.view` (this matrix, read-only) | ✔ | ✔ | – | – | – | – | – |
+| `permissions.view` (open the Permissions page; read-only without `permissions.manage`) | ✔ | ✔ | – | – | – | – | – |
+| `permissions.manage` (grant and revoke the permissions of roles, D-032) | ✔ | – | – | – | – | – | – |
 | `settings.view` (SLA policies, read-only) / `settings.manage` (edit) | ✔ / ✔ | ✔ / – | – | – | – | – | – |
 
 Rules enforced in [service.ts](../../src/server/users/service.ts), inside one transaction with the audit event:
@@ -71,13 +78,38 @@ Rules enforced in [service.ts](../../src/server/users/service.ts), inside one tr
 - Deactivating a user and resetting a password both end all of that user's sessions.
 - Every change writes an append-only `audit_events` row (database triggers reject UPDATE, DELETE and TRUNCATE).
 
+## Permission editor (D-032)
+
+The defaults above live in code. A user who holds `permissions.manage` (Superadmin only) changes them on `/admin/permissions`; the database keeps only the
+deviations (`role_permission_overrides`) and every signed-in request starts from the stored rules. Permissions are shown in ten collapsible
+categories, each with a label, a description and its identifier. Dashboards are separate checkboxes.
+
+| # | Category | Permissions |
+|---|---|---|
+| 1 | Dashboard Access | `dashboard.shared.view`, `dashboard.<role>.view` (seven) |
+| 2 | User & Role Management | `users.view`, `users.manage`, `users.manage-privileged` |
+| 3 | Permission Management | `permissions.view`, `permissions.manage` |
+| 4 | Project Management | `projects.view`, `.create`, `.create.external`, `.assign-sales`, `.import`, `.edit.source`, `.edit.technical`, `.edit.commercial`, `.delete`, `.reassign`, `.post-update` |
+| 5 | Request, BOQ, RFQ & Handoffs | `requests.view`, `.create`, `.create.external`, `.create.rfq`, `.email`, `.work.boq`, `.work.purchasing`, `.handover`, `handoffs.view` |
+| 6 | Master Data, Principals, Customers & PICs | `masterdata.manage`, `pics.manage`, `customers.view` |
+| 7 | Sales Pipeline & Targets | `targets.edit` |
+| 8 | Finance & Crosscheck | `finance.crosscheck.view` |
+| 9 | Reports & Analytics | `reports.technical.view` |
+| 10 | Audit, System & Configuration | `audit.view`, `system.monitor`, `system.backup`, `theme.switch`, `settings.view`, `settings.manage` |
+
+Rules (enforced in [service.ts](../../src/server/permissions/service.ts) and again when the rules are computed):
+
+- Only an active account whose stored role holds `permissions.manage` can save; a role claimed by the caller is not trusted.
+- Superadmin always keeps `permissions.view`, `permissions.manage`, `users.view`, `users.manage`, `users.manage-privileged` and `dashboard.superadmin.view`.
+- `permissions.manage` and `users.manage-privileged` cannot be given to another role, so an ordinary Admin never gets permission management here.
+- A save is all or nothing, serialised, and writes one audit event per changed role (before and after). A change that restates the current state is skipped.
+
 ## Dashboards
 
 | Dashboard | Route | Content today |
 |---|---|---|
 | Overview (shared) | `/dashboard` | Pipeline tiles and charts, request counts (real data) |
-| Superadmin | `/dashboard/superadmin` | **Real data:** accounts by role and status, recent audit events |
-| Admin | `/dashboard/admin` | **Real data:** same widgets |
+| Admin Dashboard | `/dashboard/admin` and `/dashboard/superadmin` | **Real data (D-032):** one page for both roles: accounts by role and status, recent audit events, SLA, master data, the tools the viewer holds a permission for. Each address keeps its own permission (`dashboard.admin.view`, `dashboard.superadmin.view`) |
 | Sales | `/dashboard/sales` | **Real data:** pipeline, target versus achievement, requests by status, overdue and upcoming (D-023, D-026) |
 | SOA, Purchasing | `/dashboard/soa`, `/dashboard/purchasing` | **Real data (D-026):** open, backlog, overdue, SLA compliance, workload, waiting and processing time, bottlenecks |
 | Finance | `/dashboard/finance` | **Real data (D-026):** pipeline values, RFQ and PO references, crosscheck flags |

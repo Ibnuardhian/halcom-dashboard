@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { can } from "@/domain/access/permissions";
 import { salesActsOn } from "@/domain/projects/source";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canContinueFlow, canSeeEmail, canWorkOn } from "@/domain/requests/access";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatSlaRange, slaOf } from "@/domain/requests/sla";
-import { allowedTransitions, canHandOver, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, isOpen, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
 import type { Role } from "@/domain/access/roles";
 import { formatUtc } from "@/features/dashboards/format";
@@ -14,9 +15,11 @@ import { getDb } from "@/lib/db";
 import { buildRequestEmail } from "@/server/requests/email";
 import type { RequestDetail } from "@/server/requests/queries";
 import { getTeamSetting } from "@/server/settings/team-settings";
+import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
+import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
-import { NextStepForm, PhaseForm, StatusForm, WaitingResponseForm } from "./forms";
+import { AssignPicForm, NextStepForm, PhaseForm, RevisionForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -28,17 +31,19 @@ import { StatusBadge, TypeBadge } from "./status-badges";
  */
 export async function RequestPanel({ request, viewer, inProject = false }: { request: RequestDetail; viewer: { id: string; role: Role }; inProject?: boolean }) {
   const mayWork = canWorkOn(viewer.role, request.type);
-  const transitions = allowedTransitions(request.status);
   const next = nextRequestType(request.type);
   const ownsProject = salesActsOn(request.project, viewer.id);
   const decided = request.handovers.length > 0;
   const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
-  // The Sales owner answers a request that waits for Sales. The team's question is the reason of the last change to that status.
-  const question = request.status === "WAITING_FOR_SALES" ? ([...request.statusHistory].reverse().find((entry) => entry.toStatus === "WAITING_FOR_SALES")?.reason ?? null) : null;
-  const maySalesAnswer = request.status === "WAITING_FOR_SALES" && viewer.role === "SALES" && ownsProject;
-  const mayPhase = mayWork && request.type === "BOQ" && request.status !== "COMPLETED" && request.status !== "CANCELLED";
+  // The latest time this BOQ was sent back (by Sales from the request page, or by SOA on the board), with the reason that was given.
+  const revisionEntry = [...request.statusHistory].reverse().find((row) => row.toStatus === "REVISION") ?? null;
+  const mayPhase = mayWork && request.type === "BOQ" && isOpen(request.status);
+  // Sales (on a project they act on) and admins can send a completed BOQ back to SOA; it goes straight to the Revision stage.
+  const mayRevise = can(viewer.role, "requests.revise") && request.type === "BOQ" && request.status === "COMPLETED" && (viewer.role !== "SALES" || ownsProject);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
+  // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
+  const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
     ? buildRequestEmail(request, { subject: setting.emailSubject, body: setting.emailBody, sla: setting.sla, dueAt: sla.dueAt })
@@ -62,7 +67,16 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             {request.type === "BOQ" ? (
               <Fact label="SOA phase">{request.phase ? SOA_PHASE_LABELS[request.phase] : <span className="text-muted-foreground">Not started</span>}</Fact>
             ) : null}
-            <Fact label="Assignee">{request.assignee?.name ?? <span className="text-muted-foreground">Unassigned</span>}</Fact>
+            <Fact label="PIC">
+              {request.pic ? (
+                <>
+                  {request.pic.name}
+                  {request.pic.isActive ? null : <span className="text-muted-foreground"> (inactive)</span>}
+                </>
+              ) : (
+                <span className="text-muted-foreground">Unassigned</span>
+              )}
+            </Fact>
             {inProject ? null : (
               <Fact label="Project">
                 <Link href={`${PROJECTS_PATH}/${request.project.code}`} className="text-primary underline-offset-4 hover:underline">
@@ -119,30 +133,53 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
         </CardContent>
       </Card>
 
-      {maySalesAnswer ? (
-        <Card className="border-warning">
+      {mayWork && allowedTransitions(request.status, request.type).length > 0 ? (
+        <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          Status is {REQUEST_STATUS_LABELS[request.status]}. It is changed by dragging this request&apos;s card on the{" "}
+          <Link href={`/requests/${request.type.toLowerCase()}?view=board`} className="underline underline-offset-4">
+            {request.type} board
+          </Link>
+          . Questions to Sales and revision details go by email, which keeps the history.
+        </p>
+      ) : null}
+
+      {mayWork ? (
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h3>The team is waiting for your answer</h3>
+              <h3>PIC</h3>
             </CardTitle>
-            <CardDescription>{question ? `They asked: ${question}` : "They need more information from Sales."}</CardDescription>
+            <CardDescription>
+              Who in {PIC_TEAM_LABELS[picTeamOf(request.type)]} is working on this request. PICs are not login accounts; the change is kept in the assignment history.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <WaitingResponseForm requestId={request.id} />
+            <AssignPicForm requestId={request.id} current={request.picId ?? ""} pics={pics} teamLabel={PIC_TEAM_LABELS[picTeamOf(request.type)]} />
           </CardContent>
         </Card>
       ) : null}
 
-      {mayWork && transitions.length > 0 ? (
-        <Card>
+      {request.status === "REVISION" ? (
+        <div role="status" data-testid="revision-banner" className="rounded-xl border border-destructive bg-destructive/10 px-4 py-3 text-sm">
+          <p className="font-semibold text-destructive">In revision</p>
+          <p>
+            {revisionEntry
+              ? `Sent back on ${formatUtc(revisionEntry.changedAt)} by ${revisionEntry.changedBy.name}${revisionEntry.reason ? `: ${revisionEntry.reason}` : "."}`
+              : "This BOQ was sent back for changes."}
+          </p>
+        </div>
+      ) : null}
+
+      {mayRevise ? (
+        <Card className="border-destructive/40">
           <CardHeader>
             <CardTitle className="text-base">
-              <h3>Update status</h3>
+              <h3>Request a revision</h3>
             </CardTitle>
-            <CardDescription>Currently {REQUEST_STATUS_LABELS[request.status]}. Every change is recorded with who made it and when.</CardDescription>
+            <CardDescription>The customer wants changes to this completed BOQ. Describe them: the ticket moves straight to Revision and SOA is told.</CardDescription>
           </CardHeader>
           <CardContent>
-            <StatusForm requestId={request.id} from={request.status} options={transitions} />
+            <RevisionForm requestId={request.id} />
           </CardContent>
         </Card>
       ) : null}
@@ -187,6 +224,36 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           Not continuing to {next ?? "the next step"} – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatUtc(request.flowStoppedAt)}
           {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
         </p>
+      ) : null}
+
+      {assignments.length > 0 ? (
+        <details className="group rounded-xl ring-1 ring-foreground/10">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold select-none marker:content-none">
+            PIC history <span className="font-normal text-muted-foreground">({assignments.length}) – append-only, times are UTC</span>
+          </summary>
+          <div className="px-4 pb-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Change</TableHead>
+                  <TableHead>By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignments.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="whitespace-nowrap">{formatUtc(row.changedAt)}</TableCell>
+                    <TableCell>
+                      {row.fromName ?? "Unassigned"} → {row.toName ?? "Unassigned"}
+                    </TableCell>
+                    <TableCell>{row.changedByName}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </details>
       ) : null}
 
       <details className="group rounded-xl ring-1 ring-foreground/10">

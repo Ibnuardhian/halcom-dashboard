@@ -2,7 +2,9 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { can } from "@/domain/access/permissions";
 import { SLA_STATE_LABELS, type SlaState } from "@/domain/requests/sla";
-import { REQUEST_STATUSES, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
+import { canWorkOn } from "@/domain/requests/access";
+import { ACTIVE_STATUSES, REQUEST_STATUSES, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
+import { REQUEST_TYPES } from "@/domain/requests/types";
 import { REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { NEW_REQUEST_PATH } from "@/features/navigation/links";
@@ -78,7 +80,9 @@ export async function RequestList({
   const deadline = DEADLINE_FILTERS.find((state) => state === params.deadline);
   // "mine" narrows to the requests on the projects the signed-in person owns; it can never widen what they may see.
   const mine = params.mine === "1";
-  const board = params.view === "board";
+  // The team that works on a type opens its list as the board (where statuses are changed); everyone else opens the list. `view` overrides.
+  const viewParam = params.view === "board" || params.view === "list" ? params.view : undefined;
+  const board = viewParam ? viewParam === "board" : type !== undefined && canWorkOn(viewer.role, type);
   const result = await searchRequests(getDb(), viewer, {
     type,
     status: filter.kind === "status" ? filter.status : undefined,
@@ -96,13 +100,14 @@ export async function RequestList({
   const { rows } = result;
   const statusValue = filter.kind === "open" ? "open" : filter.kind === "status" ? filter.status : undefined;
   /** A link to this list with some parts changed; `null` clears a part, an omitted part stays as it is. */
-  const href = (next: { status?: string | null; q?: string | null; sort?: RequestSort; dir?: "asc" | "desc"; page?: number; view?: "board" | null }) => {
+  const href = (next: { status?: string | null; q?: string | null; sort?: RequestSort; dir?: "asc" | "desc"; page?: number; view?: "board" | "list" }) => {
     const query = new URLSearchParams();
     if (assignee) query.set("assignee", assignee);
     if (slaState) query.set("sla", slaState);
     if (deadline) query.set("deadline", deadline);
     if (mine) query.set("mine", "1");
-    if (next.view === undefined ? board : next.view === "board") query.set("view", "board");
+    const nextView = next.view ?? viewParam;
+    if (nextView) query.set("view", nextView);
     const nextStatus = next.status === undefined ? statusValue : next.status;
     const nextQ = next.q === undefined ? q : next.q;
     const nextSort = next.sort ?? sort;
@@ -120,7 +125,7 @@ export async function RequestList({
   const chips: { label: string; value: string | null; active: boolean }[] = [
     { label: "All", value: null, active: filter.kind === "all" },
     { label: "Open", value: "open", active: filter.kind === "open" },
-    ...REQUEST_STATUSES.map((status) => ({
+    ...ACTIVE_STATUSES.map((status) => ({
       label: REQUEST_STATUS_LABELS[status],
       value: status,
       active: filter.kind === "status" && filter.status === status,
@@ -146,6 +151,7 @@ export async function RequestList({
       />
       <form action={basePath} method="get" role="search" className="mb-3 flex flex-wrap items-center gap-2">
         {statusValue ? <input type="hidden" name="status" value={statusValue} /> : null}
+        {viewParam ? <input type="hidden" name="view" value={viewParam} /> : null}
         <input
           type="search"
           name="q"
@@ -185,7 +191,7 @@ export async function RequestList({
             {([false, true] as const).map((isBoard) => (
               <Link
                 key={isBoard ? "board" : "list"}
-                href={href({ view: isBoard ? "board" : null, page: 1 })}
+                href={href({ view: isBoard ? "board" : "list", page: 1 })}
                 aria-current={board === isBoard ? "page" : undefined}
                 className={cn("rounded-md px-3 py-1 text-xs font-medium", board === isBoard ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
               >
@@ -193,10 +199,17 @@ export async function RequestList({
               </Link>
             ))}
           </nav>
-          {can(viewer.role, "requests.create") || can(viewer.role, "requests.create.external") ? (
-            <Link href={type ? `${NEW_REQUEST_PATH}?type=${type}` : NEW_REQUEST_PATH} className={buttonVariants()}>
-              New request
-            </Link>
+          {can(viewer.role, "requests.create") || can(viewer.role, "requests.create.external") || can(viewer.role, "requests.create.rfq") ? (
+            // SOA raise a BOQ together with its project, in the one New project form (BOQ already chosen); Purchasing raise an RFQ for an existing project; others use the request form.
+            can(viewer.role, "requests.create") || can(viewer.role, "requests.create.rfq") ? (
+              <Link href={type ? `${NEW_REQUEST_PATH}?type=${type}` : NEW_REQUEST_PATH} className={buttonVariants()}>
+                {can(viewer.role, "requests.create") ? "New request" : "New RFQ request"}
+              </Link>
+            ) : (
+              <Link href={`/projects/new?type=${type ?? "BOQ"}`} className={buttonVariants()}>
+                New project
+              </Link>
+            )
           ) : null}
         </div>
       </div>
@@ -209,7 +222,12 @@ export async function RequestList({
         </p>
       ) : null}
       {board ? (
-        <RequestBoard rows={rows} />
+        <RequestBoard
+          key={rows.map((row) => `${row.id}:${row.status}`).join("|")}
+          rows={rows}
+          type={type ?? null}
+          movable={Object.fromEntries(REQUEST_TYPES.map((t) => [t, canWorkOn(viewer.role, t)])) as Record<RequestType, boolean>}
+        />
       ) : (
       <RequestTable
         rows={rows}

@@ -245,9 +245,9 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
 
 - **Date:** 2026-10-17 · **Status:** Confirmed by the user (format); counter scope is an assumption
 - **Decision:**
-  - Requests: `BOQ-<initials>-YY0001`, `RFQ-<initials>-YY0001`, `PO-<initials>-YY0001`, for example `RFQ-IA-260001`.
-    The sequence restarts per type, per initials and per year (assumption, OPEN_QUESTIONS T-13). Initials come from the
-    requester's email address: `ibnu.ardhian@x` gives `IA`, `sales@x` gives `SA`. The two-digit year uses the Asia/Jakarta time zone.
+  - Requests: `BOQ-<prefix>-YY0001`, `RFQ-<prefix>-YY0001`, `PO-<prefix>-YY0001`, for example `RFQ-S-260001`.
+    The sequence restarts per type, per prefix and per year (assumption, OPEN_QUESTIONS T-13). The two-digit year uses the Asia/Jakarta time zone.
+    **The prefix rule was changed by D-035:** it is one letter, no longer the initials of the address parts (the old `ibnu.ardhian@x` gave `IA`, `sales@x` gave `SA`).
   - Projects: `PRJ-001`, `PRJ-002`, ... one unbroken sequence, matching the sales export. The counter continues after the
     highest imported number.
   - Numbers come from the `code_counters` table, taken atomically inside the creating transaction, so concurrent
@@ -425,3 +425,197 @@ unresolved items are tracked in [OPEN_QUESTIONS.md](../requirements/OPEN_QUESTIO
 - **Not built:** attachments on requests do not exist yet, so the RFQ list has no attachments column. Purchasing no longer sees PO requests in
   its menu or queue; if Purchasing must still work POs, that needs a decision. **Answered 2026-10-18 (T-17): PO is Purchasing's work, so its menu
   now has Purchasing Dashboard, RFQ Requests and PO requests.**
+
+## D-028 Status changes on the board only, Waiting for Sales retired, Revision for a completed BOQ
+
+- **Date:** 2026-10-18 · **Status:** Implemented
+- **Board:** SOA (BOQ) and Purchasing (RFQ, PO), and admins, change a status only by dragging the card to another column of the board
+  (`/requests/<type>?view=board`, the default view of the team that works on that type; the list is one click away). The status form on the
+  request page is gone. Only moves the flow allows are drop targets. A cancellation, or reopening a completed RFQ or PO, asks for a reason.
+  The keyboard does the same with Shift + Arrow keys on a focused card. The server checks every move again (`changeRequestStatus`).
+  Sales and Finance see the board but cannot move cards; Sales no longer change a status.
+- **Waiting for Sales is retired:** it is no longer offered and nobody can move a request into it; questions to Sales are asked and answered by
+  email, which keeps the history. The value stays in the database (older requests and their append-only status history use it; PostgreSQL
+  cannot drop an enum value without rewriting rows). An older request that still has it is shown in the In progress column and can be moved on.
+- **Revision:** a BOQ that is Completed can be dragged to Revision (no reason: the details go by email), and from there back to Completed or to
+  Cancelled. An RFQ or PO has no Revision (a completed one is reopened with a reason). A BOQ in Revision is open work, keeps its first
+  completion time (the SLA is not re-measured) and cannot be continued to an RFQ until it is completed again.
+- **Migrations (additive):** `20261022100000_request_revision` (enum value) and `20261022100100_request_revision_completion` (the completed_at
+  check now also allows Revision; it only gets looser, no row is touched).
+
+## D-029 Remembered accounts, one New project form for SOA, Sales ownership, clearable dates, Propose means Submit Quotation
+
+- **Date:** 2026-10-18 · **Status:** Implemented
+- **Remembered accounts (Switch Account):** every sign-in of a role other than ADMIN and SUPERADMIN remembers the account on that browser, so
+  Switch Account continues as it without the password (`device_credentials`, migration `20261022120000_device_credentials`, additive). The
+  cookie `device_accounts` (HttpOnly) holds only `{ id, token }`; no name, email or role. The database stores a salted SHA-256 of the token.
+  Each use replaces the token (a copied cookie works once). Every use re-reads the stored user: deactivated, expired, or a role that became
+  ADMIN or SUPERADMIN means refusal and the credential is deleted. A password change, an admin reset and deactivation delete all of a user's
+  credentials. ADMIN and SUPERADMIN always type the password. Valid for 30 days from sign-in; at most five per browser; "Forget" removes one.
+- **SOA:** the menu no longer has New project or New BOQ request. A project and its BOQ are created with one form (the New project button on
+  Projects and on BOQ Tickets, BOQ preselected); `/requests/new` without a project leads there. Adding another request to an existing
+  project is still done from the project page.
+- **Sales ownership:** a Sales project is always Internal Sales with the signed-in salesperson as Sales PIC (any owner sent with the form is
+  ignored). Sales no longer hold `projects.create.external` or `projects.edit.source`; only SOA (and administrators, for oversight) classify
+  a project as Other or change that classification. Existing Other projects keep working: any salesperson still enters their commercial details.
+- **Dates:** every date field has a Clear button shown only while it has a value; an empty date is stored as no date (logged for the
+  commercial fields).
+- **Progress 30%:** Propose means the quotation was submitted (label "30% - Propose (Submit Quotation)"). Moving to Propose, or creating a
+  project at Propose, fills Quote released with today (Jakarta) when it is empty. The date stays editable and clearable at any time.
+
+## D-030 SOA register a project for a registered salesperson, or as Other
+
+- **Date:** 2026-10-18 · **Status:** Implemented (no migration)
+- The New project form for SOA has two sources: **Internal Sales** (the Sales PIC is a registered, active salesperson picked from a searchable
+  drop-down, required) and **Other** (the external sales name). New permission `projects.assign-sales` (SOA, superadmin). The server
+  validates that the chosen account exists, is active and is a Sales account; the salesperson is told (`project.assigned` notification);
+  the audit event records who registered it and for whom. SOA may raise the project's BOQ in the same step (not an RFQ or PO, and not a BOQ on
+  an existing internal project). Sales still own their own projects and cannot name another owner (any owner sent is ignored).
+
+## D-031 Owner migration, PICs, several principals, Excel import, chart drill-down, Sales dashboard
+
+- **Date:** 2026-10-18 · **Status:** Implemented (migrations `20261023100000_project_principals`, `20261023110000_operational_pics`, both additive)
+- **Account and ownership migration** (`npm run db:remap-owners`, dry run by default; `--apply` runs one transaction, development and test only,
+  superadmin recorded as the actor). In order: `mas.dzaki@` is renamed to `dzaki@` (name Dzaki; same account id, so every reference follows);
+  projects of `soraya@` move to `dzaki@`; projects of `gusti@` move to `satrio@`; every other internal project becomes source **Other**, with
+  the earlier owner kept as the external sales name and a note ("Previously owned by ..."). Nothing is deleted. The plan refuses to apply when
+  both addresses of the rename exist, a target is missing, inactive or not Sales; an owner who is not a Sales account (the SOA account
+  `adityo@`) is reported as a warning, not guessed. Each change is in the project change log and the audit log; the counts are verified
+  inside the transaction and a difference rolls everything back. Applied to the development database on 2026-10-18 after a `pg_dump`:
+  38 projects: 15 Dzaki, 18 Satrio, 5 Other. Recovery is the dump; there is no automatic revert.
+- **PICs** (`pics`, `request_pic_assignments`, `requests.pic_id`): a PIC is an operational assignee of SOA or Purchasing, not a login account.
+  Each team keeps one shared login. An administrator creates, renames, deactivates and reactivates PICs (`pics.manage`, `/admin/pics`); a PIC
+  is never deleted. SOA or Purchasing hands a request to a PIC of their own team from the request page; every change is an append-only row
+  (from, to, by, when) and an audit event. Workload by assignee counts per PIC; starting work no longer makes the login the assignee
+  (`requests.assignee_id` stays, deprecated). The migration made a PIC of every SOA or Purchasing account a request had been assigned to
+  (Adityo, and the two shared logins by name; the shared ones should be handed on and deactivated). The project-level Technical PIC and
+  Purchasing PIC (`projects.technical_pic_id`, `purchasing_pic_id`) still point at accounts: they route notifications, so moving them to PICs is a separate decision.
+- **Several principals per project** (`project_principals`, unique per project and principal): SOA picks any number from a searchable list
+  and may create a new one (`masterdata.manage`); a name that exists is matched, never duplicated. `projects.principal_id` keeps the first so
+  lists, filters and exports keep working. Charts count a project under each of its principals; the folded "Other (n)" slice counts it once.
+- **Excel import** (`projects.import`: SOA, Admin, Superadmin; `/projects/import`): upload `.xlsx`, match columns (suggested from the headers),
+  check every row, then import. The file is posted again with each step and checked again on the server (5 MB, 5,000 rows, 60 columns; no
+  formulas run). Duplicates (same Project ID, or same end user and project name, in the data or earlier in the file) are skipped, never
+  updated. All or nothing (default) or valid rows only; the import is one transaction, so any failure leaves no project, principal, code
+  number or audit row behind. Explicit Project IDs move the counter past them. Sales do not import: owners are named in the sheet.
+- **Overview charts** link to the Projects list filtered to exactly what they count (progress, status, funnel step "reached", principal,
+  solution, industry, Sales PIC; the folded "Other" slice carries all of its values; "Not set" is `none`).
+- **Projects table** pages of 25, 50, 100 or All (`per`, `page`); All is every match, not capped.
+- **Sales Pipeline dashboard**: every number is the signed-in salesperson's own (the request counts were global before); sales performance
+  (open pipeline, weighted, margin, won) comes before the BOQ/RFQ/PO numbers; the targets block and its tab are gone (Sales Targets has its own page).
+
+## D-032 Permission editor, one Admin Dashboard, development data cleanup and repeatable seeds
+
+- **Date:** 2026-10-18 · **Status:** Implemented (migration `20261024100000_role_permission_overrides`, additive)
+- **Why a superadmin could not manage role permissions.** Permissions were only defined in code (D-013), the Permissions page was a read-only
+  matrix, and there was no write path at all (no table, no action, no `permissions.manage`). Nothing was misconfigured; the feature did not exist.
+- **Permission editor** (`/admin/permissions`). Permissions stay defined in code. The database stores only **deviations** from the built-in
+  defaults (`role_permission_overrides`: role, permission, granted); a permission set back to its default removes its row, and a permission
+  added to the code later reaches every role as written there. The effective rules are loaded from the database at the start of every
+  signed-in request and held on `globalThis` (Next.js bundles pages, actions and route handlers separately, so a module-level copy would
+  diverge), so `can()` stays synchronous and every one of its ~120 call sites follows the stored rules. If that read fails the request fails;
+  falling back to the defaults could give back a permission that was taken away.
+- **`permissions.manage`** (new): held by Superadmin only. Admin keeps `permissions.view`. Both the page and the action call
+  `requirePermission("permissions.manage")`, and `savePermissionChanges` re-reads the stored actor and the stored rules inside a transaction
+  (`LOCK TABLE ... SHARE ROW EXCLUSIVE`, so one editor at a time), so a forged form or a session that claims another role changes nothing.
+  Changes are all-or-nothing and write one `permissions.updated` audit event per role with the before and after.
+- **Guards** (`PERMISSION_GUARDS`, enforced when saving and again when the rules are computed, so even a bad row cannot lock anyone out):
+  Superadmin always keeps `permissions.view`, `permissions.manage`, `users.view`, `users.manage`, `users.manage-privileged` and
+  `dashboard.superadmin.view`; `permissions.manage` and `users.manage-privileged` can never be granted to another role. Ordinary Admin users
+  therefore cannot be given permission management by this screen.
+- **Categories.** Every permission is classified exactly once into ten collapsible categories with a readable label and description
+  ([permission-catalog.ts](../../src/domain/access/permission-catalog.ts)); identifiers are unchanged. The compiler (`Record<Permission, ...>`)
+  and a unit test refuse a permission that is missing or listed twice. Each dashboard permission is its own checkbox.
+  Actual behaviour was checked per permission (page, action and service call sites); descriptions say what is enforced, for example
+  `requests.handover` decides the step after a completed BOQ or RFQ on any project, while assigning a PIC follows `requests.work.*`;
+  `theme.switch` only decides who sees the theme control.
+- **One Admin Dashboard.** `/dashboard/admin` and `/dashboard/superadmin` rendered the same widgets and the same data (only the title differed),
+  so they now share one page titled **Admin Dashboard**. Both addresses and both permissions (`dashboard.admin.view`, `dashboard.superadmin.view`)
+  stay, so existing assignments and links keep working and each can still be granted on its own. A role that holds both is offered one menu entry.
+  What only a superadmin can do is unchanged and enforced where it always was (System, Backups, SLA policy edits, admin accounts); the dashboard
+  shows those shortcuts only to a viewer who holds the permission. Sales, SOA, Purchasing, Finance and Management dashboards are untouched.
+- **Development data cleanup** (`npm run db:cleanup-dev`, dry run by default, `--apply` in one transaction, development and test only). Applied
+  to the development database on 2026-10-18 after a `pg_dump` (`backups/pre-dev-cleanup-2026-10-18.dump`):
+  - *Test projects of 2026-10-17* (the day read in the application's time zone, UTC; the database computes the half-open day): a project is
+    test data only if it was created that day through the project form (has a submission key), was not imported from the sales export and its
+    company is a placeholder (`PT` and four capital letters). PRJ-035 "PT ABCD" and PRJ-036 "PT EFGH" with BOQ-MD-260001, RFQ-SO-260001 and
+    RFQ-SA-260001 matched. The 34 projects of the sales export (PRJ-001..034) were looked at and left. PRJ-037 and PRJ-038 look like test data but
+    were created on 2026-10-18, so they are only reported. A project is removed the way the application removes one (marked deleted, hidden from
+    lists, charts and exports); its requests, status history, change log and audit events stay, because those tables are append-only and
+    foreign keys restrict a hard delete. Notifications that only led to the hidden pages were deleted (18). The customers PT ABCD and PT EFGH
+    stay as master data.
+  - *Obsolete accounts* (the registry in `prisma/seed-users.ts`, synthetic `@example.invalid` accounts only, never an administrator, never one with a
+    live session): found by scanning every foreign key to `users` in the catalog. No reference at all: deleted (`soraya`, `hendi.batam`,
+    `jihan.batam`, `mira.batam`, `tim.batam`). Referenced by history: **deactivated and signed out, not deleted** (`gusti`: 2 audit events;
+    `adityo`: 32 projects as Technical PIC, a request, its status history, an audit event), because deleting would break the audit trail and
+    pointing 32 projects at another person would be a guess. Each action is an audit event.
+  - The apply step recomputes the plan inside the transaction and stops if it differs from the reviewed one; a failing step rolls everything back.
+- **Seeds.** `npm run db:seed` creates the role accounts, the Dzaki and Satrio Sales accounts, principals, solutions and PICs (through the
+  application's services). `npm run db:seed:sample` adds five sample projects with BOQ, RFQ and PO requests at different stages and one project
+  from an outside source. Every record has a fixed name or an idempotency key (`seed-dev-v1:...`), so repeating either command adds nothing and
+  never overwrites a change made in the application. Routine seeding never deletes, resets or truncates. Migrations stay separate
+  (`db:migrate:deploy`). The sales export is not part of the seed: it is real data and stays git-ignored.
+
+## D-033 User Guide: interactive workflow chart and role-by-role steps
+
+- **One page, every role.** `/guide` (header link "User Guide") needs only a signed-in session, no permission. Nothing on it is data: it describes the workflow,
+  and what it highlights and links to follows the viewer's permissions.
+- **One definition.** `src/domain/guide/workflow.ts` holds every step once (role, kind, action, input, output, recipient, grid position, step-by-step
+  instructions, page links) and the arrows between them. The flowchart, its popovers, the list for small screens and the role tabs are all drawn from it.
+  `role-guides.ts` keeps "Can read", "Can edit" and "Cannot" apart for each role (everyone reads, only the owner edits).
+- **Highlighting from permissions.** A role's lane is highlighted when the account's own role is that role, or when the account holds every permission in
+  `GUIDE_ROLE_CAPABILITY` for it (an Admin therefore lights Sales, SOA, Purchasing, Finance, Management and Admin, not Superadmin). The function takes a
+  list of roles, so an account with several roles is highlighted for all of them. Colour has one meaning on the chart, the viewer's roles; a step's role,
+  kind and next recipient are text and icons, and arrows differ by line style (handoff thick, within a role thin, information or setup dashed).
+- **Interaction.** Hover, focus, click, tap or Enter open a step's details; Escape, the close button, a click on empty chart or a second click closes them.
+  The popover is fixed to the screen (never clipped by the chart's scrolling). The chart scrolls, drags and zooms (50% to 150%, fit to width); below `md` a
+  list of the same steps replaces it.
+- **Restricted detail.** The step-by-step instructions of Admin and Superadmin are not sent to the browser of anyone who does not hold those roles; links
+  appear only for pages the viewer may open (each link lists the permission its page requires; a unit test compares it with the page's `requirePermission`).
+- **Checked.** `tests/unit/guide.test.ts` pins each stated rule to the code that enforces it (flow order, who decides after a BOQ or RFQ, who works which
+  request, read-only roles, reasons for cancelling and reopening) and checks the chart geometry (no overlapping steps, no arrow through a third step).
+  `tests/e2e/guide.spec.ts` covers highlighting for all seven roles, hover, click, keyboard, zoom, tabs, role-specific links and the small-screen list.
+- **Not covered.** The guide describes what exists today. Request attachments are not built, so the guide does not mention them. The BOQ,
+  quotation and PO documents themselves are prepared outside the application; the guide says so.
+
+## D-034 Gross-profit-only targets, customer industry, Sales revision requests
+
+- **Sales Targets take gross profit only.** The target form has no revenue box. Revenue stays on the Sales Targets scorecard as **won (after the PO)** and
+  **weighted forecast**, with no target and no "reached" column. `sales_targets.revenue_target` is kept (no data is dropped): a value saved by an
+  earlier version is never shown, changed or lost, and clearing the gross profit target keeps a row that still holds one. A save is an update or a create,
+  not an upsert: an upsert proposes an insert first, and a row with no target at all breaks the table's check.
+- **Customer industry.** `customers.industry` (nullable text, migration `20261025100000_customer_industry`) is filled in on the Customers page: the customer's
+  name opens a window with an Industry box that suggests the industries already in use. New permission `customers.edit` (Sales, Admin, Superadmin: the roles
+  that open the page). Charts, filters, the project page and exports use the customer's industry first and fall back to the free text a project carried from
+  the sales export (`effectiveIndustry`). Any role with `customers.edit` may edit any customer's industry (a customer is shared master data, not one salesperson's).
+- **Sales revision requests.** New permission `requests.revise` (Sales, Admin, Superadmin). On a **Completed BOQ** the request page shows "Request a revision"
+  with a required reason (up to 500 characters). The BOQ moves straight to Revision (the first completion date is kept, so the SLA does not run late), the reason
+  is in the status history and the audit log, and SOA (the team and the project's technical PIC) is notified. A salesperson may do it only on a project they act on
+  (their own, or one from another source). RFQ and PO have no Revision status: Purchasing reopens them. Revision notifications (this one, and SOA moving a BOQ to
+  Revision on the board) are red in the list with the word Revision, and the bell badge turns red while one is unread; a banner on the request page keeps
+  "In revision" and the reason in view.
+
+## D-035 One-letter code prefix, RFQ tracker import, SQL for a new database, indexes
+
+- **Date:** 2026-10-20 · **Status:** Implemented (migrations `20261026100000_code_prefix_and_request_email`, `20261026110000_code_prefix_max_length`, additive)
+- **Request code prefix** (`users.code_prefix`, unique). The prefix is the **first letter of the person's e-mail address** (`satrio.akbar@` gives `S`, `adityo.prabowo@` gives `A`, as in the
+  tracker's own `RFQ-A-260002`). If another person already holds that letter, the next person takes the **first two letters** (`soraya@` gives `SO`), then three; a code has room for three
+  characters only (`requests_code_format_chk`), so after that comes two letters and a digit. It is chosen the first time the person raises a request, under an advisory lock, and kept, so a code never
+  changes. Requests that already exist keep their codes (`BOQ-SA-...`); a person's numbering for the new prefix starts at 1.
+- **RFQ tracker import** (`npm run db:import-rfq`, dry run with `--dry-run`; development and test only; one transaction; only adds; safe to repeat). The sheet's 27 tickets became 27 RFQ
+  requests with their status history, PIC assignment and projects. Rules, all in `src/server/import/rfq-tickets.ts`:
+  - Status: Done is Completed, Failed is Cancelled (the note is the reason), On Going is In progress, Baru is Submitted. Dates in the sheet carry no time: a ticket came in at 09:00, was answered
+    at 15:00 and an undated outcome is set at 17:00 (Asia/Jakarta); these times are assumptions. `Tanggal Response` is stored as `requests.responded_at` (new), set by the application the first time a
+    request is taken up or completed. `LinkEmail`, `MessageID` and the conversation id are stored on the request (`email_link`, `email_message_id`, `email_conversation_id`).
+  - Every RFQ belongs to a project, so each ticket made one (one per customer and project name). A sender who is a Sales account owns it; Gusti's go to Satrio (D-031); an SOA or admin sender (Adityo,
+    Ibnu) has no Sales PIC, so the project is source Other with their name. A sender with no account is created **inactive, with a password nobody knows**, only so history can name them.
+  - "Gita & Soraya" is two people but a request has one PIC: the first is assigned and the whole text is kept in the description. Tickets that already have an id keep it.
+  - Applied to the development database on 2026-10-20 after a `pg_dump` (`backups/pre-rfq-import-2026-10-20.dump`): 27 requests, 27 projects (3 source Other), 5 code prefixes.
+- **SQL for a new database** (`npm run db:rfq-sql`, writes `prisma/data/hit_rfq_tickets_import.sql`, touches no database). It is generated from the same plan, so it cannot disagree with the importer:
+  loaded into an empty database (migrations, `db:seed`, then the file) it produced rows identical to the importer's on every compared column. One transaction, only adds, repeatable.
+  It holds customer names and e-mail addresses, so it stays in the git-ignored `prisma/data/`.
+- **Database review and optimisation.** The tables already follow the business flow (project, then BOQ, RFQ, PO with their history), so the schema was not rebuilt: a rebuild would mean dropping
+  tables that hold history, which the safety rules forbid, and nothing in the flow required it. What was added: the e-mail and response columns above and three indexes on foreign keys that had none
+  (`requests.requester_id`, `projects.solution_category_id`, `audit_events.actor_id`). Measured on 80,000 requests and 120,000 audit events (rolled back afterwards): the requests of one person
+  6.4 ms to 0.3 ms, the audit events of one actor 6.2 ms to 0.4 ms. Left alone on purpose, as candidates for a later reviewed migration: the deprecated columns `projects.stage`, `projects.status`,
+  `requests.assignee_id` and their indexes.

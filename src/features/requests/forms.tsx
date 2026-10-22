@@ -3,18 +3,20 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
+import { DateInput } from "@/components/ui/date-input";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
+import { PROGRESS_OPTION_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { SOA_PHASES, SOA_PHASE_LABELS, type SoaPhase } from "@/domain/requests/phase";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
-import { reasonRequired, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
 import { MarginInput } from "@/features/projects/margin-input";
 import { MoneyInput } from "@/features/projects/money-input";
-import { changeStatusAction, createProjectAction, createRequestAction, handOverAction, setPhaseAction } from "./actions";
+import type { PicOption } from "@/domain/pics/teams";
+import { assignPicAction, createProjectAction, createRequestAction, handOverAction, requestRevisionAction, setPhaseAction } from "./actions";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -37,6 +39,12 @@ export type ProjectFormScope = {
   commercial: boolean;
   /** The request types this person may raise together with the project, per source. */
   requestTypes: Record<ProjectSourceType, readonly RequestType[]>;
+  /** The signed-in person, shown as the Sales PIC of an Internal Sales project when they own it: it is them, never chosen in the form. */
+  salesPicName?: string;
+  /** The salespeople a project can be registered for. Given only to people who may pick one (SOA); then the Sales PIC is chosen here. */
+  salesPeople?: readonly { id: string; name: string }[];
+  /** Whether choosing a salesperson is required (SOA) or optional (an administrator who would otherwise own the project). */
+  salesPicRequired?: boolean;
 };
 
 /** What the form offers when the page passes no scope: a salesperson registering an Internal Sales project. */
@@ -81,7 +89,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="submissionKey" value={submissionKey} />
       {scope.sources.length > 1 ? (
-        <Field id="project-source" label="Project source *" hint="Internal Sales: you are the Sales PIC. Other: the sale is made by someone else; you name them below and charts count it as Other.">
+        <Field id="project-source" label="Project source *" hint="Internal Sales: a registered salesperson is the Sales PIC. Other: the sale is made by someone else; you name them below and charts count it as Other.">
           <NativeSelect id="project-source" name="sourceType" value={source} onChange={(event) => setSource(event.target.value as ProjectSourceType)}>
             {scope.sources.map((option) => (
               <option key={option} value={option}>
@@ -93,6 +101,25 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       ) : (
         <input type="hidden" name="sourceType" value={source} />
       )}
+      {scope.salesPeople && source === "INTERNAL_SALES" ? (
+        // SOA register an Internal Sales project for a registered salesperson, picked from a searchable list.
+        <Field id="project-sales-pic" label={scope.salesPicRequired ? "Sales PIC *" : "Sales PIC"} hint={scope.salesPicRequired ? "The registered salesperson this project belongs to. Type to search." : "Optional. Leave empty to own it yourself. Type to search."}>
+          <SearchSelect id="project-sales-pic" name="salesOwnerId" label="salesperson" options={scope.salesPeople} required={scope.salesPicRequired} placeholder="Search a salesperson" />
+        </Field>
+      ) : null}
+      {scope.sources.length === 1 && source === "INTERNAL_SALES" && !scope.salesPeople ? (
+        // Sales do not choose the classification: their project is Internal Sales and they are its Sales PIC. SOA classify a project as Other.
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+          <Field id="project-source-fixed" label="Project source" hint="Set by SOA. Sales projects are Internal Sales.">
+            <Input id="project-source-fixed" value={SOURCE_LABELS.INTERNAL_SALES} readOnly disabled />
+          </Field>
+          {scope.salesPicName ? (
+            <Field id="project-sales-pic" label="Sales PIC" hint="You, as the signed-in salesperson.">
+              <Input id="project-sales-pic" value={scope.salesPicName} readOnly disabled />
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
       {source === "OTHER" ? <ExternalSourceFields /> : null}
       <Field id="project-company" label="End-user company *">
         <Input id="project-company" name="endUserCompany" required maxLength={120} placeholder="PT ABC" />
@@ -101,7 +128,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
         <Input id="project-name" name="name" required maxLength={120} placeholder="CCTV AI" />
       </Field>
       <Field id="project-target" label="Target closing" hint="Optional.">
-        <Input id="project-target" name="targetDate" type="date" />
+        <DateInput id="project-target" name="targetDate" label="Target closing" />
       </Field>
       {scope.commercial ? (
         <>
@@ -109,7 +136,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
             <NativeSelect id="project-progress" name="progress" defaultValue="QUALIFY">
               {PROJECT_PROGRESSES.map((option) => (
                 <option key={option} value={option}>
-                  {PROGRESS_LABELS[option]}
+                  {PROGRESS_OPTION_LABELS[option]}
                 </option>
               ))}
             </NativeSelect>
@@ -163,7 +190,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
               </Field>
             </div>
             <Field id="project-request-needed" label="Needed by" hint="Optional.">
-              <Input id="project-request-needed" name="requestRequiredBy" type="date" />
+              <DateInput id="project-request-needed" name="requestRequiredBy" label="Needed by" />
             </Field>
           </div>
         ) : null}
@@ -181,39 +208,121 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
   );
 }
 
-export type ProjectOption = { id: string; code: string; endUserCompany: string; name: string };
+export type ProjectOption = {
+  id: string;
+  code: string;
+  endUserCompany: string;
+  name: string;
+  salesPicId?: string | null;
+  salesPicName?: string | null;
+  soaPicId?: string | null;
+  soaPicName?: string | null;
+};
 
+const ANY_PIC = "";
+const NO_PIC = "none";
+
+/** The distinct PICs of a list of projects, as select options, by name. */
+function picOptions(projects: readonly ProjectOption[], idOf: (p: ProjectOption) => string | null | undefined, nameOf: (p: ProjectOption) => string | null | undefined) {
+  const seen = new Map<string, string>();
+  for (const project of projects) {
+    const id = idOf(project);
+    const name = nameOf(project);
+    if (id && name) seen.set(id, name);
+  }
+  return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+}
+
+/**
+ * `picFilters` (Purchasing): the projects can be narrowed by their Sales PIC and their SOA PIC, and the chosen project's two PICs are
+ * shown. Nothing here changes who the PICs are: they are the project's own, and the request reaches them through the project.
+ */
 export function RequestForm({
   projects,
   defaultProjectId,
   defaultType,
   types,
   submissionKey,
+  picFilters = false,
 }: {
   projects: ProjectOption[];
   defaultProjectId: string;
   defaultType: RequestType;
   types: readonly RequestType[];
   submissionKey: string;
+  picFilters?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(createRequestAction, null);
   const [type, setType] = useState<RequestType>(defaultType);
+  const [projectId, setProjectId] = useState(defaultProjectId);
+  const [salesFilter, setSalesFilter] = useState(ANY_PIC);
+  const [soaFilter, setSoaFilter] = useState(ANY_PIC);
+
+  const matches = (project: ProjectOption, sales: string, soa: string) =>
+    (sales === ANY_PIC || (sales === NO_PIC ? !project.salesPicId : project.salesPicId === sales)) && (soa === ANY_PIC || (soa === NO_PIC ? !project.soaPicId : project.soaPicId === soa));
+  const visible = picFilters ? projects.filter((project) => matches(project, salesFilter, soaFilter)) : projects;
+  const chosen = projects.find((project) => project.id === projectId);
+  // A filter that leaves out the chosen project clears the choice, so a hidden project can never be submitted by accident.
+  function changeFilters(sales: string, soa: string) {
+    setSalesFilter(sales);
+    setSoaFilter(soa);
+    if (chosen && !matches(chosen, sales, soa)) setProjectId("");
+  }
 
   return (
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="submissionKey" value={submissionKey} />
+      {picFilters ? (
+        <>
+          <Field id="request-sales-pic" label="Sales PIC" hint="Optional. Narrows the projects to the ones this salesperson owns.">
+            <NativeSelect id="request-sales-pic" value={salesFilter} onChange={(event) => changeFilters(event.target.value, soaFilter)}>
+              <option value={ANY_PIC}>Any Sales PIC</option>
+              {picOptions(projects, (p) => p.salesPicId, (p) => p.salesPicName).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+              <option value={NO_PIC}>No Sales PIC (project from another source)</option>
+            </NativeSelect>
+          </Field>
+          <Field id="request-soa-pic" label="SOA PIC" hint="Optional. Narrows the projects to the ones this technical PIC covers.">
+            <NativeSelect id="request-soa-pic" value={soaFilter} onChange={(event) => changeFilters(salesFilter, event.target.value)}>
+              <option value={ANY_PIC}>Any SOA PIC</option>
+              {picOptions(projects, (p) => p.soaPicId, (p) => p.soaPicName).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+              <option value={NO_PIC}>No SOA PIC yet</option>
+            </NativeSelect>
+          </Field>
+        </>
+      ) : null}
       <Field id="request-project" label="Project *">
-        <NativeSelect id="request-project" name="projectId" required defaultValue={defaultProjectId}>
+        <NativeSelect id="request-project" name="projectId" required value={projectId} onChange={(event) => setProjectId(event.target.value)}>
           <option value="" disabled>
             Select a project
           </option>
-          {projects.map((project) => (
+          {visible.map((project) => (
             <option key={project.id} value={project.id}>
               {project.code} · {project.endUserCompany} – {project.name}
             </option>
           ))}
         </NativeSelect>
       </Field>
+      {picFilters ? (
+        <div className="text-sm sm:self-end sm:pb-1.5" aria-live="polite" data-testid="request-project-pics">
+          {chosen ? (
+            <p>
+              <span className="text-muted-foreground">Sales PIC:</span> {chosen.salesPicName ?? "None (project from another source)"} ·{" "}
+              <span className="text-muted-foreground">SOA PIC:</span> {chosen.soaPicName ?? "None yet"}
+              <span className="block text-xs text-muted-foreground">The RFQ goes to Purchasing and is shown to these PICs; it appears on the Sales dashboard of the Sales PIC.</span>
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Choose a project to see its Sales PIC and SOA PIC.</p>
+          )}
+        </div>
+      ) : null}
       <Field id="request-type" label="Request type *" hint={`Goes to ${OWNING_TEAM_LABELS[type]}.`}>
         <NativeSelect id="request-type" name="type" required value={type} onChange={(event) => setType(event.target.value as RequestType)}>
           {types.map((option) => (
@@ -234,7 +343,7 @@ export function RequestForm({
         </Field>
       </div>
       <Field id="request-needed" label="Needed by" hint="Optional.">
-        <Input id="request-needed" name="requiredBy" type="date" />
+        <DateInput id="request-needed" name="requiredBy" label="Needed by" />
       </Field>
       <div className="flex flex-col gap-2 sm:col-span-2">
         <FormStatus state={state} />
@@ -243,36 +352,6 @@ export function RequestForm({
             {pending ? "Submitting…" : "Create request"}
           </Button>
         </div>
-      </div>
-    </form>
-  );
-}
-
-export function StatusForm({ requestId, from, options }: { requestId: string; from: RequestStatus; options: readonly RequestStatus[] }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(changeStatusAction, null);
-  const [to, setTo] = useState<RequestStatus>(options[0]!);
-  const needsReason = reasonRequired(from, to);
-
-  return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_1fr_auto] sm:items-end">
-      <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`status-${requestId}`} label="Change status to">
-        <NativeSelect id={`status-${requestId}`} name="to" value={to} onChange={(event) => setTo(event.target.value as RequestStatus)}>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {REQUEST_STATUS_LABELS[option]}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Field id={`reason-${requestId}`} label={needsReason ? "Reason *" : "Reason (optional)"}>
-        <Input id={`reason-${requestId}`} name="reason" maxLength={500} required={needsReason} placeholder={needsReason ? "Required for this change" : ""} />
-      </Field>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Update status"}
-      </Button>
-      <div className="sm:col-span-3">
-        <FormStatus state={state} />
       </div>
     </form>
   );
@@ -305,25 +384,29 @@ export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: st
   );
 }
 
-/** The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. */
-export function WaitingResponseForm({ requestId }: { requestId: string }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(changeStatusAction, null);
+/** SOA or Purchasing hands the request to one of their PICs: an operational assignee, not a login account. */
+export function AssignPicForm({ requestId, current, pics, teamLabel }: { requestId: string; current: string; pics: readonly PicOption[]; teamLabel: string }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(assignPicAction, null);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
       <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`answer-${requestId}`} label="Your answer *" hint="The team is told and the request goes back to In progress.">
-        <Textarea id={`answer-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
+      <Field id={`pic-${requestId}`} label="PIC" hint={pics.length === 0 ? `No active ${teamLabel} PIC yet. An administrator adds them under PICs.` : undefined}>
+        <NativeSelect id={`pic-${requestId}`} name="picId" defaultValue={current}>
+          <option value="">Unassigned</option>
+          {pics.map((pic) => (
+            <option key={pic.id} value={pic.id}>
+              {pic.name}
+            </option>
+          ))}
+        </NativeSelect>
       </Field>
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" name="to" value="IN_PROGRESS" disabled={pending}>
-          Send answer and continue
-        </Button>
-        <Button type="submit" name="to" value="CANCELLED" variant="outline" disabled={pending}>
-          Cancel this request
-        </Button>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save PIC"}
+      </Button>
+      <div className="sm:col-span-2">
+        <FormStatus state={state} />
       </div>
-      <FormStatus state={state} />
     </form>
   );
 }
@@ -350,6 +433,26 @@ export function PhaseForm({ requestId, current }: { requestId: string; current: 
       </Button>
       <div className="sm:col-span-2">
         <FormStatus state={state} />
+      </div>
+    </form>
+  );
+}
+
+/** Sales send a completed BOQ back for a revision: the reason is the change the customer asked for. */
+export function RevisionForm({ requestId }: { requestId: string }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(requestRevisionAction, null);
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="requestId" value={requestId} />
+      <Field id={`revision-reason-${requestId}`} label="What needs to change? *" hint="The ticket goes straight to Revision and SOA is told. Up to 500 characters.">
+        <Textarea id={`revision-reason-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
+      </Field>
+      <FormStatus state={state} />
+      <div>
+        <Button type="submit" variant="destructive" disabled={pending}>
+          {pending ? "Sending…" : "Request revision"}
+        </Button>
       </div>
     </form>
   );

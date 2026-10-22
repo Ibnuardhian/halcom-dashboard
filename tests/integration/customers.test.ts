@@ -31,9 +31,9 @@ describe("customers", () => {
   });
 
   it("count a project whose sales is Other like any other, and not a deleted one", async () => {
-    const sales = await makeUser("SALES");
+    const [sales, soa] = await Promise.all([makeUser("SALES"), makeUser("SOA")]);
     const name = `PT Lain ${randomBytes(3).toString("hex")}`;
-    await createProject(db, as(sales, "SALES"), { endUserCompany: name, name: "Via partner", sourceType: "OTHER", externalSourceName: "Budi" });
+    await createProject(db, as(soa, "SOA"), { endUserCompany: name, name: "Via partner", sourceType: "OTHER", externalSourceName: "Budi" });
     const gone = await createProject(db, as(sales, "SALES"), { endUserCompany: name, name: "Removed" });
     if (!gone.ok) throw new Error(gone.message);
     await db.project.update({ where: { id: gone.value.id }, data: { deletedAt: new Date() } });

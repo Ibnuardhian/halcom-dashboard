@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { Role } from "@/domain/access/roles";
+import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
 import { isOpen } from "@/domain/requests/status";
 import { OWNING_ROLE } from "@/domain/requests/types";
 
@@ -79,4 +80,9 @@ export async function markRead(db: PrismaClient, userId: string, id: string): Pr
 export async function markAllRead(db: PrismaClient, userId: string): Promise<number> {
   const result = await db.notification.updateMany({ where: { recipientId: userId, readAt: null }, data: { readAt: new Date() } });
   return result.count;
+}
+
+/** Does the user have an unread notification about a revision? The bell turns red for it. */
+export async function hasUnreadRevision(db: PrismaClient, userId: string): Promise<boolean> {
+  return (await db.notification.count({ where: { recipientId: userId, readAt: null, kind: { in: [REVISION_REQUESTED_KIND, REVISION_STARTED_KIND] } } })) > 0;
 }

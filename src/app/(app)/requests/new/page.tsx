@@ -7,7 +7,7 @@ import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { RequestForm } from "@/features/requests/forms";
 import { getDb } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { can } from "@/domain/access/permissions";
 import { requireUser } from "@/server/auth/current-user";
 import { hasCompletedRfq, listActiveProjectOptions } from "@/server/requests/queries";
@@ -22,22 +22,29 @@ export default function NewRequestPage({ searchParams }: PageProps<"/requests/ne
 
 async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "searchParams">) {
   const viewer = await requireUser();
-  // Sales and admins raise any request. SOA raises a BOQ, and only for a project from another source (Other).
+  // Sales and admins raise any request. SOA raises a BOQ, and only for a project from another source (Other). Purchasing raises an RFQ, and only an RFQ, for any project.
   const raisesAny = can(viewer.role, "requests.create");
-  if (!raisesAny && !can(viewer.role, "requests.create.external")) notFound();
+  const raisesRfqOnly = !raisesAny && can(viewer.role, "requests.create.rfq");
+  if (!raisesAny && !raisesRfqOnly && !can(viewer.role, "requests.create.external")) notFound();
   const query = await searchParams;
-  const projects = await listActiveProjectOptions(getDb(), viewer, raisesAny ? undefined : "OTHER");
+  // SOA's BOQ starts in the New project form; this form is for adding a request to a project that already exists.
+  if (!raisesAny && !raisesRfqOnly && typeof query.project !== "string") redirect("/projects/new?type=BOQ");
+  const projects = await listActiveProjectOptions(getDb(), viewer, raisesAny || raisesRfqOnly ? undefined : "OTHER");
   const wantedProject = typeof query.project === "string" ? projects.find((p) => p.code === query.project) : undefined;
   const wantedType = typeof query.type === "string" ? query.type.toUpperCase() : "";
   // A PO needs a completed RFQ on its project, so it is offered only for a project that has one.
   const poAllowed = wantedProject ? await hasCompletedRfq(getDb(), viewer, wantedProject.id) : false;
-  const types: readonly RequestType[] = !raisesAny ? ["BOQ"] : poAllowed ? REQUEST_TYPES : REQUEST_TYPES.filter((type) => type !== "PO");
+  const types: readonly RequestType[] = raisesRfqOnly ? ["RFQ"] : !raisesAny ? ["BOQ"] : poAllowed ? REQUEST_TYPES : REQUEST_TYPES.filter((type) => type !== "PO");
 
   return (
     <>
       <DashboardHeader
         title="New request"
-        summary="Ask SOA for a BOQ, or ask Purchasing for an RFQ (quotation / pricing). The flow is BOQ, RFQ, PO: a BOQ can be skipped, and a PO is raised once the RFQ of the project is completed. Every request belongs to a project."
+        summary={
+          raisesRfqOnly
+            ? "Raise an RFQ (quotation / pricing) for an existing project. Narrow the projects by Sales PIC or SOA PIC if that helps: the RFQ comes to Purchasing, is told to the project's Sales PIC and SOA PIC, and shows on the Sales dashboard of its Sales PIC."
+            : "Ask SOA for a BOQ, or ask Purchasing for an RFQ (quotation / pricing). The flow is BOQ, RFQ, PO: a BOQ can be skipped, and a PO is raised once the RFQ of the project is completed. Every request belongs to a project."
+        }
       />
       <Card>
         <CardHeader>
@@ -45,15 +52,19 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
             <h2>Request details</h2>
           </CardTitle>
           <CardDescription>
-            After saving you get the email text (To, Cc, subject and body) to copy into Outlook.{" "}
+            {raisesRfqOnly ? "A project is created by Sales or SOA; pick one that exists. " : "After saving you get the email text (To, Cc, subject and body) to copy into Outlook. "}
             {projects.length === 0 ? (
-              <>
-                There is no active project yet:{" "}
-                <Link href={`${PROJECTS_PATH}/new`} className="underline underline-offset-4">
-                  create a project first
-                </Link>
-                .
-              </>
+              raisesRfqOnly ? (
+                "There is no active project yet. Ask Sales or SOA to register it first."
+              ) : (
+                <>
+                  There is no active project yet:{" "}
+                  <Link href={`${PROJECTS_PATH}/new`} className="underline underline-offset-4">
+                    create a project first
+                  </Link>
+                  .
+                </>
+              )
             ) : null}
           </CardDescription>
         </CardHeader>
@@ -61,9 +72,10 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
           <RequestForm
             projects={projects}
             defaultProjectId={wantedProject?.id ?? ""}
-            defaultType={isRequestType(wantedType) && types.includes(wantedType) ? wantedType : "BOQ"}
+            defaultType={isRequestType(wantedType) && types.includes(wantedType) ? wantedType : (types[0] ?? "BOQ")}
             types={types}
             submissionKey={crypto.randomUUID()}
+            picFilters={raisesRfqOnly}
           />
         </CardContent>
       </Card>

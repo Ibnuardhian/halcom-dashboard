@@ -1,10 +1,11 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, canTransition, isOpen, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
-import { canCreateProjectWithSource, canRaiseRequestOn, normaliseSource, salesActsOn } from "@/domain/projects/source";
+import { z } from "zod";
+import { canCreateProjectWithSource, canRaiseRequestOn, canRaiseWithNewProject, normaliseSource, salesActsOn } from "@/domain/projects/source";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
@@ -12,7 +13,8 @@ import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { nextProjectCode, nextRequestCode } from "./codes";
 import { ensureCustomer } from "./master-data";
-import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
+import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
+import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, revisionSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
 
 export type Actor = { id: string; role: Role };
 
@@ -86,7 +88,7 @@ type NewRequest = { type: RequestType; title: string; description: string | null
 
 /** Inserts a request with its first status-history row and audit event, inside the caller's transaction. */
 async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, request: NewRequest, submissionKey: string | null) {
-  const code = await nextRequestCode(tx, request.type, actor.email, new Date());
+  const code = await nextRequestCode(tx, request.type, actor, new Date());
   const created = await tx.request.create({
     data: {
       code,
@@ -102,10 +104,13 @@ async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, requ
   await tx.requestStatusHistory.create({ data: { requestId: created.id, fromStatus: null, toStatus: "SUBMITTED", changedById: actor.id } });
   await audit(tx, actor.id, "request", "request.created", created.id, null, { code, type: request.type, projectId });
   // The team that owns this kind of request (SOA for a BOQ, Purchasing for an RFQ or a PO) is told it arrived.
-  const project = await tx.project.findUnique({ where: { id: projectId }, select: { endUserCompany: true, name: true } });
+  const project = await tx.project.findUnique({ where: { id: projectId }, select: { endUserCompany: true, name: true, salesOwnerId: true, technicalPicId: true } });
+  // An RFQ that Purchasing raised itself is still the Sales PIC's project: the Sales PIC and the technical (SOA) PIC are told too. It already
+  // shows on the Sales dashboard, which counts requests by the project's owner.
+  const alsoTold = actor.role === "PURCHASING" ? [project?.salesOwnerId ?? null, project?.technicalPicId ?? null] : [];
   await notify(tx, {
     actorId: actor.id,
-    recipientIds: await usersWithRole(tx, OWNING_ROLE[request.type]),
+    recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[request.type])), ...alsoTold],
     kind: "request.created",
     title: `New ${request.type} request ${code}`,
     body: `${project?.endUserCompany} – ${project?.name}: ${request.title}`,
@@ -127,7 +132,13 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
   const { sourceType, ...externalSource } = source.value;
   if (!canCreateProjectWithSource(claimedActor.role, sourceType)) return fail("FORBIDDEN");
   const { endUserCompany, name, description, targetDate, request, submissionKey } = parsed.data;
-  if (request && !canRaiseRequestOn(claimedActor.role, request.type, sourceType)) return fail("FORBIDDEN");
+  if (request && !canRaiseWithNewProject(claimedActor.role, request.type, sourceType)) return fail("FORBIDDEN");
+  // SOA register an Internal Sales project for a salesperson they choose; nobody else picks the owner (a salesperson owns their own).
+  const chosenOwner = parsed.data.salesOwnerId;
+  if (sourceType === "INTERNAL_SALES" && claimedActor.role === "SOA") {
+    if (!chosenOwner) return fail("INVALID_INPUT", "Choose the salesperson this project belongs to.");
+    if (!z.uuid().safeParse(chosenOwner).success) return fail("INVALID_INPUT", "Choose a salesperson from the list.");
+  }
   // A new project has no RFQ yet, so it cannot start with a PO (BOQ -> RFQ -> PO; only the BOQ can be skipped).
   if (request?.type === "PO") return fail("INVALID_STATE", PO_NEEDS_RFQ);
 
@@ -156,6 +167,18 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
         if (again) return succeed({ ...again, created: false, requestCode: null });
       }
 
+      // An Internal Sales project belongs to whoever registers it, or, when SOA register it, to the salesperson they chose.
+      let ownerId = actor.id;
+      let assignedOwner: { id: string; name: string } | null = null;
+      if (sourceType === "INTERNAL_SALES" && can(actor.role, "projects.assign-sales") && chosenOwner) {
+        const owner = await tx.user.findUnique({ where: { id: chosenOwner }, select: { id: true, name: true, role: true, isActive: true } });
+        if (!owner?.isActive || owner.role !== "SALES") return fail("INVALID_INPUT", "Choose an active salesperson from the list.");
+        ownerId = owner.id;
+        assignedOwner = { id: owner.id, name: owner.name };
+      } else if (sourceType === "INTERNAL_SALES" && actor.role === "SOA") {
+        return fail("INVALID_INPUT", "Choose the salesperson this project belongs to.");
+      }
+
       const code = await nextProjectCode(tx);
       const customerId = await ensureCustomer(tx, endUserCompany);
       const project = await tx.project.create({
@@ -170,18 +193,23 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
           trackStatus,
           targetMargin: commercial["targetMargin"] as number | null,
           targetMarginValue: commercial["targetMarginValue"] as number | null,
+          // A project that starts at Propose (30%) already has its quotation submitted: today, editable later.
+          quoteReleasedAt: progress === "PROPOSE" ? new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`) : null,
           // An Internal Sales project belongs to whoever registers it; a project from another source has no internal Sales PIC.
           sourceType,
           ...externalSource,
-          salesOwnerId: sourceType === "INTERNAL_SALES" ? actor.id : null,
+          salesOwnerId: sourceType === "INTERNAL_SALES" ? ownerId : null,
           customerId,
           submissionKey,
         },
       });
-      await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name, sourceType, ...externalSource });
+      await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name, sourceType, ...externalSource, ...(assignedOwner ? { salesOwnerId: assignedOwner.id } : {}) });
+      if (assignedOwner) {
+        await notify(tx, { actorId: actor.id, recipientIds: [assignedOwner.id], kind: "project.assigned", title: `${code} was registered for you`, body: `${endUserCompany}: ${name}`, href: `/projects/${code}` });
+      }
       let requestCode: string | null = null;
       if (request) {
-        if (!canRaiseRequestOn(actor.role, request.type, sourceType)) return fail("FORBIDDEN");
+        if (!canRaiseWithNewProject(actor.role, request.type, sourceType)) return fail("FORBIDDEN");
         requestCode = (await insertRequest(tx, actor, project.id, request, submissionKey ? `${submissionKey}:request` : null)).code;
       }
       return succeed({ id: project.id, code, created: true, requestCode });
@@ -199,7 +227,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
 export async function createRequest(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<CreatedRecord>> {
   const parsed = createRequestSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
-  if (!can(claimedActor.role, "requests.create") && !can(claimedActor.role, "requests.create.external")) return fail("FORBIDDEN");
+  if (!can(claimedActor.role, "requests.create") && !can(claimedActor.role, "requests.create.external") && !can(claimedActor.role, "requests.create.rfq")) return fail("FORBIDDEN");
   const { projectId, type, title, description, requiredBy, submissionKey } = parsed.data;
 
   const existing = () => db.request.findUnique({ where: { submissionKey: submissionKey! }, select: { id: true, code: true } });
@@ -272,7 +300,7 @@ export async function handOverToPurchasing(
       if (again) return succeed({ ...again, created: false });
       if (source.project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
 
-      const code = await nextRequestCode(tx, targetType, actor.email, new Date());
+      const code = await nextRequestCode(tx, targetType, actor, new Date());
       // A handed-over request arrives In progress: the team does not have to accept it first.
       const request = await tx.request.create({
         data: {
@@ -344,7 +372,8 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
     const next = nextRequestType(source.type)!;
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(source.assigneeId ? [source.assigneeId] : [])],
+      // The team that owns the request type is told too: its tickets are handed to PICs, who are not accounts, so the team's accounts are the audience.
+      recipientIds: [source.requesterId, source.project.salesOwnerId, ...(source.assigneeId ? [source.assigneeId] : []), ...(await usersWithRole(tx, OWNING_ROLE[source.type]))],
       kind: "request.flow_stopped",
       title: `${source.code}: not continuing to ${next}`,
       body: note,
@@ -373,14 +402,11 @@ export async function changeRequestStatus(
     const request = await tx.request.findUnique({ where: { id: requestId } });
     if (!request) return fail("NOT_FOUND", "Request not found.");
     const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true, sourceType: true } });
-    // The Sales owner answers a request that waits for Sales: back to In progress with the answer, or cancel it. Nothing else.
-    const salesResponding =
-      actor.role === "SALES" && project !== null && salesActsOn(project, actor.id) && request.status === "WAITING_FOR_SALES" && (to === "IN_PROGRESS" || to === "CANCELLED");
-    if (!can(actor.role, workPermission(request.type)) && !salesResponding) return fail("FORBIDDEN");
-    if (salesResponding && !reason) return fail("INVALID_INPUT", "Write your answer or the reason for cancelling.");
+    // Only the team that works on this type moves its requests (SOA for a BOQ, Purchasing for an RFQ or PO; admins too).
+    if (!can(actor.role, workPermission(request.type))) return fail("FORBIDDEN");
 
-    if (!canTransition(request.status, to)) {
-      const options = allowedTransitions(request.status).map((s) => REQUEST_STATUS_LABELS[s]);
+    if (!canTransition(request.status, to, request.type)) {
+      const options = allowedTransitions(request.status, request.type).map((s) => REQUEST_STATUS_LABELS[s]);
       return fail(
         "INVALID_STATE",
         `A ${REQUEST_STATUS_LABELS[request.status]} request cannot become ${REQUEST_STATUS_LABELS[to]}.` +
@@ -394,21 +420,21 @@ export async function changeRequestStatus(
       where: { id: request.id },
       data: {
         status: to,
-        completedAt: to === "COMPLETED" ? now : null,
-        // Whoever first starts the work owns it, so "unassigned" does not linger on active requests.
-        assigneeId: request.assigneeId ?? (can(actor.role, workPermission(request.type)) ? actor.id : null),
+        // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
+        // The first answer of the team: the first time the request is taken up or completed. A cancellation is not an answer.
+        respondedAt: request.respondedAt ?? (to === "IN_PROGRESS" || to === "COMPLETED" ? now : null),
+        completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
       },
     });
     await tx.requestStatusHistory.create({
       data: { requestId: request.id, fromStatus: request.status, toStatus: to, changedById: actor.id, changedAt: now, reason },
     });
     await audit(tx, actor.id, "request", "request.status_changed", request.id, { status: request.status }, { status: to, reason });
-    const team = salesResponding ? (request.assigneeId ? [request.assigneeId] : await usersWithRole(tx, OWNING_ROLE[request.type])) : [];
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : []), ...team],
-      kind: "request.status_changed",
-      title: to === "WAITING_FOR_SALES" ? `${request.code} needs your input` : salesResponding && to === "IN_PROGRESS" ? `${request.code}: Sales answered` : `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
+      recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : [])],
+      kind: to === "REVISION" ? REVISION_STARTED_KIND : "request.status_changed",
+      title: `${request.code} is now ${REQUEST_STATUS_LABELS[to]}`,
       body: reason,
       href: `/request/${request.code}`,
     });
@@ -416,6 +442,51 @@ export async function changeRequestStatus(
   });
 }
 
+
+/**
+ * Sales ask for a revision of a completed BOQ (the customer wants changes, agreed with Sales by email). The ticket goes straight to the
+ * Revision stage, the reason is kept in the status history, and SOA (the team and the project's technical PIC) is told with a notification
+ * that is shown in red. Only a Completed BOQ can be sent back, and a salesperson only on a project they act on (their own, or one from
+ * another source). Admins may do it for a project. SOA moves a BOQ to Revision on the board as before; this is the Sales side of it.
+ */
+export async function requestRevision(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
+  const parsed = revisionSchema.safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
+  if (!can(claimedActor.role, "requests.revise")) return fail("FORBIDDEN");
+  const { requestId, reason } = parsed.data;
+
+  return db.$transaction(async (tx) => {
+    const actor = await loadActor(tx, claimedActor);
+    if (!actor || !can(actor.role, "requests.revise")) return fail("FORBIDDEN");
+
+    await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
+    const request = await tx.request.findUnique({
+      where: { id: requestId },
+      include: { project: { select: { salesOwnerId: true, sourceType: true, technicalPicId: true, deletedAt: true, endUserCompany: true, name: true } } },
+    });
+    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (actor.role === "SALES" && !salesActsOn(request.project, actor.id)) return fail("FORBIDDEN");
+    if (request.type !== "BOQ") return fail("INVALID_STATE", "A revision can be asked for on a BOQ only.");
+    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Only a completed BOQ can be sent back for a revision.");
+
+    const now = new Date();
+    // The first completion stays (a revision does not make the SLA late), exactly as when SOA moves the card to Revision.
+    await tx.request.update({ where: { id: request.id }, data: { status: "REVISION" } });
+    await tx.requestStatusHistory.create({
+      data: { requestId: request.id, fromStatus: request.status, toStatus: "REVISION", changedById: actor.id, changedAt: now, reason },
+    });
+    await audit(tx, actor.id, "request", "request.revision_requested", request.id, { status: request.status }, { status: "REVISION", reason });
+    await notify(tx, {
+      actorId: actor.id,
+      recipientIds: [...(await usersWithRole(tx, OWNING_ROLE.BOQ)), request.project.technicalPicId],
+      kind: REVISION_REQUESTED_KIND,
+      title: `${request.code}: revision requested`,
+      body: `${request.project.endUserCompany} – ${request.project.name}: ${reason}`,
+      href: `/request/${request.code}`,
+    });
+    return succeed({ code: request.code });
+  });
+}
 /**
  * SOA labels a BOQ request with the part of the work it is on: Assessment, Sizing or POC (or clears the label).
  * Only people who work on BOQ requests may do it, and only on a BOQ that is still open. The change is audited and
@@ -435,14 +506,14 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { code: true, endUserCompany: true } } } });
     if (!request) return fail("NOT_FOUND", "Request not found.");
     if (request.type !== "BOQ") return fail("INVALID_STATE", "Only a BOQ request has an SOA phase.");
-    if (request.status === "COMPLETED" || request.status === "CANCELLED") return fail("INVALID_STATE", "This request is already closed.");
+    if (!isOpen(request.status)) return fail("INVALID_STATE", "This request is already closed.");
     if (request.phase === phase) return succeed({ code: request.code });
 
     // Labelling the work with a phase means SOA has started it: a request nobody had touched goes to In progress by itself.
     const starts = phase !== null && request.status === "SUBMITTED";
     await tx.request.update({
       where: { id: request.id },
-      data: { phase, ...(starts ? { status: "IN_PROGRESS" as const } : {}), assigneeId: request.assigneeId ?? actor.id },
+      data: { phase, ...(starts ? { status: "IN_PROGRESS" as const } : {}) },
     });
     if (starts) {
       await tx.requestStatusHistory.create({

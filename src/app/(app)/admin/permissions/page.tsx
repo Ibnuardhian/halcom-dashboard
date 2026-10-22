@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import { PageFallback } from "@/components/app-shell/page-fallback";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ALL_PERMISSIONS, can } from "@/domain/access/permissions";
+import { cellKey, permissionsByCategory } from "@/domain/access/permission-catalog";
+import { ALL_PERMISSIONS, can, permissionChangeBlock } from "@/domain/access/permissions";
 import { ROLE_LABELS, ROLES } from "@/domain/access/roles";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
+import { PermissionMatrix } from "@/features/permissions/permission-matrix";
+import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
+import { listPermissionOverrides } from "@/server/permissions/service";
 
 export default function PermissionsPage() {
   return (
@@ -14,67 +17,47 @@ export default function PermissionsPage() {
   );
 }
 
-/** The permission matrix as the server enforces it. It is read from the same `can()` every page and action asks, so it cannot drift. */
+/**
+ * The role permission matrix as the server enforces it, grouped in categories. It is read from the same `can()` every page and action
+ * asks, so it cannot drift. Whoever holds `permissions.manage` (a superadmin by default) can also change it here.
+ */
 async function Permissions() {
-  await requirePermission("permissions.view");
+  const viewer = await requirePermission("permissions.view");
+  const editable = can(viewer.role, "permissions.manage");
+  const overrides = await listPermissionOverrides(getDb());
+
+  const granted: string[] = [];
+  const locked: string[] = [];
+  for (const role of ROLES) {
+    for (const permission of ALL_PERMISSIONS) {
+      const has = can(role, permission);
+      if (has) granted.push(cellKey(role, permission));
+      if (permissionChangeBlock(role, permission, !has) !== null) locked.push(cellKey(role, permission));
+    }
+  }
+  const changed = overrides.map((override) => cellKey(override.role, override.permission));
 
   return (
     <>
       <DashboardHeader
         title="Permissions"
-        summary="What each role may do, as the server enforces it. This page only shows the rules: they are defined in code and reviewed with the product owner (docs/requirements/RBAC.md), not edited here."
+        summary={
+          editable
+            ? "What each role may do, as the server enforces it. Tick or clear a box and save to grant or revoke a permission. Every change is written to the audit log."
+            : "What each role may do, as the server enforces it. Only a superadmin can change these."
+        }
       />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            <h2>Role permission matrix</h2>
-          </CardTitle>
-          <CardDescription>{ALL_PERMISSIONS.length} permissions. A tick means the role holds the permission.</CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <caption className="sr-only">Permissions per role</caption>
-            <thead>
-              <tr className="border-b text-left">
-                <th scope="col" className="py-2 pr-4 font-medium">
-                  Permission
-                </th>
-                {ROLES.map((role) => (
-                  <th key={role} scope="col" className="px-2 py-2 text-center text-xs font-medium whitespace-nowrap">
-                    {ROLE_LABELS[role]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ALL_PERMISSIONS.map((permission) => (
-                <tr key={permission} className="border-b last:border-0">
-                  <th scope="row" className="py-1.5 pr-4 text-left font-mono text-xs font-normal">
-                    {permission}
-                  </th>
-                  {ROLES.map((role) => (
-                    <td key={role} className="px-2 py-1.5 text-center">
-                      {can(role, permission) ? (
-                        <>
-                          <span aria-hidden>✓</span>
-                          <span className="sr-only">Allowed</span>
-                        </>
-                      ) : (
-                        <>
-                          <span aria-hidden className="text-muted-foreground/50">
-                            –
-                          </span>
-                          <span className="sr-only">Not allowed</span>
-                        </>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <p className="mb-3 text-sm text-muted-foreground">
+        {ALL_PERMISSIONS.length} permissions in {permissionsByCategory().length} categories. {overrides.length === 0 ? "Every role has its built-in permissions." : `${overrides.length} permission${overrides.length === 1 ? " is" : "s are"} changed from the built-in defaults.`}
+      </p>
+      <PermissionMatrix
+        categories={permissionsByCategory()}
+        roles={ROLES.map((role) => ({ role, label: ROLE_LABELS[role] }))}
+        granted={granted}
+        changed={changed}
+        locked={locked}
+        editable={editable}
+      />
     </>
   );
 }

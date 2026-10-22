@@ -13,10 +13,12 @@ describe("what each operational role may do", () => {
     );
   });
 
-  it("gives Purchasing the RFQ and PO work and the shared views, and no way to create or edit projects or requests", () => {
+  it("gives Purchasing the RFQ and PO work, the right to raise an RFQ, and the shared views, and no way to create projects, BOQs or POs or edit projects", () => {
     expect(sorted(permissionsFor("PURCHASING"))).toEqual(
-      ["dashboard.purchasing.view", "dashboard.shared.view", "projects.view", "requests.view", "requests.work.purchasing"].sort(),
+      ["dashboard.purchasing.view", "dashboard.shared.view", "projects.view", "requests.create.rfq", "requests.view", "requests.work.purchasing"].sort(),
     );
+    expect(can("PURCHASING", "requests.create")).toBe(false);
+    expect(can("PURCHASING", "projects.create")).toBe(false);
   });
 
   it("gives Sales their own targets and request-raising, but no technical, handoff or finance module", () => {
@@ -46,6 +48,18 @@ describe("what each operational role may do", () => {
   it("keeps the new modules away from roles that have no business with them", () => {
     for (const role of ["SALES", "PURCHASING", "SOA"] as const) expect(can(role, "finance.crosscheck.view"), role).toBe(false);
     for (const role of ["SALES", "PURCHASING", "FINANCE"] as const) expect(can(role, "handoffs.view"), role).toBe(false);
+  });
+});
+
+describe("importing projects and keeping PICs", () => {
+  it("lets only SOA and the administrators import projects from a sheet", () => {
+    for (const role of ROLES) expect(can(role, "projects.import"), role).toBe(["SOA", "ADMIN", "SUPERADMIN"].includes(role));
+  });
+
+  it("lets only the administrators keep the list of PICs; the teams only pick from it", () => {
+    for (const role of ROLES) expect(can(role, "pics.manage"), role).toBe(["ADMIN", "SUPERADMIN"].includes(role));
+    expect(can("SOA", "requests.work.boq")).toBe(true);
+    expect(can("PURCHASING", "requests.work.purchasing")).toBe(true);
   });
 });
 

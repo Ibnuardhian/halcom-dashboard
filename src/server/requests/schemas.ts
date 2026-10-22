@@ -56,6 +56,8 @@ export const createProjectSchema = z.object({
   externalContact: optionalText(4000),
   externalReference: optionalText(4000),
   sourceNotes: optionalText(4000),
+  // The salesperson an Internal Sales project belongs to, chosen by SOA. Ignored for anyone else: a salesperson always owns their own.
+  salesOwnerId: optionalText(40),
   // Commercial details Sales may already know; kept as text and parsed with the same rules as the project page.
   progress: optionalText(40),
   trackStatus: optionalText(40),
@@ -94,5 +96,8 @@ export const statusChangeSchema = z.object({
   to: z.enum(REQUEST_STATUSES),
   reason: optionalText(500),
 });
+
+/** Sales ask for a revision of a completed BOQ; the reason is the change the customer asked for. */
+export const revisionSchema = z.object({ requestId: z.uuid(), reason: z.string().trim().min(1, "Say what needs to change.").max(500) });
 
 export const uuidSchema = z.uuid();

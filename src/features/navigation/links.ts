@@ -1,4 +1,4 @@
-import { DASHBOARD_KEYS, dashboardForRole, dashboardPath, SHARED_DASHBOARD_PATH } from "@/domain/access/dashboards";
+import { DASHBOARD_KEYS, dashboardForRole, type DashboardKey, dashboardPath, SHARED_DASHBOARD_PATH } from "@/domain/access/dashboards";
 import { can, type Permission } from "@/domain/access/permissions";
 import { ROLE_LABELS, ROLES, type Role } from "@/domain/access/roles";
 
@@ -39,6 +39,7 @@ export const AUDIT_PATH = "/admin/audit";
 export const BACKUPS_PATH = "/admin/backups";
 export const SETTINGS_PATH = "/admin/settings";
 export const MASTER_DATA_PATH = "/admin/master-data";
+export const PICS_PATH = "/admin/pics";
 export const PROJECTS_PATH = "/projects";
 export const REQUESTS_PATH = "/requests";
 export const HANDOFFS_PATH = "/handoffs";
@@ -48,6 +49,8 @@ export const TECHNICAL_REPORTS_PATH = "/reports/technical";
 export const FINANCE_REPORTS_PATH = "/reports/finance";
 export const NEW_REQUEST_PATH = "/requests/new";
 export const ACCOUNT_PATH = "/account";
+/** Open to every signed-in role: it needs no permission, and what it highlights and links to follows the viewer's permissions. */
+export const GUIDE_PATH = "/guide";
 export const NOTIFICATIONS_PATH = "/notifications";
 
 /**
@@ -62,8 +65,8 @@ export const CUSTOMERS_PATH = "/customers";
 
 const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view", hiddenFor: ["PURCHASING"] },
-  // A project from another source (not the internal Sales team) is registered by SOA; Sales use the button on their dashboard.
-  { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES"] },
+  // A project (and its first request) is created with the button on the Projects page; Sales also have one on their dashboard, SOA on BOQ Tickets.
+  { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES", "SOA"] },
   { href: CUSTOMERS_PATH, label: "Customers", group: "work", icon: "customers", permission: "customers.view" },
   { href: SALES_TARGETS_PATH, label: "Sales Targets", group: "work", icon: "targets", permission: "targets.edit" },
   // Sales know the list of every request as the Request Center; SOA and Purchasing work from their own list instead.
@@ -73,7 +76,6 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"], labels: { PURCHASING: "RFQ Requests" } },
   { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
   { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES"] },
-  { href: NEW_REQUEST_PATH, label: "New BOQ request", group: "work", icon: "new", permission: "requests.create.external", hiddenFor: ["SUPERADMIN", "ADMIN"] },
   { href: HANDOFFS_PATH, label: "Purchasing Handoff", group: "work", icon: "handoff", permission: "handoffs.view" },
   { href: TECHNICAL_REPORTS_PATH, label: "Technical Reports", group: "work", icon: "reports", permission: "reports.technical.view" },
   { href: CROSSCHECK_PATH, label: "Financial Crosscheck", group: "work", icon: "reports", permission: "finance.crosscheck.view" },
@@ -81,6 +83,7 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PERMISSIONS_PATH, label: "Permissions", group: "administration", icon: "permissions", permission: "permissions.view" },
   { href: SETTINGS_PATH, label: "SLA Policies", group: "administration", icon: "system", permission: "settings.view" },
   { href: MASTER_DATA_PATH, label: "Master Data", group: "administration", icon: "system", permission: "masterdata.manage", labels: { SOA: "Principal & Solution Master Data" } },
+  { href: PICS_PATH, label: "PICs", group: "administration", icon: "users", permission: "pics.manage" },
   { href: AUDIT_PATH, label: "Audit Logs", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
   { href: SYSTEM_PATH, label: "System", group: "administration", icon: "system", permission: "system.monitor" },
@@ -93,9 +96,15 @@ const OWN_DASHBOARD_LABELS: Partial<Record<Role, string>> = {
   PURCHASING: "Purchasing Dashboard",
   FINANCE: "Finance Dashboard",
   MANAGEMENT: "Management Dashboard",
-  ADMIN: "Administration Dashboard",
-  SUPERADMIN: "Administration Dashboard",
+  ADMIN: "Admin Dashboard",
+  SUPERADMIN: "Admin Dashboard",
 };
+
+/**
+ * Dashboards that are the same page under another address. A role that can open both is offered one entry, and the permission to open
+ * each stays separate, so access to either can still be granted or taken away on its own.
+ */
+const SAME_DASHBOARD_AS: Partial<Record<DashboardKey, DashboardKey>> = { superadmin: "admin" };
 
 /** Navigation shown to a role. Derived from the permission matrix, so the menu can never offer a page the role cannot open. */
 export function navLinksFor(role: Role): NavLinkItem[] {
@@ -111,13 +120,16 @@ export function navLinksFor(role: Role): NavLinkItem[] {
   }
   for (const key of DASHBOARD_KEYS) {
     if (focused || key === own || !can(role, `dashboard.${key}.view`)) continue;
+    // The same page as one the user already has in the menu.
+    const twin = SAME_DASHBOARD_AS[key] ?? DASHBOARD_KEYS.find((other) => SAME_DASHBOARD_AS[other] === key);
+    if (twin && (twin === own || links.some((link) => link.href === dashboardPath(twin)))) continue;
     const owner = ROLES.find((r) => dashboardForRole(r) === key)!;
     links.push({ href: dashboardPath(key), label: `${ROLE_LABELS[owner]} dashboard`, group: "dashboards", icon: "dashboard" });
   }
   for (const { permission, hiddenFor, labels, ...link } of MODULE_LINKS) {
     if (can(role, permission) && !hiddenFor?.includes(role)) links.push({ ...link, label: labels?.[role] ?? link.label });
   }
-  // Two entries can lead to the same page (New request and New BOQ request); a role sees the first one it is allowed.
+  // An entry is never offered twice.
   return links.filter((link, index) => links.findIndex((other) => other.href === link.href) === index);
 }
 

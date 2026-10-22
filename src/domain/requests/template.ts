@@ -6,7 +6,7 @@ import { DEFAULT_SLA, type SlaRange } from "./sla";
  * filled in from the request. Pure functions; the template itself is stored per team (SOA, Purchasing).
  */
 export const TEMPLATE_VARIABLES = [
-  { name: "request_id", label: "Request ID", example: "RFQ-IA-260001" },
+  { name: "request_id", label: "Request ID", example: "RFQ-S-260001" },
   { name: "request_type", label: "Request type", example: "RFQ (Request for Quotation)" },
   { name: "type_tag", label: "Subject tag of the type", example: "[HITRFQ]" },
   { name: "team", label: "Receiving team", example: "Purchasing team" },
@@ -22,8 +22,8 @@ export const TEMPLATE_VARIABLES = [
   { name: "needed_by", label: "Needed by", example: "5 Nov 2026" },
   { name: "sla_days", label: "SLA in working days, as set for the team", example: "2-3" },
   { name: "due_date", label: "Reply by (the SLA deadline)", example: "22 Oct 2026" },
-  { name: "source_request", label: "BOQ this was handed over from (line is left out when empty)", example: "BOQ-IA-260001 (completed)" },
-  { name: "link", label: "Link to the request", example: "http://localhost:3000/request/RFQ-IA-260001" },
+  { name: "source_request", label: "BOQ this was handed over from (line is left out when empty)", example: "BOQ-S-260001 (completed)" },
+  { name: "link", label: "Link to the request", example: "http://localhost:3000/request/RFQ-S-260001" },
 ] as const;
 
 export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number]["name"];
