@@ -27,7 +27,7 @@ describe("deleteProject", () => {
     expect(request.ok).toBe(true);
 
     expect(await deleteProject(db, salesActor, { projectId: id, confirmCode: code })).toMatchObject({ ok: false, code: "FORBIDDEN" });
-    expect(await deleteProject(db, rootActor, { projectId: id, confirmCode: "PRJ-000" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await deleteProject(db, rootActor, { projectId: id, confirmCode: "HIT-PROJ-000" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(db.project.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({ deletedAt: null });
 
     expect(await deleteProject(db, rootActor, { projectId: id, confirmCode: code })).toEqual({ ok: true, code });

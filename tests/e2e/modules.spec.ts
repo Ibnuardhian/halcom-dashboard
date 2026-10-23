@@ -447,7 +447,7 @@ test.describe("a project from another source (Other)", () => {
     // Searchable and filterable for everyone who reads projects, and Finance cannot create or edit it.
     const finance = await asRole(browser, "FINANCE");
     await finance.goto(`/projects?q=${encodeURIComponent(source)}&source=OTHER`);
-    await expect(finance.getByRole("link", { name: /^PRJ-\d+/ })).toHaveCount(1);
+    await expect(finance.getByRole("link", { name: /^HIT-PROJ-\d+/ })).toHaveCount(1);
     await expect(finance.getByRole("cell", { name: "Other", exact: true })).toBeVisible();
     await finance.goto(`/projects?source=INTERNAL_SALES&q=${encodeURIComponent(source)}`);
     await expect(finance.getByText("No project matches these filters.")).toBeVisible();
@@ -491,7 +491,7 @@ test.describe("a project from another source (Other)", () => {
       await page.getByLabel("End-user company").fill(company);
       await page.getByLabel("Project name").fill("Proyek sendiri");
       await page.getByRole("button", { name: "Create project" }).click();
-      await expect(page).toHaveURL(/\/projects\/PRJ-\d+$/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+$/, { timeout: 15_000 });
     }).toPass({ timeout: 45_000 });
     await expect(page.getByText("Dev Sales").first()).toBeVisible();
     // Nothing on the project page lets Sales change the classification.

@@ -53,7 +53,7 @@ function record(values: Record<string, string>): string {
 }
 
 const BASE = {
-  "Project ID": "PRJ-001",
+  "Project ID": "HIT-PROJ-001",
   Customer: "Epson Batam",
   "Project Name": "Server AI",
   "Sales PIC": "Mas Dzaki",
@@ -85,7 +85,7 @@ describe("parseProjectsCsv", () => {
     expect(problems).toEqual([]);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      code: "PRJ-001",
+      code: "HIT-PROJ-001",
       customer: "Epson Batam",
       stage: "NEGOTIATION",
       status: "ACTIVE",
@@ -119,31 +119,31 @@ describe("parseProjectsCsv", () => {
     const csv = [
       HEADER,
       record({ ...BASE, "Project ID": "P-1" }),
-      record({ ...BASE, "Project ID": "PRJ-002", Customer: "", Stage: "Nowhere" }),
-      record({ ...BASE, "Project ID": "PRJ-003", "Estimated Value": "12,5", Probability: "101", "Target Closing": "2026-02-30" }),
-      record({ ...BASE, "Project ID": "PRJ-003" }),
-      record({ ...BASE, "Project ID": "PRJ-004", "Custom Fields (JSON)": "{oops" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-002", Customer: "", Stage: "Nowhere" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-003", "Estimated Value": "12,5", Probability: "101", "Target Closing": "2026-02-30" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-003" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-004", "Custom Fields (JSON)": "{oops" }),
     ].join("\n");
 
     const { problems } = parseProjectsCsv(csv);
 
     expect(problems).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("P-1: Project ID must look like PRJ-001"),
-        expect.stringContaining("PRJ-002: Customer is required"),
-        expect.stringContaining('PRJ-002: unknown Stage "Nowhere"'),
-        expect.stringContaining("PRJ-003: Estimated Value"),
-        expect.stringContaining("PRJ-003: Probability"),
-        expect.stringContaining("PRJ-003: Target Closing"),
-        expect.stringContaining("PRJ-003: duplicate Project ID"),
-        expect.stringContaining("PRJ-004: Custom Fields is not valid JSON"),
+        expect.stringContaining("P-1: Project ID must look like HIT-PROJ-001"),
+        expect.stringContaining("HIT-PROJ-002: Customer is required"),
+        expect.stringContaining('HIT-PROJ-002: unknown Stage "Nowhere"'),
+        expect.stringContaining("HIT-PROJ-003: Estimated Value"),
+        expect.stringContaining("HIT-PROJ-003: Probability"),
+        expect.stringContaining("HIT-PROJ-003: Target Closing"),
+        expect.stringContaining("HIT-PROJ-003: duplicate Project ID"),
+        expect.stringContaining("HIT-PROJ-004: Custom Fields is not valid JSON"),
       ]),
     );
   });
 
   it("rejects a file with missing columns or rows of the wrong width", () => {
-    expect(parseProjectsCsv('"Project ID","Customer"\n"PRJ-001","x"').problems[0]).toContain("Missing column(s)");
-    expect(parseProjectsCsv([HEADER, '"PRJ-001","x"'].join("\n")).problems[0]).toContain("has 2 fields");
+    expect(parseProjectsCsv('"Project ID","Customer"\n"HIT-PROJ-001","x"').problems[0]).toContain("Missing column(s)");
+    expect(parseProjectsCsv([HEADER, '"HIT-PROJ-001","x"'].join("\n")).problems[0]).toContain("has 2 fields");
     expect(parseProjectsCsv('"a\n').problems[0]).toContain("quoted field");
   });
 });
@@ -160,9 +160,9 @@ describe("people in the export", () => {
     const csv = [
       HEADER,
       record({ ...BASE, "Sales PIC": "Mas Dzaki", "Technical PIC": "Adityo" }),
-      record({ ...BASE, "Project ID": "PRJ-002", "Sales PIC": "Adityo", "Technical PIC": "Adityo" }),
-      record({ ...BASE, "Project ID": "PRJ-003", "Sales PIC": "mas  dzaki", "Technical PIC": "" }),
-      record({ ...BASE, "Project ID": "PRJ-004", "Sales PIC": "", "Technical PIC": "" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-002", "Sales PIC": "Adityo", "Technical PIC": "Adityo" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-003", "Sales PIC": "mas  dzaki", "Technical PIC": "" }),
+      record({ ...BASE, "Project ID": "HIT-PROJ-004", "Sales PIC": "", "Technical PIC": "" }),
     ].join("\n");
 
     const { rows } = parseProjectsCsv(csv);

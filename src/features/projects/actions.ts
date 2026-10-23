@@ -30,7 +30,7 @@ export async function updateProjectDetailsAction(_previous: FormState, formData:
   if (!result.ok) return { ok: false, message: result.message };
 
   const code = formData.get("projectCode");
-  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
   return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
@@ -47,7 +47,7 @@ export async function postProjectUpdateAction(_previous: FormState, formData: Fo
   if (!result.ok) return { ok: false, message: result.message };
 
   const code = formData.get("projectCode");
-  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   return { ok: true, message: "Update posted." };
 }
 
@@ -65,7 +65,7 @@ export async function updateCommercialDetailsAction(_previous: FormState, formDa
   if (!result.ok) return { ok: false, message: result.message };
 
   const code = formData.get("projectCode");
-  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
   return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
@@ -89,7 +89,7 @@ export async function updateProjectSourceAction(_previous: FormState, formData: 
   });
   if (!result.ok) return { ok: false, message: result.message };
   const code = formData.get("projectCode");
-  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : "Saved and logged." };
@@ -120,7 +120,7 @@ export async function reassignProjectAction(_previous: FormState, formData: Form
   });
   if (!result.ok) return { ok: false, message: result.message };
   const code = formData.get("projectCode");
-  if (typeof code === "string" && /^PRJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : "The project was moved. Its history is unchanged." };

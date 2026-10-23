@@ -12,7 +12,7 @@ export const TEMPLATE_VARIABLES = [
   { name: "team", label: "Receiving team", example: "Purchasing team" },
   { name: "ask", label: "What the team is asked to do", example: "Please provide a quotation / item pricing …" },
   { name: "next_action", label: "Expected next action", example: "Review the specification and return the quotation …" },
-  { name: "project_id", label: "Project ID", example: "PRJ-004" },
+  { name: "project_id", label: "Project ID", example: "HIT-PROJ-004" },
   { name: "end_user", label: "End-user company", example: "PT ABC" },
   { name: "project_name", label: "Project name", example: "CCTV AI" },
   { name: "summary", label: "Request summary", example: "Pricing for 40 cameras" },

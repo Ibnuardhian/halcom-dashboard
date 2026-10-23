@@ -1,0 +1,15 @@
+# Runs the development app against a Neon database instead of the local `db` container.
+# Use it as an extra file:
+#   docker compose -f compose.yaml -f compose.neon.yaml up -d app
+#   docker compose -f compose.yaml -f compose.neon.yaml run --rm app npm run db:migrate:deploy
+# The credentials come from `.env` (NEON_DATABASE_URL, NEON_DIRECT_URL); see .env.example.
+# The local `db` container is not started and its data is not touched.
+
+services:
+  app:
+    environment:
+      # Pooled connection (host contains "-pooler"): used by the running application.
+      DATABASE_URL: ${NEON_DATABASE_URL:?Set NEON_DATABASE_URL in .env (see .env.example)}
+      # Direct connection (no "-pooler"): used by Prisma migrations and the seed.
+      DIRECT_URL: ${NEON_DIRECT_URL:?Set NEON_DIRECT_URL in .env (see .env.example)}
+    depends_on: !reset {}

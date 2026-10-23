@@ -60,9 +60,9 @@ describe("request codes", () => {
     expect(formatCode(codeScope("RFQ", "IA", "26"), 1)).toBe("RFQ-IA-260001");
     expect(formatCode(codeScope("BOQ", "IA", "26"), 42)).toBe("BOQ-IA-260042");
     expect(formatCode(codeScope("PO", "SA", "27"), 12345)).toBe("PO-SA-2712345");
-    expect(formatCode(codeScope("PRJ", "IA", "26"), 3, 3)).toBe("PRJ-003");
-    expect(formatCode(codeScope("PRJ", "", ""), 35, PROJECT_CODE_WIDTH)).toBe("PRJ-035");
-    expect(formatCode(codeScope("PRJ", "", ""), 1234, PROJECT_CODE_WIDTH)).toBe("PRJ-1234");
+    expect(formatCode(codeScope("PRJ", "IA", "26"), 3, 3)).toBe("HIT-PROJ-003");
+    expect(formatCode(codeScope("PRJ", "", ""), 35, PROJECT_CODE_WIDTH)).toBe("HIT-PROJ-035");
+    expect(formatCode(codeScope("PRJ", "", ""), 1234, PROJECT_CODE_WIDTH)).toBe("HIT-PROJ-1234");
   });
 
   it("rejects a sequence that is not a positive integer", () => {
@@ -164,7 +164,7 @@ describe("email text from the team template", () => {
   const base: Parameters<typeof templateValues>[0] = {
     type: "RFQ",
     code: "RFQ-IA-260001",
-    projectCode: "PRJ-260004",
+    projectCode: "HIT-PROJ-260004",
     endUserCompany: "PT ABC",
     projectName: "CCTV AI",
     title: "Pricing for 40 cameras",
@@ -194,7 +194,7 @@ describe("email text from the team template", () => {
   it("puts the request ID, project, SLA and link in the default text, and asks for the ID in the reply", () => {
     const text = body();
     expect(text).toContain("Request ID   : RFQ-IA-260001");
-    expect(text).toContain("Project ID   : PRJ-260004");
+    expect(text).toContain("Project ID   : HIT-PROJ-260004");
     expect(text).toContain("End user     : PT ABC");
     expect(text).toContain("Needed by    : 5 Nov 2026");
     expect(text).toContain("Reply by     : 2 Nov 2026 (SLA 2-3 working days)");
@@ -238,7 +238,7 @@ describe("email templates", () => {
   });
 
   it("fills variables with or without spaces, keeps unknown text, and leaves out a line whose variable is empty", () => {
-    const values = templateValues({ type: "BOQ", code: "BOQ-1", projectCode: "PRJ-1", endUserCompany: "A", projectName: "B", title: "T", description: "", requiredBy: null, requesterName: "N", requesterTeam: "Sales", sourceCode: null, link: "L", sla: "2", dueDate: null });
+    const values = templateValues({ type: "BOQ", code: "BOQ-1", projectCode: "HIT-PROJ-1", endUserCompany: "A", projectName: "B", title: "T", description: "", requiredBy: null, requesterName: "N", requesterTeam: "Sales", sourceCode: null, link: "L", sla: "2", dueDate: null });
     expect(renderBody("ID {{request_id}} / {{ request_id }}\nSource: {{source_request}}\nDays {{sla_days}}\n{{unknown}}", values)).toBe("ID BOQ-1 / BOQ-1\nDays 2\n{{unknown}}");
     expect(variablesIn("{{a}} {{b}} {{a}}")).toEqual(["a", "b"]);
   });

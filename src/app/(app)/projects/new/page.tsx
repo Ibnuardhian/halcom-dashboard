@@ -43,7 +43,7 @@ async function NewProject({ searchParams }: Pick<PageProps<"/projects/new">, "se
           <CardTitle className="text-base">
             <h2>Project details</h2>
           </CardTitle>
-          <CardDescription>The Project ID (PRJ-001, PRJ-002 and so on) is assigned when you save. {sources.includes("INTERNAL_SALES") ? "An Internal Sales project makes you its Sales owner. " : ""}{sources.includes("OTHER") ? "A project from another source (Other) has no internal Sales PIC." : ""}</CardDescription>
+          <CardDescription>The Project ID (HIT-PROJ-001, HIT-PROJ-002 and so on) is assigned when you save. {sources.includes("INTERNAL_SALES") ? "An Internal Sales project makes you its Sales owner. " : ""}{sources.includes("OTHER") ? "A project from another source (Other) has no internal Sales PIC." : ""}</CardDescription>
         </CardHeader>
         <CardContent>
           <ProjectForm submissionKey={crypto.randomUUID()} defaultType={defaultType} scope={scope} />

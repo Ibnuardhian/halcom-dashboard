@@ -16,11 +16,11 @@ export type ImportSummary = {
   solutionCategories: number;
 };
 
-const COUNTER_SCOPE = "PRJ-";
+const COUNTER_SCOPE = "HIT-PROJ-";
 const TRANSACTION_TIMEOUT_MS = 120_000;
 
 function codeNumber(code: string): number {
-  return Number(code.slice(4));
+  return Number(code.slice(9));
 }
 
 /**
