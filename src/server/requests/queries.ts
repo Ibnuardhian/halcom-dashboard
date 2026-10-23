@@ -103,9 +103,9 @@ function showWhere(show: ProjectShow | undefined) {
 
 const numberOrNull = (value: { toNumber(): number } | null): number | null => (value === null ? null : value.toNumber());
 
-/** Highest project number first, so the newest project is on top (PRJ-1000 sorts after PRJ-999). */
+/** Highest project number first, so the newest project is on top (HIT-PROJ-1000 sorts after HIT-PROJ-999). */
 function byCodeDescending(a: { code: string }, b: { code: string }): number {
-  return Number(b.code.slice(4)) - Number(a.code.slice(4));
+  return Number(b.code.slice(9)) - Number(a.code.slice(9));
 }
 
 /** The database side of the chart filters: each one is an OR over its values, and the filters are ANDed together. */

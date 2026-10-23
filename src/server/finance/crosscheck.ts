@@ -70,7 +70,7 @@ export async function listCrosscheck(db: PrismaClient, viewer: Viewer, filter: C
 
   const flagCounts = Object.fromEntries(CROSSCHECK_FLAGS.map((flag) => [flag, 0])) as Record<CrosscheckFlag, number>;
   const rows: CrosscheckRow[] = projects
-    .sort((a, b) => Number(b.code.slice(4)) - Number(a.code.slice(4)))
+    .sort((a, b) => Number(b.code.slice(9)) - Number(a.code.slice(9)))
     .map((project) => {
       const finalValue = project.finalValue?.toNumber() ?? null;
       const flags = crosscheckFlags({ progress: project.progress, finalValue, requests: project.requests });

@@ -108,11 +108,11 @@ export function renderRfqSql(plan: RfqPlan, options: SqlOptions): string {
 
   add(
     `-- Projects, numbered after the highest project number in this database.`,
-    `WITH base AS (SELECT GREATEST(COALESCE((SELECT last_value FROM code_counters WHERE scope = 'PRJ-'), 0), COALESCE((SELECT max(substr(code, 5)::int) FROM projects), 0)) AS n),`,
+    `WITH base AS (SELECT GREATEST(COALESCE((SELECT last_value FROM code_counters WHERE scope = 'HIT-PROJ-'), 0), COALESCE((SELECT max(substr(code, 10)::int) FROM projects), 0)) AS n),`,
     `todo AS (SELECT sp.*, row_number() OVER (ORDER BY sp.seq) AS rn FROM rfq_stage_projects sp`,
     `        WHERE NOT EXISTS (SELECT 1 FROM projects p WHERE p.submission_key = sp.project_key))`,
-    `INSERT INTO projects (id, code, end_user_company, name, customer_id, source_type, sales_owner_id, external_source_name, technical_pic_id, submission_key, imported_from, created_at, updated_at)`,
-    `SELECT uuidv7(), 'PRJ-' || CASE WHEN base.n + todo.rn >= 1000 THEN (base.n + todo.rn)::text ELSE lpad((base.n + todo.rn)::text, 3, '0') END,`,
+    `INSERT INTO projects (id, code, end_user_company, name, customer_id, source_type, sales_owner_id, external_source_name, submission_key, imported_from, created_at, updated_at)`,
+    `SELECT uuidv7(), 'HIT-PROJ-' || CASE WHEN base.n + todo.rn >= 1000 THEN (base.n + todo.rn)::text ELSE lpad((base.n + todo.rn)::text, 3, '0') END,`,
     `       todo.customer, todo.name, c.id,`,
     `       CASE WHEN todo.owner_email IS NULL THEN 'OTHER' ELSE 'INTERNAL_SALES' END::"ProjectSourceType",`,
     `       u.id, todo.external_name, tu.id, todo.project_key, ${sqlText(fileName)}, todo.created_at, todo.created_at`,
@@ -121,7 +121,7 @@ export function renderRfqSql(plan: RfqPlan, options: SqlOptions): string {
     `LEFT JOIN users u ON u.email = todo.owner_email`,
     `LEFT JOIN users tu ON tu.email = todo.technical_email`,
     `ORDER BY todo.seq;`,
-    `INSERT INTO code_counters (scope, last_value) SELECT 'PRJ-', max(substr(code, 5)::int) FROM projects`,
+    `INSERT INTO code_counters (scope, last_value) SELECT 'HIT-PROJ-', max(substr(code, 10)::int) FROM projects`,
     `ON CONFLICT (scope) DO UPDATE SET last_value = GREATEST(code_counters.last_value, EXCLUDED.last_value);`,
     `INSERT INTO audit_events (id, actor_id, action, entity_type, entity_id, after)`,
     `SELECT uuidv7(), (SELECT id FROM users WHERE email = ${actor}), 'project.imported', 'project', p.id::text, jsonb_build_object('code', p.code, 'source', ${sqlText(fileName)})`,

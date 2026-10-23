@@ -136,7 +136,7 @@ describe("the database guards the source rules too", () => {
   it("gives a project written without a source the documented default, Internal Sales", async () => {
     const sales = await makeUser("SALES");
 
-    const legacy = await db.project.create({ data: { code: `PRJ-9${Math.floor(Math.random() * 1e8).toString().padStart(8, "0")}`, endUserCompany: company(), name: "legacy", salesOwnerId: sales.id } });
+    const legacy = await db.project.create({ data: { code: `HIT-PROJ-9${Math.floor(Math.random() * 1e8).toString().padStart(8, "0")}`, endUserCompany: company(), name: "legacy", salesOwnerId: sales.id } });
 
     expect(legacy).toMatchObject({ sourceType: "INTERNAL_SALES", externalSourceName: null });
   });

@@ -22,7 +22,7 @@ async function createProject(page: Page, company: string, name: string): Promise
     await page.getByLabel("End-user company").fill(company);
     await page.getByLabel("Project name").fill(name);
     await page.getByRole("button", { name: "Create project" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
@@ -34,7 +34,7 @@ async function createBoq(page: Page, projectCode: string, title: string): Promis
   await expect(async () => {
     await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return new URL(page.url()).searchParams.get("request")!;
 }
@@ -240,10 +240,10 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await soa.goto(`/projects?q=${encodeURIComponent(`E2E Import ${id}`)}`);
     await expect(soa.getByRole("status").filter({ hasText: "30 projects" })).toBeVisible();
     await expect(soa.getByText("Showing 1–25 of 30")).toBeVisible();
-    await expect(soa.getByRole("link", { name: /^PRJ-\d+$/ })).toHaveCount(25);
+    await expect(soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ })).toHaveCount(25);
     await soa.getByRole("link", { name: "Next" }).click();
     await expect(soa.getByText("Showing 26–30 of 30")).toBeVisible();
-    await expect(soa.getByRole("link", { name: /^PRJ-\d+$/ })).toHaveCount(5);
+    await expect(soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ })).toHaveCount(5);
     await soa.getByRole("group", { name: "Rows per page" }).getByRole("link", { name: "50" }).click();
     await expect(soa.getByText("Showing 1–30 of 30")).toBeVisible();
     await expect(soa.getByRole("group", { name: "Rows per page" }).getByRole("link", { name: "50" })).toHaveAttribute("aria-current", "true");
@@ -251,7 +251,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await expect(soa.getByText("Showing 1–30 of 30")).toBeVisible();
     await soa.getByRole("group", { name: "Rows per page" }).getByRole("link", { name: "All" }).click();
     await expect(soa).toHaveURL(/per=all/);
-    await expect(soa.getByRole("link", { name: /^PRJ-\d+$/ })).toHaveCount(30);
+    await expect(soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ })).toHaveCount(30);
     await expect(soa.getByText("Showing 1–30 of 30")).toBeVisible();
     await expect(soa.getByRole("group", { name: "Rows per page" }).getByRole("link", { name: "All" })).toHaveAttribute("aria-current", "true");
     // Searching again from All keeps All; the numbers follow the filter.

@@ -65,8 +65,8 @@ describe("createProject", () => {
 
     expect(first.ok && second.ok).toBe(true);
     if (!first.ok || !second.ok) return;
-    expect(first.value.code).toMatch(/^PRJ-\d{3,}$/);
-    const numbers = [first.value.code, second.value.code].map((code) => Number(code.slice(4)));
+    expect(first.value.code).toMatch(/^HIT-PROJ-\d{3,}$/);
+    const numbers = [first.value.code, second.value.code].map((code) => Number(code.slice(9)));
     expect(numbers[1]).toBeGreaterThan(numbers[0]!); // not "+1": the import tests may raise the shared counter in between
 
     const stored = await db.project.findUniqueOrThrow({ where: { id: first.value.id } });

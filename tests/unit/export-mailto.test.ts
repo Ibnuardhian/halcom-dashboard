@@ -52,7 +52,7 @@ describe("toCsv", () => {
 
 describe("export columns", () => {
   const project: ExportProject = {
-    code: "PRJ-001",
+    code: "HIT-PROJ-001",
     accountName: "PT A",
     projectTitle: "CCTV",
     progress: "PROPOSE",

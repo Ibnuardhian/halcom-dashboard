@@ -7,7 +7,7 @@ async function createProject(page: Page, name: string): Promise<string> {
     await page.getByLabel("End-user company").fill("PT One Page");
     await page.getByLabel("Project name").fill(name);
     await page.getByRole("button", { name: "Create project" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 45_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });
   return page.url().split("/").pop()!;
 }
@@ -18,7 +18,7 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
   await expect(async () => {
     await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=(BOQ|RFQ)-[A-Z0-9]+-\d{6,}/, { timeout: 45_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=(BOQ|RFQ)-[A-Z0-9]+-\d{6,}/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });
   return new URL(page.url()).searchParams.get("request")!;
 }

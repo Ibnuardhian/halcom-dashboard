@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { readDeviceEntries } from "./device-cookie";
@@ -13,8 +14,11 @@ export type RememberedAccount = { credentialId: string; name: string; email: str
 export async function readRememberedAccounts(): Promise<RememberedAccount[]> {
   const db = getDb();
   const accounts: RememberedAccount[] = [];
-  for (const entry of await readDeviceEntries()) {
-    const user = await verifyDeviceCredential(db, entry);
+  const entries = await readDeviceEntries();
+  await connection(); // the clock below is request-time data, never prerendered
+  const now = new Date();
+  for (const entry of entries) {
+    const user = await verifyDeviceCredential(db, entry, now);
     if (user) accounts.push({ credentialId: entry.id, name: user.name, email: user.email, role: user.role });
   }
   return accounts;

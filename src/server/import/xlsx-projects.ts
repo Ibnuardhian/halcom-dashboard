@@ -13,7 +13,7 @@ type Actor = { id: string; role: Role };
 type Db = PrismaClient | Prisma.TransactionClient;
 
 const TRANSACTION_TIMEOUT_MS = 120_000;
-const COUNTER_SCOPE = "PRJ-";
+const COUNTER_SCOPE = "HIT-PROJ-";
 /** Rows with a problem shown in a result; the counts always cover every row. */
 const DETAIL_LIMIT = 300;
 const SAMPLE_READY = 15;
@@ -226,7 +226,7 @@ export async function commitProjectImport(
         if (prepared.ready.length === 0) throw new Abort({ ok: false, code: "NOTHING_TO_IMPORT", message: "There is no new project to import in this sheet.", summary });
 
         // Explicit Project IDs first: the counter moves past them, so the numbers given to the other rows can never collide.
-        const explicit = prepared.ready.map((entry) => entry.row.code).filter((code): code is string => code !== null).map((code) => Number(code.slice(4)));
+        const explicit = prepared.ready.map((entry) => entry.row.code).filter((code): code is string => code !== null).map((code) => Number(code.slice(9)));
         if (explicit.length > 0) {
           const highest = Math.max(...explicit);
           await tx.$executeRaw`

@@ -137,7 +137,7 @@ describe("updateProjectDetails (technical fields)", () => {
       technicalPicId: other.id,
       wonDate: "2026-01-01",
       competitor: "x",
-      code: "PRJ-999",
+      code: "HIT-PROJ-999",
       nextAction: "sneaky",
       currentAction: "sneaky",
     })) {

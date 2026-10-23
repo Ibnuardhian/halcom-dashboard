@@ -19,7 +19,7 @@ async function createProject(page: Page, name: string): Promise<string> {
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill(name);
     await page.getByRole("button", { name: "Create project" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d{3,}$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return page.url().split("/").pop()!;
 }
@@ -34,7 +34,7 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
     await page.getByLabel("Summary").fill(title);
     await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
     await page.getByRole("button", { name: "Create request" }).click();
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   return new URL(page.url()).searchParams.get("request")!;
 }
@@ -114,10 +114,10 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Request summary").fill("BOQ from the combined form");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=BOQ-S[A-Z]*-\d{2}\d{4,}/);
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-S[A-Z]*-\d{2}\d{4,}/);
     const subject = await page.getByLabel("Subject", { exact: true }).inputValue();
     expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
-    const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (PRJ-\d+)/)![1]!;
+    const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (HIT-PROJ-\d+)/)![1]!;
 
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
@@ -233,7 +233,7 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Request summary").fill("Price for 10 servers");
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
-    await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-S[A-Z]*-\d{2}\d{4,}/);
+    await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-S[A-Z]*-\d{2}\d{4,}/);
     await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "RFQ routing demo"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     const requestUrl = page.url();
@@ -581,7 +581,7 @@ test.describe("projects and requests", () => {
 
     await soa.goto(`/request/${boq}`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
-    await expect(soa).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
+    await expect(soa).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
     const rfq = new URL(soa.url()).searchParams.get("request")!;
 
     // The project page holds the BOQ and the RFQ; the RFQ is the open one, and its email text is what is checked.
@@ -650,7 +650,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("Not continuing – decided by")).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
-      await expect(page).toHaveURL(/\/projects\/PRJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
     }).toPass({ timeout: 40_000 });
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQDone");
@@ -774,7 +774,7 @@ test.describe("access to the work modules", () => {
     await signIn(page, "SALES");
     await expectNotFound(page, "/requests/xyz", "Request details");
     await expectNotFound(page, "/request/RFQ-ZZ-999999", "Status history");
-    await expectNotFound(page, "/projects/PRJ-999999", "Target date");
+    await expectNotFound(page, "/projects/HIT-PROJ-999999", "Target date");
   });
 });
 
