@@ -10,6 +10,7 @@ import {
   createProject,
   createRequest,
   handOverToPurchasing,
+  setRequestDates,
   type Actor,
 } from "@/server/requests/service";
 import { makeUser } from "./helpers";
@@ -429,5 +430,50 @@ describe("read queries", () => {
     expect(stats.projectsActive).toBeGreaterThanOrEqual(1);
     expect(stats.openByType.BOQ).toBeGreaterThanOrEqual(1);
     expect(stats.statusCounts.RFQ.IN_PROGRESS).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("setRequestDates", () => {
+  const stamp = (iso: string) => iso.slice(0, 16);
+
+  it("lets a superadmin set the creation and completion time, audits the change and leaves the history alone", async () => {
+    const [sales, soa, superadmin] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("SUPERADMIN")]);
+    const project = await makeProject(sales);
+    const boq = await completedBoq(sales, soa, project.id);
+    const historyBefore = await db.requestStatusHistory.count({ where: { requestId: boq.id } });
+
+    const result = await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: stamp("2026-09-04T10:00:00Z") });
+
+    expect(result.ok).toBe(true);
+    const stored = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
+    expect(stored.createdAt.toISOString()).toBe("2026-09-01T03:30:00.000Z");
+    expect(stored.completedAt?.toISOString()).toBe("2026-09-04T10:00:00.000Z");
+    expect(await db.requestStatusHistory.count({ where: { requestId: boq.id } })).toBe(historyBefore);
+    const event = await db.auditEvent.findFirstOrThrow({ where: { action: "request.dates_corrected", entityId: boq.id } });
+    expect(event.actorId).toBe(superadmin.id);
+    expect(event.after).toMatchObject({ createdAt: "2026-09-01T03:30:00.000Z", completedAt: "2026-09-04T10:00:00.000Z" });
+  });
+
+  it("is for a superadmin only", async () => {
+    const [sales, soa, admin] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("ADMIN")]);
+    const project = await makeProject(sales);
+    const boq = await completedBoq(sales, soa, project.id);
+    for (const actor of [sales, soa, admin]) {
+      const result = await setRequestDates(db, actor, { requestId: boq.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: null });
+      expect(result).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    }
+  });
+
+  it("refuses a completion date on an open request, one before the creation date, and one in the future", async () => {
+    const [sales, superadmin] = await Promise.all([actorOf("SALES"), actorOf("SUPERADMIN")]);
+    const project = await makeProject(sales);
+    const open = await makeRequest(sales, project.id, "BOQ");
+
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: stamp("2026-09-02T03:30:00Z") })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: stamp("2026-09-05T03:30:00Z"), completedAt: stamp("2026-09-02T03:30:00Z") })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2999-01-01T00:00", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "not a date", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    // An open request can still get a corrected creation date.
+    expect((await setRequestDates(db, superadmin, { requestId: open.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: null })).ok).toBe(true);
   });
 });

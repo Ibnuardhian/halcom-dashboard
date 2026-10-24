@@ -100,4 +100,23 @@ export const statusChangeSchema = z.object({
 /** Sales ask for a revision of a completed BOQ; the reason is the change the customer asked for. */
 export const revisionSchema = z.object({ requestId: z.uuid(), reason: z.string().trim().min(1, "Say what needs to change.").max(500) });
 
+/** A superadmin sets the creation and completion time of a request by hand (a datetime-local value, read as UTC, the zone the app shows). */
+const utcDateTime = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Enter a valid date and time.")
+  .transform((value, ctx) => {
+    const date = new Date(`${value}:00.000Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 16) !== value) {
+      ctx.addIssue({ code: "custom", message: "Enter a valid date and time." });
+      return z.NEVER;
+    }
+    return date;
+  });
+export const requestDatesSchema = z.object({
+  requestId: z.uuid(),
+  createdAt: utcDateTime,
+  completedAt: z.string().trim().nullish().transform((value) => (value ? value : null)).pipe(utcDateTime.nullable()),
+});
+
 export const uuidSchema = z.uuid();

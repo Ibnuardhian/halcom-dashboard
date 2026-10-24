@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
+import { setActor } from "@/server/projects/actor-context";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { allowedTransitions, canHandOver, canTransition, isOpen, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
@@ -14,7 +15,7 @@ import { OWNING_ROLE } from "@/domain/requests/types";
 import { nextProjectCode, nextRequestCode } from "./codes";
 import { ensureCustomer } from "./master-data";
 import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
-import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, revisionSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
+import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, requestDatesSchema, revisionSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
 
 export type Actor = { id: string; role: Role };
 
@@ -162,6 +163,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
     return await db.$transaction(async (tx) => {
       const actor = await loadActor(tx, claimedActor);
       if (!actor || !canCreateProjectWithSource(actor.role, sourceType)) return fail("FORBIDDEN");
+      await setActor(tx, actor.id);
       if (submissionKey) {
         const again = await tx.project.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
         if (again) return succeed({ ...again, created: false, requestCode: null });
@@ -485,6 +487,41 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
     return succeed({ code: request.code });
   });
 }
+/**
+ * A superadmin sets when a request was created and when it was completed, by hand, for tickets entered late or recorded wrongly.
+ * The status history is append-only and stays as it is; the corrected dates are on the request and every change is audited.
+ * A completion date belongs only to a Completed or Revision request (a database check keeps it so) and cannot be before the creation date.
+ */
+export async function setRequestDates(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
+  const parsed = requestDatesSchema.safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
+  if (!can(claimedActor.role, "requests.edit-dates")) return fail("FORBIDDEN");
+  const { requestId, createdAt, completedAt } = parsed.data;
+  if (createdAt.getTime() > Date.now()) return fail("INVALID_INPUT", "The creation date cannot be in the future.");
+  if (completedAt && completedAt.getTime() > Date.now()) return fail("INVALID_INPUT", "The completion date cannot be in the future.");
+  if (completedAt && completedAt.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "The completion date cannot be before the creation date.");
+
+  return db.$transaction(async (tx) => {
+    const actor = await loadActor(tx, claimedActor);
+    if (!actor || !can(actor.role, "requests.edit-dates")) return fail("FORBIDDEN");
+    await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
+    const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { deletedAt: true } } } });
+    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    const finished = request.status === "COMPLETED" || request.status === "REVISION";
+    if (!finished && completedAt) return fail("INVALID_STATE", "Only a completed request has a completion date.");
+    // A finished request keeps a completion date: an empty field leaves the stored one.
+    const nextCompleted = finished ? (completedAt ?? request.completedAt) : null;
+    if (nextCompleted && nextCompleted.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "The completion date cannot be before the creation date.");
+
+    const before = { createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null };
+    const after = { createdAt: createdAt.toISOString(), completedAt: nextCompleted?.toISOString() ?? null };
+    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt) return fail("INVALID_INPUT", "Nothing changed.");
+    await tx.request.update({ where: { id: request.id }, data: { createdAt, completedAt: nextCompleted } });
+    await audit(tx, actor.id, "request", "request.dates_corrected", request.id, before, { code: request.code, ...after });
+    return succeed({ code: request.code });
+  });
+}
+
 /**
  * SOA labels a BOQ request with the part of the work it is on: Assessment, Sizing or POC (or clears the label).
  * Only people who work on BOQ requests may do it, and only on a BOQ that is still open. The change is audited and

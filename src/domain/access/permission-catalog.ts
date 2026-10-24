@@ -68,6 +68,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "requests.create": { category: "request-workflow", label: "Raise requests", description: "Raise a BOQ, RFQ or PO request for a project." },
   "requests.create.external": { category: "request-workflow", label: "Raise requests for external projects", description: "Raise a request on a project whose source is Other." },
   "requests.create.rfq": { category: "request-workflow", label: "Raise RFQ requests", description: "Raise an RFQ request (only an RFQ) for an existing project, for example Purchasing on behalf of the project's Sales and SOA PICs." },
+  "requests.edit-dates": { category: "request-workflow", label: "Correct request dates", description: "Set the date a request was created and the date it was completed by hand, for tickets entered late or recorded wrongly. Only a superadmin can hold this; every change is audited." },
   "requests.revise": { category: "request-workflow", label: "Request a revision", description: "Send a completed BOQ back to SOA for changes the customer asked for: the request goes straight to the Revision stage and SOA is told (Sales on their own projects)." },
   "requests.email": { category: "request-workflow", label: "Request email text", description: "Copy the email text of a request to send to the team." },
   "requests.work.boq": { category: "request-workflow", label: "Work BOQ requests", description: "Change the status of BOQ requests and hand them to a PIC (SOA)." },

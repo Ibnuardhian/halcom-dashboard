@@ -16,7 +16,7 @@ import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/dom
 import { MarginInput } from "@/features/projects/margin-input";
 import { MoneyInput } from "@/features/projects/money-input";
 import type { PicOption } from "@/domain/pics/teams";
-import { assignPicAction, createProjectAction, createRequestAction, handOverAction, requestRevisionAction, setPhaseAction } from "./actions";
+import { assignPicAction, createProjectAction, createRequestAction, handOverAction, requestRevisionAction, setPhaseAction, setRequestDatesAction } from "./actions";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -452,6 +452,33 @@ export function RevisionForm({ requestId }: { requestId: string }) {
       <div>
         <Button type="submit" variant="destructive" disabled={pending}>
           {pending ? "Sending…" : "Request revision"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** A superadmin sets the creation and completion time by hand. The values are UTC, the zone the app shows. */
+export function RequestDatesForm({ requestId, createdAt, completedAt, canComplete }: { requestId: string; createdAt: string; completedAt: string | null; canComplete: boolean }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(setRequestDatesAction, null);
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="requestId" value={requestId} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={`created-at-${requestId}`} label="Created (UTC) *">
+          <Input id={`created-at-${requestId}`} name="createdAt" type="datetime-local" required defaultValue={createdAt} />
+        </Field>
+        {canComplete ? (
+          <Field id={`completed-at-${requestId}`} label="Completed (UTC)" hint="Leave as it is to keep the stored completion time.">
+            <Input id={`completed-at-${requestId}`} name="completedAt" type="datetime-local" defaultValue={completedAt ?? ""} />
+          </Field>
+        ) : null}
+      </div>
+      <FormStatus state={state} />
+      <div>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save dates"}
         </Button>
       </div>
     </form>

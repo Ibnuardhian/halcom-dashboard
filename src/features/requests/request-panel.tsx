@@ -19,7 +19,7 @@ import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
 import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
-import { AssignPicForm, NextStepForm, PhaseForm, RevisionForm } from "./forms";
+import { AssignPicForm, NextStepForm, PhaseForm, RequestDatesForm, RevisionForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -180,6 +180,25 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           </CardHeader>
           <CardContent>
             <RevisionForm requestId={request.id} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {can(viewer.role, "requests.edit-dates") ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h3>Correct the dates</h3>
+            </CardTitle>
+            <CardDescription>Set when this request was created and when it was completed, for a ticket entered late or recorded wrongly. The status history is not rewritten; the change is audited.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RequestDatesForm
+              requestId={request.id}
+              createdAt={request.createdAt.toISOString().slice(0, 16)}
+              completedAt={request.completedAt ? request.completedAt.toISOString().slice(0, 16) : null}
+              canComplete={request.status === "COMPLETED" || request.status === "REVISION"}
+            />
           </CardContent>
         </Card>
       ) : null}
