@@ -18,12 +18,27 @@ You need:
 - a Vercel account with access to that repository;
 - Docker Desktop on your own machine, which is how the migration and bootstrap commands below are run.
 
-Decide two things first:
+Two decisions were taken on 2026-10-25:
 
-| Decision | Recommendation |
+| Decision | Chosen |
 |---|---|
-| Vercel plan | **Pro.** Hobby forbids commercial use, and this is an internal company tool. |
-| Function region | **Singapore (`sin1`)**, next to the Neon project in `ap-southeast-1`. Every page talks to the database, so distance is latency. `vercel.json` already sets it. A Hobby project may have one region, which is all this needs. |
+| Vercel plan | **Hobby.** Read [What Hobby means here](#what-hobby-means-here) before the first deploy: Vercel's plan terms restrict Hobby to non-commercial, personal use, and this is a company tool. |
+| Function region | **Singapore (`sin1`)**, next to the Neon project in `ap-southeast-1`. Every page talks to the database, so distance is latency. `vercel.json` already sets it, and one region is all a Hobby project may have. |
+
+### What Hobby means here
+
+- **The plan terms.** Vercel's documentation says the Hobby plan is for non-commercial, personal use. An internal tool that no one
+  pays for is a grey area that Vercel has not settled publicly, and the decision here is to start on Hobby anyway. The risk is not a
+  bill; it is that a project found to be commercial can be **suspended**, which takes the application offline until it is moved to
+  Pro. Keep the move to Pro as the first answer if Vercel ever asks, and keep this deployment easy to move: nothing in the code is
+  Vercel-specific apart from `vercel.json` and the Backups notice.
+- **Only one external user per account**, so the Vercel dashboard stays with whoever owns the account. This does not limit the
+  people who use the application: they sign in to the application itself, not to Vercel.
+- **Deployment Protection reaches previews only.** Turn on Settings → Deployment Protection → **Vercel Authentication (Standard
+  Protection)**: it puts a Vercel sign-in in front of the preview deployments of `development`, which otherwise sit on a public URL.
+  The production domain stays public on Hobby, which is fine here, because the application itself shows nothing without a sign-in.
+  Check it once in a private window: a preview URL must ask for a Vercel account first.
+- A single region, which is what this deployment uses anyway.
 
 ---
 
@@ -124,7 +139,10 @@ git-ignored: never commit it, and delete your copy when you are done.
 3. **Node.js version: 24.** It is Vercel's default; `package.json` also pins `engines.node` to the 24 range. If a build complains
    about the version, set it under Settings → Build and Deployment.
 4. **Production branch: `main`.** Every other branch, `development` included, becomes a preview deployment with its own URL.
-5. Add the environment variables from step 1, then **Deploy**.
+5. Add the environment variables from step 1.
+6. Settings → **Deployment Protection** → turn on **Vercel Authentication** (Standard Protection), so preview deployments are not
+   open to anyone who guesses the URL.
+7. **Deploy.**
 
 `vercel.json` in the repository already fixes the framework, the region and the (silent) GitHub comments.
 
@@ -142,6 +160,7 @@ Open the deployment URL and work through this list:
 - [ ] A request page shows the e-mail text with the right To and Cc, and the link points at `APP_BASE_URL`.
 - [ ] **Admin → System** shows environment `production` and the Neon PostgreSQL version.
 - [ ] **Admin → Backups** shows the notice that this deployment cannot write backups (expected, see below).
+- [ ] In a private window, a preview URL of `development` asks for a Vercel sign-in, and the production URL does not.
 
 Then set the custom domain (Settings → Domains) and change `APP_BASE_URL` to it, because the e-mail text uses it.
 
@@ -179,6 +198,8 @@ two deploys: one that stops using it, then the migration, then one that removes 
 
 ## Known risks to weigh before real users arrive
 
+- The plan. See [What Hobby means here](#what-hobby-means-here): a suspension would take the application offline, and the way out
+  is an upgrade, not a code change.
 - Password hashing is scrypt at about 64 MiB per check. It is deliberate, and it costs function memory: watch the first week, and
   raise the function memory if sign-ins are slow when several people arrive at once.
 - The sign-in throttle counts in the database, so it works across functions and regions; it does not stop a distributed attack from
