@@ -1,3 +1,4 @@
+import { PROPOSE_OR_BEYOND } from "@/domain/projects/growth";
 import { effectiveIndustry } from "@/domain/customers/industry";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
@@ -53,12 +54,13 @@ export type ProjectRow = {
  * The lists behind the pipeline tiles: open projects, open projects with an estimated value (the open pipeline),
  * open projects with a value and a target margin (the estimated gross profit) and Closed Won projects.
  */
-export const PROJECT_SHOWS = ["open", "pipeline", "weighted", "margin", "won"] as const;
+export const PROJECT_SHOWS = ["open", "pipeline", "weighted", "quoted", "margin", "won"] as const;
 export type ProjectShow = (typeof PROJECT_SHOWS)[number];
 export const PROJECT_SHOW_LABELS: Record<ProjectShow, string> = {
   open: "Open projects",
   pipeline: "Open pipeline (open projects with an estimated value)",
   weighted: "Weighted pipeline (open projects with an estimated value)",
+  quoted: "Open projects at Propose or beyond (the numerator of Pipeline Conversion)",
   margin: "Estimated gross profit (open projects with a value and a target margin)",
   won: "Won projects",
 };
@@ -87,6 +89,8 @@ function showWhere(show: ProjectShow | undefined) {
     case "pipeline":
     case "weighted":
       return { progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] }, trackStatus: { not: "DONE" as TrackStatus }, estimatedValue: { not: null } };
+    case "quoted":
+      return { progress: { in: [...PROPOSE_OR_BEYOND] as ProjectProgress[] }, trackStatus: { not: "DONE" as TrackStatus } };
     case "margin":
       return {
         progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] },

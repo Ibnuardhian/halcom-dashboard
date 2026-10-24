@@ -51,6 +51,7 @@ model User {
   teamSettings      TeamSetting[]          @relation("TeamSettingUpdatedBy")
   rolePermissionChanges RolePermissionOverride[] @relation("RolePermissionUpdatedBy")
   projectChanges    ProjectChange[]
+  progressChanges   ProjectProgressHistory[] @relation("ProgressChangedBy")
   projectActions    ProjectAction[]
   notifications     Notification[]
   salesTargets      SalesTarget[]
@@ -325,6 +326,7 @@ model Project {
   deletedBy        User?             @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   requests         Request[]
   changes          ProjectChange[]
+  progressHistory  ProjectProgressHistory[]
   actions          ProjectAction[]
 
   @@index([progress])
@@ -413,6 +415,26 @@ model RequestStatusHistory {
 // One row per field changed on a project by a person, kept as a log shown on the project page
 // ("who changed what, from what, to what, when"). Append-only: the migration installs triggers that
 // reject UPDATE, DELETE and TRUNCATE. Values are the text the field held, so history stays readable.
+// Every stage a project has been in, newest last (migration 20261028100000). A trigger on projects writes it, so any way of creating or moving a
+// project is covered. Append-only. The history starts at the migration (source "baseline"): nothing before it is known, and none is invented.
+model ProjectProgressHistory {
+  id           String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  projectId    String           @map("project_id") @db.Uuid
+  fromProgress ProjectProgress? @map("from_progress")
+  toProgress   ProjectProgress  @map("to_progress")
+  // Set when the application named the person for the transaction (app.actor_id); otherwise null.
+  changedById  String?          @map("changed_by_id") @db.Uuid
+  // baseline | insert | update (a database check keeps it to these).
+  source       String
+  changedAt    DateTime         @default(now()) @map("changed_at") @db.Timestamptz(3)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  changedBy User?   @relation("ProgressChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, changedAt(sort: Desc)])
+  @@map("project_progress_history")
+}
+
 model ProjectChange {
   id          String   @id @default(uuid(7)) @db.Uuid
   projectId   String   @map("project_id") @db.Uuid

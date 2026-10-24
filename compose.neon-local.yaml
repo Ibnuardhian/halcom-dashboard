@@ -1,0 +1,9 @@
+# Runs the development app on the local copy of the Neon database (made with pg_dump, restored into the local `db` container):
+#   docker compose -f compose.yaml -f compose.neon-local.yaml up -d app
+# The database name comes from NEON_LOCAL_DB in `.env` (default halcom_neon_v2). The `halcom` database is not touched.
+# Accounts are the ones of Neon (@halcominovasi.co.id); see DEV_ACCOUNTS.md.
+
+services:
+  app:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${NEON_LOCAL_DB:-halcom_neon_v2}

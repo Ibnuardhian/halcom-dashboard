@@ -1,3 +1,4 @@
+import { PROPOSE_OR_BEYOND } from "@/domain/projects/growth";
 import { effectiveIndustry } from "@/domain/customers/industry";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
@@ -34,6 +35,8 @@ export type PipelineAnalytics = {
     /** Sum of the estimated gross profit (value × target margin) over open projects that have both. */
     openTargetMargin: number;
     openWithMargin: number;
+    /** Open projects at Propose or beyond: the numerator of Pipeline Conversion (the denominator is `open`). */
+    openQuoted: number;
     wonCount: number;
     wonValue: number;
   };
@@ -136,7 +139,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const solutions = new Map<string, Slice>();
   const industries = new Map<string, Slice>();
   const salespeople = new Map<string, Slice>();
-  const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, wonCount: 0, wonValue: 0 };
+  const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, openQuoted: 0, wonCount: 0, wonValue: 0 };
 
   for (const project of projects) {
     const estimated = project.estimatedValue?.toNumber() ?? null;
@@ -160,6 +163,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       totals.open += 1;
       totals.openValue += estimated ?? 0;
       totals.openWeighted += weighted ?? 0;
+      if (PROPOSE_OR_BEYOND.includes(project.progress)) totals.openQuoted += 1;
       const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null, project.targetMarginValue?.toNumber() ?? null);
       if (margin !== null) {
         totals.openTargetMargin += margin;

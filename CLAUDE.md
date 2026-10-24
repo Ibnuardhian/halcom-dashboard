@@ -21,6 +21,10 @@ three FK indexes. D-036 (asked by the product owner): dropped `requests.email_li
 and the deprecated `projects.stage`, `projects.status`, `requests.assignee_id`; Adityo and Ibnu are SOA PICs (`requests.raised_by_pic_id`, raised through the shared SOA login; their projects name them as Technical PIC (SOA), not as Sales name); the SOA and Purchasing dashboards share a summary with status and per-PIC charts, Purchasing counting RFQ and PO. Migrations through
 `20261027110000_drop_deprecated_columns` are applied to the dev DB (run `db:migrate:deploy` and `docker compose restart app` on another device; back up first: the last two drop data).
 
+**D-037 (2026-10-23):** the seed, the RFQ importer and the tests use the Neon accounts (`@halcominovasi.co.id`: `support@` for SOA, Satrio and Dzaki for Sales, no `sales@`; PICs Adityo, Ibnu, Gita, Soraya); minimum password 8; a superadmin can set a request's created and completed dates (`requests.edit-dates`); the Sales Pipeline puts sales numbers first and the request parts in two sections that open and close. `compose.neon-local.yaml` runs the app on the local copy of Neon (`halcom_neon_v2`, from `pg_dump` of Neon); `compose.neon.yaml` runs it on Neon itself.
+
+**D-038 (2026-10-23):** Pipeline conversion tile (replaces Weighted pipeline) and the **Pipeline Growth** line chart (weekly/monthly/quarterly) on the Sales Pipeline, backed by a new append-only `project_progress_history` written by a database trigger; history starts at migration `20261028100000` (earlier stages were never stored), so the chart shows no point before that.
+
 **Still open / asked:** deploying to Oracle Cloud Always Free with automatic deploys (no files written yet; the plan was given in chat: Ampere A1 VM, Docker, `compose.prod.yaml`,
 Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8, T-9 (no first-superadmin bootstrap, no login rate limit) still stand, so the app is not ready
 for real users. Whether the Request and Project lists should also merge is undecided. `prisma/data/hit_rfq_tickets_import.sql` and the CSV hold customer data: never commit them.

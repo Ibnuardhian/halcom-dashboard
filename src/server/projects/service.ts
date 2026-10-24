@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { setActor } from "./actor-context";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -71,6 +72,7 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
     // The stored role decides, so a demoted or deactivated user cannot act on a stale session.
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
     if (!actor?.isActive || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+    await setActor(tx, actor.id);
 
     // Serialise concurrent edits of one project, so each log row's "from" is the value really replaced.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
@@ -219,6 +221,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     if (!actor?.isActive || !can(actor.role, "projects.edit.commercial")) {
       return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies CommercialResult;
     }
+    await setActor(tx, actor.id);
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
