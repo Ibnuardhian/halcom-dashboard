@@ -98,13 +98,13 @@ nothing). To test from a phone, add the PC's LAN address to `ALLOWED_DEV_ORIGINS
 
 | Email | Role | Lands on | Can also open |
 |---|---|---|---|
-| `superadmin@example.invalid` | Superadmin | `/dashboard/superadmin` | every dashboard, Users, Audit log, Backups, System |
-| `admin@example.invalid` | Admin | `/dashboard/admin` | all dashboards except Superadmin's, Users, Audit log |
-| `sales@example.invalid` | Sales | `/dashboard/sales` | Overview, Projects, requests, New request |
-| `soa@example.invalid` | SOA | `/dashboard/soa` | Overview, Projects (edits technical fields), requests |
-| `purchasing@example.invalid` | Purchasing | `/dashboard/purchasing` | Overview, Projects, requests |
-| `finance@example.invalid` | Finance | `/dashboard/finance` | Overview, Projects, requests (read-only) |
-| `management@example.invalid` | Management | `/dashboard/management` | Overview, Projects, requests (read-only) |
+| `superadmin@halcominovasi.co.id` | Superadmin | `/dashboard/superadmin` | every dashboard, Users, Audit log, Backups, System |
+| `admin@halcominovasi.co.id` | Admin | `/dashboard/admin` | all dashboards except Superadmin's, Users, Audit log |
+| `satrio@halcominovasi.co.id` (or `dzaki@`) | Sales | `/dashboard/sales` | Overview, Projects, requests, New request |
+| `support@halcominovasi.co.id` | SOA | `/dashboard/soa` | Overview, Projects (edits technical fields), requests |
+| `purchasing@halcominovasi.co.id` | Purchasing | `/dashboard/purchasing` | Overview, Projects, requests |
+| `finance@halcominovasi.co.id` | Finance | `/dashboard/finance` | Overview, Projects, requests (read-only) |
+| `management@halcominovasi.co.id` | Management | `/dashboard/management` | Overview, Projects, requests (read-only) |
 
 ### The modules in the sidebar
 
@@ -122,10 +122,10 @@ becomes a drawer behind the menu button.
 
 ### Things to try
 
-1. Sign in as `sales@example.invalid`, open **Projects → New project**, then **New BOQ** on the project page.
+1. Sign in as `satrio@halcominovasi.co.id`, open **Projects → New project**, then **New BOQ** on the project page.
    After saving you get **To, Cc, Subject and the default text** (with the request ID) to copy into Outlook.
    The application never sends mail. The lists in `EMAIL_TO_HITBOQ` and the others in `.env` fill To and Cc.
-2. Sign in as `soa@example.invalid`, open that BOQ and move it to *In progress*, then *Completed*. A **Hand over to
+2. Sign in as `support@halcominovasi.co.id`, open that BOQ and move it to *In progress*, then *Completed*. A **Hand over to
    Purchasing** card appears: choose **RFQ** or **PO**. The new request keeps the project and points back to the BOQ;
    its page tells you to reply inside the original `[HITBOQ]` thread in Outlook.
 3. As SOA open a project and go to **Activity**: write an update, choose *Current action* (what was done) or *Next action* (what comes
@@ -133,9 +133,9 @@ becomes a drawer behind the menu button.
    page highlights the last two current actions and the latest next action, and entries are never edited. Under **Technical** SOA
    can also save the technical fields; each change is logged with its old and new value. Sales sees the same page but no forms.
    There is no way to edit values, probability, stage or status as SOA.
-4. Sign in as `admin@example.invalid` and open **Users** and **Audit log**. Create a user, change a role, reset a
+4. Sign in as `admin@halcominovasi.co.id` and open **Users** and **Audit log**. Create a user, change a role, reset a
    password or deactivate someone; the Audit log lists each change.
-5. Sign in as `superadmin@example.invalid`: **Backups** writes a dump to the host folder, **System** shows live figures,
+5. Sign in as `superadmin@halcominovasi.co.id`: **Backups** writes a dump to the host folder, **System** shows live figures,
    and the **Theme** selector in the sidebar switches Light, Dark or System (stored in that browser only).
 
 Typing a URL your role may not open (for example `/admin/backups` as Sales) shows "This page could not be found".

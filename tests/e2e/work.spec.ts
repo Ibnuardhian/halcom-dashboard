@@ -499,7 +499,7 @@ test.describe("projects and requests", () => {
     const feed = soa.getByRole("list", { name: "Update feed" });
     await expect(feed.getByRole("listitem")).toHaveCount(4);
     await expect(feed.getByRole("listitem").first()).toContainText("Received the distributor price");
-    await expect(feed.getByRole("listitem").first()).toContainText("Dev Soa"); // who wrote it
+    await expect(feed.getByRole("listitem").first()).toContainText("SOA"); // who wrote it
     await expect(feed.getByRole("listitem").first().locator("time")).toBeVisible(); // and when
 
     // The highlights show the last two current actions and the latest next action.

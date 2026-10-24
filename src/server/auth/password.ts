@@ -6,7 +6,7 @@ const KEY_LENGTH = 32;
 const SALT_LENGTH = 16;
 const MAX_MEMORY = 128 * 1024 * 1024;
 
-export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
 function deriveKey(

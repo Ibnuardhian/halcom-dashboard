@@ -39,12 +39,12 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
 
   await page.getByLabel("Sales PIC").selectOption({ label: "No Sales PIC (project from another source)" });
   await expect(projectOption).toHaveCount(0);
-  await page.getByLabel("Sales PIC").selectOption({ label: "Dev Sales" });
+  await page.getByLabel("Sales PIC").selectOption({ label: "Satrio" });
   await expect(projectOption).toHaveCount(1);
 
   await page.getByLabel("Project *").selectOption((await projectOption.getAttribute("value"))!);
   const pics = page.getByTestId("request-project-pics");
-  await expect(pics).toContainText("Sales PIC: Dev Sales");
+  await expect(pics).toContainText("Sales PIC: Satrio");
   await expect(pics).toContainText("SOA PIC: None yet");
 
   // A click before the page is interactive reloads the form instead of submitting it, so the step is retried.

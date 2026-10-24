@@ -103,17 +103,17 @@ describe("planning the import", () => {
 
   it("gives each sender one letter and numbers their tickets from 1 in date order", () => {
     const p = plan([
-      ",2026-10-08,2026-10-08,gusti.nirmala@example.test,C2,P2,Done,Soraya,,,m2",
+      ",2026-10-08,2026-10-08,dzaki@example.test,C2,P2,Done,Soraya,,,m2",
       ",2026-10-06,2026-10-07,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1",
       ",2026-10-07,2026-10-07,satrio.akbar@example.test,C3,P3,Done,Gita,,,m3",
     ]);
 
     expect(p.tickets.map((t) => [t.code, t.requesterEmail])).toEqual([
-      ["RFQ-S-260001", "satrio@example.invalid"],
-      ["RFQ-S-260002", "satrio@example.invalid"],
-      ["RFQ-G-260001", "gusti@example.invalid"],
+      ["RFQ-S-260001", "satrio@halcominovasi.co.id"],
+      ["RFQ-S-260002", "satrio@halcominovasi.co.id"],
+      ["RFQ-D-260001", "dzaki@halcominovasi.co.id"],
     ]);
-    expect(Object.fromEntries(p.prefixes.map((x) => [x.email, x.prefix]))).toEqual({ "satrio@example.invalid": "S", "gusti@example.invalid": "G" });
+    expect(Object.fromEntries(p.prefixes.map((x) => [x.email, x.prefix]))).toEqual({ "satrio@halcominovasi.co.id": "S", "dzaki@halcominovasi.co.id": "D" });
   });
 
   it("raises a SOA person's tickets through the shared SOA login and records the person as a SOA PIC", () => {
@@ -125,20 +125,22 @@ describe("planning the import", () => {
     const ibnu = p.tickets.find((t) => t.title === "P1")!;
     const adityo = p.tickets.find((t) => t.title === "P2")!;
 
-    expect(ibnu).toMatchObject({ requesterEmail: "soa@example.invalid", raisedByPic: "Ibnu" });
-    expect(adityo).toMatchObject({ requesterEmail: "soa@example.invalid", raisedByPic: "Adityo", code: "RFQ-A-260002" });
+    expect(ibnu).toMatchObject({ requesterEmail: "support@halcominovasi.co.id", raisedByPic: "Ibnu" });
+    expect(adityo).toMatchObject({ requesterEmail: "support@halcominovasi.co.id", raisedByPic: "Adityo", code: "RFQ-A-260002" });
     // The login's own letter is taken the way anyone's is: "S" is Satrio's, so the SOA login gets two letters.
     expect(ibnu.code).toBe("RFQ-SO-260001");
-    expect(p.prefixes.find((x) => x.email === "soa@example.invalid")?.prefix).toBe("SO");
+    expect(p.prefixes.find((x) => x.email === "support@halcominovasi.co.id")?.prefix).toBe("SO");
     // The sheet's own code stays as written and its number is kept, but the shared login does not take the letter "A".
     expect(p.counters.find((c) => c.scope === "RFQ-A-26")?.last).toBe(2);
     expect(p.prefixes.some((x) => x.prefix === "A")).toBe(false);
     expect(p.pics.filter((x) => x.team === "SOA").map((x) => x.name).sort()).toEqual(["Adityo", "Ibnu"]);
     // Their projects have no Sales PIC and no Sales name: the person is the project's Technical PIC (SOA).
-    expect(p.projects.find((x) => x.name === "P1")).toMatchObject({ ownerEmail: null, externalSourceName: "Internal SOA request", technicalPicEmail: "ibnu.ardhiansyah@example.invalid" });
-    expect(p.projects.find((x) => x.name === "P2")).toMatchObject({ ownerEmail: null, externalSourceName: "Internal SOA request", technicalPicEmail: "adityo@example.invalid" });
+    expect(p.projects.find((x) => x.name === "P1")).toMatchObject({ ownerEmail: null, externalSourceName: "Internal SOA request", technicalPicEmail: "support@halcominovasi.co.id" });
+    expect(p.projects.find((x) => x.name === "P2")).toMatchObject({ ownerEmail: null, externalSourceName: "Internal SOA request", technicalPicEmail: "support@halcominovasi.co.id" });
     expect(JSON.stringify(p.projects)).not.toMatch(/Ibnu"|Adityo"/); // neither name is written as a Sales name
-    expect(p.accounts.filter((a) => a.role === "SOA" && a.historyOnly).map((a) => a.email).sort()).toEqual(["adityo@example.invalid", "ibnu.ardhiansyah@example.invalid"]);
+    // Nobody is created just for history: every account the plan names already exists (the shared SOA login holds the Technical PIC column).
+    expect(p.accounts.filter((a) => a.historyOnly)).toEqual([]);
+    expect(p.accounts.map((a) => a.email).sort()).toEqual(["satrio@halcominovasi.co.id", "support@halcominovasi.co.id"]);
   });
 
   it("keeps the ticket ids the sheet already has, decides the sender's letter from them, and numbers on from them", () => {
@@ -146,16 +148,17 @@ describe("planning the import", () => {
 
     expect(p.tickets.map((t) => t.code)).toEqual(["RFQ-S-260003", "RFQ-S-260004"]);
     expect(p.counters.find((c) => c.scope === "RFQ-S-26")?.last).toBe(4);
-    expect(p.prefixes).toEqual([{ email: "satrio@example.invalid", prefix: "S" }]);
+    expect(p.prefixes).toEqual([{ email: "satrio@halcominovasi.co.id", prefix: "S" }]);
   });
 
   it("gives a second person with the same letter their first two letters, and continues after what exists", () => {
     const p = plan(
-      [",2026-10-06,2026-10-07,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1", ",2026-10-06,2026-10-07,gusti.nirmala@example.test,C2,P2,Done,Gita,,,m2"],
-      { existingPrefixes: new Map([["dzaki@example.invalid", "G"]]), existingCounters: new Map([["RFQ-S-26", 4]]) },
+      [",2026-10-06,2026-10-07,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1", ",2026-10-06,2026-10-07,ibnu.ardhiansyah@example.test,C2,P2,Done,Gita,,,m2"],
+      { existingPrefixes: new Map([["dzaki@halcominovasi.co.id", "D"]]), existingCounters: new Map([["RFQ-S-26", 4]]) },
     );
 
-    expect(p.tickets.map((t) => t.code)).toEqual(["RFQ-S-260005", "RFQ-GU-260001"]);
+    // "S" is Satrio's, so the SOA login gets its first two letters.
+    expect(p.tickets.map((t) => t.code)).toEqual(["RFQ-S-260005", "RFQ-SO-260001"]);
   });
 
   it("maps the sheet's statuses and writes the moves", () => {
@@ -186,7 +189,7 @@ describe("planning the import", () => {
     ]);
 
     expect(p.projects).toHaveLength(2);
-    expect(p.projects.find((x) => x.name === "P1")).toMatchObject({ ownerEmail: "satrio@example.invalid", externalSourceName: null });
+    expect(p.projects.find((x) => x.name === "P1")).toMatchObject({ ownerEmail: "satrio@halcominovasi.co.id", externalSourceName: null });
     expect(p.tickets.filter((t) => t.projectKey === p.projects.find((x) => x.name === "P1")!.key)).toHaveLength(2);
   });
 
@@ -205,7 +208,7 @@ describe("planning the import", () => {
   });
 
   it("refuses a sheet code whose letter belongs to somebody else", () => {
-    const result = planRfqImport(rows("RFQ-S-260002,2026-10-20,,satrio.akbar@example.test,C,P,Baru,,,,m1"), { existingPrefixes: new Map([["dzaki@example.invalid", "S"]]) });
+    const result = planRfqImport(rows("RFQ-S-260002,2026-10-20,,satrio.akbar@example.test,C,P,Baru,,,,m1"), { existingPrefixes: new Map([["dzaki@halcominovasi.co.id", "S"]]) });
 
     expect(result.problems[0]).toMatch(/belongs to someone else/);
   });
@@ -214,7 +217,7 @@ describe("planning the import", () => {
     const lines = [",2026-10-06,2026-10-07,satrio.akbar@example.test,C1,P1,Done,Gita,,,m1", ",2026-10-15,2026-10-15,ibnu.ardhiansyah@example.test,C2,P2,Done,Gita,,,m2"];
     const [first, second] = rows(...lines);
     const p = plan(lines, {
-      existingPrefixes: new Map([["satrio@example.invalid", "S"]]),
+      existingPrefixes: new Map([["satrio@halcominovasi.co.id", "S"]]),
       // The counters are far ahead of the kept codes: the kept code must not move, and the new one continues after the counter.
       existingCounters: new Map([["RFQ-S-26", 19], ["RFQ-SO-26", 1]]),
       existingCodes: new Map([[ticketKey(first!), "RFQ-S-260004"], [ticketKey(second!), "RFQ-I-260001"]]),
@@ -233,7 +236,7 @@ describe("planning the import", () => {
 describe("the SQL file", () => {
   const plan = planRfqImport(
     rows(
-      ",2026-10-06,2026-10-07,gusti.nirmala@example.test,O'Neil Co,\"Kabel; DROP TABLE users; --\",Done,Gita,It's done,https://example.test/a?b=1,<m@x>,c1",
+      ",2026-10-06,2026-10-07,satrio.akbar@example.test,O'Neil Co,\"Kabel; DROP TABLE users; --\",Done,Gita,It's done,https://example.test/a?b=1,<m@x>,c1",
       ",2026-10-08,2026-10-09,ibnu.ardhiansyah@example.test,C2,P2,On Going,Soraya,Waiting,,<n@x>,",
     ),
   ).plan!;
@@ -256,16 +259,16 @@ describe("the SQL file", () => {
     expect(text).toMatch(/^COMMIT;$/m);
     expect(sql(false)).not.toMatch(/^BEGIN;$/m);
     expect(text).not.toMatch(/^\s*(DELETE|TRUNCATE|DROP)\b/im);
-    expect(text).toContain("ON CONFLICT (email) DO NOTHING");
+    expect(text).toContain("ON CONFLICT (team, name_key) DO NOTHING");
+    expect(text).not.toMatch(/INSERT INTO users \(/); // every account already exists: the file creates none
     expect(text).toContain("WHERE NOT EXISTS (SELECT 1 FROM requests r WHERE r.submission_key = s.ticket_key)");
   });
 
   it("carries the planned code, the prefix, the status moves and the SOA PIC, and no mail columns", () => {
     const text = sql();
 
-    expect(text).toContain("'RFQ-G-260001'");
-    expect(text).toContain("('gusti@example.invalid', 'G')");
-    expect(text).toContain("'scrypt$locked'");
+    expect(text).toContain("'RFQ-S-260001'");
+    expect(text).toContain("('satrio@halcominovasi.co.id', 'S')");
     expect(text).toContain("rfq_stage_steps");
     expect(text).toContain("'SOA'::\"PicTeam\"");
     expect(text).toContain("raised_by_pic_id");

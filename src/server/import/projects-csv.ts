@@ -201,9 +201,9 @@ export function parseProjectsCsv(csv: string): ProjectsCsvResult {
   return { rows, problems };
 }
 
-export const IMPORT_EMAIL_DOMAIN = "example.invalid";
+export const IMPORT_EMAIL_DOMAIN = "halcominovasi.co.id";
 
-/** `Mas Dzaki` becomes `mas.dzaki@example.invalid`: a predictable sign-in name for a development account. */
+/** `Mas Dzaki` becomes `mas.dzaki@halcominovasi.co.id`: a predictable sign-in name for a development account. */
 export function accountEmailFor(personName: string): string {
   const slug = cleanName(personName)
     .toLowerCase()

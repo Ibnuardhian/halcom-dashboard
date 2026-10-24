@@ -17,9 +17,10 @@ export { DEV_SALES_ACCOUNTS };
 
 /** PICs are the operational assignees of SOA and Purchasing tickets; they are not login accounts. */
 export const DEV_PICS = [
-  { team: "SOA", name: "SOA PIC 1" },
-  { team: "SOA", name: "SOA PIC 2" },
-  { team: "PURCHASING", name: "Purchasing PIC 1" },
+  { team: "SOA", name: "Adityo" },
+  { team: "SOA", name: "Ibnu" },
+  { team: "PURCHASING", name: "Gita" },
+  { team: "PURCHASING", name: "Soraya" },
 ] as const;
 
 export const DEV_PRINCIPALS = ["Fortinet", "HPE", "Cisco"] as const;
@@ -44,11 +45,11 @@ type SampleProject = {
 
 /** Customer names are plainly fictional; none looks like the "PT ABCD" placeholders the test-data cleanup recognises. */
 export const SAMPLE_PROJECTS: readonly SampleProject[] = [
-  { key: "p1", customer: "Northwind Example", name: "Core switch refresh", description: "Replace the campus core switches.", owner: "dzaki@example.invalid", progress: "UNDERSTAND", estimatedValue: "450000000", principal: "Cisco", solution: "Network Security", plan: "BOQ_OPEN" },
-  { key: "p2", customer: "Contoso Example", name: "Branch CCTV rollout", description: "Cameras and recorders for twelve branches.", owner: "satrio@example.invalid", progress: "PROPOSE", estimatedValue: "820000000", principal: "HPE", solution: "CCTV & Surveillance", plan: "BOQ_DONE_RFQ_OPEN" },
-  { key: "p3", customer: "Fabrikam Example", name: "Datacenter storage expansion", description: "Add two storage shelves and licences.", owner: "dzaki@example.invalid", progress: "NEGOTIATE", estimatedValue: "1250000000", principal: "HPE", solution: "Server & Storage", plan: "BOQ_DONE_RFQ_DONE_PO_OPEN" },
+  { key: "p1", customer: "Northwind Example", name: "Core switch refresh", description: "Replace the campus core switches.", owner: "dzaki@halcominovasi.co.id", progress: "UNDERSTAND", estimatedValue: "450000000", principal: "Cisco", solution: "Network Security", plan: "BOQ_OPEN" },
+  { key: "p2", customer: "Contoso Example", name: "Branch CCTV rollout", description: "Cameras and recorders for twelve branches.", owner: "satrio@halcominovasi.co.id", progress: "PROPOSE", estimatedValue: "820000000", principal: "HPE", solution: "CCTV & Surveillance", plan: "BOQ_DONE_RFQ_OPEN" },
+  { key: "p3", customer: "Fabrikam Example", name: "Datacenter storage expansion", description: "Add two storage shelves and licences.", owner: "dzaki@halcominovasi.co.id", progress: "NEGOTIATE", estimatedValue: "1250000000", principal: "HPE", solution: "Server & Storage", plan: "BOQ_DONE_RFQ_DONE_PO_OPEN" },
   { key: "p4", customer: "Adventure Example", name: "Guest Wi-Fi for partner site", description: "Registered by SOA for an outside sales partner.", owner: null, external: { name: "Partner Reseller Example", contact: "partner@example.invalid" }, progress: "QUALIFY", estimatedValue: "", principal: null, solution: null, plan: null },
-  { key: "p5", customer: "Tailspin Example", name: "Firewall renewal", description: "Renew the firewall subscription.", owner: "satrio@example.invalid", progress: "QUALIFY", estimatedValue: "95000000", principal: "Fortinet", solution: "Network Security", plan: null },
+  { key: "p5", customer: "Tailspin Example", name: "Firewall renewal", description: "Renew the firewall subscription.", owner: "satrio@halcominovasi.co.id", progress: "QUALIFY", estimatedValue: "95000000", principal: "Fortinet", solution: "Network Security", plan: null },
 ];
 
 /**
@@ -56,10 +57,12 @@ export const SAMPLE_PROJECTS: readonly SampleProject[] = [
  * An account that exists is left exactly as it is, including a password changed since.
  */
 export async function seedAccounts(db: PrismaClient, password: string): Promise<{ created: number; total: number }> {
-  const wanted: { name: string; email: string; role: Role }[] = [
+  const people: { name: string; email: string; role: Role }[] = [
     ...ROLES.map((role) => ({ name: seedNameFor(role), email: seedEmailFor(role), role })),
     ...DEV_SALES_ACCOUNTS.map((person) => ({ ...person, role: "SALES" as const })),
   ];
+  // The Sales role account of the tests is one of the Sales people, so it is listed once.
+  const wanted = people.filter((account, index) => people.findIndex((other) => other.email === account.email) === index);
   let created = 0;
   for (const account of wanted) {
     if (await db.user.findUnique({ where: { email: account.email }, select: { id: true } })) continue;
@@ -119,8 +122,8 @@ async function pickPic(db: PrismaClient, actor: Actor, requestId: string, team: 
  * from an outside source. Needs `db:seed` first (accounts, PICs, principals and solutions).
  */
 export async function seedSampleDataset(db: PrismaClient, log: Logger = () => undefined): Promise<{ projects: number; created: number }> {
-  const soa = await actorByEmail(db, "soa@example.invalid", "SOA");
-  const purchasing = await actorByEmail(db, "purchasing@example.invalid", "PURCHASING");
+  const soa = await actorByEmail(db, seedEmailFor("SOA"), "SOA");
+  const purchasing = await actorByEmail(db, seedEmailFor("PURCHASING"), "PURCHASING");
   let created = 0;
 
   for (const sample of SAMPLE_PROJECTS) {
@@ -157,14 +160,14 @@ export async function seedSampleDataset(db: PrismaClient, log: Logger = () => un
     if (!sample.plan) continue;
     const boq = await db.request.findUniqueOrThrow({ where: { submissionKey: `${idempotencyKey(sample.key)}:request` } });
     if (sample.plan === "BOQ_OPEN") {
-      await pickPic(db, soa, boq.id, "SOA", "SOA PIC 1");
+      await pickPic(db, soa, boq.id, "SOA", "Adityo");
       continue;
     }
-    await pickPic(db, soa, boq.id, "SOA", "SOA PIC 2");
+    await pickPic(db, soa, boq.id, "SOA", "Ibnu");
     await advance(db, soa, boq.id, "COMPLETED");
     const rfq = await handOverToPurchasing(db, owner ?? soa, { sourceId: boq.id, targetType: "RFQ" });
     if (!rfq.ok) throw new Error(`Sample project ${sample.key} RFQ: ${rfq.message}`);
-    await pickPic(db, purchasing, rfq.value.id, "PURCHASING", "Purchasing PIC 1");
+    await pickPic(db, purchasing, rfq.value.id, "PURCHASING", "Gita");
     if (sample.plan === "BOQ_DONE_RFQ_OPEN") continue;
     await advance(db, purchasing, rfq.value.id, "COMPLETED");
     const po = await handOverToPurchasing(db, owner ?? soa, { sourceId: rfq.value.id, targetType: "PO" });

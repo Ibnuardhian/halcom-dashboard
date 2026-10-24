@@ -47,8 +47,8 @@ async function lockedPasswordHash(): Promise<string> {
   return hashPassword(randomBytes(32).toString("hex"));
 }
 
-const AUDITOR = "superadmin@example.invalid";
-const PURCHASING_LOGIN = "purchasing@example.invalid";
+const AUDITOR = "superadmin@halcominovasi.co.id";
+const PURCHASING_LOGIN = "purchasing@halcominovasi.co.id";
 
 type Environment = {
   actor: { id: string; role: string };
@@ -235,7 +235,7 @@ export async function importRfqTickets(
 }
 
 /** Accounts an earlier version of this import made senders; they now only appear in history, so their code prefix is given back. */
-const RETIRED_SENDER_ACCOUNTS = ["adityo@example.invalid", "ibnu.ardhiansyah@example.invalid"];
+const RETIRED_SENDER_ACCOUNTS: readonly string[] = [];
 
 export type RebuildSummary = { recoded: { code: string; was: string }[]; added: number; historyRowsReplaced: number; prefixesReleased: string[] };
 

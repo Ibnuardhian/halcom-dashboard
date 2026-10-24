@@ -35,8 +35,8 @@ const stepRows = (tickets: readonly PlannedTicket[]) =>
  */
 export function renderRfqSql(plan: RfqPlan, options: SqlOptions): string {
   const fileName = plan.source;
-  const actor = sqlText(options.actorEmail ?? "superadmin@example.invalid");
-  const purchasing = `(SELECT id FROM users WHERE email = 'purchasing@example.invalid')`;
+  const actor = sqlText(options.actorEmail ?? "superadmin@halcominovasi.co.id");
+  const purchasing = `(SELECT id FROM users WHERE email = 'purchasing@halcominovasi.co.id')`;
   const out: string[] = [];
   const add = (...lines: string[]) => out.push(...lines, "");
 

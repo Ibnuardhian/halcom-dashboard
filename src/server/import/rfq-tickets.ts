@@ -105,15 +105,15 @@ export function parseRfqTickets(csv: string): { rows: TicketRow[]; problems: str
 /** How a sender of the sheet maps to accounts and to the project owner (keyed by the part of the address before "@"). */
 export type SenderMapping = {
   /**
-   * The account that raised the request. A `historyOnly` account is created locked and inactive when it does not exist (the person only
-   * appears in history). Any other must already exist (`npm run db:seed`): the import does not invent a working account.
+   * The account that raised the request. A `historyOnly` account would be created locked and inactive when it does not exist (a person who
+   * only appears in history); no sender uses that now. Any other must already exist (`npm run db:seed`): the import does not invent a working account.
    */
   account: { email: string; name: string; role: Role; historyOnly?: true };
   /**
    * Set when the sender is a SOA person: SOA signs in with one shared account, so the request is raised by that account and the person is
-   * this SOA PIC. The same person is the project's Technical PIC (SOA), never its Sales name; that needs an account, which exists only for history.
+   * this SOA PIC. The same person is the project's Technical PIC (SOA), never its Sales name; the column takes an account, so it holds the shared SOA login.
    */
-  soaPic?: { name: string; technicalAccount: { email: string; name: string; role: Role; historyOnly: true } };
+  soaPic?: { name: string; technicalAccount: { email: string; name: string; role: Role; historyOnly?: true } };
   /** Who owns the projects they raise: an internal salesperson, or nobody (a SOA project: source Other, no Sales PIC). */
   owner: { kind: "sales"; email: string } | { kind: "soa" };
 };
@@ -121,19 +121,22 @@ export type SenderMapping = {
 /** A project SOA raises for itself has no Sales PIC. The database wants a name for source Other, and this says what it is. */
 export const SOA_PROJECT_SOURCE_NAME = "Internal SOA request";
 
-const SOA_LOGIN = { email: "soa@example.invalid", name: "Dev Soa", role: "SOA" } as const;
+const SOA_LOGIN = { email: "support@halcominovasi.co.id", name: "SOA", role: "SOA" } as const;
+
+/** The shared SOA login is `support@`, but its request letters come from "soa": "S" is Satrio's, so the login gets "SO". */
+const PREFIX_SOURCE: Readonly<Record<string, string>> = { [SOA_LOGIN.email]: "soa" };
 
 /**
- * Senders of the sheet. A sender not listed stops the import: nobody is guessed. Gusti's projects belong to Satrio (D-031). Adityo and
+ * Senders of the sheet. A sender not listed stops the import: nobody is guessed. Gusti has no account any more: his tickets are Satrio's (D-031, and the 2026-10-23 account clean-up). Adityo and
  * Ibnu are SOA PICs (D-036): their tickets are raised through the shared SOA login and carry the PIC, and the project has no Sales PIC (source Other)
  * but a Technical PIC (SOA).
  */
 export const SENDER_MAPPINGS: Readonly<Record<string, SenderMapping>> = {
-  "satrio.akbar": { account: { email: "satrio@example.invalid", name: "Satrio", role: "SALES" }, owner: { kind: "sales", email: "satrio@example.invalid" } },
-  "gusti.nirmala": { account: { email: "gusti@example.invalid", name: "Gusti", role: "SALES", historyOnly: true }, owner: { kind: "sales", email: "satrio@example.invalid" } },
-  dzaki: { account: { email: "dzaki@example.invalid", name: "Dzaki", role: "SALES" }, owner: { kind: "sales", email: "dzaki@example.invalid" } },
-  "adityo.prabowo": { account: SOA_LOGIN, soaPic: { name: "Adityo", technicalAccount: { email: "adityo@example.invalid", name: "Adityo", role: "SOA", historyOnly: true } }, owner: { kind: "soa" } },
-  "ibnu.ardhiansyah": { account: SOA_LOGIN, soaPic: { name: "Ibnu", technicalAccount: { email: "ibnu.ardhiansyah@example.invalid", name: "Ibnu Ardhiansyah", role: "SOA", historyOnly: true } }, owner: { kind: "soa" } },
+  "satrio.akbar": { account: { email: "satrio@halcominovasi.co.id", name: "Satrio", role: "SALES" }, owner: { kind: "sales", email: "satrio@halcominovasi.co.id" } },
+  "gusti.nirmala": { account: { email: "satrio@halcominovasi.co.id", name: "Satrio", role: "SALES" }, owner: { kind: "sales", email: "satrio@halcominovasi.co.id" } },
+  dzaki: { account: { email: "dzaki@halcominovasi.co.id", name: "Dzaki", role: "SALES" }, owner: { kind: "sales", email: "dzaki@halcominovasi.co.id" } },
+  "adityo.prabowo": { account: SOA_LOGIN, soaPic: { name: "Adityo", technicalAccount: SOA_LOGIN }, owner: { kind: "soa" } },
+  "ibnu.ardhiansyah": { account: SOA_LOGIN, soaPic: { name: "Ibnu", technicalAccount: SOA_LOGIN }, owner: { kind: "soa" } },
 };
 
 /** Working hours the sheet's bare dates are given (Asia/Jakarta): the ticket comes in at 09:00, is taken up at 15:00, and an outcome is set at 17:00. */
@@ -264,7 +267,7 @@ export function planRfqImport(rows: readonly TicketRow[], context: PlanContext =
     const account = mapping(row).account.email;
     // A ticket with a code of its own needs no prefix to be numbered; only a ticket whose code is made here does.
     if (row.ticketId || prefixOf.has(account)) continue;
-    prefixOf.set(account, pickCodePrefix(account, taken()));
+    prefixOf.set(account, pickCodePrefix(PREFIX_SOURCE[account] ?? account, taken()));
     newPrefixes.add(account);
   }
 

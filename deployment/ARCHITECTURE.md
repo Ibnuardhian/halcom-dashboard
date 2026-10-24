@@ -25,7 +25,7 @@ Layering: pure rules in `src/domain`, use cases in `src/server`, UI in `src/feat
 
 ## 2. Authentication and authorization
 
-- Interim email and password sign-in (D-012). Passwords: scrypt N=2^16 (about 64 MiB per hash), 12 to 128 characters.
+- Interim email and password sign-in (D-012). Passwords: scrypt N=2^16 (about 64 MiB per hash), 8 to 128 characters.
 - Server-side sessions in table `sessions`; the cookie holds an opaque random token, only its SHA-256 is stored.
   Cookie: `HttpOnly`, `SameSite=Lax`, `Secure` when `NODE_ENV=production`, persistent. Session: 12 h idle, renewed while active,
   7 days absolute (`src/server/auth/session-policy.ts`, D-026).

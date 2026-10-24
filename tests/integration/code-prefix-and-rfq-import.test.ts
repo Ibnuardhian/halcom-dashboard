@@ -88,7 +88,7 @@ describe("RFQ ticket import", () => {
 
   async function ensureAccounts() {
     // The importer needs the accounts that `db:seed` creates (it never creates a working account itself).
-    for (const [email, role] of [["purchasing@example.invalid", "PURCHASING"], ["superadmin@example.invalid", "SUPERADMIN"], ["satrio@example.invalid", "SALES"], ["soa@example.invalid", "SOA"]] as const) {
+    for (const [email, role] of [["purchasing@halcominovasi.co.id", "PURCHASING"], ["superadmin@halcominovasi.co.id", "SUPERADMIN"], ["satrio@halcominovasi.co.id", "SALES"], ["support@halcominovasi.co.id", "SOA"]] as const) {
       if (!(await db.user.findUnique({ where: { email } }))) await makeUser(role, { email });
     }
   }
@@ -131,19 +131,19 @@ describe("RFQ ticket import", () => {
     expect(fresh!.statusHistory).toHaveLength(1);
     expect(fresh!.pic).toBeNull();
 
-    // Gusti's projects belong to Satrio.
-    expect(failed!.requester.email).toBe("gusti@example.invalid");
-    expect(failed!.project.salesOwner?.email).toBe("satrio@example.invalid");
+    // Gusti has no account any more: his tickets and projects are Satrio's.
+    expect(failed!.requester.email).toBe("satrio@halcominovasi.co.id");
+    expect(failed!.project.salesOwner?.email).toBe("satrio@halcominovasi.co.id");
     // A SOA person's ticket is raised through the shared SOA login and names the SOA PIC; the project has no Sales PIC.
-    expect(fresh!.requester.email).toBe("soa@example.invalid");
+    expect(fresh!.requester.email).toBe("support@halcominovasi.co.id");
     expect(fresh!.raisedByPic).toMatchObject({ name: "Adityo", team: "SOA" });
     expect(fresh!.project).toMatchObject({ sourceType: "OTHER", salesOwnerId: null, externalSourceName: "Internal SOA request" });
-    expect((await db.project.findUniqueOrThrow({ where: { id: fresh!.projectId }, include: { technicalPic: true } })).technicalPic).toMatchObject({ email: "adityo@example.invalid", role: "SOA" });
-    expect(soaDone!.requester.email).toBe("soa@example.invalid");
+    expect((await db.project.findUniqueOrThrow({ where: { id: fresh!.projectId }, include: { technicalPic: true } })).technicalPic).toMatchObject({ email: "support@halcominovasi.co.id", role: "SOA" });
+    expect(soaDone!.requester.email).toBe("support@halcominovasi.co.id");
     expect(soaDone!.raisedByPic?.name).toBe("Ibnu");
     expect(done!.raisedByPic).toBeNull();
-    // No "Ibnu" or "Adityo" login is made for the SOA people.
-    expect(await db.user.count({ where: { email: "ibnu.ardhiansyah@example.invalid", requestsCreated: { some: {} } } })).toBe(0);
+    // No login is made for Gusti, Ibnu or Adityo: the import only uses accounts that exist.
+    expect(await db.user.count({ where: { email: { in: ["gusti@halcominovasi.co.id", "adityo@halcominovasi.co.id", "ibnu.ardhiansyah@halcominovasi.co.id"] } } })).toBe(0);
 
     // The counters continue after the imported numbers, so the next new request does not collide.
     const counter = await db.codeCounter.findUniqueOrThrow({ where: { scope: `RFQ-${done!.code.split("-")[1]}-26` } });
@@ -178,14 +178,14 @@ describe("RFQ ticket import", () => {
     const historyBefore = before.map((r) => r.statusHistory.map((h) => [h.fromStatus, h.toStatus, h.changedAt.toISOString(), h.reason]));
     // The request that is wrong the way the first load was: raised by the wrong account, with no SOA PIC.
     const soaTicket = before.find((r) => r.raisedByPic?.name === "Adityo")!;
-    const satrio = await db.user.findUniqueOrThrow({ where: { email: "satrio@example.invalid" } });
+    const satrio = await db.user.findUniqueOrThrow({ where: { email: "satrio@halcominovasi.co.id" } });
     await db.request.update({ where: { id: soaTicket.id }, data: { requesterId: satrio.id, raisedByPicId: null } });
 
     const result = await rebuildRfqTickets(db, await planFor(tag, true), { fileName: `test sheet ${tag}` });
 
     expect(result.historyRowsReplaced).toBe(historyBefore.flat().length);
     const after = await load(tag);
-    expect(after.find((r) => r.id === soaTicket.id)).toMatchObject({ requester: { email: "soa@example.invalid" }, raisedByPic: { name: "Adityo" } });
+    expect(after.find((r) => r.id === soaTicket.id)).toMatchObject({ requester: { email: "support@halcominovasi.co.id" }, raisedByPic: { name: "Adityo" } });
     expect(after.map((r) => r.code)).toEqual(before.map((r) => r.code)); // a rebuild is a fresh import: the same codes
     expect(after.map((r) => r.statusHistory.map((h) => [h.fromStatus, h.toStatus, h.changedAt.toISOString(), h.reason]))).toEqual(historyBefore);
     // The triggers are back on: history is append-only again.
@@ -199,7 +199,7 @@ describe("RFQ ticket import", () => {
     const tag = randomBytes(3).toString("hex");
     await importRfqTickets(db, await planFor(tag), { fileName: `test sheet ${tag}` });
     const [first] = await load(tag);
-    const actor = await db.user.findUniqueOrThrow({ where: { email: "superadmin@example.invalid" } });
+    const actor = await db.user.findUniqueOrThrow({ where: { email: "superadmin@halcominovasi.co.id" } });
     await db.auditEvent.create({ data: { actorId: actor.id, action: "request.status_changed", entityType: "request", entityId: first!.id, after: {} } });
 
     await expect(rebuildRfqTickets(db, await planFor(tag, true), { fileName: `test sheet ${tag}` })).rejects.toThrow(/changed in the application/);

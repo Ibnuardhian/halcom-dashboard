@@ -12,7 +12,7 @@ import { OBSOLETE_DEV_ACCOUNTS } from "./seed-users";
 const ALLOWED_ENVIRONMENTS = new Set(["development", "test"]);
 const DEFAULT_DATE = "2026-10-17";
 const DEFAULT_TIME_ZONE = "UTC";
-const ACTOR_EMAIL = "superadmin@example.invalid";
+const ACTOR_EMAIL = "superadmin@halcominovasi.co.id";
 
 const argument = (name: string, fallback: string) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const pad = (text: string | number, width: number) => String(text).padEnd(width);

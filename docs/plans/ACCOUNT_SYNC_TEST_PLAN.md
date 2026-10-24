@@ -1,6 +1,6 @@
 # Plan: align seed accounts and tests with the Neon / local databases
 
-Status: **plan only, nothing implemented** (written 2026-10-22). Needs the product owner's go-ahead before any code changes.
+Status: **seed, importer and the tests that use them were moved to the new accounts on 2026-10-23 (D-037)**, as the product owner asked ("update the seed to @halcominovasi.co.id"). Decision 1 went the other way from the recommendation for the seed-coupled tests (they use the new domain); fixtures that only need some address keep `@example.invalid`. Decision 2: the minimum password length is now 8. Decision 3: still true, the seed never runs against Neon.
 
 ## Why
 

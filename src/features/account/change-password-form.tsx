@@ -18,12 +18,12 @@ export function ChangePasswordForm() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="new-password">New password</Label>
-        <Input id="new-password" name="newPassword" type="password" required minLength={12} maxLength={128} autoComplete="new-password" />
-        <p className="text-xs text-muted-foreground">12 to 128 characters.</p>
+        <Input id="new-password" name="newPassword" type="password" required minLength={8} maxLength={128} autoComplete="new-password" />
+        <p className="text-xs text-muted-foreground">8 to 128 characters.</p>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="confirm-password">Confirm new password</Label>
-        <Input id="confirm-password" name="confirmPassword" type="password" required minLength={12} maxLength={128} autoComplete="new-password" />
+        <Input id="confirm-password" name="confirmPassword" type="password" required minLength={8} maxLength={128} autoComplete="new-password" />
       </div>
       <FormStatus state={state} />
       <div>

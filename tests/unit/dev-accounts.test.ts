@@ -1,21 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { ROLES } from "@/domain/access/roles";
-import { OBSOLETE_DEV_ACCOUNTS, renderDevAccountsMarkdown, seedEmailFor, type DevAccount } from "../../prisma/seed-users";
+import { renderDevAccountsMarkdown, seedEmailFor, type DevAccount } from "../../prisma/seed-users";
 
 const account = (name: string, email: string, role: DevAccount["role"], projects = 0, isActive = true): DevAccount => ({ name, email, role, isActive, projects });
+
+const OBSOLETE = {
+  "gusti@halcominovasi.co.id": "Projects moved to Satrio.",
+  "adityo@halcominovasi.co.id": "Adityo is a SOA PIC, not a login.",
+  "soraya@halcominovasi.co.id": "Not in this database.",
+};
 
 describe("renderDevAccountsMarkdown", () => {
   const accounts: DevAccount[] = [
     ...ROLES.map((role) => account(`Dev ${role}`, seedEmailFor(role), role)),
-    account("Dzaki", "dzaki@example.invalid", "SALES", 15),
-    account("Satrio", "satrio@example.invalid", "SALES", 18),
-    account("Gusti", "gusti@example.invalid", "SALES", 0),
-    account("Adityo", "adityo@example.invalid", "SOA", 0),
+    account("Dzaki", "dzaki@halcominovasi.co.id", "SALES", 15),
+    account("Satrio", "satrio@halcominovasi.co.id", "SALES", 18),
+    account("Gusti", "gusti@halcominovasi.co.id", "SALES", 0),
+    account("Adityo", "adityo@halcominovasi.co.id", "SOA", 0),
   ];
   const markdown = renderDevAccountsMarkdown("http://localhost:3000", new Date("2026-10-17T09:30:45Z"), accounts, [
     { name: "Adityo", team: "SOA", isActive: true },
     { name: "Ibnu", team: "PURCHASING", isActive: false },
-  ]);
+  ], OBSOLETE);
 
   it("lists one system account per role with its email and landing page, and says SOA and Purchasing share one login", () => {
     for (const role of ROLES) {
@@ -23,8 +29,8 @@ describe("renderDevAccountsMarkdown", () => {
       expect(row, role).toBeDefined();
       expect(row).toContain(`\`/dashboard/${role.toLowerCase()}\``);
     }
-    expect(markdown.split("\n").find((line) => line.includes("`soa@example.invalid`"))).toContain("Shared login of the whole SOA team");
-    expect(markdown.split("\n").find((line) => line.includes("`purchasing@example.invalid`"))).toContain("Shared login of the whole Purchasing team");
+    expect(markdown.split("\n").find((line) => line.includes("`support@halcominovasi.co.id`"))).toContain("Shared login of the whole SOA team");
+    expect(markdown.split("\n").find((line) => line.includes("`purchasing@halcominovasi.co.id`"))).toContain("Shared login of the whole Purchasing team");
   });
 
   it("never contains a password column or a password value, and names the .env setting instead", () => {
@@ -37,8 +43,8 @@ describe("renderDevAccountsMarkdown", () => {
 
   it("shows the Sales accounts that own projects with their counts, apart from the obsolete ones", () => {
     const sales = markdown.slice(markdown.indexOf("## Sales accounts"), markdown.indexOf("## Operational PICs"));
-    expect(sales).toContain("| Dzaki | `dzaki@example.invalid` | 15 |");
-    expect(sales).toContain("| Satrio | `satrio@example.invalid` | 18 |");
+    expect(sales).toContain("| Dzaki | `dzaki@halcominovasi.co.id` | 15 |");
+    expect(sales).toContain("| Satrio | `satrio@halcominovasi.co.id` | 18 |");
     expect(sales).not.toContain("gusti@");
     expect(sales).not.toContain("adityo@");
   });
@@ -49,7 +55,7 @@ describe("renderDevAccountsMarkdown", () => {
     expect(pics).toContain("| Adityo | SOA | yes |");
     expect(pics).toContain("| Ibnu | Purchasing | no |");
     // A PIC that was made from a shared login (the first migration did that) is flagged so it gets handed on.
-    const flagged = renderDevAccountsMarkdown("http://localhost:3000", new Date(), [account("Dev Soa", "soa@example.invalid", "SOA")], [{ name: "Dev Soa", team: "SOA", isActive: true }]);
+    const flagged = renderDevAccountsMarkdown("http://localhost:3000", new Date(), [account("Dev Soa", "support@halcominovasi.co.id", "SOA")], [{ name: "Dev Soa", team: "SOA", isActive: true }]);
     expect(flagged).toContain("Made from the shared login");
   });
 
@@ -57,9 +63,9 @@ describe("renderDevAccountsMarkdown", () => {
     expect(markdown).toContain("## Project source Other");
     expect(markdown).toContain("No Sales account owns it");
     const obsolete = markdown.slice(markdown.indexOf("## Obsolete accounts"));
-    expect(obsolete).toContain("`gusti@example.invalid`");
-    expect(obsolete).toContain(OBSOLETE_DEV_ACCOUNTS["gusti@example.invalid"]!);
-    expect(obsolete).toContain("`adityo@example.invalid`");
+    expect(obsolete).toContain("`gusti@halcominovasi.co.id`");
+    expect(obsolete).toContain(OBSOLETE["gusti@halcominovasi.co.id"]);
+    expect(obsolete).toContain("`adityo@halcominovasi.co.id`");
     expect(obsolete).not.toContain("soraya@"); // not in this database
   });
 

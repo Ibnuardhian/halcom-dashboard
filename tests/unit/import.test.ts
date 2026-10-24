@@ -150,10 +150,10 @@ describe("parseProjectsCsv", () => {
 
 describe("people in the export", () => {
   it("builds predictable sign-in names", () => {
-    expect(accountEmailFor("Mas Dzaki")).toBe("mas.dzaki@example.invalid");
-    expect(accountEmailFor("  Mira   Batam ")).toBe("mira.batam@example.invalid");
-    expect(accountEmailFor("Adityo")).toBe("adityo@example.invalid");
-    expect(accountEmailFor("!!!")).toBe("user@example.invalid");
+    expect(accountEmailFor("Mas Dzaki")).toBe("mas.dzaki@halcominovasi.co.id");
+    expect(accountEmailFor("  Mira   Batam ")).toBe("mira.batam@halcominovasi.co.id");
+    expect(accountEmailFor("Adityo")).toBe("adityo@halcominovasi.co.id");
+    expect(accountEmailFor("!!!")).toBe("user@halcominovasi.co.id");
   });
 
   it("makes technical PICs SOA (even when also Sales PIC once) and everyone else Sales", () => {
@@ -168,8 +168,8 @@ describe("people in the export", () => {
     const { rows } = parseProjectsCsv(csv);
 
     expect(peopleFrom(rows)).toEqual([
-      { name: "Mas Dzaki", role: "SALES", email: "mas.dzaki@example.invalid" },
-      { name: "Adityo", role: "SOA", email: "adityo@example.invalid" },
+      { name: "Mas Dzaki", role: "SALES", email: "mas.dzaki@halcominovasi.co.id" },
+      { name: "Adityo", role: "SOA", email: "adityo@halcominovasi.co.id" },
     ]);
   });
 });

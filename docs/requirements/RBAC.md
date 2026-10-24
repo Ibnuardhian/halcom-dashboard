@@ -136,7 +136,7 @@ analytics (§18). They fill in when the project and ticket modules are built.
 | A-3 | **Confirmed 2026-10-17.** Only a superadmin manages admin accounts; admins add and manage the other operational users. | Admins may manage each other. |
 | A-4 | All roles may open the shared overview. Which figures it may show to Sales or Finance is undecided (brief §17: visibility). | Restrict by role or by project ownership. |
 | A-5 | **Changed by D-026.** Sessions last 12 hours idle, are renewed while the person works, and end at most 7 days after sign-in. | Other limits (env `SESSION_TTL_HOURS`, `SESSION_MAX_HOURS`), or SSO session lifetime. |
-| A-6 | Passwords need 12 to 128 characters; there is no complexity rule or rotation. | Company password policy, or SSO only. |
+| A-6 | Passwords need 8 to 128 characters; there is no complexity rule or rotation. | Company password policy, or SSO only. |
 | A-7 | Management is included as an optional read-only role. | Remove it. |
 | A-8 | The UI language is English, matching the brief. | Indonesian, or both. |
 | A-9 | Every role can read every project and request (no row-level visibility policy yet; brief §17). | Restrict by role, team or project ownership. |

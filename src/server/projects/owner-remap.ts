@@ -19,12 +19,12 @@ export type OwnerRemapRules = {
 };
 
 export const DEFAULT_OWNER_REMAP: OwnerRemapRules = {
-  rename: { fromEmail: "mas.dzaki@example.invalid", toEmail: "dzaki@example.invalid", toName: "Dzaki" },
+  rename: { fromEmail: "mas.dzaki@halcominovasi.co.id", toEmail: "dzaki@halcominovasi.co.id", toName: "Dzaki" },
   moves: [
-    { fromEmail: "soraya@example.invalid", toEmail: "dzaki@example.invalid" },
-    { fromEmail: "gusti@example.invalid", toEmail: "satrio@example.invalid" },
+    { fromEmail: "soraya@halcominovasi.co.id", toEmail: "dzaki@halcominovasi.co.id" },
+    { fromEmail: "gusti@halcominovasi.co.id", toEmail: "satrio@halcominovasi.co.id" },
   ],
-  keepEmails: ["dzaki@example.invalid", "satrio@example.invalid"],
+  keepEmails: ["dzaki@halcominovasi.co.id", "satrio@halcominovasi.co.id"],
 };
 
 export type RemapProjectAction = "stay" | "move" | "to-other" | "untouched";

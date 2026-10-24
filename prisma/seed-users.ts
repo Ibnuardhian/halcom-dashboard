@@ -19,15 +19,7 @@ export type DevPic = { name: string; team: "SOA" | "PURCHASING"; isActive: boole
  * cheat sheet says so instead of letting a developer sign in as them. Importing the export again creates them again; run
  * `db:remap-owners` and `db:cleanup-dev` after it.
  */
-export const OBSOLETE_DEV_ACCOUNTS: Readonly<Record<string, string>> = {
-  "gusti@example.invalid": "Projects moved to Satrio (satrio@example.invalid).",
-  "soraya@example.invalid": "Projects moved to Dzaki (dzaki@example.invalid).",
-  "hendi.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
-  "jihan.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
-  "mira.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
-  "tim.batam@example.invalid": "The project is now source Other (no internal Sales PIC).",
-  "adityo@example.invalid": "SOA signs in with the shared SOA account; Adityo is a SOA PIC, not a login (D-036). Kept, inactive, because the history and 32 projects refer to this account.",
-};
+export const OBSOLETE_DEV_ACCOUNTS: Readonly<Record<string, string>> = {};
 
 const cell = (text: string) => text.replaceAll("|", "\\|");
 
@@ -35,12 +27,13 @@ const cell = (text: string) => text.replaceAll("|", "\\|");
  * Renders the development accounts sheet. It never contains a password or any other secret: the password of the synthetic accounts is
  * the value of `SEED_USER_PASSWORD` in your own `.env`. Pure, so a unit test can check it.
  */
-export function renderDevAccountsMarkdown(baseUrl: string, generatedAt: Date, accounts: readonly DevAccount[] = [], pics: readonly DevPic[] = []): string {
+export function renderDevAccountsMarkdown(baseUrl: string, generatedAt: Date, accounts: readonly DevAccount[] = [], pics: readonly DevPic[] = [], obsoleteAccounts: Readonly<Record<string, string>> = OBSOLETE_DEV_ACCOUNTS): string {
   const roleEmails = new Set(ROLES.map(seedEmailFor));
   const system = ROLES.map((role) => ({ role, email: seedEmailFor(role), found: accounts.find((account) => account.email === seedEmailFor(role)) }));
-  const people = accounts.filter((account) => !roleEmails.has(account.email));
-  const current = people.filter((account) => !(account.email in OBSOLETE_DEV_ACCOUNTS));
-  const obsolete = people.filter((account) => account.email in OBSOLETE_DEV_ACCOUNTS);
+  // The Sales role of the tests is one of the Sales people, so a Sales account is listed with the people as well as with the roles.
+  const people = accounts.filter((account) => !roleEmails.has(account.email) || account.role === "SALES");
+  const current = people.filter((account) => !(account.email in obsoleteAccounts));
+  const obsolete = people.filter((account) => account.email in obsoleteAccounts);
   const shared: Partial<Record<Role, string>> = {
     SOA: "Shared login of the whole SOA team. Tickets are handed to PICs, not to this account.",
     PURCHASING: "Shared login of the whole Purchasing team. Tickets are handed to PICs, not to this account.",
@@ -105,7 +98,7 @@ export function renderDevAccountsMarkdown(baseUrl: string, generatedAt: Date, ac
           "",
           "| Name | Email | Role | Projects owned | Why |",
           "|---|---|---|---|---|",
-          ...obsolete.map((account) => `| ${cell(account.name)} | \`${account.email}\` | ${ROLE_LABELS[account.role]} | ${account.projects} | ${cell(OBSOLETE_DEV_ACCOUNTS[account.email]!)} |`),
+          ...obsolete.map((account) => `| ${cell(account.name)} | \`${account.email}\` | ${ROLE_LABELS[account.role]} | ${account.projects} | ${cell(obsoleteAccounts[account.email]!)} |`),
         ]),
     "",
     "Notes:",

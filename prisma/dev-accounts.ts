@@ -3,13 +3,13 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { DEV_ACCOUNTS_FILE, renderDevAccountsMarkdown } from "./seed-users";
 
 /**
- * Rewrites the git-ignored accounts sheet from the database: every `@example.invalid` account with how many projects it owns, and the
+ * Rewrites the git-ignored accounts sheet from the database: every `@halcominovasi.co.id` account with how many projects it owns, and the
  * operational PICs. It holds no password. Development only.
  */
 export async function writeDevAccountsFile(db: PrismaClient): Promise<void> {
   const [users, pics] = await Promise.all([
     db.user.findMany({
-      where: { email: { endsWith: "@example.invalid" } },
+      where: { email: { endsWith: "@halcominovasi.co.id" } },
       select: { name: true, email: true, role: true, isActive: true, _count: { select: { ownedProjects: { where: { deletedAt: null } } } } },
       orderBy: [{ role: "asc" }, { name: "asc" }],
     }),
