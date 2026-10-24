@@ -7,7 +7,8 @@ import { requireUser } from "@/server/auth/current-user";
 import { readSessionToken } from "@/server/auth/session-cookie";
 
 export async function changePasswordAction(_previous: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireUser();
+  // The gate page (T-9) is where a handed-over password is replaced, so this action must not be redirected away from it.
+  const user = await requireUser({ allowPasswordChange: true });
   const confirmation = formData.get("confirmPassword");
   if (formData.get("newPassword") !== confirmation) {
     return { ok: false, message: "The new password and its confirmation do not match." };

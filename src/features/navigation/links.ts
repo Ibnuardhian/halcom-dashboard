@@ -33,6 +33,8 @@ export type NavIcon =
 
 export type NavLinkItem = { href: string; label: string; group: NavGroup; icon: NavIcon };
 
+/** The gate for an account whose password somebody else chose (T-9); it is outside the application shell. */
+export const PASSWORD_CHANGE_PATH = "/password-change";
 export const USERS_PATH = "/admin/users";
 export const SYSTEM_PATH = "/admin/system";
 export const AUDIT_PATH = "/admin/audit";

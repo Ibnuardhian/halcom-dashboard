@@ -25,7 +25,7 @@ describe("authenticate", () => {
 
     const result = await authenticate(db, `  ${user.email.toUpperCase()} `, TEST_PASSWORD);
 
-    expect(result).toEqual({ id: user.id, name: user.name, email: user.email, role: "SALES" });
+    expect(result).toEqual({ id: user.id, name: user.name, email: user.email, role: "SALES", mustChangePassword: false });
   });
 
   it("rejects a wrong password, an unknown email and a deactivated user identically", async () => {
@@ -49,6 +49,8 @@ describe("sessions", () => {
       name: user.name,
       email: user.email,
       role: "FINANCE",
+      // The session carries the flag, because it is what the first-sign-in gate redirects on (T-9).
+      mustChangePassword: false,
     });
     const stored = await db.session.findMany({ where: { userId: user.id } });
     expect(stored).toHaveLength(1);

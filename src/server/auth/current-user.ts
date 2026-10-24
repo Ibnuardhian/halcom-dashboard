@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { can, type Permission } from "@/domain/access/permissions";
 import { getDb } from "@/lib/db";
+import { PASSWORD_CHANGE_PATH } from "@/features/navigation/links";
 import { loadPermissionOverrides } from "@/server/permissions/service";
 import { readSessionToken } from "./session-cookie";
 import { findSessionUser, type SessionUser } from "./session-store";
@@ -22,10 +23,15 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   return user;
 });
 
-/** Redirects to the login page when nobody is signed in. */
-export async function requireUser(): Promise<SessionUser> {
+/**
+ * Redirects to the login page when nobody is signed in, and to the password page while somebody else's password is still in use
+ * (T-9). Every page and every server action goes through this, so the flag cannot be walked around by calling an action directly.
+ * Only the password page itself passes `allowPasswordChange`, which is what keeps it from redirecting to itself.
+ */
+export async function requireUser(options: { allowPasswordChange?: boolean } = {}): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (user.mustChangePassword && options.allowPasswordChange !== true) redirect(PASSWORD_CHANGE_PATH);
   return user;
 }
 

@@ -85,7 +85,8 @@ export async function createUser(
       const actor = await beginAdministration(tx, claimedActor);
       if (!actor || !canAssignRole(actor.role, role)) return fail("FORBIDDEN");
 
-      const user = await tx.user.create({ data: { name, email, role, passwordHash } });
+      // An administrator chose this password and has to pass it on, so the person replaces it at their first sign-in (T-9).
+      const user = await tx.user.create({ data: { name, email, role, passwordHash, mustChangePassword: true } });
       await audit(tx, actor, "user.created", user.id, null, { email, role });
       return succeed({ id: user.id });
     });
@@ -178,7 +179,7 @@ export async function resetUserPassword(
     if (!target) return fail("NOT_FOUND");
     if (!canManageUser(actor.role, target.role)) return fail("FORBIDDEN");
 
-    await tx.user.update({ where: { id: target.id }, data: { passwordHash } });
+    await tx.user.update({ where: { id: target.id }, data: { passwordHash, mustChangePassword: true } });
     await revokeAllSessions(tx, target.id);
     await audit(tx, actor, "user.password_reset", target.id, null, null);
     return succeed(undefined);

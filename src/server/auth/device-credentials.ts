@@ -47,7 +47,7 @@ type Entry = { id: string; token: string };
 export async function verifyDeviceCredential(db: Db, entry: Entry, now: Date = new Date()): Promise<SessionUser | null> {
   const row = await db.deviceCredential.findUnique({
     where: { id: entry.id },
-    select: { id: true, salt: true, tokenHash: true, expiresAt: true, user: { select: { id: true, name: true, email: true, role: true, isActive: true } } },
+    select: { id: true, salt: true, tokenHash: true, expiresAt: true, user: { select: { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true } } },
   });
   if (!row) return null;
   if (row.expiresAt <= now) {
@@ -59,8 +59,8 @@ export async function verifyDeviceCredential(db: Db, entry: Entry, now: Date = n
     await db.deviceCredential.deleteMany({ where: { id: row.id } });
     return null;
   }
-  const { id, name, email, role } = row.user;
-  return { id, name, email, role };
+  const { id, name, email, role, mustChangePassword } = row.user;
+  return { id, name, email, role, mustChangePassword };
 }
 
 /**

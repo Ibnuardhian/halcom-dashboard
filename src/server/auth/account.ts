@@ -41,7 +41,8 @@ export async function changeOwnPassword(
   const passwordHash = await hashPassword(newPassword); // slow by design: outside the transaction
   const changed = await db.$transaction(async (tx) => {
     // Only change the hash we verified: a concurrent change between the check and now must not be overwritten.
-    const updated = await tx.user.updateMany({ where: { id: user.id, passwordHash: user.passwordHash }, data: { passwordHash } });
+    // The password is now the person's own, so the first-sign-in gate (T-9) is done with.
+    const updated = await tx.user.updateMany({ where: { id: user.id, passwordHash: user.passwordHash }, data: { passwordHash, mustChangePassword: false } });
     if (updated.count !== 1) return false;
     await tx.session.deleteMany({
       where: { userId: user.id, ...(keepToken ? { tokenHash: { not: hashSessionToken(keepToken) } } : {}) },

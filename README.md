@@ -238,6 +238,7 @@ docker compose run --rm app npm run db:remap-owners -- --apply   # apply
 | Load the RFQ tracker (CSV) | `docker compose run --rm app npm run db:import-rfq -- --dry-run`, then without `--dry-run` |
 | Write the RFQ tracker as one SQL file | `docker compose run --rm app npm run db:rfq-sql` (writes `prisma/data/hit_rfq_tickets_import.sql`) |
 | Clean up development data (dry run) | `docker compose run --rm app npm run db:cleanup-dev` |
+| Create the first superadmin (any database, once) | `docker compose run --rm -e BOOTSTRAP_NAME=... -e BOOTSTRAP_EMAIL=... -e BOOTSTRAP_PASSWORD=... app npm run db:bootstrap-superadmin` |
 | SQL shell | `docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB'` |
 
 ## How the development environment works
@@ -323,6 +324,10 @@ Quality gates before a pull request: lint → type check → unit → integratio
 
 ## Production
 
+Two ways are prepared. **Vercel with the database on Neon** is the shorter one and has its own runbook:
+[deployment/VERCEL.md](deployment/VERCEL.md) (environment variables, migrations, the first superadmin, project settings, what to
+check after the first deploy, and what the platform cannot do). Everything below describes running it on your own Docker host.
+
 [compose.prod.yaml](compose.prod.yaml) defines:
 
 - `db`: persistent volume, not published to the host.
@@ -350,10 +355,14 @@ curl -fsS http://127.0.0.1:3000/api/health
 - This sequence was smoke-tested locally with a disposable database (migrations, health check, login
   page, and protected routes returning no content without a session). A real deployment target has not
   been chosen yet.
-- **Not ready for real users yet.** There is no way to create the first superadmin in production
-  (the seed refuses to run there), no login rate limiting, and the sign-in is an interim solution.
-  See D-012 and the open questions T-7 to T-9. The session cookie is `Secure` in production, so serve
-  the app over HTTPS.
+- **The first account:** a fresh production database has none, and the seed refuses to run there. Create it once with
+  `BOOTSTRAP_NAME=... BOOTSTRAP_EMAIL=... BOOTSTRAP_PASSWORD=... npm run db:bootstrap-superadmin`; it refuses as soon as any
+  superadmin exists, and the account has to choose its own password at the first sign-in (D-039).
+- **Sign-in protection:** five wrong passwords for one address, or twenty-five from one client address, inside fifteen minutes lock
+  it for fifteen to sixty minutes, and every refusal is audited. A password an administrator chose must be replaced before anything
+  else opens.
+- The sign-in is still the interim solution of D-012 (no single sign-on, no password reset by e-mail). The session cookie is
+  `Secure` in production, so serve the app over HTTPS.
 
 ## Backups
 

@@ -32,6 +32,14 @@ export type BackupDirectoryState =
   | { ok: true; dir: string; files: BackupFile[] }
   | { ok: false; dir: string; error: string };
 
+/**
+ * Whether this deployment can write backups at all. It needs pg_dump and a folder that outlives the request, which a serverless
+ * platform (Vercel) has neither of; there the database's own point-in-time restore is the backup, and the page says so.
+ */
+export function backupsSupported(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return !env["VERCEL"];
+}
+
 export function backupDir(env: Readonly<Record<string, string | undefined>> = process.env): string {
   return env["BACKUP_DIR"] || DEFAULT_BACKUP_DIR;
 }
@@ -103,6 +111,9 @@ export async function createBackup(
     return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
   }
   if (running) return { ok: false, code: "BUSY", message: "A backup is already running." };
+  if (!backupsSupported()) {
+    return { ok: false, code: "FAILED", message: "This deployment cannot write backups: it has no pg_dump and no lasting disk. Use the database provider's own backup and restore." };
+  }
 
   const databaseUrl = options.databaseUrl ?? process.env["DATABASE_URL"];
   if (!databaseUrl) return { ok: false, code: "FAILED", message: "DATABASE_URL is not set." };

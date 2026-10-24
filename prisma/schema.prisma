@@ -32,6 +32,9 @@ model User {
   // One role per user (assumption A-1 in docs/requirements/RBAC.md).
   role         Role
   isActive     Boolean  @default(true) @map("is_active")
+  // True while somebody else chose this password (an account an administrator created or reset, and the first superadmin):
+  // the person is sent to the password page and can reach nothing else until they have chosen their own (T-9).
+  mustChangePassword Boolean @default(false) @map("must_change_password")
   // The prefix of this person's request codes (RFQ-S-260001): one letter of the e-mail address, more if that letter is taken. Set once.
   codePrefix   String?  @unique @map("code_prefix")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -60,6 +63,23 @@ model User {
 }
 
 // Server-side login sessions. Only the SHA-256 of the cookie token is stored.
+// Failed sign-ins, counted per e-mail and per client address, so password guessing is slowed down (T-7, src/domain/access/login-throttle.ts).
+// Not a history: the row is updated on every failure and deleted on a successful sign-in. An address is stored as a SHA-256.
+model LoginAttempt {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  // "email" or "ip" (a database check keeps it to these two).
+  scope         String
+  key           String
+  failures      Int       @default(0)
+  firstFailedAt DateTime  @default(now()) @map("first_failed_at") @db.Timestamptz(3)
+  lastFailedAt  DateTime  @default(now()) @map("last_failed_at") @db.Timestamptz(3)
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+
+  @@unique([scope, key])
+  @@index([lastFailedAt])
+  @@map("login_attempts")
+}
+
 model Session {
   id        String   @id @default(uuid(7)) @db.Uuid
   tokenHash String   @unique @map("token_hash")

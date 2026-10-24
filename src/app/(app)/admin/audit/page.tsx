@@ -10,6 +10,9 @@ import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listAuditEntityTypes, listAuditEvents } from "@/server/users/queries";
 
+/** A record's id is shortened; anything else (the address a refused sign-in used) is shown whole. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function AuditPage({ searchParams }: PageProps<"/admin/audit">) {
   return (
     <Suspense fallback={<PageFallback />}>
@@ -69,7 +72,7 @@ async function Audit({ searchParams }: Pick<PageProps<"/admin/audit">, "searchPa
                 <TableCell>{event.actorName ?? "System"}</TableCell>
                 <TableCell className="font-mono text-xs">{event.action}</TableCell>
                 <TableCell className="hidden font-mono text-xs md:table-cell">
-                  {event.entityType} {event.entityId.slice(0, 8)}
+                  {event.entityType} {UUID.test(event.entityId) ? event.entityId.slice(0, 8) : event.entityId}
                 </TableCell>
                 <TableCell className="hidden max-w-md truncate font-mono text-xs text-muted-foreground lg:table-cell">{event.summary}</TableCell>
               </TableRow>

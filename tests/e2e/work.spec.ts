@@ -824,10 +824,9 @@ test.describe("account", () => {
 
     const context = await browser.newContext();
     const user = await context.newPage();
+    // A password the administrator chose is replaced at the gate, which carries the same form as the Account page (T-9).
     await signInAs(user, email, first);
-    await user.getByRole("button", { name: "Profile menu" }).click();
-    await user.getByRole("link", { name: "Account" }).click();
-    await expect(user.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
+    await expect(user.getByRole("heading", { name: "Choose your own password" })).toBeVisible();
 
     await user.getByLabel("Current password").fill("not-the-current-password");
     await user.getByLabel("New password", { exact: true }).fill(second);
@@ -846,6 +845,8 @@ test.describe("account", () => {
     const freshPage = await fresh.newPage();
     await signInAs(freshPage, email, second);
     await expect(freshPage).not.toHaveURL(/\/login$/);
+    // The password is the person's own now, so the gate is done with.
+    await expect(freshPage).not.toHaveURL(/\/password-change$/);
     await context.close();
     await fresh.close();
   });

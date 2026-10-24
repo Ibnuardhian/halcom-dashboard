@@ -25,9 +25,10 @@ and the deprecated `projects.stage`, `projects.status`, `requests.assignee_id`; 
 
 **D-038 (2026-10-23):** Pipeline conversion tile (replaces Weighted pipeline) and the **Pipeline Growth** line chart (weekly/monthly/quarterly) on the Sales Pipeline, backed by a new append-only `project_progress_history` written by a database trigger; history starts at migration `20261028100000` (earlier stages were never stored), so the chart shows no point before that.
 
+**D-039 (2026-10-24):** the three production blockers are done. T-7 sign-in throttle (`login_attempts`, 5 per e-mail and 25 per address in 15 minutes, lock 15 to 60 minutes), T-8 `npm run db:bootstrap-superadmin` (once, while no superadmin exists), T-9 `users.must_change_password` + `/password-change` and audited refusals. Migration `20261029100000_login_throttle_and_password_change`. Deployment to Vercel is prepared and written up in [deployment/VERCEL.md](deployment/VERCEL.md) (`vercel.json`, `prisma generate` in postinstall and build, Backups page disabled there). Branches: `main` is production, `development` replaced the old `wip/single-view-master-data`, which is deleted.
+
 **Still open / asked:** deploying to Oracle Cloud Always Free with automatic deploys (no files written yet; the plan was given in chat: Ampere A1 VM, Docker, `compose.prod.yaml`,
-Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8, T-9 (no first-superadmin bootstrap, no login rate limit) still stand, so the app is not ready
-for real users. Whether the Request and Project lists should also merge is undecided. `prisma/data/hit_rfq_tickets_import.sql` and the CSV hold customer data: never commit them.
+Caddy or Nginx for HTTPS, GitHub Actions over SSH). Production blockers T-7, T-8 and T-9 are **done** (D-039). Whether the Request and Project lists should also merge is undecided. `prisma/data/hit_rfq_tickets_import.sql` and the CSV hold customer data: never commit them.
 The user's git identity is not configured on the first device: commits used `git -c user.name=Ibnuardhian -c user.email=ibnuardhian@gmail.com`.
 
 **Environment notes:** Docker Desktop may be off (start `C:\Program Files\Docker\Docker\Docker Desktop.exe`); run no other Docker command during an E2E run; after editing source the test

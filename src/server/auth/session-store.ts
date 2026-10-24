@@ -7,7 +7,7 @@ export { SESSION_MAX_AGE_MS, SESSION_TTL_MS } from "./session-policy";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-export type SessionUser = { id: string; name: string; email: string; role: Role };
+export type SessionUser = { id: string; name: string; email: string; role: Role; mustChangePassword: boolean };
 
 /** Only this hash is stored, so a database leak does not expose usable cookies. */
 export function hashSessionToken(token: string): string {
@@ -37,11 +37,11 @@ export async function findSessionUser(
 ): Promise<SessionUser | null> {
   const session = await db.session.findUnique({
     where: { tokenHash: hashSessionToken(token) },
-    select: { expiresAt: true, user: { select: { id: true, name: true, email: true, role: true, isActive: true } } },
+    select: { expiresAt: true, user: { select: { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true } } },
   });
   if (!session || session.expiresAt <= now || !session.user.isActive) return null;
-  const { id, name, email, role } = session.user;
-  return { id, name, email, role };
+  const { id, name, email, role, mustChangePassword } = session.user;
+  return { id, name, email, role, mustChangePassword };
 }
 
 /**

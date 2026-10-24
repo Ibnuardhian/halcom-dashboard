@@ -7,7 +7,7 @@ import { formatUtc } from "@/features/dashboards/format";
 import { BackupForm } from "@/features/system/backup-form";
 import { formatBytes } from "@/features/system/format";
 import { requirePermission } from "@/server/auth/current-user";
-import { listBackups } from "@/server/system/backup";
+import { backupsSupported, listBackups } from "@/server/system/backup";
 
 export default function BackupsPage() {
   return (
@@ -19,6 +19,8 @@ export default function BackupsPage() {
 
 async function Backups() {
   await requirePermission("system.backup");
+  // On a serverless platform there is no pg_dump and no disk that outlives the request; the database provider backs up instead.
+  const supported = backupsSupported();
   const state = await listBackups();
 
   return (
@@ -39,7 +41,14 @@ async function Backups() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <BackupForm />
+            {supported ? (
+              <BackupForm />
+            ) : (
+              <p role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
+                This deployment cannot write backups: it runs without <code>pg_dump</code> and without a disk that outlives a request. The database
+                provider keeps the backups instead (with Neon: point-in-time restore and branches). See docs/deployment/VERCEL.md.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               Restoring is a deliberate manual step that needs approval: see README, Backups. There is no restore button on purpose.
             </p>

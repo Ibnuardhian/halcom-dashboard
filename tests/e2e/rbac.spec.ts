@@ -139,9 +139,25 @@ test.describe("user management", () => {
     await expect(page.getByRole("status").filter({ hasText: "User created." })).toBeVisible();
     await expect(page.getByRole("cell", { name: email, exact: true })).toBeVisible();
 
+    // The password was chosen by the administrator, so the account passes the gate before it reaches anything (T-9).
     const other = await browser.newContext();
     const otherPage = await other.newPage();
     await signInAs(otherPage, email, password);
+    await expect(otherPage).toHaveURL(/\/password-change$/);
+    await expect(otherPage.getByRole("heading", { name: "Choose your own password" })).toBeVisible();
+    // Nothing else opens while the handed-over password is still in use.
+    await otherPage.goto("/dashboard/purchasing");
+    await expect(otherPage).toHaveURL(/\/password-change$/);
+
+    const chosen = "e2e-chosen-by-me-1";
+    await expect(async () => {
+      await otherPage.getByLabel("Current password").fill(password);
+      await otherPage.getByLabel("New password", { exact: true }).fill(chosen);
+      await otherPage.getByLabel("Confirm new password").fill(chosen);
+      await otherPage.getByRole("button", { name: "Change password" }).click();
+      await expect(otherPage.getByText("Password changed.")).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000 });
+    await otherPage.goto("/dashboard/purchasing");
     await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing Dashboard");
     await other.close();
 
@@ -163,8 +179,9 @@ test.describe("user management", () => {
 
     const victim = await browser.newContext();
     const victimPage = await victim.newPage();
+    // The administrator chose this password, so the account is signed in but held at the gate (T-9).
     await signInAs(victimPage, email, password);
-    await expectOnDashboard(victimPage, "/dashboard/sales", "Sales Pipeline");
+    await expect(victimPage).toHaveURL(/\/password-change$/);
 
     await page.getByRole("button", { name: `Deactivate ${email}` }).click();
     await expect(page.getByRole("status").filter({ hasText: "User deactivated." })).toBeVisible();

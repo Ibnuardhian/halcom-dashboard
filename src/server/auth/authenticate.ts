@@ -22,5 +22,5 @@ export async function authenticate(
   }
   const passwordMatches = await verifyPassword(password, user.passwordHash);
   if (!passwordMatches || !user.isActive) return null;
-  return { id: user.id, name: user.name, email: user.email, role: user.role };
+  return { id: user.id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword };
 }

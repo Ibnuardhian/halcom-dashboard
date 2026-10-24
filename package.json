@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "lint": "eslint --max-warnings=0",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --project unit",
@@ -20,6 +21,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:seed": "prisma db seed",
+    "db:bootstrap-superadmin": "tsx prisma/bootstrap-superadmin.ts",
     "db:seed:sample": "tsx prisma/seed-sample.ts",
     "db:import-projects": "tsx prisma/import-projects.ts",
     "db:remap-owners": "tsx prisma/remap-owners.ts",
