@@ -94,7 +94,7 @@ describe("periods", () => {
     expect(last.endExclusive.toISOString()).toBe("2026-10-25T17:00:00.000Z");
     expect(last.running).toBe(true);
     expect(last.asOf).toEqual(wednesday);
-    expect(last.label).toBe("W43 2026 · 19–25 Oct");
+    expect(last.label).toBe("W43 2026 · 19–25 Okt");
     // Consecutive, seven days each, no gap and no overlap.
     periods.forEach((period, i) => {
       expect(period.endExclusive.getTime() - period.start.getTime()).toBe(7 * 86_400_000);
@@ -113,11 +113,11 @@ describe("periods", () => {
 
   it("weekly: a week across the year end is one ISO week of the earlier year, and the first days of January can belong to week 53", () => {
     const labels = buildPeriods("weekly", new Date("2027-01-03T05:00:00Z")).map((p) => p.label);
-    expect(labels.at(-1)).toBe("W53 2026 · 28 Dec – 3 Jan");
-    expect(labels.at(-2)).toBe("W52 2026 · 21–27 Dec");
+    expect(labels.at(-1)).toBe("W53 2026 · 28 Des – 3 Jan");
+    expect(labels.at(-2)).toBe("W52 2026 · 21–27 Des");
     expect(buildPeriods("weekly", new Date("2027-01-04T05:00:00Z")).at(-1)!.label).toBe("W01 2027 · 4–10 Jan");
     // ISO week 1 of 2026 starts on Monday 29 December 2025.
-    expect(buildPeriods("weekly", new Date("2026-01-01T05:00:00Z")).at(-1)!.label).toBe("W01 2026 · 29 Dec – 4 Jan");
+    expect(buildPeriods("weekly", new Date("2026-01-01T05:00:00Z")).at(-1)!.label).toBe("W01 2026 · 29 Des – 4 Jan");
   });
 
   it("monthly: twelve calendar months by default, labelled with month and year", () => {
@@ -126,11 +126,11 @@ describe("periods", () => {
     expect(periods[0]!.label).toBe("Feb 2025");
     expect(periods.at(-1)!.label).toBe("Jan 2026");
     expect(periods.at(-1)!.start.toISOString()).toBe("2025-12-31T17:00:00.000Z"); // 1 Jan 00:00 +07
-    expect(periods.at(-2)!.label).toBe("Dec 2025");
+    expect(periods.at(-2)!.label).toBe("Des 2025");
   });
 
   it("monthly: the moment 17:00 UTC on the last day of the month is already the next month in Jakarta", () => {
-    expect(buildPeriods("monthly", new Date("2025-12-31T16:59:59Z")).at(-1)!.label).toBe("Dec 2025");
+    expect(buildPeriods("monthly", new Date("2025-12-31T16:59:59Z")).at(-1)!.label).toBe("Des 2025");
     expect(buildPeriods("monthly", new Date("2025-12-31T17:00:00Z")).at(-1)!.label).toBe("Jan 2026");
   });
 
@@ -167,10 +167,10 @@ describe("comparisons", () => {
   });
 
   it("words them without calling a fall bad", () => {
-    expect(describeComparison({ kind: "na" }, "week")).toBe("N/A");
-    expect(describeComparison({ kind: "new", delta: 2 }, "week")).toBe("New (+2)");
-    expect(describeComparison({ kind: "change", delta: -3, percent: -30 }, "month")).toBe("−3 (−30%) vs previous month");
-    expect(describeComparison({ kind: "change", delta: 2, percent: 20 }, "quarter")).toBe("+2 (+20%) vs previous quarter");
+    expect(describeComparison({ kind: "na" }, "minggu")).toBe("N/A");
+    expect(describeComparison({ kind: "new", delta: 2 }, "minggu")).toBe("Baru (+2)");
+    expect(describeComparison({ kind: "change", delta: -3, percent: -30 }, "bulan")).toBe("−3 (−30%) dibanding bulan sebelumnya");
+    expect(describeComparison({ kind: "change", delta: 2, percent: 20 }, "kuartal")).toBe("+2 (+20%) dibanding kuartal sebelumnya");
   });
 });
 
@@ -204,8 +204,8 @@ describe("the summary cards and the tooltip", () => {
   });
 
   it("formats a tooltip line with the count and the percentage", () => {
-    expect(tooltipLine("QUOTED", 18, 32.14)).toBe("Quoted: 18 projects (32.1%)");
-    expect(tooltipLine("CLOSED_WON", 1, 100)).toBe("Closed Won: 1 project (100.0%)");
+    expect(tooltipLine("QUOTED", 18, 32.14)).toBe("Quoted: 18 proyek (32.1%)");
+    expect(tooltipLine("CLOSED_WON", 1, 100)).toBe("Closed Won: 1 proyek (100.0%)");
   });
 });
 

@@ -11,8 +11,8 @@ import {
 
 export type GrowthCard = { category: GrowthCategory; label: string; color: string; count: number | null; percent: number | null; comparison: Comparison };
 
-/** The period word of a granularity, for "vs previous week". */
-export const PERIOD_WORDS: Record<Granularity, string> = { weekly: "week", monthly: "month", quarterly: "quarter" };
+/** The period word of a granularity, for "dibanding minggu sebelumnya". */
+export const PERIOD_WORDS: Record<Granularity, string> = { weekly: "minggu", monthly: "bulan", quarterly: "kuartal" };
 
 /**
  * The three cards under the chart: the last period of the chart (the running one) against the one before it, from the same points
@@ -31,9 +31,9 @@ export function summariseGrowth(points: readonly GrowthPoint[]): GrowthCard[] {
   }));
 }
 
-/** The text of a tooltip line: "Quoted: 18 projects (32.1%)". */
+/** The text of a tooltip line: "Quoted: 18 proyek (32.1%)". */
 export function tooltipLine(category: GrowthCategory, count: number, percent: number): string {
-  return `${GROWTH_CATEGORY_LABELS[category]}: ${count} project${count === 1 ? "" : "s"} (${percent.toFixed(1)}%)`;
+  return `${GROWTH_CATEGORY_LABELS[category]}: ${count} proyek (${percent.toFixed(1)}%)`;
 }
 
 /** What the chart's endpoint returns (and the page renders): the points, the cards made from them, and when history starts. */

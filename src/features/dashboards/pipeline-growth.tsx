@@ -18,7 +18,7 @@ import { PERIOD_WORDS, tooltipLine, type PipelineGrowth } from "@/domain/project
 import { PROGRESS_NAMES } from "@/domain/projects/progress";
 
 const HEIGHT = 280;
-const MARGIN = { top: 14, right: 16, bottom: 30, left: 34 };
+const MARGIN = { top: 14, right: 34, bottom: 30, left: 34 };
 const AREA_OPACITY = 0.14;
 
 type Phase = { kind: "ready" } | { kind: "loading" } | { kind: "error"; message: string };
@@ -31,7 +31,7 @@ function isGrowth(value: unknown): value is PipelineGrowth {
   return !!v && typeof v === "object" && Array.isArray(v.points) && Array.isArray(v.cards) && typeof v.granularity === "string";
 }
 
-const formatDate = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(iso));
+const formatDate = (iso: string) => new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(iso));
 
 /** The width of an element, kept up to date as it is resized, so the chart can drop labels instead of overflowing on a phone. */
 function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
@@ -112,7 +112,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
         <div className="min-w-0">
           <h2 className="text-base font-semibold">Pipeline Growth</h2>
           <p className="text-sm text-muted-foreground">
-            Projects in each group at the end of the {PERIOD_WORDS[granularity]}, counted from the date each project was created. Quoted starts when a project reaches 30% (Propose), Closed Won at 100%. Closed Lost projects are not counted. Weeks start on Monday; times are Asia/Jakarta.
+            Jumlah proyek per akhir {PERIOD_WORDS[granularity]} berdasarkan tanggal dibuat (Quoted = Propose 30%, Closed Won = 100%, tanpa Closed Lost). Minggu dimulai hari Senin; zona waktu Asia/Jakarta.
           </p>
         </div>
         <div role="group" aria-label="Period" className="inline-flex rounded-lg border p-0.5">
@@ -162,7 +162,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
               width="100%"
               viewBox={`0 0 ${width} ${HEIGHT}`}
               role="img"
-              aria-label={`Pipeline Growth, ${GRANULARITY_LABELS[granularity].toLowerCase()}: projects in Opportunity, Quoted and Closed Won per ${PERIOD_WORDS[granularity]}. A table with the same numbers follows.`}
+              aria-label={`Pipeline Growth, ${GRANULARITY_LABELS[granularity].toLowerCase()}: jumlah proyek di Opportunity, Quoted, dan Closed Won per ${PERIOD_WORDS[granularity]}. Tabel dengan angka yang sama ada di bawahnya.`}
               className={phase.kind === "loading" ? "opacity-50 transition-opacity" : "transition-opacity"}
               onPointerLeave={() => setActive(null)}
             >
@@ -211,7 +211,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
                     fill="transparent"
                     tabIndex={0}
                     role="button"
-                    aria-label={`${point.label}${point.counts ? `: ${GROWTH_CATEGORIES.map((c) => `${GROWTH_CATEGORY_LABELS[c]} ${point.counts![c]}`).join(", ")}` : ": no history for this period"}`}
+                    aria-label={`${point.label}${point.counts ? `: ${GROWTH_CATEGORIES.map((c) => `${GROWTH_CATEGORY_LABELS[c]} ${point.counts![c]}`).join(", ")}` : ": belum ada riwayat untuk periode ini"}`}
                     onPointerEnter={() => setActive(index)}
                     onPointerMove={() => setActive(index)}
                     onFocus={() => setActive(index)}
@@ -231,7 +231,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
               >
                 <p className="mb-1 font-semibold">
                   {activePoint.label}
-                  {activePoint.running ? " (so far)" : ""}
+                  {activePoint.running ? " (sejauh ini)" : ""}
                 </p>
                 {activePoint.counts && activePoint.percents ? (
                   <>
@@ -243,10 +243,10 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-1 text-muted-foreground">{activePoint.total} projects in total</p>
+                    <p className="mt-1 text-muted-foreground">{activePoint.total} proyek secara total</p>
                   </>
                 ) : (
-                  <p className="text-muted-foreground">Not recorded: stage history starts {data.historyStartsAt ? formatDate(data.historyStartsAt) : "later"}.</p>
+                  <p className="text-muted-foreground">Belum tercatat: riwayat tahap mulai {data.historyStartsAt ? formatDate(data.historyStartsAt) : "nanti"}.</p>
                 )}
               </div>
             ) : null}
@@ -261,11 +261,11 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
 
       {data.historyStartsAt && points.length > 0 && new Date(points[0]!.start).getTime() < new Date(data.historyStartsAt).getTime() && !empty ? (
         <p className="mt-2 text-xs text-muted-foreground" data-testid="pipeline-growth-notice">
-          The stage history starts on {formatDate(data.historyStartsAt)}. Before it, a project is Quoted from its quote released date and Closed Won from its won date; without those dates it counts as an Opportunity.
+          Riwayat tahap mulai dicatat pada {formatDate(data.historyStartsAt)}. Sebelum itu, proyek dihitung Quoted sejak Quote released dan Closed Won sejak Won date; tanpa tanggal tersebut dihitung sebagai Opportunity.
         </p>
       ) : unreliableCount > 0 && !empty ? (
         <p className="mt-2 text-xs text-muted-foreground" data-testid="pipeline-growth-notice">
-          Some periods are left out: the stage a project had then was not recorded, and none is estimated.
+          Sebagian periode tidak ditampilkan: tahap proyek saat itu tidak tercatat, dan tidak diperkirakan.
         </p>
       ) : null}
 
@@ -278,7 +278,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{card.count === null ? "N/A" : card.count}</p>
             <p className="text-xs text-muted-foreground">
-              {card.percent === null ? "No history for this period" : `${card.percent.toFixed(1)}% of ${data.points.at(-1)?.total ?? 0} projects in the pipeline`}
+              {card.percent === null ? "Belum ada riwayat untuk periode ini" : `${card.percent.toFixed(1)}% dari ${data.points.at(-1)?.total ?? 0} proyek di pipeline`}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               <span aria-hidden>{card.comparison.kind === "change" || card.comparison.kind === "new" ? (card.comparison.delta > 0 ? "▲ " : "▼ ") : ""}</span>
@@ -288,18 +288,18 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
         ))}
       </ul>
       <p className="mt-2 text-xs text-muted-foreground">
-        The cards show the latest {PERIOD_WORDS[granularity]} so far against the {PERIOD_WORDS[granularity]} before it. A fall is not necessarily bad: a project that moves from Opportunity to Quoted leaves one group and joins the next. These are counts at a moment, not a conversion rate.
+        Kartu menampilkan {PERIOD_WORDS[granularity]} terbaru sejauh ini dibanding {PERIOD_WORDS[granularity]} sebelumnya. Angka turun belum tentu buruk: proyek yang pindah dari Opportunity ke Quoted keluar dari satu grup dan masuk ke grup berikutnya. Ini jumlah pada satu waktu, bukan conversion rate.
       </p>
 
       <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-muted-foreground">Show the numbers as a table</summary>
+        <summary className="cursor-pointer text-muted-foreground">Tampilkan angka sebagai tabel</summary>
         <div className="mt-2 overflow-x-auto">
           <table className="w-full text-left text-xs tabular-nums">
-            <caption className="sr-only">Projects per group at the end of each period</caption>
+            <caption className="sr-only">Jumlah proyek per grup pada akhir tiap periode</caption>
             <thead>
               <tr className="text-muted-foreground">
                 <th scope="col" className="py-1 pr-3 font-medium">
-                  Period
+                  Periode
                 </th>
                 {GROWTH_CATEGORIES.map((category) => (
                   <th key={category} scope="col" className="py-1 pr-3 font-medium">

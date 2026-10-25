@@ -71,7 +71,7 @@ const local = (instant: Date) => new Date(instant.getTime() + OFFSET_MS);
 /** The instant of midnight business time on the given local calendar date. */
 const midnight = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day) - OFFSET_MS);
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 /** ISO 8601 week (Monday first; week 1 holds the year's first Thursday) of a local calendar date. */
 function isoWeek(localDate: Date): { year: number; week: number } {
@@ -173,10 +173,10 @@ export function describeComparison(comparison: Comparison, period: string): stri
     case "na":
       return "N/A";
     case "new":
-      return `New (+${comparison.delta})`;
+      return `Baru (+${comparison.delta})`;
     case "flat":
-      return `No change`;
+      return "Tidak berubah";
     case "change":
-      return `${comparison.delta > 0 ? "+" : "−"}${Math.abs(comparison.delta)} (${comparison.percent > 0 ? "+" : "−"}${Math.abs(comparison.percent)}%) vs previous ${period}`;
+      return `${comparison.delta > 0 ? "+" : "−"}${Math.abs(comparison.delta)} (${comparison.percent > 0 ? "+" : "−"}${Math.abs(comparison.percent)}%) dibanding ${period} sebelumnya`;
   }
 }

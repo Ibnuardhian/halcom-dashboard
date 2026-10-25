@@ -54,7 +54,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await expect(chart.getByTestId("growth-card-QUOTED")).toBeVisible();
     await expect(chart.getByTestId("growth-card-CLOSED_WON")).toBeVisible();
     // The numbers are also available as a table.
-    await chart.getByText("Show the numbers as a table").click();
+    await chart.getByText("Tampilkan angka sebagai tabel").click();
     await expect(chart.getByRole("table").getByRole("columnheader", { name: "Quoted" })).toBeVisible();
   });
 
@@ -62,12 +62,12 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await open(page);
     await page.evaluate(() => ((window as unknown as { __stay: boolean }).__stay = true));
     const chart = page.getByTestId("pipeline-growth");
-    for (const [name, word] of [["Weekly", "week"], ["Quarterly", "quarter"], ["Monthly", "month"]] as const) {
+    for (const [name, word] of [["Weekly", "minggu"], ["Quarterly", "kuartal"], ["Monthly", "bulan"]] as const) {
       const answered = page.waitForResponse((r) => r.url().includes("/api/pipeline-growth?granularity=" + name.toLowerCase()) && r.status() === 200);
       await chart.getByRole("button", { name }).click();
       await answered;
       await expect(chart.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
-      await expect(chart.getByText(`at the end of the ${word}`)).toBeVisible();
+      await expect(chart.getByText(`per akhir ${word}`)).toBeVisible();
     }
     expect(await page.evaluate(() => (window as unknown as { __stay?: boolean }).__stay)).toBe(true); // the same document, not a reload
   });
@@ -81,12 +81,12 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await chart.getByRole("button", { name: /weekly 1:/ }).hover();
     const tip = page.getByTestId("pipeline-growth-tooltip");
     await expect(tip).toBeVisible();
-    await expect(tip).toContainText("Opportunity: 5 projects (50.0%)");
-    await expect(tip).toContainText("Quoted: 2 projects (30.0%)");
-    await expect(tip).toContainText("Closed Won: 1 project (20.0%)");
+    await expect(tip).toContainText("Opportunity: 5 proyek (50.0%)");
+    await expect(tip).toContainText("Quoted: 2 proyek (30.0%)");
+    await expect(tip).toContainText("Closed Won: 1 proyek (20.0%)");
     // Keyboard users get the same through focus.
     await chart.getByRole("button", { name: /weekly 2/ }).focus();
-    await expect(tip).toContainText("weekly 2 (so far)");
+    await expect(tip).toContainText("weekly 2 (sejauh ini)");
   });
 
   test("shows an error with a retry, and recovers", async ({ page }) => {
@@ -98,7 +98,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await page.unroute("**/api/pipeline-growth?granularity=weekly");
     await chart.getByRole("button", { name: "Try again" }).click();
     await expect(chart.getByRole("alert")).toHaveCount(0);
-    await expect(chart.getByText("at the end of the week")).toBeVisible();
+    await expect(chart.getByText("per akhir minggu")).toBeVisible();
   });
 
   test("says the session has ended when the endpoint answers 401", async ({ page }) => {
@@ -124,8 +124,8 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await open(page);
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Weekly" }).click();
     const notice = page.getByTestId("pipeline-growth-notice");
-    await expect(notice).toContainText("stage history starts on 15 Jan 2026");
-    await expect(notice).toContainText("quote released date");
+    await expect(notice).toContainText("Riwayat tahap mulai dicatat pada 15 Jan 2026");
+    await expect(notice).toContainText("Quote released");
   });
 
   test("an answer to an older choice never replaces a newer one", async ({ page }) => {
@@ -138,9 +138,9 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     const chart = page.getByTestId("pipeline-growth");
     await chart.getByRole("button", { name: "Weekly" }).click();
     await chart.getByRole("button", { name: "Quarterly" }).click();
-    await expect(chart.getByText("at the end of the quarter")).toBeVisible();
+    await expect(chart.getByText("per akhir kuartal")).toBeVisible();
     await page.waitForTimeout(3500); // long enough for the slow weekly answer to arrive
-    await expect(chart.getByText("at the end of the quarter")).toBeVisible();
+    await expect(chart.getByText("per akhir kuartal")).toBeVisible();
     await expect(chart.getByRole("button", { name: "Quarterly" })).toHaveAttribute("aria-pressed", "true");
     await expect(chart.getByRole("button", { name: /^weekly \d/ })).toHaveCount(0);
   });

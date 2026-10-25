@@ -14,8 +14,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Sign in to see this." }, { status: 401, headers: NO_STORE });
-  if (!can(user.role, "projects.view")) return NextResponse.json({ error: "You may not see this." }, { status: 403, headers: NO_STORE });
+  if (!user) return NextResponse.json({ error: "Masuk untuk melihat ini." }, { status: 401, headers: NO_STORE });
+  if (!can(user.role, "projects.view")) return NextResponse.json({ error: "Anda tidak boleh melihat ini." }, { status: 403, headers: NO_STORE });
 
   const granularity = request.nextUrl.searchParams.get("granularity");
   if (!isGranularity(granularity)) {
