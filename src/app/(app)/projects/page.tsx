@@ -18,7 +18,18 @@ import { formatDateOnly } from "@/features/requests/format";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
-import { DEFAULT_PROJECT_PAGE_SIZE, listPrincipalOptions, PROJECT_PAGE_SIZES, PROJECT_SHOW_LABELS, PROJECT_SHOWS, searchProjects, type ProjectFilter, type ProjectPageSize } from "@/server/requests/queries";
+import {
+  DEFAULT_PROJECT_PAGE_SIZE,
+  listPrincipalOptions,
+  PROJECT_PAGE_SIZES,
+  PROJECT_SHOW_LABELS,
+  PROJECT_SHOWS,
+  PROJECT_SORTS,
+  searchProjects,
+  type ProjectFilter,
+  type ProjectPageSize,
+  type ProjectSort,
+} from "@/server/requests/queries";
 
 export default function ProjectsPage({ searchParams }: PageProps<"/projects">) {
   return (
@@ -30,6 +41,19 @@ export default function ProjectsPage({ searchParams }: PageProps<"/projects">) {
 
 function one(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
+}
+
+/** A sortable header: a link (never plain text), so the generic click-to-sort-the-visible-rows behaviour of `Table` never applies to
+ * it — sorting a page of a server-paginated table that way would only reorder the rows shown, not the whole matching set. */
+function SortableHead({ label, column, active, dir, href, className }: { label: string; column: ProjectSort; active: boolean; dir: "asc" | "desc"; href: (column: ProjectSort) => string; className?: string }) {
+  return (
+    <TableHead className={className} aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined}>
+      <Link href={href(column)} className="inline-flex items-center gap-1 hover:underline">
+        {label}
+        {active ? <span aria-hidden>{dir === "asc" ? "↑" : "↓"}</span> : null}
+      </Link>
+    </TableHead>
+  );
 }
 
 async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchParams">) {
@@ -78,10 +102,15 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   // Rows per page: 25, 50, 100 or all. Anything else falls back to the default; the page number is clamped by the query.
   const wantedSize = one(query.per);
   const pageSize: ProjectPageSize = wantedSize === "all" ? "all" : (PROJECT_PAGE_SIZES.find((size) => String(size) === wantedSize) ?? DEFAULT_PROJECT_PAGE_SIZE);
-  const result = await searchProjects(getDb(), viewer, filter, { page: Number(one(query.page)) || 1, pageSize });
+  // The whole matching set is sorted before a page is cut out of it (`searchProjects`), so "Rows per page" never changes what a
+  // column sort covers. With no column chosen, newest project first (by project number) is kept as the default.
+  const sort: ProjectSort = PROJECT_SORTS.find((s) => s === one(query.sort)) ?? "code";
+  const defaultDir = (column: ProjectSort): "asc" | "desc" => (column === "code" ? "desc" : "asc");
+  const dir: "asc" | "desc" = one(query.dir) === "asc" || one(query.dir) === "desc" ? (one(query.dir) as "asc" | "desc") : defaultDir(sort);
+  const result = await searchProjects(getDb(), viewer, filter, { page: Number(one(query.page)) || 1, pageSize, sort, dir });
   const projects = result.rows;
-  // Every link of the table keeps the filters, so paging never loses them.
-  const href = (next: { page?: number; per?: ProjectPageSize }) => {
+  // Every link of the table keeps the filters, so paging and sorting never lose them.
+  const href = (next: { page?: number; per?: ProjectPageSize; sort?: ProjectSort; dir?: "asc" | "desc" }) => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
     if (progress) params.set("progress", progress);
@@ -95,10 +124,15 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     if (mine) params.set("mine", "1");
     const per = next.per ?? pageSize;
     if (per !== DEFAULT_PROJECT_PAGE_SIZE) params.set("per", String(per));
+    const nextSort = next.sort ?? sort;
+    const nextDir = next.dir ?? dir;
+    if (nextSort !== "code") params.set("sort", nextSort);
+    if (nextDir !== defaultDir(nextSort)) params.set("dir", nextDir);
     if (next.page && next.page > 1) params.set("page", String(next.page));
     const text = params.toString();
     return text ? `${PROJECTS_PATH}?${text}` : PROJECTS_PATH;
   };
+  const sortHref = (column: ProjectSort) => href({ sort: column, dir: column === sort ? (dir === "asc" ? "desc" : "asc") : defaultDir(column), page: 1 });
   const firstShown = projects.length === 0 ? 0 : pageSize === "all" ? 1 : (result.page - 1) * pageSize + 1;
   const filtered = Boolean(search || progress || trackStatus || principalId || show || sourceType || mine || chartFilters.length > 0);
 
@@ -186,19 +220,19 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Project ID</TableHead>
-              <TableHead>End user</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead className="hidden sm:table-cell">Status</TableHead>
+              <SortableHead label="Project ID" column="code" active={sort === "code"} dir={dir} href={sortHref} />
+              <SortableHead label="End user" column="endUser" active={sort === "endUser"} dir={dir} href={sortHref} />
+              <SortableHead label="Project" column="name" active={sort === "name"} dir={dir} href={sortHref} />
+              <SortableHead label="Progress" column="progress" active={sort === "progress"} dir={dir} href={sortHref} />
+              <SortableHead label="Status" column="status" active={sort === "status"} dir={dir} href={sortHref} className="hidden sm:table-cell" />
               <TableHead className="hidden lg:table-cell">Principals</TableHead>
-              <TableHead className="hidden md:table-cell">Source</TableHead>
-              <TableHead className="hidden md:table-cell">Sales PIC</TableHead>
-              <TableHead className="hidden xl:table-cell">Technical PIC</TableHead>
-              <TableHead className="hidden text-right lg:table-cell">Estimated</TableHead>
+              <SortableHead label="Source" column="source" active={sort === "source"} dir={dir} href={sortHref} className="hidden md:table-cell" />
+              <SortableHead label="Sales PIC" column="salesOwner" active={sort === "salesOwner"} dir={dir} href={sortHref} className="hidden md:table-cell" />
+              <SortableHead label="Technical PIC" column="technicalPic" active={sort === "technicalPic"} dir={dir} href={sortHref} className="hidden xl:table-cell" />
+              <SortableHead label="Estimated" column="estimated" active={sort === "estimated"} dir={dir} href={sortHref} className="hidden text-right lg:table-cell" />
               <TableHead className="hidden text-right xl:table-cell">Prob.</TableHead>
               <TableHead className="hidden text-right xl:table-cell">Weighted</TableHead>
-              <TableHead className="hidden lg:table-cell">Target closing</TableHead>
+              <SortableHead label="Target closing" column="targetDate" active={sort === "targetDate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
               <TableHead className="hidden text-right md:table-cell">Open requests</TableHead>
             </TableRow>
           </TableHeader>

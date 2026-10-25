@@ -7,8 +7,8 @@ import { isOpen, REQUEST_STATUSES, type RequestStatus } from "@/domain/requests/
 import { FILTER_EXTERNAL, FILTER_NONE, industryKey, progressesReaching } from "@/domain/projects/drilldown";
 import { principalNamesOf } from "@/domain/projects/master-data";
 import { weightedValue } from "@/domain/projects/pipeline";
-import { salesSideName, type ProjectSourceType } from "@/domain/projects/source";
-import { PROGRESS_PERCENT, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
+import { salesSideName, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
+import { PROGRESS_LABELS, PROGRESS_PERCENT, TRACK_STATUS_LABELS, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
 import type { SoaPhase } from "@/domain/requests/phase";
 import { deadlineState } from "@/domain/requests/metrics";
 import { slaOf, type Sla, type SlaState } from "@/domain/requests/sla";
@@ -110,6 +110,72 @@ const numberOrNull = (value: { toNumber(): number } | null): number | null => (v
 /** Highest project number first, so the newest project is on top (HIT-PROJ-1000 sorts after HIT-PROJ-999). */
 function byCodeDescending(a: { code: string }, b: { code: string }): number {
   return Number(b.code.slice(9)) - Number(a.code.slice(9));
+}
+
+/** The Projects table's sortable columns. Computed or joined columns (Principals, Prob., Weighted, Open requests) are not sortable. */
+export const PROJECT_SORTS = ["code", "endUser", "name", "progress", "status", "source", "salesOwner", "technicalPic", "estimated", "targetDate"] as const;
+export type ProjectSort = (typeof PROJECT_SORTS)[number];
+export function isProjectSort(value: unknown): value is ProjectSort {
+  return typeof value === "string" && (PROJECT_SORTS as readonly string[]).includes(value);
+}
+
+/** What `searchProjects` reads for every matching project, to sort and page the whole set before the page's full rows are fetched. */
+const PROJECT_SORT_KEY_SELECT = {
+  id: true,
+  code: true,
+  endUserCompany: true,
+  name: true,
+  progress: true,
+  trackStatus: true,
+  sourceType: true,
+  externalSourceName: true,
+  estimatedValue: true,
+  targetDate: true,
+  industry: true,
+  salesOwner: { select: { name: true } },
+  technicalPic: { select: { name: true } },
+  customer: { select: { industry: true } },
+} as const;
+type ProjectSortKey = Prisma.ProjectGetPayload<{ select: typeof PROJECT_SORT_KEY_SELECT }>;
+
+const textCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+/** Blank last, whichever direction is asked for; two blanks keep their relative order (a stable sort). */
+function compareText(a: string | null, b: string | null, dir: 1 | -1): number {
+  if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
+  return dir * textCollator.compare(a, b);
+}
+function compareNumber(a: number | null, b: number | null, dir: 1 | -1): number {
+  if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
+  return dir * (a - b);
+}
+
+/** Orders the whole matching set by one column, so pagination only ever slices an already fully sorted list, never sorts one page of it. */
+function byProjectSort(sort: ProjectSort, dir: "asc" | "desc") {
+  const d = dir === "asc" ? 1 : -1;
+  return (a: ProjectSortKey, b: ProjectSortKey): number => {
+    switch (sort) {
+      case "code":
+        return d * -byCodeDescending(a, b);
+      case "endUser":
+        return compareText(a.endUserCompany, b.endUserCompany, d) || byCodeDescending(a, b);
+      case "name":
+        return compareText(a.name, b.name, d) || byCodeDescending(a, b);
+      case "progress":
+        return compareText(PROGRESS_LABELS[a.progress], PROGRESS_LABELS[b.progress], d) || byCodeDescending(a, b);
+      case "status":
+        return compareText(TRACK_STATUS_LABELS[a.trackStatus], TRACK_STATUS_LABELS[b.trackStatus], d) || byCodeDescending(a, b);
+      case "source":
+        return compareText(SOURCE_LABELS[a.sourceType], SOURCE_LABELS[b.sourceType], d) || byCodeDescending(a, b);
+      case "salesOwner":
+        return compareText(salesSideName({ sourceType: a.sourceType, externalSourceName: a.externalSourceName, salesOwner: a.salesOwner }), salesSideName({ sourceType: b.sourceType, externalSourceName: b.externalSourceName, salesOwner: b.salesOwner }), d) || byCodeDescending(a, b);
+      case "technicalPic":
+        return compareText(a.technicalPic?.name ?? null, b.technicalPic?.name ?? null, d) || byCodeDescending(a, b);
+      case "estimated":
+        return compareNumber(numberOrNull(a.estimatedValue), numberOrNull(b.estimatedValue), d) || byCodeDescending(a, b);
+      case "targetDate":
+        return compareNumber(a.targetDate?.getTime() ?? null, b.targetDate?.getTime() ?? null, d) || byCodeDescending(a, b);
+    }
+  };
 }
 
 /** The database side of the chart filters: each one is an OR over its values, and the filters are ANDed together. */
@@ -230,20 +296,27 @@ export type ProjectPageSize = (typeof PROJECT_PAGE_SIZES)[number] | "all";
 export type ProjectPage = { rows: ProjectRow[]; total: number; page: number; pageCount: number; pageSize: ProjectPageSize };
 
 /**
- * One page of the Projects table: the same filters as `listProjects`, ordered by project number (newest first), without the list cap
- * (the database counts and the page is cut here, so "all" really is all). A page past the end shows the last page.
+ * One page of the Projects table: the same filters as `listProjects`, ordered by the chosen column (project number, newest first,
+ * when none is chosen), without the list cap (the database counts and the page is cut here, so "all" really is all). Sorting runs
+ * over every matching project before the page is cut out of it, so "Rows per page" only ever changes how many are shown, never
+ * which ones are sorted together. A page past the end shows the last page.
  */
-export async function searchProjects(db: PrismaClient, viewer: Viewer, filter: ProjectFilter = {}, paging: { page?: number; pageSize?: ProjectPageSize } = {}): Promise<ProjectPage> {
+export async function searchProjects(
+  db: PrismaClient,
+  viewer: Viewer,
+  filter: ProjectFilter = {},
+  paging: { page?: number; pageSize?: ProjectPageSize; sort?: ProjectSort; dir?: "asc" | "desc" } = {},
+): Promise<ProjectPage> {
   assertPermitted(can(viewer.role, "projects.view"));
   const pageSize = paging.pageSize ?? DEFAULT_PROJECT_PAGE_SIZE;
   // Only what ordering and the "weighted" filter need is read for every match; the full rows are read for one page.
-  const keys = await db.project.findMany({ where: projectWhere(filter), select: { id: true, code: true, estimatedValue: true, progress: true, industry: true, customer: { select: { industry: true } } } });
+  const keys = await db.project.findMany({ where: projectWhere(filter), select: PROJECT_SORT_KEY_SELECT });
   // The Industry chart groups free text (trimmed, lower-case), so that filter is applied here the same way instead of in SQL.
   const industries = filter.industryKeys?.length ? new Set(filter.industryKeys) : null;
   const ordered = keys
     .filter((key) => filter.show !== "weighted" || (weightedValue(numberOrNull(key.estimatedValue), key.progress) ?? 0) > 0)
     .filter((key) => !industries || industries.has(industryKey(effectiveIndustry(key.customer?.industry, key.industry)) ?? FILTER_NONE))
-    .sort(byCodeDescending);
+    .sort(paging.sort ? byProjectSort(paging.sort, paging.dir ?? "asc") : byCodeDescending);
   const total = ordered.length;
   const pageCount = pageSize === "all" ? 1 : Math.max(Math.ceil(total / pageSize), 1);
   const page = Math.min(Math.max(Math.trunc(paging.page ?? 1) || 1, 1), pageCount);
