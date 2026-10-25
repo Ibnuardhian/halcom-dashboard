@@ -3,7 +3,7 @@ import { ChartCard } from "@/components/charts/chart-card";
 import { ColumnChart } from "@/components/charts/column-chart";
 import { DonutChart, type DonutItem } from "@/components/charts/donut-chart";
 import { FunnelChart } from "@/components/charts/funnel-chart";
-import { projectsHref, type DrillFilters } from "@/domain/projects/drilldown";
+import { FILTER_EXTERNAL, projectsHref, type DrillFilters } from "@/domain/projects/drilldown";
 import { buildFunnel } from "@/domain/projects/funnel";
 import { pipelineConversion } from "@/domain/projects/growth";
 import { PROGRESS_NAMES, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
@@ -85,8 +85,26 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
           <ChartCard title="Value by industry" description="Estimated value per customer industry.">
             <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />
           </ChartCard>
-          <ChartCard title="Weighted value by salesperson" description="Estimate × Progress probability, per Sales PIC.">
-            <BarList items={valueItems(analytics.bySalesPerson, (s) => s.weighted, by("owner"))} color={1} />
+          <ChartCard
+            title="Pipeline conversion by salesperson"
+            description="Porsi proyek terbuka tiap Sales PIC yang berada di Propose atau lebih lanjut, dari yang tertinggi, supaya antar orang bisa dibandingkan. Proyek dari sumber lain ditampilkan sebagai Other."
+          >
+            <BarList
+              items={analytics.conversionBySalesPerson.map((row) => ({
+                key: row.key,
+                label: row.label,
+                value: row.percent,
+                display: `${row.percent}%`,
+                note: `${row.quoted} dari ${row.open} terbuka`,
+                neutral: row.drill === FILTER_EXTERNAL,
+                // The denominator: this person's open projects (the note says how many of them are at Propose or beyond).
+                href: `${to({ owner: [row.drill] })}&show=open`,
+              }))}
+              color={1}
+              scaleMax={100}
+              allowEmpty
+              emptyText="Belum ada proyek terbuka."
+            />
           </ChartCard>
         </>
       )}

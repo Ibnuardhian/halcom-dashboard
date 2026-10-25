@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { getPipelineAnalytics, listPipelineProjects } from "@/server/projects/analytics";
+import { listProjects } from "@/server/requests/queries";
 import { updateCommercialDetails } from "@/server/projects/service";
 import { createProject } from "@/server/requests/service";
 import { makeUser } from "./helpers";
@@ -262,5 +263,41 @@ describe("pipeline analytics", () => {
     expect(list[1]).toMatchObject({ accountName: expect.any(String), projectTitle: "CCTV AI", targetMargin: 10, estimatedGrossProfit: 100, isOpen: true });
     expect(list[3]).toMatchObject({ progress: "CLOSED_WON", isOpen: false });
     expect(list[1]!.lastUpdated).toBeInstanceOf(Date);
+  });
+
+  it("compares Pipeline Conversion per salesperson: open projects at Propose or beyond over their open projects", async () => {
+    const [ann, bob, idle] = [await actorOf("SALES"), await actorOf("SALES"), await actorOf("SALES")];
+    const make = async (owner: { id: string; role: Role }, progress: "QUALIFY" | "PROPOSE" | "AGREE" | "CLOSED_WON") => {
+      const project = await makeProject(owner, { estimatedValue: 100 });
+      await db.project.update({ where: { id: project.id }, data: { progress } });
+      return project;
+    };
+    // Ann: four open, two of them (Propose, Agree) quoted. A won project and a Done one are not open.
+    await make(ann, "QUALIFY");
+    await make(ann, "QUALIFY");
+    await make(ann, "PROPOSE");
+    await make(ann, "AGREE");
+    await make(ann, "CLOSED_WON");
+    const done = await make(ann, "PROPOSE");
+    await db.project.update({ where: { id: done.id }, data: { trackStatus: "DONE" } });
+    // Bob: two open, both quoted. Idle has only a won project, so no open project and no row.
+    await make(bob, "PROPOSE");
+    await make(bob, "AGREE");
+    await make(idle, "CLOSED_WON");
+
+    const rows = (await getPipelineAnalytics(db, ann)).conversionBySalesPerson;
+
+    const row = (owner: { id: string }) => rows.find((r) => r.key === owner.id);
+    expect(row(ann)).toMatchObject({ open: 4, quoted: 2, percent: 50, drill: ann.id });
+    expect(row(bob)).toMatchObject({ open: 2, quoted: 2, percent: 100 });
+    expect(row(idle)).toBeUndefined();
+    // Highest first, so people can be compared at a glance.
+    expect(rows.indexOf(row(bob)!)).toBeLessThan(rows.indexOf(row(ann)!));
+    // The bar opens the person's open projects: the same number the row counts as open.
+    expect((await listProjects(db, ann, { ownerKeys: [ann.id], show: "open" })).length).toBe(4);
+    // The rows add up to the tile: the overall conversion is the open and quoted of everyone together.
+    const analytics = await getPipelineAnalytics(db, ann);
+    expect(analytics.conversionBySalesPerson.reduce((n, r) => n + r.open, 0)).toBe(analytics.totals.open);
+    expect(analytics.conversionBySalesPerson.reduce((n, r) => n + r.quoted, 0)).toBe(analytics.totals.openQuoted);
   });
 });

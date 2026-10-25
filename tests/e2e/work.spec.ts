@@ -445,7 +445,7 @@ test.describe("projects and requests", () => {
     await signIn(page, "FINANCE");
     await page.goto("/dashboard");
 
-    for (const title of ["Pipeline by progress", "Projects by principal", "Value by principal", "Solution mix", "Value by industry", "Weighted value by salesperson"]) {
+    for (const title of ["Pipeline by progress", "Projects by principal", "Value by principal", "Solution mix", "Value by industry", "Pipeline conversion by salesperson"]) {
       await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
     }
   });
