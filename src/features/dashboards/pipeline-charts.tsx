@@ -40,9 +40,9 @@ export function PipelineTiles({ analytics, scope = "all" }: { analytics: Pipelin
         label="Pipeline conversion"
         value={conversion.percent === null ? "N/A" : `${conversion.percent}%`}
         href={to("quoted")}
-        note={`${conversion.atPropose} dari ${conversion.open} proyek terbuka berada di Propose atau lebih lanjut`}
+        note={`${conversion.atPropose} dari ${conversion.open} open project (Propose+)`}
       />
-      <StatTile label="Estimated gross profit" value={formatCompact(totals.openTargetMargin)} href={to("margin")} note={`${totals.openWithMargin} dari ${totals.open} proyek terbuka punya target margin`} />
+      <StatTile label="Estimated gross profit" value={formatCompact(totals.openTargetMargin)} href={to("margin")} note={`${totals.openWithMargin} dari ${totals.open} open project punya target margin`} />
       <StatTile label="Won" value={formatCompact(totals.wonValue)} href={to("won")} note={`${totals.wonCount} proyek`} />
     </section>
   );
@@ -61,10 +61,10 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
   const principal = by("principal");
   return (
     <section aria-label="Pipeline charts" className="mb-8 grid gap-4 lg:grid-cols-2">
-      <ChartCard title="Sales funnel" description="Proyek yang mencapai tiap langkah, beserta estimated value-nya. Proyek Closed Lost sudah keluar dari funnel.">
+      <ChartCard title="Sales funnel" description="Funnel Proyek & Estimasi Nilai (Tanpa Closed Lost)">
         <FunnelChart items={buildFunnel(analytics.byProgress).map((s) => ({ key: s.key, label: s.label, count: s.count, display: formatCompact(s.value), href: to({ reached: s.key }) }))} />
       </ChartCard>
-      <ChartCard title="Pipeline by progress" description="Estimated PO value proyek pada tiap langkah progress; jumlah proyek ada di bawah label.">
+      <ChartCard title="Pipeline by progress" description="Estimasi Nilai PO per Tahap Progres.">
         <ColumnChart items={analytics.byProgress.map((s) => ({ key: s.key, label: PROGRESS_NAMES[s.key as ProjectProgress], value: s.value, display: formatCompact(s.value), note: `${s.count}`, href: to({ progress: s.key as ProjectProgress }) }))} />
       </ChartCard>
       {own ? (
@@ -76,7 +76,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
           <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
             <DonutChart items={countItems(analytics.byPrincipal, principal)} />
           </ChartCard>
-          <ChartCard title="Value by principal" description="Estimated value per brand, terbesar dulu. Proyek dengan beberapa principal dihitung di masing-masing.">
+          <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
             <BarList items={valueItems(analytics.byPrincipal, (s) => s.value, principal)} />
           </ChartCard>
           <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
@@ -86,8 +86,8 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
             <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />
           </ChartCard>
           <ChartCard
-            title="Pipeline conversion by salesperson"
-            description="Porsi proyek terbuka tiap Sales PIC yang berada di Propose atau lebih lanjut, dari yang tertinggi, supaya antar orang bisa dibandingkan. Proyek dari sumber lain ditampilkan sebagai Other."
+            title="Pipeline conversion"
+            description="Perbandingan porsi proyek aktif (tahap Propose+) per Sales PIC"
           >
             <BarList
               items={analytics.conversionBySalesPerson.map((row) => ({
@@ -103,7 +103,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
               color={1}
               scaleMax={100}
               allowEmpty
-              emptyText="Belum ada proyek terbuka."
+              emptyText="Belum ada open project."
             />
           </ChartCard>
         </>

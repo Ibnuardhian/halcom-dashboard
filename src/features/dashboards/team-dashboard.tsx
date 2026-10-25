@@ -65,7 +65,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
             items={summary.byStatus.map((row) => ({ key: row.status, label: REQUEST_STATUS_LABELS[row.status], value: row.count, href: to(`status=${row.status}`) }))}
           />
         </ChartCard>
-        <ChartCard title={`${copy.noun} per PIC`} description="Request yang diserahkan ke tiap PIC tim, beserta jumlah yang selesai dan yang berjalan. PIC yang belum punya request juga ditampilkan.">
+        <ChartCard title={`${copy.noun} per PIC`} description="Progres Request per PIC Tim.">
           <BarList
             items={summary.byPic.map((row) => ({
               key: row.picId ?? "none",
@@ -92,7 +92,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
         {team === "SOA" ? (
           <StatTile label="Awaiting handoff" value={awaitingHandoff ?? 0} href={HANDOFFS_PATH} note="BOQ Completed yang belum dilanjutkan atau dihentikan siapa pun" />
         ) : (
-          <StatTile label="In progress" value={metrics.inProgress} href={to("status=IN_PROGRESS")} note="Di Purchasing, menunggu quotation atau jawaban vendor (respons vendor belum menjadi status tersendiri)" />
+          <StatTile label="In progress" value={metrics.inProgress} href={to("status=IN_PROGRESS")} note="Status Request: Menunggu Respon Vendor (Purchasing)" />
         )}
       </section>
 
