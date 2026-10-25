@@ -49,7 +49,7 @@ export default function ProjectPage({ params, searchParams }: PageProps<"/projec
 
 /** Free text from the export: shown with its line breaks, or a plain "Not recorded". */
 function Prose({ value }: { value: string | null }) {
-  return value ? <p className="text-sm whitespace-pre-wrap">{value}</p> : <p className="text-sm text-muted-foreground">Not recorded.</p>;
+  return value ? <p className="text-sm whitespace-pre-wrap">{value}</p> : <p className="text-sm text-muted-foreground">Belum dicatat.</p>;
 }
 
 function Section({ id, title, description, children }: { id: string; title: string; description?: string; children: React.ReactNode }) {
@@ -223,8 +223,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         title="Commercial"
         description={
           mayEditCommercial
-            ? "Creation date, progress, status, value, target margin, quote release and target closing. Every change is written to the change log below."
-            : "Owned by the Sales PIC of the project. You can read it but not change it."
+            ? "Opportunity date, progress, status, nilai, target margin, quote release, dan target closing. Setiap perubahan dicatat di change log di bawah."
+            : "Dimiliki Sales PIC proyek ini. Anda dapat membacanya tetapi tidak dapat mengubahnya."
         }
       >
         {mayEditCommercial ? (
@@ -254,8 +254,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         title="Technical"
         description={
           mayEditTechnical
-            ? "Technical details and BOQ progress. Every change is written to the change log below."
-            : "Owned by SOA. You can read it but not change it."
+            ? "Detail teknis dan progres BOQ. Setiap perubahan dicatat di change log di bawah."
+            : "Dimiliki SOA. Anda dapat membacanya tetapi tidak dapat mengubahnya."
         }
       >
         {mayEditTechnical ? (
@@ -293,14 +293,14 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
                 ))}
               </dl>
             ) : (
-              <p className="text-sm text-muted-foreground">No technical details recorded yet.</p>
+              <p className="text-sm text-muted-foreground">Belum ada detail teknis yang dicatat.</p>
             )}
           </>
         )}
         <div className="mt-6 border-t pt-4">
           <h3 className="mb-2 text-sm font-semibold">SOA phase</h3>
           {soaPhases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No open BOQ request has a phase yet. SOA label it as the work moves from Assessment to Sizing to POC.</p>
+            <p className="text-sm text-muted-foreground">Belum ada request BOQ terbuka yang memiliki phase. SOA memberi label saat pekerjaan berpindah dari Assessment ke Sizing ke POC.</p>
           ) : (
             <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
               {soaPhases.map((r) => (
@@ -325,18 +325,18 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         title="Activity"
         description={
           mayPostUpdate
-            ? "Add what was done (current action) and what comes next. Like comments: each entry records who wrote it and when."
-            : "What was done and what comes next, written as dated updates by the technical team."
+            ? "Tambahkan apa yang sudah dikerjakan (current action) dan apa yang berikutnya. Seperti komentar: setiap entri mencatat siapa yang menulis dan kapan."
+            : "Apa yang sudah dikerjakan dan apa yang berikutnya, ditulis sebagai update bertanggal oleh tim teknis."
         }
       >
         <div className="flex flex-col gap-6">
           {mayPostUpdate ? <ActionComposer projectId={project.id} projectCode={project.code} /> : null}
           <ActionFeed entries={actions} />
         </div>
-        {project.importedFrom ? <p className="mt-4 text-xs text-muted-foreground">Imported from {project.importedFrom}.</p> : null}
+        {project.importedFrom ? <p className="mt-4 text-xs text-muted-foreground">Diimpor dari {project.importedFrom}.</p> : null}
       </Section>
 
-      <Section id="requests" title="Requests" description="The BOQ, RFQ and PO of this project. Open one to see its status, actions, email and history.">
+      <Section id="requests" title="Requests" description="BOQ, RFQ, dan PO proyek ini. Buka salah satunya untuk melihat status, aksi, email, dan riwayatnya.">
         <div className="flex flex-col gap-4">
           <FlowTracker requests={requests.map((r) => ({ code: r.code, type: r.type, status: r.status, flowStopped: r.flowStopped }))} />
           {mayCreate ? (
@@ -383,7 +383,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
       </Section>
 
       {mayEditSource ? (
-        <Section id="source" title="Project source" description="This project comes from another source, so it has no internal Sales PIC. Every change is written to the change log and the audit log.">
+        <Section id="source" title="Project source" description="Proyek ini berasal dari sumber lain, jadi tidak punya Sales PIC internal. Setiap perubahan dicatat di change log dan audit log.">
           <SourceForm
             projectId={project.id}
             projectCode={project.code}
@@ -399,7 +399,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
       ) : null}
 
       {can(viewer.role, "projects.reassign") && picOptions ? (
-        <Section id="owners" title="Owners" description="Superadmin: move the project to other people. Its details, requests and history stay exactly as they are; the move is added to the change log.">
+        <Section id="owners" title="Owners" description="Superadmin: pindahkan proyek ke orang lain. Detail, request, dan riwayatnya tetap seperti semula; pemindahan ditambahkan ke change log.">
           <ReassignPics
             projectId={project.id}
             projectCode={project.code}
@@ -411,7 +411,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
 
       {can(viewer.role, "projects.delete") ? (
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4">
-          <p className="text-sm text-muted-foreground">Superadmin: remove this project from the dashboards. Its history stays in the audit log.</p>
+          <p className="text-sm text-muted-foreground">Superadmin: hapus proyek ini dari dashboard. Riwayatnya tetap ada di audit log.</p>
           <DeleteProject projectId={project.id} projectCode={project.code} />
         </div>
       ) : null}

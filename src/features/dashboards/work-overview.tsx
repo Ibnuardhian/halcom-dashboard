@@ -33,10 +33,10 @@ export function WorkOverview({ stats }: { stats: WorkStats }) {
             label={`Open ${type}`}
             value={stats.openByType[type]}
             href={`${REQUESTS_PATH}/${typeSlug(type)}?status=open`}
-            note={`Owned by ${OWNING_TEAM_LABELS[type]}`}
+            note={`Dimiliki ${OWNING_TEAM_LABELS[type]}`}
           />
         ))}
-        <Scorecard label="Unassigned (open)" value={stats.unassignedOpen} href={`${REQUESTS_PATH}?status=open`} note="Open requests with no assignee" />
+        <Scorecard label="Unassigned (open)" value={stats.unassignedOpen} href={`${REQUESTS_PATH}?status=open`} note="Request terbuka tanpa penanggung jawab" />
       </div>
       <Card>
         <CardHeader>

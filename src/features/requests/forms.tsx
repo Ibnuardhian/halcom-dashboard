@@ -104,7 +104,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       {scope.salesPeople && source === "INTERNAL_SALES" ? (
         // SOA register an Internal Sales project for a registered salesperson, picked from a searchable list.
         <Field id="project-sales-pic" label={scope.salesPicRequired ? "Sales PIC *" : "Sales PIC"} hint={scope.salesPicRequired ? "Salesperson terdaftar yang memiliki proyek ini. Ketik untuk mencari." : "Opsional. Kosongkan untuk menjadikannya milik Anda sendiri. Ketik untuk mencari."}>
-          <SearchSelect id="project-sales-pic" name="salesOwnerId" label="salesperson" options={scope.salesPeople} required={scope.salesPicRequired} placeholder="Search a salesperson" />
+          <SearchSelect id="project-sales-pic" name="salesOwnerId" label="salesperson" options={scope.salesPeople} required={scope.salesPicRequired} placeholder="Cari salesperson" />
         </Field>
       ) : null}
       {scope.sources.length === 1 && source === "INTERNAL_SALES" && !scope.salesPeople ? (

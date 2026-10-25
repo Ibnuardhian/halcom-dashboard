@@ -11,10 +11,10 @@ type QueueConfig = { title: string; description: string; filter: RequestFilter; 
 const QUEUES = (): Record<"management", QueueConfig> => ({
   management: {
     title: "Open requests",
-    description: "Everything that is still in progress, newest first.",
+    description: "Semua yang masih berjalan, terbaru di atas.",
     filter: { openOnly: true, limit: 10 },
     viewAllHref: `${REQUESTS_PATH}?status=open`,
-    empty: "No open requests.",
+    empty: "Tidak ada request terbuka.",
   },
 });
 

@@ -8,7 +8,7 @@ export type IndustryResult = { ok: true; value: string | null } | { ok: false; m
  */
 export function normaliseIndustry(input: unknown): IndustryResult {
   if (input === undefined || input === null) return { ok: true, value: null };
-  if (typeof input !== "string") return { ok: false, message: "The industry must be text." };
+  if (typeof input !== "string") return { ok: false, message: "Industri harus berupa teks." };
   const value = input.replace(/\s+/g, " ").trim();
   if (value === "") return { ok: true, value: null };
   if (value.length > INDUSTRY_MAX_LENGTH) return { ok: false, message: `The industry must be at most ${INDUSTRY_MAX_LENGTH} characters.` };

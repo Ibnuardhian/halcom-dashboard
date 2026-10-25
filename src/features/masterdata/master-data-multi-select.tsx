@@ -111,7 +111,7 @@ export function MasterDataMultiSelect({
         autoComplete="off"
         value={typed}
         disabled={full}
-        placeholder={full ? `At most ${MAX_PROJECT_PRINCIPALS} ${label.toLowerCase()}s` : `Search or add a ${label.toLowerCase()}`}
+        placeholder={full ? `Maksimal ${MAX_PROJECT_PRINCIPALS} ${label.toLowerCase()}` : `Cari atau tambah ${label.toLowerCase()}`}
         maxLength={120}
         className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 md:text-sm dark:bg-input/30"
         onFocus={() => setOpen(true)}

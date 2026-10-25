@@ -120,8 +120,8 @@ export function TargetTracking({
         ))}
       </div>
 
-      <Section title="Revenue" description="No revenue target is set. Won is the final PO value of projects closed as won in the quarter (after the PO). Forecast is estimated value × the probability of the Progress step, for open projects expected to close in it." summary={summary} pick="revenue" withTarget={false} />
-      <Section title="Gross profit" description="Won is the final value of projects closed as won in the quarter (the estimate until one is entered) × the project's target margin. Forecast is the same for open projects expected to close in it, weighted by the probability of the Progress step." summary={summary} pick="grossProfit" />
+      <Section title="Revenue" description="Target revenue tidak diatur. Won adalah final PO value proyek yang ditutup sebagai won pada kuartal itu (setelah PO). Forecast adalah estimated value × probabilitas tahap Progress, untuk proyek terbuka yang diperkirakan ditutup pada kuartal itu." summary={summary} pick="revenue" withTarget={false} />
+      <Section title="Gross profit" description="Won adalah final value proyek yang ditutup sebagai won pada kuartal itu (memakai estimasi sampai nilai finalnya diisi) × target margin proyek. Forecast sama untuk proyek terbuka yang diperkirakan ditutup pada kuartal itu, dibobot dengan probabilitas tahap Progress." summary={summary} pick="grossProfit" />
 
       {notes.wonWithoutDate + notes.wonWithoutMargin + notes.openWithoutTargetDate > 0 ? (
         <div role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">

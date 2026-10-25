@@ -16,7 +16,7 @@ export type DeleteResult = { ok: true; code: string } | { ok: false; code: "FORB
  */
 export async function deleteProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<DeleteResult> {
   const parsed = deleteSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Choose a project to delete." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Pilih proyek yang akan dihapus." };
   const { projectId, confirmCode } = parsed.data;
 
   return db.$transaction(async (tx): Promise<DeleteResult> => {

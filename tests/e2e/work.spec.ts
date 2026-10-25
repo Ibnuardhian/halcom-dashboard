@@ -832,7 +832,7 @@ test.describe("account", () => {
     await user.getByLabel("New password", { exact: true }).fill(second);
     await user.getByLabel("Confirm new password").fill(second);
     await user.getByRole("button", { name: "Change password" }).click();
-    await expect(user.getByRole("alert").filter({ hasText: "The current password is incorrect." })).toBeVisible();
+    await expect(user.getByRole("alert").filter({ hasText: "Kata sandi saat ini salah." })).toBeVisible();
 
     // The form clears after every submit, so all three fields are filled in again.
     await user.getByLabel("Current password").fill(first);

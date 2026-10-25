@@ -32,7 +32,7 @@ const SLOTS = [
  */
 export async function reassignProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<ReassignResult> {
   const parsed = reassignSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Choose valid people for the project." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Pilih orang yang valid untuk proyek ini." };
   const { projectId } = parsed.data;
 
   return db.$transaction(async (tx): Promise<ReassignResult> => {
@@ -58,7 +58,7 @@ export async function reassignProject(db: PrismaClient, claimedActor: Actor, inp
       const current = project[slot.key];
       if (next === current) continue;
       if (slot.key === "salesOwnerId" && project.sourceType === "OTHER") {
-        return { ok: false, code: "INVALID_INPUT", message: "This project's source is Other, so it has no internal Sales PIC. Change the project source first." };
+        return { ok: false, code: "INVALID_INPUT", message: "Source proyek ini adalah Other, jadi tidak punya Sales PIC internal. Ubah dulu Project source-nya." };
       }
       if (next === null && slot.required) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} is required.` };
 

@@ -33,10 +33,10 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
       <PipelineTiles analytics={analytics} />
 
       <section aria-label="Quotation and PO references" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Quotations completed" value={completed("RFQ")} note={`${open("RFQ")} RFQ still open`} href={CROSSCHECK_PATH} />
-        <StatTile label="POs completed" value={completed("PO")} note={`${open("PO")} PO still open`} href={CROSSCHECK_PATH} />
+        <StatTile label="Quotations completed" value={completed("RFQ")} note={`${open("RFQ")} RFQ masih terbuka`} href={CROSSCHECK_PATH} />
+        <StatTile label="POs completed" value={completed("PO")} note={`${open("PO")} PO masih terbuka`} href={CROSSCHECK_PATH} />
         {CROSSCHECK_FLAGS.map((flag) => (
-          <StatTile key={flag} label={CROSSCHECK_FLAG_LABELS[flag]} value={flagCounts[flag]} href={`${CROSSCHECK_PATH}?flag=${flag}`} note="Projects to check" />
+          <StatTile key={flag} label={CROSSCHECK_FLAG_LABELS[flag]} value={flagCounts[flag]} href={`${CROSSCHECK_PATH}?flag=${flag}`} note="Proyek yang perlu dicek" />
         ))}
       </section>
 

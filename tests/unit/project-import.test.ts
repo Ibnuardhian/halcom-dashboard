@@ -53,8 +53,8 @@ describe("checkMapping", () => {
 
   it("refuses a missing required field, a column twice, a column outside the sheet, an unknown field and a non-object", () => {
     expect(checkMapping({ endUser: 0 }, 3)).toMatchObject({ ok: false, message: expect.stringContaining("Project name") });
-    expect(checkMapping({ ...ok, salesPic: 1 }, 3)).toMatchObject({ ok: false, message: expect.stringContaining("two fields") });
-    expect(checkMapping({ ...ok, salesPic: 9 }, 3)).toMatchObject({ ok: false, message: expect.stringContaining("not in the sheet") });
+    expect(checkMapping({ ...ok, salesPic: 1 }, 3)).toMatchObject({ ok: false, message: expect.stringContaining("dua field") });
+    expect(checkMapping({ ...ok, salesPic: 9 }, 3)).toMatchObject({ ok: false, message: expect.stringContaining("tidak ada di sheet") });
     expect(checkMapping({ ...ok, salesPic: -1 }, 3)).toMatchObject({ ok: false });
     expect(checkMapping({ ...ok, salesPic: "2" }, 3)).toMatchObject({ ok: false });
     expect(checkMapping({ ...ok, passwordHash: 2 }, 3)).toMatchObject({ ok: false, message: expect.stringContaining("passwordHash") });
@@ -132,33 +132,33 @@ describe("checkImportRow", () => {
     if (result.ok) return;
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        "End user is required.",
-        "Project name is required.",
+        "End user wajib diisi.",
+        "Project name wajib diisi.",
         expect.stringContaining('Project ID "P-1"'),
         expect.stringContaining('Progress "maybe"'),
         expect.stringContaining('Status "lost"'),
         expect.stringContaining("Estimated PO value"),
         expect.stringContaining("Target margin (%)"),
         expect.stringContaining('Quote released "soon"'),
-        "Sales PIC is required for an Internal Sales project.",
+        "Sales PIC wajib diisi untuk proyek Internal Sales.",
       ]),
     );
   });
 
   it("applies the source rules: Internal Sales needs a Sales PIC and no external name; Other the reverse", () => {
     expect(checkImportRow(row({ salesPic: "" }))).toMatchObject({ ok: false });
-    expect(checkImportRow(row({ externalSourceName: "PT Partner" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("no external sales name")] });
+    expect(checkImportRow(row({ externalSourceName: "PT Partner" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("tidak memiliki nama sales eksternal")] });
     expect(checkImportRow(row({ source: "Other", salesPic: "", externalSourceName: "PT Partner" }))).toMatchObject({ ok: true, value: { sourceType: "OTHER", salesPic: null, externalSourceName: "PT Partner" } });
-    expect(checkImportRow(row({ source: "Other", salesPic: "", externalSourceName: "" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("External sales name is required")] });
-    expect(checkImportRow(row({ source: "Other", externalSourceName: "PT Partner" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("no internal Sales PIC")] });
+    expect(checkImportRow(row({ source: "Other", salesPic: "", externalSourceName: "" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("External sales name wajib diisi")] });
+    expect(checkImportRow(row({ source: "Other", externalSourceName: "PT Partner" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("tidak memiliki Sales PIC internal")] });
     expect(checkImportRow(row({ source: "Somewhere" }))).toMatchObject({ ok: false });
   });
 
   it("refuses both margin forms together, over-long text and control characters", () => {
-    expect(checkImportRow(row({ targetMarginAmount: "100", targetMarginPercent: "10" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("not both")] });
+    expect(checkImportRow(row({ targetMarginAmount: "100", targetMarginPercent: "10" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("tidak keduanya")] });
     expect(checkImportRow(row({ name: "x".repeat(121) }))).toMatchObject({ ok: false, errors: [expect.stringContaining("120")] });
-    expect(checkImportRow(row({ description: "bad\u0007text" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("not allowed")] });
-    expect(checkImportRow(row({ principals: Array.from({ length: 21 }, (_, i) => `P${i}`).join(";") }))).toMatchObject({ ok: false, errors: [expect.stringContaining("at most 20")] });
+    expect(checkImportRow(row({ description: "bad\u0007text" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("tidak diizinkan")] });
+    expect(checkImportRow(row({ principals: Array.from({ length: 21 }, (_, i) => `P${i}`).join(";") }))).toMatchObject({ ok: false, errors: [expect.stringContaining("maksimal memiliki 20")] });
   });
 
   it("keeps text that starts with = as plain text", () => {

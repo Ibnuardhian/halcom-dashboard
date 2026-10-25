@@ -20,7 +20,7 @@ import { loginSchema } from "@/server/users/schemas";
 export type LoginState = { error: string } | null;
 
 // One message for every failure, so the form never reveals which emails exist.
-const LOGIN_FAILED = "Invalid email or password.";
+const LOGIN_FAILED = "Email atau kata sandi salah.";
 
 /** Drops every cached page of the app (server and browser router cache), so the next person never sees the last one's data. */
 function forgetCachedPages(): void {

@@ -110,7 +110,7 @@ export function ResetPasswordForm({ userId, label }: { userId: string; label: st
     <form action={formAction} className="flex flex-col gap-1">
       <input type="hidden" name="userId" value={userId} />
       <div className="flex gap-2">
-        <Input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" aria-label={`New password for ${label}`} placeholder="New password" className="w-40" />
+        <Input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" aria-label={`New password for ${label}`} placeholder="Kata sandi baru" className="w-40" />
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
           Reset
         </Button>

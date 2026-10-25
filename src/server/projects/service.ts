@@ -41,7 +41,7 @@ const updateSchema = z.object({
       Object.fromEntries(
         PROJECT_EDITABLE_KEYS.map((key) => [
           key,
-          z.string().max(MAX_FIELD_LENGTH, `Each field can hold at most ${MAX_FIELD_LENGTH} characters.`).nullish(),
+          z.string().max(MAX_FIELD_LENGTH, `Setiap field maksimal ${MAX_FIELD_LENGTH} karakter.`).nullish(),
         ]),
       ) as Record<ProjectEditableField, z.ZodOptional<z.ZodNullable<z.ZodString>>>,
     )
@@ -67,7 +67,7 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid."));
+    return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid."));
   }
   if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId, values } = parsed.data;
@@ -125,12 +125,12 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
 
 const postSchema = z.object({
   projectId: z.uuid(),
-  kind: z.enum(ACTION_KINDS, "Choose current action or next action."),
+  kind: z.enum(ACTION_KINDS, "Pilih current action atau next action."),
   body: z
     .string()
     .trim()
-    .min(1, "Write what was done or what comes next.")
-    .max(ACTION_BODY_MAX_LENGTH, `An update can hold at most ${ACTION_BODY_MAX_LENGTH} characters.`),
+    .min(1, "Tulis apa yang sudah dikerjakan atau apa yang berikutnya.")
+    .max(ACTION_BODY_MAX_LENGTH, `Update maksimal ${ACTION_BODY_MAX_LENGTH} karakter.`),
 });
 
 export type PostResult = { ok: true; id: string } | { ok: false; code: UpdateErrorCode; message: string };
@@ -142,7 +142,7 @@ export type PostResult = { ok: true; id: string } | { ok: false; code: UpdateErr
  */
 export async function postProjectUpdate(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<PostResult> {
   const parsed = postSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "The submitted data is invalid." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid." };
   if (!can(claimedActor.role, "projects.post-update")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, kind, body } = parsed.data;
 
@@ -198,7 +198,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
   const parsed = commercialSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid.") };
+    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid.") };
   }
   if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, values } = parsed.data;
@@ -213,13 +213,13 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
       return { ok: false, code: "INVALID_INPUT", message: `${COMMERCIAL_FIELDS[field].label} is required.` };
     }
     if (field === "createdAt" && typeof result.value === "string" && result.value > jakartaDay(new Date())) {
-      return { ok: false, code: "INVALID_INPUT", message: "Opportunity date cannot be in the future." };
+      return { ok: false, code: "INVALID_INPUT", message: "Opportunity date tidak boleh di masa depan." };
     }
     submitted[field] = result.value;
   }
   // The target margin is a percentage or an amount, never both: filling one clears the other.
   const [pct, amount] = [submitted.targetMargin ?? null, submitted.targetMarginValue ?? null];
-  if (pct !== null && amount !== null) return { ok: false, code: "INVALID_INPUT", message: "Enter the target margin as a percentage or as an amount, not both." };
+  if (pct !== null && amount !== null) return { ok: false, code: "INVALID_INPUT", message: "Isi target margin sebagai persentase atau sebagai nominal, tidak keduanya." };
   if (pct !== null && !("targetMarginValue" in submitted)) submitted.targetMarginValue = null;
   if (amount !== null && !("targetMargin" in submitted)) submitted.targetMargin = null;
 
@@ -234,7 +234,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
     if (actor.role === "SALES" && !salesActsOn(project, actor.id)) {
-      return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda hanya dapat mengubah detail komersial proyek milik Anda sendiri." } satisfies CommercialResult;
     }
 
     const dateText = (date: Date | null) => (date ? date.toISOString().slice(0, 10) : null);

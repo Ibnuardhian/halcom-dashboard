@@ -17,7 +17,7 @@ const schema = z.object({ customerId: z.uuid(), industry: z.string().max(400).nu
  */
 export async function setCustomerIndustry(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<SetIndustryResult> {
   const parsed = schema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "The submitted customer is invalid." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Data customer yang dikirim tidak valid." };
   if (!can(claimedActor.role, "customers.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const industry = normaliseIndustry(parsed.data.industry);
   if (!industry.ok) return { ok: false, code: "INVALID_INPUT", message: industry.message };

@@ -69,7 +69,7 @@ function text(value: unknown): string | null {
  */
 export function normaliseSource(input: SourceInput): SourceResult {
   const rawType = input.sourceType === undefined || input.sourceType === null || input.sourceType === "" ? "INTERNAL_SALES" : input.sourceType;
-  if (!isSourceType(rawType)) return { ok: false, message: "Choose Internal Sales or Other as the project source." };
+  if (!isSourceType(rawType)) return { ok: false, message: "Pilih Internal Sales atau Other sebagai Project source." };
 
   const external: ExternalSource = {
     externalSourceName: text(input.externalSourceName),
@@ -86,7 +86,7 @@ export function normaliseSource(input: SourceInput): SourceResult {
 
   if (rawType === "INTERNAL_SALES") {
     if (EXTERNAL_SOURCE_KEYS.some((key) => external[key] !== null)) {
-      return { ok: false, message: "External source details only apply when the project source is Other." };
+      return { ok: false, message: "Detail sumber eksternal hanya berlaku bila Project source adalah Other." };
     }
     return { ok: true, value: { sourceType: "INTERNAL_SALES", ...NO_EXTERNAL } };
   }

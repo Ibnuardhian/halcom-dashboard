@@ -110,9 +110,9 @@ export async function createBackup(
   if (!actor?.isActive || !can(actor.role, "system.backup")) {
     return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   }
-  if (running) return { ok: false, code: "BUSY", message: "A backup is already running." };
+  if (running) return { ok: false, code: "BUSY", message: "Backup sedang berjalan." };
   if (!backupsSupported()) {
-    return { ok: false, code: "FAILED", message: "This deployment cannot write backups: it has no pg_dump and no lasting disk. Use the database provider's own backup and restore." };
+    return { ok: false, code: "FAILED", message: "Deployment ini tidak dapat menulis backup: tidak ada pg_dump dan tidak ada disk permanen. Gunakan backup dan restore dari penyedia database." };
   }
 
   const databaseUrl = options.databaseUrl ?? process.env["DATABASE_URL"];
@@ -126,7 +126,7 @@ export async function createBackup(
   running = true;
   try {
     await mkdir(/*turbopackIgnore: true*/ dir, { recursive: true });
-    if (await exists(finalPath)) return { ok: false, code: "FAILED", message: "A backup with this name already exists. Wait a second and retry." };
+    if (await exists(finalPath)) return { ok: false, code: "FAILED", message: "Backup dengan nama ini sudah ada. Tunggu sebentar lalu coba lagi." };
 
     const env = { ...process.env, ...pgEnvFromUrl(databaseUrl) };
     await exec("pg_dump", ["--format=custom", "--no-owner", "--file", partialPath], { env, timeout: BACKUP_TIMEOUT_MS });

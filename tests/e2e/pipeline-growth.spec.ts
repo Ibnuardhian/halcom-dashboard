@@ -94,7 +94,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ status: 500, json: { error: "boom" } }));
     const chart = page.getByTestId("pipeline-growth");
     await chart.getByRole("button", { name: "Weekly" }).click();
-    await expect(chart.getByRole("alert")).toContainText("could not be loaded");
+    await expect(chart.getByRole("alert")).toContainText("tidak dapat dimuat");
     await page.unroute("**/api/pipeline-growth?granularity=weekly");
     await chart.getByRole("button", { name: "Try again" }).click();
     await expect(chart.getByRole("alert")).toHaveCount(0);
@@ -105,7 +105,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await open(page);
     await page.route("**/api/pipeline-growth?granularity=quarterly", (route) => route.fulfill({ status: 401, json: { error: "Sign in" } }));
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Quarterly" }).click();
-    await expect(page.getByTestId("pipeline-growth").getByRole("alert")).toContainText("session has ended");
+    await expect(page.getByTestId("pipeline-growth").getByRole("alert")).toContainText("sudah berakhir");
   });
 
   test("shows an empty state, not a blank chart, when no period is covered by the history", async ({ page }) => {

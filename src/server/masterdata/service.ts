@@ -34,10 +34,10 @@ function table(db: Db, kind: MasterKind): NamedTable {
 const nameSchema = z
   .string()
   .transform(cleanName)
-  .pipe(z.string().min(1, "Write a name.").max(MASTER_NAME_MAX_LENGTH, `A name can hold at most ${MASTER_NAME_MAX_LENGTH} characters.`))
+  .pipe(z.string().min(1, "Tulis nama.").max(MASTER_NAME_MAX_LENGTH, `Nama maksimal ${MASTER_NAME_MAX_LENGTH} karakter.`))
   .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "The name contains characters that are not allowed.");
 
-const kindSchema = z.enum(MASTER_KINDS, "Choose Principal or Solution.");
+const kindSchema = z.enum(MASTER_KINDS, "Pilih Principal atau Solution.");
 
 /** The records of one kind with how many projects use each, by name. Anyone who reads projects may read them. */
 export async function listMasterRecords(db: PrismaClient, viewer: Actor, kind: MasterKind): Promise<MasterRecord[]> {
@@ -61,7 +61,7 @@ const isUniqueViolation = (error: unknown) => error instanceof Prisma.PrismaClie
  */
 export async function createMasterRecord(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ id: string; name: string }>> {
   const parsed = z.object({ kind: kindSchema, name: nameSchema }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
   if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { kind, name } = parsed.data;
 
@@ -88,7 +88,7 @@ export async function createMasterRecord(db: PrismaClient, claimedActor: Actor, 
 /** Renames a record. Its id, and so every project that uses it, stays; the new name must not belong to another record. */
 export async function renameMasterRecord(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ id: string; name: string }>> {
   const parsed = z.object({ kind: kindSchema, id: z.uuid(), name: nameSchema }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
   if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { kind, id, name } = parsed.data;
 
@@ -115,7 +115,7 @@ export async function renameMasterRecord(db: PrismaClient, claimedActor: Actor, 
 /** Deletes a record that no project uses. One that is in use is refused: move its projects to another record first. */
 export async function deleteMasterRecord(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ id: string }>> {
   const parsed = z.object({ kind: kindSchema, id: z.uuid() }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
   if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { kind, id } = parsed.data;
 
@@ -151,7 +151,7 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
     .strict()
     .refine((value) => value.principalId === undefined || value.principalIds === undefined, "Send either principalId or principalIds.")
     .safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Choose a valid Principal and Solution.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Pilih Principal dan Solution yang valid.");
   if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId } = parsed.data;
   // The wanted principals, once each, in the order given; undefined when the caller did not send any.

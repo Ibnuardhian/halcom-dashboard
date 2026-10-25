@@ -52,20 +52,20 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
       ) : null}
 
       <section aria-label={`Total ${copy.noun}`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label={`Total ${copy.noun}`} value={summary.total} href={to("")} note="Every request of the team, open or closed" />
-        <StatTile label="Done" value={summary.done} href={to("status=COMPLETED")} note="Completed" />
-        <StatTile label="Completion rate" value={formatPct(summary.completionPct)} note={`Done over total (${summary.done} of ${summary.total}); cancelled requests count in the total`} />
-        <StatTile label="On going" value={summary.onGoing} href={to("status=IN_PROGRESS")} note="In progress now" />
+        <StatTile label={`Total ${copy.noun}`} value={summary.total} href={to("")} note="Semua request tim, terbuka maupun tertutup" />
+        <StatTile label="Done" value={summary.done} href={to("status=COMPLETED")} note="Status Completed" />
+        <StatTile label="Completion rate" value={formatPct(summary.completionPct)} note={`Done dibagi total (${summary.done} dari ${summary.total}); request yang Cancelled ikut dihitung di total`} />
+        <StatTile label="On going" value={summary.onGoing} href={to("status=IN_PROGRESS")} note="Sedang In progress" />
       </section>
 
       <section aria-label="Status and PIC charts" className="mb-6 grid gap-4 lg:grid-cols-2">
-        <ChartCard title={`${copy.noun} by status`} description="Share of the team's requests in each status.">
+        <ChartCard title={`${copy.noun} by status`} description="Porsi request tim pada tiap status.">
           <DonutChart
             unit="requests"
             items={summary.byStatus.map((row) => ({ key: row.status, label: REQUEST_STATUS_LABELS[row.status], value: row.count, href: to(`status=${row.status}`) }))}
           />
         </ChartCard>
-        <ChartCard title={`${copy.noun} per PIC`} description="Requests handed to each PIC of the team, with how many are done and on going. A PIC with none is listed too.">
+        <ChartCard title={`${copy.noun} per PIC`} description="Request yang diserahkan ke tiap PIC tim, beserta jumlah yang selesai dan yang berjalan. PIC yang belum punya request juga ditampilkan.">
           <BarList
             items={summary.byPic.map((row) => ({
               key: row.picId ?? "none",
@@ -82,17 +82,17 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
       </section>
 
       <section aria-label={`${copy.noun} requests now`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label={`Open ${copy.noun} requests`} value={metrics.open} href={to("status=open")} note="Not completed or cancelled" />
-        <StatTile label="Backlog" value={metrics.backlog} href={to("status=SUBMITTED")} note="Submitted, nobody has started" />
-        <StatTile label="Overdue" value={metrics.overdue} href={to("sla=overdue")} note="Past the SLA deadline" />
-        <StatTile label="Due now" value={metrics.dueNow} href={to("sla=due_soon")} note="Between the expected date and the deadline" />
-        {team === "SOA" ? <StatTile label="In revision" value={metrics.revision} href={to("status=REVISION")} note="Completed BOQs being revised" /> : null}
-        <StatTile label="Past needed-by date" value={metrics.pastNeededBy} href={to("deadline=past")} note="Open, and the date asked for has passed" />
-        <StatTile label={`Needed in ${UPCOMING_DAYS} days`} value={metrics.upcomingDeadlines} href={to("deadline=soon")} note="Open, needed by today or soon" />
+        <StatTile label={`Open ${copy.noun} requests`} value={metrics.open} href={to("status=open")} note="Belum Completed atau Cancelled" />
+        <StatTile label="Backlog" value={metrics.backlog} href={to("status=SUBMITTED")} note="Submitted, belum ada yang memulai" />
+        <StatTile label="Overdue" value={metrics.overdue} href={to("sla=overdue")} note="Melewati batas SLA" />
+        <StatTile label="Due now" value={metrics.dueNow} href={to("sla=due_soon")} note="Antara tanggal yang diharapkan dan batas waktu" />
+        {team === "SOA" ? <StatTile label="In revision" value={metrics.revision} href={to("status=REVISION")} note="BOQ Completed yang sedang direvisi" /> : null}
+        <StatTile label="Past needed-by date" value={metrics.pastNeededBy} href={to("deadline=past")} note="Masih terbuka, dan tanggal yang diminta sudah lewat" />
+        <StatTile label={`Needed in ${UPCOMING_DAYS} days`} value={metrics.upcomingDeadlines} href={to("deadline=soon")} note="Masih terbuka, dibutuhkan hari ini atau segera" />
         {team === "SOA" ? (
-          <StatTile label="Awaiting handoff" value={awaitingHandoff ?? 0} href={HANDOFFS_PATH} note="Completed BOQs nobody has continued or stopped" />
+          <StatTile label="Awaiting handoff" value={awaitingHandoff ?? 0} href={HANDOFFS_PATH} note="BOQ Completed yang belum dilanjutkan atau dihentikan siapa pun" />
         ) : (
-          <StatTile label="In progress" value={metrics.inProgress} href={to("status=IN_PROGRESS")} note="With Purchasing, quotation or vendor answer pending (vendor response is not a separate status yet)" />
+          <StatTile label="In progress" value={metrics.inProgress} href={to("status=IN_PROGRESS")} note="Di Purchasing, menunggu quotation atau jawaban vendor (respons vendor belum menjadi status tersendiri)" />
         )}
       </section>
 
@@ -100,10 +100,10 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
         <StatTile
           label="SLA compliance"
           value={formatPct(metrics.slaCompliancePct)}
-          note={measured === 0 ? `No ${copy.noun} completed in the last ${METRICS_WINDOW_DAYS} days` : `${metrics.slaMet} of ${measured} completed in the last ${METRICS_WINDOW_DAYS} days met the deadline`}
+          note={measured === 0 ? `Belum ada ${copy.noun} yang selesai dalam ${METRICS_WINDOW_DAYS} hari terakhir` : `${metrics.slaMet} dari ${measured} yang selesai dalam ${METRICS_WINDOW_DAYS} hari terakhir memenuhi batas waktu`}
         />
-        <StatTile label={team === "PURCHASING" ? "Quotation turnaround" : "Turnaround"} value={formatDuration(metrics.avgTurnaroundHours)} note={`Created to completed, average of ${metrics.completedInWindow} in ${METRICS_WINDOW_DAYS} days`} />
-        <StatTile label="Processing time" value={formatDuration(metrics.avgProcessingHours)} note={`Turnaround minus the time in the queue (${formatDuration(metrics.avgQueueHours)})`} />
+        <StatTile label={team === "PURCHASING" ? "Quotation turnaround" : "Turnaround"} value={formatDuration(metrics.avgTurnaroundHours)} note={`Dari dibuat sampai selesai, rata-rata dari ${metrics.completedInWindow} dalam ${METRICS_WINDOW_DAYS} hari`} />
+        <StatTile label="Processing time" value={formatDuration(metrics.avgProcessingHours)} note={`Turnaround dikurangi waktu antre (${formatDuration(metrics.avgQueueHours)})`} />
       </section>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

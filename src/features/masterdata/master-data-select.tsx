@@ -85,7 +85,7 @@ export function MasterDataSelect({
           aria-autocomplete="list"
           autoComplete="off"
           value={shown}
-          placeholder={`Search or choose a ${label.toLowerCase()}`}
+          placeholder={`Cari atau pilih ${label.toLowerCase()}`}
           maxLength={120}
           className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 pr-8 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
           onFocus={() => {

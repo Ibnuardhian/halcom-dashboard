@@ -14,7 +14,7 @@ export function AddPicForm({ team }: { team: PicTeam }) {
     <form action={formAction} className="flex flex-col gap-2">
       <input type="hidden" name="team" value={team} />
       <div className="flex items-center gap-2">
-        <Input name="name" maxLength={PIC_NAME_MAX_LENGTH} required placeholder="Name of the PIC" aria-label={`New ${PIC_TEAM_LABELS[team]} PIC`} className="max-w-sm" />
+        <Input name="name" maxLength={PIC_NAME_MAX_LENGTH} required placeholder="Nama PIC" aria-label={`New ${PIC_TEAM_LABELS[team]} PIC`} className="max-w-sm" />
         <Button type="submit" disabled={pending}>
           {pending ? "Adding…" : "Add PIC"}
         </Button>

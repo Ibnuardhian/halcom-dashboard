@@ -77,7 +77,7 @@ export type SaveTargetsResult =
  */
 export async function saveSalesTargets(db: PrismaClient, claimedActor: Viewer, input: unknown): Promise<SaveTargetsResult> {
   const parsed = saveSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "The submitted targets are invalid." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Target yang dikirim tidak valid." };
   if (!can(claimedActor.role, "targets.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { year, quarters } = parsed.data;
 

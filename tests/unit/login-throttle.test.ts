@@ -85,8 +85,8 @@ describe("what is left of a lock", () => {
   });
 
   it("is worded without saying anything about the account", () => {
-    expect(lockedMessage(1)).toBe("Too many sign-in attempts. Try again in 1 minute.");
-    expect(lockedMessage(15)).toBe("Too many sign-in attempts. Try again in 15 minutes.");
+    expect(lockedMessage(1)).toBe("Terlalu banyak percobaan masuk. Coba lagi dalam 1 menit.");
+    expect(lockedMessage(15)).toBe("Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.");
     expect(lockedMessage(15)).not.toMatch(/account|user|exist|email address/i);
   });
 });

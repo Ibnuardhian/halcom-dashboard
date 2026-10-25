@@ -177,11 +177,11 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
       <CollapsibleSection
         id="request-overview"
         title="Requests (BOQ, RFQ, PO)"
-        note={decisions.length > 0 ? `${decisions.length} waiting for your decision` : `${stats.openByType.BOQ + stats.openByType.RFQ + stats.openByType.PO} open`}
+        note={decisions.length > 0 ? `${decisions.length} menunggu keputusan Anda` : `${stats.openByType.BOQ + stats.openByType.RFQ + stats.openByType.PO} terbuka`}
       >
         <section aria-label="Request counts" className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {REQUEST_TYPES.map((type) => (
-            <StatTile key={type} label={`Open ${type}`} value={stats.openByType[type]} href={`${REQUESTS_PATH}/${typeSlug(type)}?status=open${mineQuery}`} note={ownerId ? "On your projects, still open" : "All requests, still open"} />
+            <StatTile key={type} label={`Open ${type}`} value={stats.openByType[type]} href={`${REQUESTS_PATH}/${typeSlug(type)}?status=open${mineQuery}`} note={ownerId ? "Pada proyek Anda, masih terbuka" : "Semua request, masih terbuka"} />
           ))}
         </section>
 
@@ -193,9 +193,9 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
             ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <StatTile label="Overdue requests" value={summary.overdue} href={`${REQUESTS_PATH}?sla=overdue${mineQuery}`} note="Past the SLA deadline of the team they went to" />
-            <StatTile label="Past needed-by date" value={summary.pastNeededBy} href={`${REQUESTS_PATH}?deadline=past${mineQuery}`} note="Open, and the date you asked for has passed" />
-            <StatTile label={`Needed in ${UPCOMING_DAYS} days`} value={summary.upcomingDeadlines} href={`${REQUESTS_PATH}?deadline=soon${mineQuery}`} note="Open, needed by today or within the week" />
+            <StatTile label="Overdue requests" value={summary.overdue} href={`${REQUESTS_PATH}?sla=overdue${mineQuery}`} note="Melewati batas SLA tim tujuannya" />
+            <StatTile label="Past needed-by date" value={summary.pastNeededBy} href={`${REQUESTS_PATH}?deadline=past${mineQuery}`} note="Masih terbuka, dan tanggal yang Anda minta sudah lewat" />
+            <StatTile label={`Needed in ${UPCOMING_DAYS} days`} value={summary.upcomingDeadlines} href={`${REQUESTS_PATH}?deadline=soon${mineQuery}`} note="Masih terbuka, dibutuhkan hari ini atau dalam seminggu" />
           </div>
         </section>
 
@@ -225,14 +225,14 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
         ) : null}
       </CollapsibleSection>
 
-      <CollapsibleSection id="my-requests" title={ownerId ? "My requests" : "Requests"} note="newest first, up to 10">
+      <CollapsibleSection id="my-requests" title={ownerId ? "My requests" : "Requests"} note="terbaru di atas, maksimal 10">
         <p className="mb-3 text-sm text-muted-foreground">
           BOQ, RFQ and PO requests {ownerId ? "you submitted" : "on all projects"}.{" "}
           <Link href={REQUESTS_PATH} className="underline underline-offset-4">
             View all
           </Link>
         </p>
-        <RequestTable rows={requests} emptyText="You have not submitted any request yet." />
+        <RequestTable rows={requests} emptyText="Anda belum mengajukan request apa pun." />
       </CollapsibleSection>
     </>
   );

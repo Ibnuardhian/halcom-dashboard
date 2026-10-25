@@ -22,9 +22,9 @@ export type Actor = { id: string; role: Role };
 const ERROR_MESSAGES = {
   FORBIDDEN: "Anda tidak diizinkan melakukan ini.",
   NOT_FOUND: "Data tidak ditemukan.",
-  INVALID_INPUT: "The submitted data is invalid.",
-  INVALID_STATE: "This is not possible in the current status.",
-  PROJECT_NOT_ACTIVE: "Requests can only be added to a project that is On Track.",
+  INVALID_INPUT: "Data yang dikirim tidak valid.",
+  INVALID_STATE: "Ini tidak bisa dilakukan pada status saat ini.",
+  PROJECT_NOT_ACTIVE: "Request hanya dapat ditambahkan ke proyek yang berstatus On Track.",
 } as const;
 
 export type WorkErrorCode = keyof typeof ERROR_MESSAGES;
@@ -137,15 +137,15 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
   // SOA register an Internal Sales project for a salesperson they choose; nobody else picks the owner (a salesperson owns their own).
   const chosenOwner = parsed.data.salesOwnerId;
   if (sourceType === "INTERNAL_SALES" && claimedActor.role === "SOA") {
-    if (!chosenOwner) return fail("INVALID_INPUT", "Choose the salesperson this project belongs to.");
-    if (!z.uuid().safeParse(chosenOwner).success) return fail("INVALID_INPUT", "Choose a salesperson from the list.");
+    if (!chosenOwner) return fail("INVALID_INPUT", "Pilih salesperson pemilik proyek ini.");
+    if (!z.uuid().safeParse(chosenOwner).success) return fail("INVALID_INPUT", "Pilih salesperson dari daftar.");
   }
   // A new project has no RFQ yet, so it cannot start with a PO (BOQ -> RFQ -> PO; only the BOQ can be skipped).
   if (request?.type === "PO") return fail("INVALID_STATE", PO_NEEDS_RFQ);
 
   // Value, margin and progress are Sales' to enter (docs/requirements/RBAC.md A-10); a role without that right cannot set them here.
   const commercialGiven = (["estimatedValue", "targetMargin", "targetMarginValue", "progress", "trackStatus"] as const).some((field) => parsed.data[field] !== null);
-  if (commercialGiven && !can(claimedActor.role, "projects.edit.commercial")) return fail("FORBIDDEN", "Commercial details are entered by Sales.");
+  if (commercialGiven && !can(claimedActor.role, "projects.edit.commercial")) return fail("FORBIDDEN", "Detail komersial diisi oleh Sales.");
 
   const commercial: Record<string, number | string | null> = {};
   for (const field of ["estimatedValue", "targetMargin", "targetMarginValue", "progress", "trackStatus"] as const) {
@@ -153,7 +153,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
     if (!result.ok) return fail("INVALID_INPUT", result.message);
     commercial[field] = result.value;
   }
-  if (commercial["targetMargin"] !== null && commercial["targetMarginValue"] !== null) return fail("INVALID_INPUT", "Enter the target margin as a percentage or as an amount, not both.");
+  if (commercial["targetMargin"] !== null && commercial["targetMarginValue"] !== null) return fail("INVALID_INPUT", "Isi target margin sebagai persentase atau sebagai nominal, tidak keduanya.");
   // New projects start at Qualify and On Track; the win probability comes from the chosen progress.
   const progress = (commercial["progress"] ?? "QUALIFY") as ProjectProgress;
   const trackStatus = (commercial["trackStatus"] ?? "ON_TRACK") as TrackStatus;
@@ -174,11 +174,11 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
       let assignedOwner: { id: string; name: string } | null = null;
       if (sourceType === "INTERNAL_SALES" && can(actor.role, "projects.assign-sales") && chosenOwner) {
         const owner = await tx.user.findUnique({ where: { id: chosenOwner }, select: { id: true, name: true, role: true, isActive: true } });
-        if (!owner?.isActive || owner.role !== "SALES") return fail("INVALID_INPUT", "Choose an active salesperson from the list.");
+        if (!owner?.isActive || owner.role !== "SALES") return fail("INVALID_INPUT", "Pilih salesperson aktif dari daftar.");
         ownerId = owner.id;
         assignedOwner = { id: owner.id, name: owner.name };
       } else if (sourceType === "INTERNAL_SALES" && actor.role === "SOA") {
-        return fail("INVALID_INPUT", "Choose the salesperson this project belongs to.");
+        return fail("INVALID_INPUT", "Pilih salesperson pemilik proyek ini.");
       }
 
       const code = await nextProjectCode(tx);
@@ -290,10 +290,10 @@ export async function handOverToPurchasing(
       if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
       if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
       if (!canHandOver(source.type, source.status)) {
-        return fail("INVALID_STATE", "Only a completed BOQ or RFQ can be continued to the next step.");
+        return fail("INVALID_STATE", "Hanya BOQ atau RFQ yang sudah selesai yang dapat dilanjutkan ke langkah berikutnya.");
       }
       if (targetType !== nextRequestType(source.type)) {
-        return fail("INVALID_STATE", "The flow is BOQ, then RFQ, then PO: a BOQ continues as an RFQ and an RFQ as a PO.");
+        return fail("INVALID_STATE", "Alurnya BOQ, lalu RFQ, lalu PO: BOQ dilanjutkan sebagai RFQ, dan RFQ sebagai PO.");
       }
       const again = await tx.request.findUnique({
         where: { sourceRequestId_type: { sourceRequestId: source.id, type: targetType } },
@@ -366,8 +366,8 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
     });
     if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
-    if (!canHandOver(source.type, source.status)) return fail("INVALID_STATE", "Only a completed BOQ or RFQ has a next step to decide on.");
-    if (source.handovers.length > 0) return fail("INVALID_STATE", "This request has already been continued.");
+    if (!canHandOver(source.type, source.status)) return fail("INVALID_STATE", "Hanya BOQ atau RFQ yang sudah selesai yang memiliki langkah berikutnya untuk diputuskan.");
+    if (source.handovers.length > 0) return fail("INVALID_STATE", "Request ini sudah dilanjutkan.");
 
     await tx.request.update({ where: { id: source.id }, data: { flowStoppedAt: new Date(), flowStoppedById: actor.id, flowStoppedNote: note } });
     await audit(tx, actor.id, "request", "request.flow_stopped", source.id, null, { code: source.code, note });
@@ -415,7 +415,7 @@ export async function changeRequestStatus(
           (options.length > 0 ? ` Allowed: ${options.join(", ")}.` : " It is final."),
       );
     }
-    if (reasonRequired(request.status, to) && !reason) return fail("INVALID_INPUT", "Give a reason for this change.");
+    if (reasonRequired(request.status, to) && !reason) return fail("INVALID_INPUT", "Isi alasan untuk perubahan ini.");
 
     const now = new Date();
     await tx.request.update({
@@ -466,8 +466,8 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
     });
     if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (actor.role === "SALES" && !salesActsOn(request.project, actor.id)) return fail("FORBIDDEN");
-    if (request.type !== "BOQ") return fail("INVALID_STATE", "A revision can be asked for on a BOQ only.");
-    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Only a completed BOQ can be sent back for a revision.");
+    if (request.type !== "BOQ") return fail("INVALID_STATE", "Revisi hanya dapat diminta untuk BOQ.");
+    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Hanya BOQ yang sudah selesai yang dapat dikembalikan untuk direvisi.");
 
     const now = new Date();
     // The first completion stays (a revision does not make the SLA late), exactly as when SOA moves the card to Revision.
@@ -497,9 +497,9 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
   if (!can(claimedActor.role, "requests.edit-dates")) return fail("FORBIDDEN");
   const { requestId, createdAt, completedAt } = parsed.data;
-  if (createdAt.getTime() > Date.now()) return fail("INVALID_INPUT", "The creation date cannot be in the future.");
-  if (completedAt && completedAt.getTime() > Date.now()) return fail("INVALID_INPUT", "The completion date cannot be in the future.");
-  if (completedAt && completedAt.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "The completion date cannot be before the creation date.");
+  if (createdAt.getTime() > Date.now()) return fail("INVALID_INPUT", "Tanggal pembuatan tidak boleh di masa depan.");
+  if (completedAt && completedAt.getTime() > Date.now()) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh di masa depan.");
+  if (completedAt && completedAt.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh sebelum tanggal pembuatan.");
 
   return db.$transaction(async (tx) => {
     const actor = await loadActor(tx, claimedActor);
@@ -508,10 +508,10 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { deletedAt: true } } } });
     if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     const finished = request.status === "COMPLETED" || request.status === "REVISION";
-    if (!finished && completedAt) return fail("INVALID_STATE", "Only a completed request has a completion date.");
+    if (!finished && completedAt) return fail("INVALID_STATE", "Hanya request yang sudah selesai yang memiliki tanggal penyelesaian.");
     // A finished request keeps a completion date: an empty field leaves the stored one.
     const nextCompleted = finished ? (completedAt ?? request.completedAt) : null;
-    if (nextCompleted && nextCompleted.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "The completion date cannot be before the creation date.");
+    if (nextCompleted && nextCompleted.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh sebelum tanggal pembuatan.");
 
     const before = { createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null };
     const after = { createdAt: createdAt.toISOString(), completedAt: nextCompleted?.toISOString() ?? null };
@@ -540,8 +540,8 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { code: true, endUserCompany: true } } } });
     if (!request) return fail("NOT_FOUND", "Request tidak ditemukan.");
-    if (request.type !== "BOQ") return fail("INVALID_STATE", "Only a BOQ request has an SOA phase.");
-    if (!isOpen(request.status)) return fail("INVALID_STATE", "This request is already closed.");
+    if (request.type !== "BOQ") return fail("INVALID_STATE", "Hanya request BOQ yang memiliki SOA phase.");
+    if (!isOpen(request.status)) return fail("INVALID_STATE", "Request ini sudah ditutup.");
     if (request.phase === phase) return succeed({ code: request.code });
 
     // Labelling the work with a phase means SOA has started it: a request nobody had touched goes to In progress by itself.

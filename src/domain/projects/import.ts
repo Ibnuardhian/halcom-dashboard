@@ -90,23 +90,23 @@ export function suggestMapping(headers: readonly string[]): ColumnMapping {
 
 /** Checks a mapping that came from outside: columns inside the sheet, none used twice, every required field present. */
 export function checkMapping(input: unknown, columnCount: number): { ok: true; mapping: ColumnMapping } | { ok: false; message: string } {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) return { ok: false, message: "The column mapping is missing." };
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return { ok: false, message: "Pemetaan kolom belum ada." };
   const record = input as Record<string, unknown>;
   const mapping = Object.fromEntries(IMPORT_FIELD_KEYS.map((key) => [key, null])) as ColumnMapping;
   const used = new Set<number>();
   for (const key of Object.keys(record)) {
-    if (!(IMPORT_FIELD_KEYS as readonly string[]).includes(key)) return { ok: false, message: `"${key}" is not a field that can be imported.` };
+    if (!(IMPORT_FIELD_KEYS as readonly string[]).includes(key)) return { ok: false, message: `"${key}" bukan field yang dapat diimpor.` };
   }
   for (const key of IMPORT_FIELD_KEYS) {
     const value = record[key];
     if (value === null || value === undefined || value === "") continue;
-    if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value >= columnCount) return { ok: false, message: `The column chosen for ${IMPORT_FIELD_BY_KEY[key].label} is not in the sheet.` };
-    if (used.has(value)) return { ok: false, message: "One column is chosen for two fields. Each column can be used once." };
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value >= columnCount) return { ok: false, message: `Kolom yang dipilih untuk ${IMPORT_FIELD_BY_KEY[key].label} tidak ada di sheet.` };
+    if (used.has(value)) return { ok: false, message: "Satu kolom dipilih untuk dua field. Setiap kolom hanya boleh dipakai sekali." };
     used.add(value);
     mapping[key] = value;
   }
   const missing = IMPORT_FIELDS.filter((field) => field.required && mapping[field.key] === null).map((field) => field.label);
-  if (missing.length > 0) return { ok: false, message: `Choose a column for ${missing.join(" and ")}.` };
+  if (missing.length > 0) return { ok: false, message: `Pilih kolom untuk ${missing.join(" dan ")}.` };
   return { ok: true, mapping };
 }
 
@@ -200,21 +200,21 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
   const errors: string[] = [];
   const text = (value: string, label: string, max: number): string | null => {
     const clean = value.trim();
-    if (clean.length > max) errors.push(`${label} is longer than ${max} characters.`);
+    if (clean.length > max) errors.push(`${label} lebih panjang dari ${max} karakter.`);
     return clean === "" ? null : clean;
   };
 
   const endUser = text(cleanName(raw.endUser), "End user", LIMITS.endUser);
-  if (!endUser) errors.push("End user is required.");
+  if (!endUser) errors.push("End user wajib diisi.");
   const name = text(cleanName(raw.name), "Project name", LIMITS.name);
-  if (!name) errors.push("Project name is required.");
+  if (!name) errors.push("Project name wajib diisi.");
   const description = text(raw.description, "Description", LIMITS.description);
 
   let code: string | null = null;
   if (raw.code !== "") {
     code = raw.code.trim().toUpperCase();
     if (!PROJECT_CODE.test(code)) {
-      errors.push(`Project ID "${raw.code}" must look like HIT-PROJ-001.`);
+      errors.push(`Project ID "${raw.code}" harus berbentuk HIT-PROJ-001.`);
       code = null;
     }
   }
@@ -224,29 +224,29 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
     const wanted = squash(raw.source);
     if (["internalsales", "internal", "sales"].includes(wanted)) sourceType = "INTERNAL_SALES";
     else if (["other", "external", "othersource"].includes(wanted)) sourceType = "OTHER";
-    else errors.push(`Project source "${raw.source}" must be Internal Sales or Other.`);
+    else errors.push(`Project source "${raw.source}" harus Internal Sales atau Other.`);
   }
   const salesPic = text(raw.salesPic, "Sales PIC", 200);
   const externalSourceName = text(cleanName(raw.externalSourceName), "External sales name", SOURCE_FIELD_LIMITS.externalSourceName);
   if (sourceType === "INTERNAL_SALES") {
-    if (!salesPic) errors.push("Sales PIC is required for an Internal Sales project.");
-    if (externalSourceName) errors.push("An Internal Sales project has no external sales name. Set the source to Other, or empty that cell.");
+    if (!salesPic) errors.push("Sales PIC wajib diisi untuk proyek Internal Sales.");
+    if (externalSourceName) errors.push("Proyek Internal Sales tidak memiliki nama sales eksternal. Ubah source menjadi Other, atau kosongkan sel itu.");
   } else {
-    if (!externalSourceName) errors.push("External sales name is required when the source is Other.");
-    if (salesPic) errors.push("A project from another source has no internal Sales PIC. Empty the Sales PIC cell, or set the source to Internal Sales.");
+    if (!externalSourceName) errors.push("External sales name wajib diisi bila source-nya Other.");
+    if (salesPic) errors.push("Proyek dari sumber lain tidak memiliki Sales PIC internal. Kosongkan sel Sales PIC, atau ubah source menjadi Internal Sales.");
   }
 
   let progress: ProjectProgress = "QUALIFY";
   if (raw.progress !== "") {
     const parsed = parseProgressText(raw.progress);
     if (parsed) progress = parsed;
-    else errors.push(`Progress "${raw.progress}" is not one of: ${PROJECT_PROGRESSES.map((p) => `${PROGRESS_PERCENT[p]}% ${PROGRESS_LABELS[p].replace(/^\d+%\s*-\s*/, "")}`).join(", ")}.`);
+    else errors.push(`Progress "${raw.progress}" bukan salah satu dari: ${PROJECT_PROGRESSES.map((p) => `${PROGRESS_PERCENT[p]}% ${PROGRESS_LABELS[p].replace(/^\d+%\s*-\s*/, "")}`).join(", ")}.`);
   }
   let trackStatus: TrackStatus = "ON_TRACK";
   if (raw.status !== "") {
     const parsed = parseTrackStatusText(raw.status);
     if (parsed) trackStatus = parsed;
-    else errors.push(`Status "${raw.status}" must be On Track, On Hold, Done or Block.`);
+    else errors.push(`Status "${raw.status}" harus On Track, On Hold, Done, atau Block.`);
   }
 
   const amount = (value: string, label: string): number | null => {
@@ -262,23 +262,23 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
   let targetMarginPercent: number | null = null;
   if (raw.targetMarginPercent !== "") {
     const normal = raw.targetMarginPercent.replace("%", "").replace(",", ".").trim();
-    if (!/^\d{1,3}(\.\d{1,2})?$/.test(normal) || Number(normal) > 100) errors.push("Target margin (%) must be from 0 to 100 (up to two decimals).");
+    if (!/^\d{1,3}(\.\d{1,2})?$/.test(normal) || Number(normal) > 100) errors.push("Target margin (%) harus 0 sampai 100 (maksimal dua desimal).");
     else targetMarginPercent = Number(normal);
   }
-  if (targetMarginAmount !== null && targetMarginPercent !== null) errors.push("Enter the target margin as a percentage or as an amount, not both.");
+  if (targetMarginAmount !== null && targetMarginPercent !== null) errors.push("Isi target margin sebagai persentase atau sebagai nominal, tidak keduanya.");
 
   const date = (value: string, label: string): string | null => {
     if (value === "") return null;
     const parsed = parseDateText(value);
-    if (!parsed) errors.push(`${label} "${value}" is not a valid date. Use YYYY-MM-DD or DD/MM/YYYY.`);
+    if (!parsed) errors.push(`${label} "${value}" bukan tanggal yang valid. Gunakan YYYY-MM-DD atau DD/MM/YYYY.`);
     return parsed;
   };
   const quoteReleasedAt = date(raw.quoteReleasedAt, "Quote released");
   const targetDate = date(raw.targetDate, "Target closing");
 
   const principals = splitPrincipals(raw.principals);
-  if (principals.length > MAX_PROJECT_PRINCIPALS) errors.push(`A project can have at most ${MAX_PROJECT_PRINCIPALS} principals.`);
-  if (principals.some((principal) => principal.length > 120)) errors.push("A principal name is longer than 120 characters.");
+  if (principals.length > MAX_PROJECT_PRINCIPALS) errors.push(`Satu proyek maksimal memiliki ${MAX_PROJECT_PRINCIPALS} principal.`);
+  if (principals.some((principal) => principal.length > 120)) errors.push("Nama principal lebih panjang dari 120 karakter.");
 
   const solution = text(cleanName(raw.solution), "Solution", 120);
   const industry = text(cleanName(raw.industry), "Industry", LIMITS.industry);
@@ -288,7 +288,7 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
 
   // Control characters other than tab and new line have no place in these fields.
   for (const [label, value] of Object.entries({ endUser, name, description, salesPic, externalSourceName, solution, industry, location, currentAction, nextAction })) {
-    if (value && /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value)) errors.push(`${label} contains characters that are not allowed.`);
+    if (value && /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value)) errors.push(`${label} berisi karakter yang tidak diizinkan.`);
   }
 
   if (errors.length > 0 || !endUser || !name) return { ok: false, errors };

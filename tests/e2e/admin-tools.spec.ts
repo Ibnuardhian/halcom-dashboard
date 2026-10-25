@@ -335,7 +335,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     };
     await expect(async () => {
       await drop("notes.txt", [104, 105], "text/plain");
-      await expect(soa.getByRole("dialog").getByRole("alert")).toContainText("Only .xlsx workbooks can be imported", { timeout: 12_000 });
+      await expect(soa.getByRole("dialog").getByRole("alert")).toContainText("Hanya workbook .xlsx yang dapat diimpor", { timeout: 12_000 });
     }).toPass({ timeout: 30_000 });
     await expect(async () => {
       await drop("dropped.xlsx", [...workbook], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

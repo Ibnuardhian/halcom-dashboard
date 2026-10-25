@@ -127,10 +127,10 @@ function firstSheetPath(files: Record<string, Uint8Array>): { path: string; name
 }
 
 export function readXlsx(bytes: Uint8Array): ReadResult {
-  if (bytes.byteLength === 0) return { ok: false, message: "The file is empty." };
-  if (bytes.byteLength > XLSX_LIMITS.fileBytes) return { ok: false, message: `The file is larger than ${XLSX_LIMITS.fileBytes / 1024 / 1024} MB.` };
+  if (bytes.byteLength === 0) return { ok: false, message: "Berkas kosong." };
+  if (bytes.byteLength > XLSX_LIMITS.fileBytes) return { ok: false, message: `Berkas lebih besar dari ${XLSX_LIMITS.fileBytes / 1024 / 1024} MB.` };
   // An .xlsx is a zip file: it starts with "PK".
-  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return { ok: false, message: "This is not an .xlsx workbook. Save the sheet as Excel Workbook (.xlsx) and try again." };
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return { ok: false, message: "Ini bukan workbook .xlsx. Simpan sheet sebagai Excel Workbook (.xlsx) lalu coba lagi." };
 
   let files: Record<string, Uint8Array>;
   try {
@@ -144,11 +144,11 @@ export function readXlsx(bytes: Uint8Array): ReadResult {
       },
     });
   } catch (error) {
-    return { ok: false, message: error instanceof Error && error.message === "too large" ? "The workbook unpacks to more than the allowed size." : "The file could not be opened as an .xlsx workbook." };
+    return { ok: false, message: error instanceof Error && error.message === "too large" ? "Workbook ini setelah dibuka melebihi ukuran yang diizinkan." : "Berkas tidak dapat dibuka sebagai workbook .xlsx." };
   }
 
   const sheet = firstSheetPath(files);
-  if (!sheet) return { ok: false, message: "The workbook has no worksheet." };
+  if (!sheet) return { ok: false, message: "Workbook tidak memiliki worksheet." };
   const xml = strFromU8(files[sheet.path]!);
   const shared = readSharedStrings(files["xl/sharedStrings.xml"] ? strFromU8(files["xl/sharedStrings.xml"]) : undefined);
   const dateStyles = readDateStyles(files["xl/styles.xml"] ? strFromU8(files["xl/styles.xml"]) : undefined);
@@ -159,7 +159,7 @@ export function readXlsx(bytes: Uint8Array): ReadResult {
     const rowNumber = Number(/\br="(\d+)"/.exec(rowMatch[1]!)?.[1]);
     const body = rowMatch[2];
     if (!Number.isInteger(rowNumber) || rowNumber < 1 || !body) continue;
-    if (rowNumber > XLSX_LIMITS.rows + 1) return { ok: false, message: `The sheet has more than ${XLSX_LIMITS.rows} rows. Split it into smaller files.` };
+    if (rowNumber > XLSX_LIMITS.rows + 1) return { ok: false, message: `Sheet memiliki lebih dari ${XLSX_LIMITS.rows} baris. Pecah menjadi berkas yang lebih kecil.` };
     const cells: string[] = [];
     for (const cellMatch of body.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attributes = cellMatch[1]!;
@@ -167,7 +167,7 @@ export function readXlsx(bytes: Uint8Array): ReadResult {
       if (!ref) continue;
       const column = columnIndex(ref);
       if (column >= XLSX_LIMITS.columns) {
-        if ((cellMatch[2] ?? "").includes("<v") || (cellMatch[2] ?? "").includes("<is")) return { ok: false, message: `The sheet has data beyond column ${XLSX_LIMITS.columns}.` };
+        if ((cellMatch[2] ?? "").includes("<v") || (cellMatch[2] ?? "").includes("<is")) return { ok: false, message: `Sheet memiliki data melewati kolom ${XLSX_LIMITS.columns}.` };
         continue;
       }
       const type = /\bt="([^"]*)"/.exec(attributes)?.[1] ?? "n";
@@ -182,7 +182,7 @@ export function readXlsx(bytes: Uint8Array): ReadResult {
       else if (type === "b") text = rawValue === "1" ? "TRUE" : "FALSE";
       else if (type === "e") text = "";
       else text = dateStyles.has(style) ? (excelSerialToIso(Number(rawValue)) ?? numberText(rawValue)) : numberText(rawValue);
-      if (text.length > XLSX_LIMITS.cellChars) return { ok: false, message: `A cell in row ${rowNumber} holds more than ${XLSX_LIMITS.cellChars} characters.` };
+      if (text.length > XLSX_LIMITS.cellChars) return { ok: false, message: `Sel di baris ${rowNumber} berisi lebih dari ${XLSX_LIMITS.cellChars} karakter.` };
       cells[column] = text;
       widest = Math.max(widest, column + 1);
     }
@@ -190,7 +190,7 @@ export function readXlsx(bytes: Uint8Array): ReadResult {
   }
 
   const numbers = [...grid.keys()].sort((a, b) => a - b);
-  if (numbers.length === 0) return { ok: false, message: "The sheet has no data." };
+  if (numbers.length === 0) return { ok: false, message: "Sheet tidak berisi data." };
   const pad = (cells: string[]) => Array.from({ length: widest }, (_, column) => (cells[column] ?? "").trim());
   const [headerRow, ...dataRows] = numbers;
   const headers = pad(grid.get(headerRow!)!);

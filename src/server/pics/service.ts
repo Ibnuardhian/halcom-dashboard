@@ -19,7 +19,7 @@ const FORBIDDEN = "Anda tidak diizinkan melakukan ini.";
 const nameSchema = z
   .string()
   .transform(cleanName)
-  .pipe(z.string().min(1, "Write a name.").max(PIC_NAME_MAX_LENGTH, `A name can hold at most ${PIC_NAME_MAX_LENGTH} characters.`))
+  .pipe(z.string().min(1, "Tulis nama.").max(PIC_NAME_MAX_LENGTH, `Nama maksimal ${PIC_NAME_MAX_LENGTH} karakter.`))
   .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "The name contains characters that are not allowed.");
 
 async function loadActor(tx: Tx, claimed: Actor) {
@@ -56,8 +56,8 @@ export async function listAssignablePics(db: PrismaClient, viewer: Actor, type: 
 
 /** Creates a PIC. A name the team already has (ignoring case and spacing) is refused with the existing record. */
 export async function createPic(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<PicResult<{ id: string; name: string }>> {
-  const parsed = z.object({ team: z.enum(PIC_TEAMS, "Choose SOA or Purchasing."), name: nameSchema }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
+  const parsed = z.object({ team: z.enum(PIC_TEAMS, "Pilih SOA atau Purchasing."), name: nameSchema }).strict().safeParse(input);
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
   if (!can(claimedActor.role, "pics.manage")) return fail("FORBIDDEN", FORBIDDEN);
   const { team, name } = parsed.data;
 
@@ -86,7 +86,7 @@ export async function createPic(db: PrismaClient, claimedActor: Actor, input: un
  */
 export async function updatePic(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<PicResult<{ id: string; name: string; isActive: boolean }>> {
   const parsed = z.object({ id: z.uuid(), name: nameSchema.optional(), isActive: z.boolean().optional() }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
   if (!can(claimedActor.role, "pics.manage")) return fail("FORBIDDEN", FORBIDDEN);
   const { id, name, isActive } = parsed.data;
 
@@ -141,7 +141,7 @@ export async function updatePic(db: PrismaClient, claimedActor: Actor, input: un
  */
 export async function assignRequestPic(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<PicResult<{ code: string; picId: string | null }>> {
   const parsed = z.object({ requestId: z.uuid(), picId: z.union([z.uuid(), z.literal("")]) }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", "Choose a valid PIC.");
+  if (!parsed.success) return fail("INVALID_INPUT", "Pilih PIC yang valid.");
   const { requestId } = parsed.data;
   const wanted = parsed.data.picId === "" ? null : parsed.data.picId;
 

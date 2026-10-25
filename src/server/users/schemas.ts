@@ -6,11 +6,11 @@ const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
 const roleSchema = z.enum(ROLES);
 const newPasswordSchema = z
   .string()
-  .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`)
-  .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`);
+  .min(PASSWORD_MIN_LENGTH, `Kata sandi minimal ${PASSWORD_MIN_LENGTH} karakter.`)
+  .max(PASSWORD_MAX_LENGTH, `Kata sandi maksimal ${PASSWORD_MAX_LENGTH} karakter.`);
 
 export const createUserSchema = z.object({
-  name: z.string().trim().min(1, "Name is required.").max(100),
+  name: z.string().trim().min(1, "Nama wajib diisi.").max(100),
   email: emailSchema,
   role: roleSchema,
   password: newPasswordSchema,

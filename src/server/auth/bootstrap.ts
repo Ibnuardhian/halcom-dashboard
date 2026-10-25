@@ -14,12 +14,12 @@ import { hashPassword, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./passwo
 const BOOTSTRAP_LOCK = 7_201_027;
 
 const bootstrapSchema = z.object({
-  name: z.string().trim().min(1, "Give the account a name."),
+  name: z.string().trim().min(1, "Beri nama pada akun."),
   email: z
     .string()
     .trim()
     .transform(normalizeEmail)
-    .pipe(z.email("That is not an e-mail address.")),
+    .pipe(z.email("Itu bukan alamat email.")),
   password: z
     .string()
     .min(PASSWORD_MIN_LENGTH, `The password must be at least ${PASSWORD_MIN_LENGTH} characters.`)

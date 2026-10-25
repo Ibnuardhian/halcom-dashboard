@@ -42,7 +42,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
         ))}
       </datalist>
       <form role="search" className="mb-4 flex gap-2">
-        <Input name="q" defaultValue={search} placeholder="Search customers" aria-label="Search customers" maxLength={100} className="max-w-md" />
+        <Input name="q" defaultValue={search} placeholder="Cari customer" aria-label="Search customers" maxLength={100} className="max-w-md" />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
           Search
         </button>

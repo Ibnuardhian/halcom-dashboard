@@ -16,9 +16,9 @@ export type InspectResult =
 
 async function fileOf(formData: FormData): Promise<{ ok: true; name: string; bytes: Uint8Array } | { ok: false; message: string }> {
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose an .xlsx file." };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Pilih berkas .xlsx." };
   if (file.size > XLSX_LIMITS.fileBytes) return { ok: false, message: `The file is larger than ${XLSX_LIMITS.fileBytes / 1024 / 1024} MB.` };
-  if (!/\.xlsx$/i.test(file.name)) return { ok: false, message: "Only .xlsx workbooks can be imported. Save the sheet as Excel Workbook (.xlsx)." };
+  if (!/\.xlsx$/i.test(file.name)) return { ok: false, message: "Hanya workbook .xlsx yang dapat diimpor. Simpan sheet sebagai Excel Workbook (.xlsx)." };
   return { ok: true, name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
 }
 

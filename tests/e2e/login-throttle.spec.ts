@@ -11,7 +11,7 @@ test.describe("the sign-in throttle", () => {
   test("locks after five wrong passwords and says how long to wait, for an address that has no account at all", async ({ page }) => {
     test.setTimeout(120_000);
     const stranger = `e2e-throttle-${Date.now()}@example.invalid`;
-    const failed = page.getByRole("alert").filter({ hasText: "Invalid email or password." });
+    const failed = page.getByRole("alert").filter({ hasText: "Email atau kata sandi salah." });
 
     // The first failures only say that something was wrong, and never which part.
     await expect(async () => {
@@ -24,15 +24,15 @@ test.describe("the sign-in throttle", () => {
     }
 
     await submitLogin(page, stranger, "wrong-password-5");
-    const locked = page.getByRole("alert").filter({ hasText: /Too many sign-in attempts/ });
+    const locked = page.getByRole("alert").filter({ hasText: /Terlalu banyak percobaan masuk/ });
     await expect(locked).toBeVisible();
-    await expect(locked).toContainText("Try again in 15 minutes.");
+    await expect(locked).toContainText("Coba lagi dalam 15 menit.");
     // The message says nothing about the account behind the address.
     await expect(locked).not.toContainText(/exist|unknown|account is/i);
 
     // While the lock lasts, even the right password is refused; the person stays on the sign-in page.
     await submitLogin(page, stranger, "wrong-password-6");
-    await expect(page.getByRole("alert").filter({ hasText: /Too many sign-in attempts/ })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /Terlalu banyak percobaan masuk/ })).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
   });
 });

@@ -65,7 +65,7 @@ export type SaveSettingResult = { ok: true; changed: boolean } | { ok: false; co
  */
 export async function saveTeamSetting(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<SaveSettingResult> {
   const parsed = saveSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "The submitted settings are invalid." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Pengaturan yang dikirim tidak valid." };
   if (!can(claimedActor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { role, restoreDefaults } = parsed.data;
   const sla = parseSlaRange(parsed.data.sla);
