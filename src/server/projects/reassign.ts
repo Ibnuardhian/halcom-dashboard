@@ -32,19 +32,19 @@ const SLOTS = [
  */
 export async function reassignProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<ReassignResult> {
   const parsed = reassignSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Choose valid people for the project." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Pilih orang yang valid untuk proyek ini." };
   const { projectId } = parsed.data;
 
   return db.$transaction(async (tx): Promise<ReassignResult> => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "projects.reassign")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+    if (!actor?.isActive || !can(actor.role, "projects.reassign")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
 
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({
       where: { id: projectId },
       include: { salesOwner: { select: { name: true, email: true } }, technicalPic: { select: { name: true, email: true } }, purchasingPic: { select: { name: true, email: true } } },
     });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." };
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
 
     const data: Record<string, string | null> = {};
     const changes: { field: string; from: string | null; to: string | null }[] = [];
@@ -58,7 +58,7 @@ export async function reassignProject(db: PrismaClient, claimedActor: Actor, inp
       const current = project[slot.key];
       if (next === current) continue;
       if (slot.key === "salesOwnerId" && project.sourceType === "OTHER") {
-        return { ok: false, code: "INVALID_INPUT", message: "This project's source is Other, so it has no internal Sales PIC. Change the project source first." };
+        return { ok: false, code: "INVALID_INPUT", message: "Source proyek ini adalah Other, jadi tidak punya Sales PIC internal. Ubah dulu Project source-nya." };
       }
       if (next === null && slot.required) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} is required.` };
 

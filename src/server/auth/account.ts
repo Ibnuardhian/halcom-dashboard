@@ -4,7 +4,7 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, hashPassword, verifyPassword 
 import { hashSessionToken } from "./session-store";
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Enter your current password.").max(PASSWORD_MAX_LENGTH),
+  currentPassword: z.string().min(1, "Masukkan kata sandi Anda saat ini.").max(PASSWORD_MAX_LENGTH),
   newPassword: z
     .string()
     .min(PASSWORD_MIN_LENGTH, `The new password must be at least ${PASSWORD_MIN_LENGTH} characters.`)
@@ -30,12 +30,12 @@ export async function changeOwnPassword(
   const { currentPassword, newPassword } = parsed.data;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, passwordHash: true, isActive: true } });
-  if (!user?.isActive) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!user?.isActive) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   if (!(await verifyPassword(currentPassword, user.passwordHash))) {
-    return { ok: false, code: "WRONG_PASSWORD", message: "The current password is incorrect." };
+    return { ok: false, code: "WRONG_PASSWORD", message: "Kata sandi saat ini salah." };
   }
   if (currentPassword === newPassword) {
-    return { ok: false, code: "SAME_PASSWORD", message: "Choose a password different from the current one." };
+    return { ok: false, code: "SAME_PASSWORD", message: "Pilih kata sandi yang berbeda dari yang sekarang." };
   }
 
   const passwordHash = await hashPassword(newPassword); // slow by design: outside the transaction
@@ -61,6 +61,6 @@ export async function changeOwnPassword(
     });
     return true;
   });
-  if (!changed) return { ok: false, code: "CONFLICT", message: "Your password was changed elsewhere. Try again." };
+  if (!changed) return { ok: false, code: "CONFLICT", message: "Kata sandi Anda diubah di tempat lain. Coba lagi." };
   return { ok: true };
 }

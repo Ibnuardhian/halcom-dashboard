@@ -4,7 +4,7 @@ import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { StatusBadge, TypeBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
@@ -29,7 +29,7 @@ async function Handoffs() {
     <>
       <DashboardHeader
         title="Purchasing Handoff"
-        summary="Completed BOQs and where they went. A completed BOQ never authorises a purchase by itself: someone decides whether it continues to Purchasing as an RFQ."
+        summary="BOQ yang sudah selesai dan ke mana tindak lanjutnya. BOQ yang selesai tidak pernah mengesahkan pembelian dengan sendirinya: harus ada yang memutuskan apakah dilanjutkan ke Purchasing sebagai RFQ."
       />
       <Card className="mb-6">
         <CardHeader>
@@ -67,7 +67,7 @@ async function Handoffs() {
                       </Link>
                     </TableCell>
                     <TableCell className="hidden max-w-64 truncate md:table-cell">{row.title}</TableCell>
-                    <TableCell className="whitespace-nowrap">{row.completedAt ? formatUtc(row.completedAt) : "–"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{row.completedAt ? formatDay(row.completedAt) : "–"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -121,7 +121,7 @@ async function Handoffs() {
                       <StatusBadge status={row.status} />
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{row.handedBy}</TableCell>
-                    <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatUtc(row.createdAt)}</TableCell>
+                    <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDay(row.createdAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

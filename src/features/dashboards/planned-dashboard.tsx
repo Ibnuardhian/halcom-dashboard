@@ -11,7 +11,7 @@ export function PlannedDashboard({ definition, children }: { definition: Dashboa
       {children}
       <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Planned widgets</h2>
       <p role="status" className="mb-4 rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-        These widgets need data that is not captured yet (SLA targets, milestones, comments). They stay empty instead of showing made-up numbers.
+        Widget-widget ini membutuhkan data yang belum tersedia (target SLA, milestone, komentar). Kolom ini tetap kosong daripada menampilkan angka karangan.
       </p>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {definition.widgets.map((widget) => (

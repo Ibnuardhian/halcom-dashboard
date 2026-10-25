@@ -27,7 +27,7 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
               <Label htmlFor={`grossProfit-${q}`} className="sm:sr-only">
                 Q{q} gross profit target
               </Label>
-              <MoneyInput id={`grossProfit-${q}`} name={`grossProfit-${q}`} defaultValue={values[q].grossProfit === null ? "" : String(values[q].grossProfit)} placeholder="for example 300.000.000" />
+              <MoneyInput id={`grossProfit-${q}`} name={`grossProfit-${q}`} defaultValue={values[q].grossProfit === null ? "" : String(values[q].grossProfit)} placeholder="contoh: 300.000.000" />
             </div>
           </div>
         ))}

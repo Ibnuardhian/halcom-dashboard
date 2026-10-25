@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -34,7 +34,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
     <>
       <DashboardHeader
         title="Customers"
-        summary="The end-user companies of your projects. A customer is added automatically when a project is created with a new end-user company; the same name is one customer. Click a customer to fill in its industry."
+        summary="Perusahaan end-user dari proyek-proyek Anda. Customer baru ditambahkan otomatis saat proyek dibuat dengan nama end-user company baru; nama yang sama dianggap satu customer. Klik sebuah customer untuk mengisi industrinya."
       />
       <datalist id={INDUSTRY_LIST_ID}>
         {suggestions.map((value) => (
@@ -42,7 +42,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
         ))}
       </datalist>
       <form role="search" className="mb-4 flex gap-2">
-        <Input name="q" defaultValue={search} placeholder="Search customers" aria-label="Search customers" maxLength={100} className="max-w-md" />
+        <Input name="q" defaultValue={search} placeholder="Cari customer" aria-label="Search customers" maxLength={100} className="max-w-md" />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
           Search
         </button>
@@ -52,7 +52,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
       </form>
       {customers.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {search ? "No customer matches." : "No customer yet. Create a project and its end-user company appears here."}
+          {search ? "Tidak ada customer yang cocok." : "Belum ada customer. Buat sebuah proyek dan end-user company-nya akan muncul di sini."}
         </p>
       ) : (
         <Table>
@@ -79,7 +79,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
                 <TableCell>{customer.industry ?? <span className="text-muted-foreground">Not set</span>}</TableCell>
                 <TableCell className="text-right tabular-nums">{customer.projects}</TableCell>
                 <TableCell className="text-right tabular-nums">{customer.openProjects}</TableCell>
-                <TableCell className="hidden whitespace-nowrap md:table-cell">{customer.lastProjectAt ? formatUtc(customer.lastProjectAt) : "–"}</TableCell>
+                <TableCell className="hidden whitespace-nowrap md:table-cell">{customer.lastProjectAt ? formatDay(customer.lastProjectAt) : "–"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

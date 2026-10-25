@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CROSSCHECK_FLAGS, CROSSCHECK_FLAG_LABELS, isCrosscheckFlag } from "@/domain/finance/crosscheck";
 import { SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { CROSSCHECK_PATH, PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount } from "@/features/projects/format";
 import { formatDateOnly } from "@/features/requests/format";
@@ -39,7 +39,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
     <>
       <DashboardHeader
         title="Financial Crosscheck"
-        summary="Each project with its value, its quotation (RFQ) and PO references, and where those disagree with its progress. Read-only: nothing on this page changes a project or a request."
+        summary="Setiap proyek beserta nilainya, referensi quotation (RFQ) dan PO-nya, serta bagian yang tidak sesuai dengan progress-nya. Hanya untuk dibaca: tidak ada perubahan pada proyek atau request dari halaman ini."
       />
       <nav aria-label="Filter by flag" className="mb-3 flex flex-wrap gap-1.5">
         <Link href={CROSSCHECK_PATH} aria-current={!flag ? "true" : undefined} className={cn("rounded-full border px-3 py-1 text-xs font-medium hover:bg-muted", !flag && "border-primary bg-primary text-primary-foreground hover:bg-primary/90")}>
@@ -58,7 +58,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
       </nav>
       <form role="search" className="mb-3 flex gap-2">
         {flag ? <input type="hidden" name="flag" value={flag} /> : null}
-        <Input name="q" defaultValue={search} placeholder="Search project, end user, source or request ID" aria-label="Search the crosscheck" maxLength={100} className="max-w-md" />
+        <Input name="q" defaultValue={search} placeholder="Cari project, end user, source, atau request ID" aria-label="Search the crosscheck" maxLength={100} className="max-w-md" />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
           Search
         </button>
@@ -74,7 +74,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
       </p>
       {rows.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {flag || search ? "No project matches." : "No projects yet."}
+          {flag || search ? "Tidak ada project yang cocok." : "Belum ada project."}
         </p>
       ) : (
         <Table>
@@ -143,7 +143,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
                 </TableCell>
                 <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
                   {row.auditEvents} event{row.auditEvents === 1 ? "" : "s"}
-                  {row.lastAuditAt ? <span className="block">last {formatUtc(row.lastAuditAt)}</span> : null}
+                  {row.lastAuditAt ? <span className="block">last {formatDay(row.lastAuditAt)}</span> : null}
                 </TableCell>
               </TableRow>
             ))}

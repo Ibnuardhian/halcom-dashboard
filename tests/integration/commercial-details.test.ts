@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { getPipelineAnalytics, listPipelineProjects } from "@/server/projects/analytics";
+import { listProjects } from "@/server/requests/queries";
 import { updateCommercialDetails } from "@/server/projects/service";
 import { createProject } from "@/server/requests/service";
 import { makeUser } from "./helpers";
@@ -53,6 +54,27 @@ describe("updateCommercialDetails", () => {
     const cleared = await updateCommercialDetails(db, sales, { projectId: project.id, values: { targetDate: "" } });
     expect(cleared).toEqual({ ok: true, changed: ["targetDate"] });
     await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ targetDate: null });
+  });
+
+  it("lets Sales move the creation date of their project to an earlier day, logged, but never empty or in the future", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+    const before = await db.project.findUniqueOrThrow({ where: { id: project.id } });
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "2026-03-02" } });
+
+    expect(result).toEqual({ ok: true, changed: ["createdAt"] });
+    const stored = await db.project.findUniqueOrThrow({ where: { id: project.id } });
+    expect(stored.createdAt.toISOString()).toBe("2026-03-01T17:00:00.000Z"); // midnight in Jakarta
+    const fromDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(before.createdAt);
+    await expect(db.projectChange.findFirst({ where: { projectId: project.id, field: "createdAt" } })).resolves.toMatchObject({ fromValue: fromDay, toValue: "2026-03-02" });
+    // The same day again changes nothing.
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "2026-03-02" } })).resolves.toEqual({ ok: true, changed: [] });
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "2999-01-01" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+
+    const other = await actorOf("SALES");
+    await expect(updateCommercialDetails(db, other, { projectId: project.id, values: { createdAt: "2026-01-05" } })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
   it("takes the target margin as an amount or as a percentage, never both", async () => {
@@ -155,6 +177,55 @@ describe("Progress, Status and Quote released", () => {
     await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { trackStatus: "Late" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 
+  it("setting the Quoted date by hand moves Progress to Propose when it was still an Opportunity", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales); // starts at QUALIFY
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } });
+
+    expect(result).toMatchObject({ ok: true });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "PROPOSE" });
+    const log = await db.projectChange.findMany({ where: { projectId: project.id }, orderBy: { field: "asc" } });
+    expect(log.map((row) => [row.field, row.fromValue, row.toValue])).toEqual([
+      ["progress", "5% - Qualify", "30% - Propose"],
+      ["quoteReleasedAt", null, "2026-05-01"],
+    ]);
+  });
+
+  it("does not move Progress backward when the Quoted date is set on a project already past it", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "AGREE" } });
+
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } });
+
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "AGREE" });
+  });
+
+  it("setting the Won date by hand moves Progress to Closed Won from any earlier stage", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { wonDate: "2026-06-15" } });
+
+    expect(result).toMatchObject({ ok: true });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "CLOSED_WON" });
+    await expect(db.projectChange.findFirst({ where: { projectId: project.id, field: "progress" } })).resolves.toMatchObject({ toValue: "100% - Closed Won" });
+  });
+
+  it("clearing a date, or re-submitting the same one, does not move Progress", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } });
+
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } })).resolves.toEqual({ ok: true, changed: [] });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "PROPOSE" });
+
+    const other = await makeProject(sales);
+    await updateCommercialDetails(db, sales, { projectId: other.id, values: { quoteReleasedAt: "" } });
+    await expect(db.project.findUniqueOrThrow({ where: { id: other.id } })).resolves.toMatchObject({ progress: "QUALIFY" });
+  });
+
   it("closed or done projects are not in the open pipeline", async () => {
     const sales = await actorOf("SALES");
     await makeProject(sales, { estimatedValue: 100 });
@@ -192,5 +263,41 @@ describe("pipeline analytics", () => {
     expect(list[1]).toMatchObject({ accountName: expect.any(String), projectTitle: "CCTV AI", targetMargin: 10, estimatedGrossProfit: 100, isOpen: true });
     expect(list[3]).toMatchObject({ progress: "CLOSED_WON", isOpen: false });
     expect(list[1]!.lastUpdated).toBeInstanceOf(Date);
+  });
+
+  it("compares Pipeline Conversion per salesperson: open projects at Propose or beyond over their open projects", async () => {
+    const [ann, bob, idle] = [await actorOf("SALES"), await actorOf("SALES"), await actorOf("SALES")];
+    const make = async (owner: { id: string; role: Role }, progress: "QUALIFY" | "PROPOSE" | "AGREE" | "CLOSED_WON") => {
+      const project = await makeProject(owner, { estimatedValue: 100 });
+      await db.project.update({ where: { id: project.id }, data: { progress } });
+      return project;
+    };
+    // Ann: four open, two of them (Propose, Agree) quoted. A won project and a Done one are not open.
+    await make(ann, "QUALIFY");
+    await make(ann, "QUALIFY");
+    await make(ann, "PROPOSE");
+    await make(ann, "AGREE");
+    await make(ann, "CLOSED_WON");
+    const done = await make(ann, "PROPOSE");
+    await db.project.update({ where: { id: done.id }, data: { trackStatus: "DONE" } });
+    // Bob: two open, both quoted. Idle has only a won project, so no open project and no row.
+    await make(bob, "PROPOSE");
+    await make(bob, "AGREE");
+    await make(idle, "CLOSED_WON");
+
+    const rows = (await getPipelineAnalytics(db, ann)).conversionBySalesPerson;
+
+    const row = (owner: { id: string }) => rows.find((r) => r.key === owner.id);
+    expect(row(ann)).toMatchObject({ open: 4, quoted: 2, percent: 50, drill: ann.id });
+    expect(row(bob)).toMatchObject({ open: 2, quoted: 2, percent: 100 });
+    expect(row(idle)).toBeUndefined();
+    // Highest first, so people can be compared at a glance.
+    expect(rows.indexOf(row(bob)!)).toBeLessThan(rows.indexOf(row(ann)!));
+    // The bar opens the person's open projects: the same number the row counts as open.
+    expect((await listProjects(db, ann, { ownerKeys: [ann.id], show: "open" })).length).toBe(4);
+    // The rows add up to the tile: the overall conversion is the open and quoted of everyone together.
+    const analytics = await getPipelineAnalytics(db, ann);
+    expect(analytics.conversionBySalesPerson.reduce((n, r) => n + r.open, 0)).toBe(analytics.totals.open);
+    expect(analytics.conversionBySalesPerson.reduce((n, r) => n + r.quoted, 0)).toBe(analytics.totals.openQuoted);
   });
 });

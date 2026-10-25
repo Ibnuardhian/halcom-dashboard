@@ -241,6 +241,25 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await expect(soa.getByRole("status").filter({ hasText: "30 projects" })).toBeVisible();
     await expect(soa.getByText("Showing 1–25 of 30")).toBeVisible();
     await expect(soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ })).toHaveCount(25);
+
+    // Sorting by Project name covers all 30 before the page is cut out of them, not just the 25 shown on this page: the row after
+    // "job 24" is "job 25" on the next page, never one of the 25 already here re-shuffled in place. Rows are found by their project
+    // link, not a bare "tbody tr": the page also carries the Import dialog's own (closed, but still present) help table.
+    const projectRow = (nth: number) => soa.locator("tr").filter({ has: soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ }) }).nth(nth);
+    const lastProjectRow = () => soa.locator("tr").filter({ has: soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ }) }).last();
+    await soa.getByRole("columnheader", { name: "Project", exact: true }).getByRole("link").click();
+    await expect(soa).toHaveURL(/sort=name/);
+    await expect(projectRow(0)).toContainText(`Import job 0 ${id}`);
+    await expect(projectRow(24)).toContainText(`Import job 24 ${id}`);
+    await soa.getByRole("link", { name: "Next" }).click();
+    await expect(soa.getByText("Showing 26–30 of 30")).toBeVisible();
+    await expect(projectRow(0)).toContainText(`Import job 25 ${id}`);
+    await expect(lastProjectRow()).toContainText(`Import job 29 ${id}`);
+    // The same column reversed (as clicking it again would) is still over the whole set, not just one page.
+    await soa.goto(`/projects?q=${encodeURIComponent(`E2E Import ${id}`)}&sort=name&dir=desc`);
+    await expect(projectRow(0)).toContainText(`Import job 29 ${id}`);
+    // Back to the default order for the rest of the paging checks.
+    await soa.goto(`/projects?q=${encodeURIComponent(`E2E Import ${id}`)}`);
     await soa.getByRole("link", { name: "Next" }).click();
     await expect(soa.getByText("Showing 26–30 of 30")).toBeVisible();
     await expect(soa.getByRole("link", { name: /^HIT-PROJ-\d+$/ })).toHaveCount(5);
@@ -316,7 +335,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     };
     await expect(async () => {
       await drop("notes.txt", [104, 105], "text/plain");
-      await expect(soa.getByRole("dialog").getByRole("alert")).toContainText("Only .xlsx workbooks can be imported", { timeout: 12_000 });
+      await expect(soa.getByRole("dialog").getByRole("alert")).toContainText("Hanya workbook .xlsx yang dapat diimpor", { timeout: 12_000 });
     }).toPass({ timeout: 30_000 });
     await expect(async () => {
       await drop("dropped.xlsx", [...workbook], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

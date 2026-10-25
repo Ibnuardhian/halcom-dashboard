@@ -120,16 +120,16 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
       } else if (named.length === 1) {
         ownerId = named[0]!.id;
         ownerLabel = named[0]!.name;
-      } else if (named.length > 1) problems.push(`Sales PIC "${row.salesPic}" matches ${named.length} accounts. Write the email address instead.`);
-      else problems.push(`Sales PIC "${row.salesPic}" is not an active Sales account.`);
+      } else if (named.length > 1) problems.push(`Sales PIC "${row.salesPic}" cocok dengan ${named.length} akun. Tulis alamat emailnya.`);
+      else problems.push(`Sales PIC "${row.salesPic}" bukan akun Sales yang aktif.`);
     }
 
     // Master data: a name that is not a record yet is created only by someone allowed to manage master data.
     const addedPrincipals = row.principals.filter((name) => !knownPrincipals.has(nameKey(name)));
     const addedSolution = row.solution && !knownSolutions.has(nameKey(row.solution)) ? row.solution : null;
     if (!mayCreateMaster) {
-      for (const name of addedPrincipals) problems.push(`Principal "${name}" does not exist, and you may not create master data. Ask SOA or an administrator to add it first.`);
-      if (addedSolution) problems.push(`Solution "${addedSolution}" does not exist, and you may not create master data.`);
+      for (const name of addedPrincipals) problems.push(`Principal "${name}" belum ada, dan Anda tidak boleh membuat master data. Minta SOA atau administrator menambahkannya dulu.`);
+      if (addedSolution) problems.push(`Solution "${addedSolution}" belum ada, dan Anda tidak boleh membuat master data.`);
     }
 
     if (problems.length > 0) {
@@ -141,10 +141,10 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
     // Duplicates: the same Project ID or the same end user and project name, in the data or earlier in this file. Never an update.
     const identity = projectIdentity(row.endUser, row.name);
     let duplicate: string | null = null;
-    if (row.code && existingCodes.has(row.code)) duplicate = `Project ID ${row.code} already exists (${existingCodes.get(row.code)!.name}).`;
-    else if (row.code && seenCodes.has(row.code)) duplicate = `Project ID ${row.code} is already used in row ${seenCodes.get(row.code)} of this file.`;
-    else if (existingIdentities.has(identity)) duplicate = `The same end user and project name already exist as ${existingIdentities.get(identity)}.`;
-    else if (seenIdentities.has(identity)) duplicate = `The same end user and project name are in row ${seenIdentities.get(identity)} of this file.`;
+    if (row.code && existingCodes.has(row.code)) duplicate = `Project ID ${row.code} sudah ada (${existingCodes.get(row.code)!.name}).`;
+    else if (row.code && seenCodes.has(row.code)) duplicate = `Project ID ${row.code} sudah dipakai di baris ${seenCodes.get(row.code)} berkas ini.`;
+    else if (existingIdentities.has(identity)) duplicate = `End user dan project name yang sama sudah ada sebagai ${existingIdentities.get(identity)}.`;
+    else if (seenIdentities.has(identity)) duplicate = `End user dan project name yang sama ada di baris ${seenIdentities.get(identity)} berkas ini.`;
     if (duplicate) {
       counts.duplicates += 1;
       reports.push({ sheetRow, status: "duplicate", ...label, messages: [duplicate] });
@@ -177,7 +177,7 @@ function summarise(prepared: Prepared): ImportSummary {
   };
 }
 
-const FORBIDDEN = "You are not allowed to import projects.";
+const FORBIDDEN = "Anda tidak diizinkan mengimpor proyek.";
 
 /** Checks a sheet and reports what an import would do: which rows are ready, which are duplicates, which have problems. Writes nothing. */
 export async function previewProjectImport(db: PrismaClient, claimedActor: Actor, input: { bytes: Uint8Array; mapping: unknown }): Promise<PreviewResult> {
@@ -221,9 +221,9 @@ export async function commitProjectImport(
         const { prepared } = result;
         const summary = summarise(prepared);
         if (input.mode === "atomic" && prepared.counts.errors > 0) {
-          throw new Abort({ ok: false, code: "HAS_ERRORS", message: `${prepared.counts.errors} row${prepared.counts.errors === 1 ? " has" : "s have"} problems, so nothing was imported. Fix them in the sheet, or import only the valid rows.`, summary });
+          throw new Abort({ ok: false, code: "HAS_ERRORS", message: `${prepared.counts.errors} baris bermasalah, jadi tidak ada yang diimpor. Perbaiki di sheet, atau impor hanya baris yang valid.`, summary });
         }
-        if (prepared.ready.length === 0) throw new Abort({ ok: false, code: "NOTHING_TO_IMPORT", message: "There is no new project to import in this sheet.", summary });
+        if (prepared.ready.length === 0) throw new Abort({ ok: false, code: "NOTHING_TO_IMPORT", message: "Tidak ada proyek baru untuk diimpor dari sheet ini.", summary });
 
         // Explicit Project IDs first: the counter moves past them, so the numbers given to the other rows can never collide.
         const explicit = prepared.ready.map((entry) => entry.row.code).filter((code): code is string => code !== null).map((code) => Number(code.slice(9)));
@@ -331,6 +331,6 @@ export async function commitProjectImport(
     if (error instanceof Abort) return error.result;
     // A database error on any row (for example a Project ID taken a moment ago) undoes the whole import.
     const taken = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-    return { ok: false, code: "FAILED", message: taken ? "A Project ID in the sheet was taken while importing, so nothing was imported. Try again." : "The import failed, so nothing was imported. Nothing in the data changed." };
+    return { ok: false, code: "FAILED", message: taken ? "Ada Project ID di sheet yang terpakai saat mengimpor, jadi tidak ada yang diimpor. Coba lagi." : "Impor gagal, jadi tidak ada yang diimpor. Tidak ada data yang berubah." };
   }
 }

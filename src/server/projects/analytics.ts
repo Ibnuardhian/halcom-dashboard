@@ -1,4 +1,4 @@
-import { PROPOSE_OR_BEYOND } from "@/domain/projects/growth";
+import { PROPOSE_OR_BEYOND, pipelineConversion } from "@/domain/projects/growth";
 import { effectiveIndustry } from "@/domain/customers/industry";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
@@ -46,7 +46,12 @@ export type PipelineAnalytics = {
   bySolution: Slice[];
   byIndustry: Slice[];
   bySalesPerson: Slice[];
+  /** Pipeline Conversion of each Sales PIC, highest first, so people can be compared. Someone with no open project is left out. */
+  conversionBySalesPerson: ConversionRow[];
 };
+
+/** One person's Pipeline Conversion: their open projects, how many of those are at Propose or beyond, and the share. `drill` is the `owner` filter value. */
+export type ConversionRow = { key: string; label: string; open: number; quoted: number; percent: number; drill: string };
 
 const UNSET = "Not set";
 const EXTERNAL_KEY = "external-source";
@@ -139,6 +144,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const solutions = new Map<string, Slice>();
   const industries = new Map<string, Slice>();
   const salespeople = new Map<string, Slice>();
+  const conversion = new Map<string, { label: string; open: number; quoted: number; drill: string }>();
   const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, openQuoted: 0, wonCount: 0, wonValue: 0 };
 
   for (const project of projects) {
@@ -163,7 +169,12 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       totals.open += 1;
       totals.openValue += estimated ?? 0;
       totals.openWeighted += weighted ?? 0;
-      if (PROPOSE_OR_BEYOND.includes(project.progress)) totals.openQuoted += 1;
+      const atPropose = PROPOSE_OR_BEYOND.includes(project.progress);
+      if (atPropose) totals.openQuoted += 1;
+      const person = conversion.get(project.salesOwner?.id ?? EXTERNAL_KEY) ?? { label: project.salesOwner?.name ?? EXTERNAL_LABEL, open: 0, quoted: 0, drill: project.salesOwner?.id ?? FILTER_EXTERNAL };
+      person.open += 1;
+      if (atPropose) person.quoted += 1;
+      conversion.set(project.salesOwner?.id ?? EXTERNAL_KEY, person);
       const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null, project.targetMarginValue?.toNumber() ?? null);
       if (margin !== null) {
         totals.openTargetMargin += margin;
@@ -184,6 +195,9 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     bySolution: topSlices(solutions.values()),
     byIndustry: topSlices(industries.values()),
     bySalesPerson: topSlices(salespeople.values()),
+    conversionBySalesPerson: [...conversion.entries()]
+      .map(([key, person]) => ({ key, label: person.label, open: person.open, quoted: person.quoted, percent: pipelineConversion(person.open, person.quoted).percent ?? 0, drill: person.drill }))
+      .sort((a, b) => b.percent - a.percent || b.open - a.open || a.label.localeCompare(b.label)),
   };
 }
 

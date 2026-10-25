@@ -11,7 +11,7 @@ export async function changePasswordAction(_previous: FormState, formData: FormD
   const user = await requireUser({ allowPasswordChange: true });
   const confirmation = formData.get("confirmPassword");
   if (formData.get("newPassword") !== confirmation) {
-    return { ok: false, message: "The new password and its confirmation do not match." };
+    return { ok: false, message: "Kata sandi baru dan konfirmasinya tidak sama." };
   }
   const result = await changeOwnPassword(getDb(), user.id, await readSessionToken(), {
     currentPassword: formData.get("currentPassword"),

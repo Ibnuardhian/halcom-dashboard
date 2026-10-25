@@ -11,7 +11,7 @@ import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
 import { countAdministrativeChanges, getUserStats, recentAuditEvents } from "@/server/users/queries";
 import { DashboardHeader } from "./dashboard-header";
-import { formatUtc } from "./format";
+import { formatDay } from "./format";
 import { StatTile } from "./stat-tile";
 
 /**
@@ -42,12 +42,12 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
 
   return (
     <>
-      <DashboardHeader title="Admin Dashboard" summary="Accounts, settings and recent administrative activity. Admins manage operational users; only a superadmin manages admin accounts and the system." />
+      <DashboardHeader title="Admin Dashboard" summary="Akun, pengaturan, dan aktivitas administratif terbaru. Admin mengelola pengguna operasional; hanya superadmin yang dapat mengelola akun admin dan sistem." />
       <section aria-label="Administration" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Active accounts" value={stats.active} href={USERS_PATH} note={`${stats.total - stats.active} inactive`} />
-        <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={SETTINGS_PATH} note="Working days to answer a request" />
-        <StatTile label="Master data" value={principals + solutions + customers} href={MASTER_DATA_PATH} note={`${principals} principals, ${solutions} solutions, ${customers} customers`} />
-        <StatTile label="Changes in 7 days" value={changes} href={AUDIT_PATH} note="Audit events other than sign-ins" />
+        <StatTile label="Active accounts" value={stats.active} href={USERS_PATH} note={`${stats.total - stats.active} nonaktif`} />
+        <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={SETTINGS_PATH} note="Hari kerja untuk menjawab sebuah request" />
+        <StatTile label="Master data" value={principals + solutions + customers} href={MASTER_DATA_PATH} note={`${principals} principal, ${solutions} solution, ${customers} customer`} />
+        <StatTile label="Changes in 7 days" value={changes} href={AUDIT_PATH} note="Audit event selain login" />
       </section>
       <ul aria-label="Administration tools" className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         {TOOLS.filter((tool) => can(viewer.role, tool.permission)).map((tool) => (
@@ -97,7 +97,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
             <CardTitle className="text-base">
               <h2>Recent administrative activity</h2>
             </CardTitle>
-            <CardDescription>Latest {events.length || 10} audit events. Times are UTC.</CardDescription>
+            <CardDescription>Latest {events.length || 10} audit events.</CardDescription>
           </CardHeader>
           <CardContent>
             {events.length === 0 ? (
@@ -114,7 +114,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
                 <TableBody>
                   {events.map((event) => (
                     <TableRow key={event.id}>
-                      <TableCell className="whitespace-nowrap">{formatUtc(event.createdAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDay(event.createdAt)}</TableCell>
                       <TableCell>{event.action}</TableCell>
                       <TableCell>{event.actorName ?? "System"}</TableCell>
                     </TableRow>

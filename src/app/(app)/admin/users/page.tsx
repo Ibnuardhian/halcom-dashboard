@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { assignableRoles, can, canManageUser } from "@/domain/access/permissions";
 import { ROLE_LABELS } from "@/domain/access/roles";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { ActiveForm, CreateUserForm, ResetPasswordForm, RoleForm } from "@/features/users/user-forms";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -30,7 +30,7 @@ async function Users() {
     <>
       <DashboardHeader
         title="Users"
-        summary="Accounts and roles. Every change is recorded in the audit trail."
+        summary="Akun dan peran pengguna. Setiap perubahan dicatat dalam audit trail."
       />
       {mayManage ? (
         <Card className="mb-6">
@@ -54,7 +54,7 @@ async function Users() {
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Created (UTC)</TableHead>
+            <TableHead>Created</TableHead>
             {mayManage ? <TableHead>Actions</TableHead> : null}
           </TableRow>
         </TableHeader>
@@ -72,7 +72,7 @@ async function Users() {
                 <TableCell>
                   <Badge variant={user.isActive ? "secondary" : "outline"}>{user.isActive ? "Active" : "Inactive"}</Badge>
                 </TableCell>
-                <TableCell className="whitespace-nowrap">{formatUtc(user.createdAt)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDay(user.createdAt)}</TableCell>
                 {mayManage ? (
                   <TableCell>
                     {editable ? (

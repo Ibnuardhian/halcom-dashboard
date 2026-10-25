@@ -163,4 +163,28 @@ describe("the Projects table pages", () => {
     // A filter narrows the total and the pages together.
     expect(await searchProjects(db, actor(sales), { ...filter, search: "row 119" }, { pageSize: 25 })).toMatchObject({ total: 1, pageCount: 1 });
   });
+
+  it("sorts the whole matching set before a page is cut out of it, so a smaller page size never sorts only what it shows", async () => {
+    const sales = await makeUser("SALES");
+    const tag = randomBytes(3).toString("hex");
+    for (let index = 0; index < 120; index += 1) {
+      const created = await createProject(db, actor(sales), { endUserCompany: `Paging ${tag}`, name: `row ${index} ${tag}` });
+      if (!created.ok) throw new Error(created.message);
+    }
+    const filter = { salesOwnerId: sales.id };
+    const byName = [...Array.from({ length: 120 }, (_, index) => `row ${index} ${tag}`)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+    const page1 = await searchProjects(db, actor(sales), filter, { page: 1, pageSize: 25, sort: "name", dir: "asc" });
+    const page5 = await searchProjects(db, actor(sales), filter, { page: 5, pageSize: 25, sort: "name", dir: "asc" });
+    // The last name of page 1 sorts before the first name of page 5: the order spans every page, not just each one on its own.
+    expect(page1.rows.map((row) => row.name)).toEqual(byName.slice(0, 25));
+    expect(page5.rows.map((row) => row.name)).toEqual(byName.slice(100, 120));
+
+    const descending = await searchProjects(db, actor(sales), filter, { page: 1, pageSize: 25, sort: "name", dir: "desc" });
+    expect(descending.rows.map((row) => row.name)).toEqual([...byName].reverse().slice(0, 25));
+
+    // "All" sorted the same way, in one page, is the same order split across pages.
+    const all = await searchProjects(db, actor(sales), filter, { pageSize: "all", sort: "name", dir: "asc" });
+    expect(all.rows.map((row) => row.name)).toEqual(byName);
+  });
 });

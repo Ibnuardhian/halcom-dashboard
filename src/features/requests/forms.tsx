@@ -59,17 +59,17 @@ function ExternalSourceFields() {
   return (
     <fieldset className="grid gap-4 rounded-lg border p-4 sm:col-span-2 sm:grid-cols-2">
       <legend className="px-1 text-sm font-semibold">Sales: Other</legend>
-      <Field id="project-source-name" label={`${EXTERNAL_SOURCE_LABELS.externalSourceName} *`} hint="The name of the sales person or company, as a marker. Charts group every project like this under Other.">
+      <Field id="project-source-name" label={`${EXTERNAL_SOURCE_LABELS.externalSourceName} *`} hint="Nama sales person atau perusahaan, sebagai penanda. Chart mengelompokkan semua proyek seperti ini di bawah Other.">
         <Input id="project-source-name" name="externalSourceName" required maxLength={SOURCE_FIELD_LIMITS.externalSourceName} />
       </Field>
-      <Field id="project-source-contact" label={EXTERNAL_SOURCE_LABELS.externalContact} hint="Optional.">
+      <Field id="project-source-contact" label={EXTERNAL_SOURCE_LABELS.externalContact} hint="Opsional.">
         <Input id="project-source-contact" name="externalContact" maxLength={SOURCE_FIELD_LIMITS.externalContact} />
       </Field>
-      <Field id="project-source-ref" label={EXTERNAL_SOURCE_LABELS.externalReference} hint="Optional. Their opportunity or reference number.">
+      <Field id="project-source-ref" label={EXTERNAL_SOURCE_LABELS.externalReference} hint="Opsional. Nomor opportunity atau referensi mereka.">
         <Input id="project-source-ref" name="externalReference" maxLength={SOURCE_FIELD_LIMITS.externalReference} />
       </Field>
       <div className="sm:col-span-2">
-        <Field id="project-source-notes" label={EXTERNAL_SOURCE_LABELS.sourceNotes} hint="Optional.">
+        <Field id="project-source-notes" label={EXTERNAL_SOURCE_LABELS.sourceNotes} hint="Opsional.">
           <Textarea id="project-source-notes" name="sourceNotes" maxLength={SOURCE_FIELD_LIMITS.sourceNotes} />
         </Field>
       </div>
@@ -89,7 +89,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="submissionKey" value={submissionKey} />
       {scope.sources.length > 1 ? (
-        <Field id="project-source" label="Project source *" hint="Internal Sales: a registered salesperson is the Sales PIC. Other: the sale is made by someone else; you name them below and charts count it as Other.">
+        <Field id="project-source" label="Project source *" hint="Internal Sales: salesperson terdaftar menjadi Sales PIC. Other: penjualan dilakukan pihak lain; sebutkan namanya di bawah dan chart menghitungnya sebagai Other.">
           <NativeSelect id="project-source" name="sourceType" value={source} onChange={(event) => setSource(event.target.value as ProjectSourceType)}>
             {scope.sources.map((option) => (
               <option key={option} value={option}>
@@ -103,18 +103,18 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       )}
       {scope.salesPeople && source === "INTERNAL_SALES" ? (
         // SOA register an Internal Sales project for a registered salesperson, picked from a searchable list.
-        <Field id="project-sales-pic" label={scope.salesPicRequired ? "Sales PIC *" : "Sales PIC"} hint={scope.salesPicRequired ? "The registered salesperson this project belongs to. Type to search." : "Optional. Leave empty to own it yourself. Type to search."}>
-          <SearchSelect id="project-sales-pic" name="salesOwnerId" label="salesperson" options={scope.salesPeople} required={scope.salesPicRequired} placeholder="Search a salesperson" />
+        <Field id="project-sales-pic" label={scope.salesPicRequired ? "Sales PIC *" : "Sales PIC"} hint={scope.salesPicRequired ? "Salesperson terdaftar yang memiliki proyek ini. Ketik untuk mencari." : "Opsional. Kosongkan untuk menjadikannya milik Anda sendiri. Ketik untuk mencari."}>
+          <SearchSelect id="project-sales-pic" name="salesOwnerId" label="salesperson" options={scope.salesPeople} required={scope.salesPicRequired} placeholder="Cari salesperson" />
         </Field>
       ) : null}
       {scope.sources.length === 1 && source === "INTERNAL_SALES" && !scope.salesPeople ? (
         // Sales do not choose the classification: their project is Internal Sales and they are its Sales PIC. SOA classify a project as Other.
         <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
-          <Field id="project-source-fixed" label="Project source" hint="Set by SOA. Sales projects are Internal Sales.">
+          <Field id="project-source-fixed" label="Project source" hint="Ditentukan oleh SOA. Proyek Sales adalah Internal Sales.">
             <Input id="project-source-fixed" value={SOURCE_LABELS.INTERNAL_SALES} readOnly disabled />
           </Field>
           {scope.salesPicName ? (
-            <Field id="project-sales-pic" label="Sales PIC" hint="You, as the signed-in salesperson.">
+            <Field id="project-sales-pic" label="Sales PIC" hint="Anda sendiri, sebagai salesperson yang sedang masuk.">
               <Input id="project-sales-pic" value={scope.salesPicName} readOnly disabled />
             </Field>
           ) : null}
@@ -127,12 +127,12 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       <Field id="project-name" label="Project name *">
         <Input id="project-name" name="name" required maxLength={120} placeholder="CCTV AI" />
       </Field>
-      <Field id="project-target" label="Target closing" hint="Optional.">
+      <Field id="project-target" label="Target closing" hint="Opsional.">
         <DateInput id="project-target" name="targetDate" label="Target closing" />
       </Field>
       {scope.commercial ? (
         <>
-          <Field id="project-progress" label="Progress" hint="Each step stands for a win probability, used for the weighted pipeline.">
+          <Field id="project-progress" label="Progress" hint="Setiap tahap mewakili sebuah win probability, dipakai untuk weighted pipeline.">
             <NativeSelect id="project-progress" name="progress" defaultValue="QUALIFY">
               {PROJECT_PROGRESSES.map((option) => (
                 <option key={option} value={option}>
@@ -150,21 +150,21 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
               ))}
             </NativeSelect>
           </Field>
-          <Field id="project-value" label="Estimated PO value" hint="Optional. Dots are added as you type, for example 1.200.000.000.">
+          <Field id="project-value" label="Estimated PO value" hint="Opsional. Titik ditambahkan otomatis saat Anda mengetik, contoh 1.200.000.000.">
             <MoneyInput id="project-value" name="estimatedValue" />
           </Field>
           <MarginInput id="project-margin" />
         </>
       ) : null}
       <div className="sm:col-span-2">
-        <Field id="project-description" label="Description" hint="Optional. Context for the team, up to 2000 characters.">
+        <Field id="project-description" label="Description" hint="Opsional. Konteks untuk tim, maksimal 2000 karakter.">
           <Textarea id="project-description" name="description" maxLength={2000} />
         </Field>
       </div>
 
       <fieldset className="flex flex-col gap-3 rounded-lg border p-4 sm:col-span-2">
         <legend className="px-1 text-sm font-semibold">Request for this project</legend>
-        <p className="text-xs text-muted-foreground">Choose what the project needs now: a BOQ goes to SOA; an RFQ or a PO goes to Purchasing. It is created together with the project, and you can add more later from the project page.</p>
+        <p className="text-xs text-muted-foreground">Pilih apa yang dibutuhkan proyek ini sekarang: BOQ masuk ke SOA; RFQ atau PO masuk ke Purchasing. Dibuat bersamaan dengan proyek, dan Anda bisa menambahkan lagi nanti dari halaman proyek.</p>
         <div className="flex flex-wrap gap-2">
           {(["", ...requestTypes] as const).map((option) => (
             <label
@@ -172,24 +172,24 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
               className="cursor-pointer rounded-md border px-3 py-1.5 text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
             >
               <input type="radio" name="requestType" value={option} checked={type === option} onChange={() => setType(option)} className="sr-only" />
-              {option === "" ? "No request yet" : `${option} – ${REQUEST_TYPE_LABELS[option]}`}
+              {option === "" ? "Belum ada request" : `${option} – ${REQUEST_TYPE_LABELS[option]}`}
             </label>
           ))}
         </div>
         {type ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <p className="text-xs text-muted-foreground sm:col-span-2">Goes to {OWNING_TEAM_LABELS[type]}.</p>
+            <p className="text-xs text-muted-foreground sm:col-span-2">Masuk ke {OWNING_TEAM_LABELS[type]}.</p>
             <div className="sm:col-span-2">
-              <Field id="project-request-title" label="Request summary *" hint="One line that tells the team what is needed.">
+              <Field id="project-request-title" label="Request summary *" hint="Satu baris yang memberi tahu tim apa yang dibutuhkan.">
                 <Input id="project-request-title" name="requestTitle" required maxLength={150} />
               </Field>
             </div>
             <div className="sm:col-span-2">
-              <Field id="project-request-details" label="Request details" hint="Known specifications, quantities, brands, constraints. Up to 4000 characters.">
+              <Field id="project-request-details" label="Request details" hint="Spesifikasi, kuantitas, merek, dan batasan yang sudah diketahui. Maksimal 4000 karakter.">
                 <Textarea id="project-request-details" name="requestDescription" maxLength={4000} className="min-h-28" />
               </Field>
             </div>
-            <Field id="project-request-needed" label="Needed by" hint="Optional.">
+            <Field id="project-request-needed" label="Needed by" hint="Opsional.">
               <DateInput id="project-request-needed" name="requestRequiredBy" label="Needed by" />
             </Field>
           </div>
@@ -274,7 +274,7 @@ export function RequestForm({
       <input type="hidden" name="submissionKey" value={submissionKey} />
       {picFilters ? (
         <>
-          <Field id="request-sales-pic" label="Sales PIC" hint="Optional. Narrows the projects to the ones this salesperson owns.">
+          <Field id="request-sales-pic" label="Sales PIC" hint="Opsional. Mempersempit daftar proyek ke yang dimiliki salesperson ini.">
             <NativeSelect id="request-sales-pic" value={salesFilter} onChange={(event) => changeFilters(event.target.value, soaFilter)}>
               <option value={ANY_PIC}>Any Sales PIC</option>
               {picOptions(projects, (p) => p.salesPicId, (p) => p.salesPicName).map(([id, name]) => (
@@ -285,7 +285,7 @@ export function RequestForm({
               <option value={NO_PIC}>No Sales PIC (project from another source)</option>
             </NativeSelect>
           </Field>
-          <Field id="request-soa-pic" label="SOA PIC" hint="Optional. Narrows the projects to the ones this technical PIC covers.">
+          <Field id="request-soa-pic" label="SOA PIC" hint="Opsional. Mempersempit daftar proyek ke yang ditangani technical PIC ini.">
             <NativeSelect id="request-soa-pic" value={soaFilter} onChange={(event) => changeFilters(salesFilter, event.target.value)}>
               <option value={ANY_PIC}>Any SOA PIC</option>
               {picOptions(projects, (p) => p.soaPicId, (p) => p.soaPicName).map(([id, name]) => (
@@ -316,14 +316,14 @@ export function RequestForm({
             <p>
               <span className="text-muted-foreground">Sales PIC:</span> {chosen.salesPicName ?? "None (project from another source)"} ·{" "}
               <span className="text-muted-foreground">SOA PIC:</span> {chosen.soaPicName ?? "None yet"}
-              <span className="block text-xs text-muted-foreground">The RFQ goes to Purchasing and is shown to these PICs; it appears on the Sales dashboard of the Sales PIC.</span>
+              <span className="block text-xs text-muted-foreground">RFQ ini masuk ke Purchasing dan ditampilkan ke PIC-PIC ini; muncul juga di Sales dashboard milik Sales PIC.</span>
             </p>
           ) : (
-            <p className="text-muted-foreground">Choose a project to see its Sales PIC and SOA PIC.</p>
+            <p className="text-muted-foreground">Pilih sebuah proyek untuk melihat Sales PIC dan SOA PIC-nya.</p>
           )}
         </div>
       ) : null}
-      <Field id="request-type" label="Request type *" hint={`Goes to ${OWNING_TEAM_LABELS[type]}.`}>
+      <Field id="request-type" label="Request type *" hint={`Masuk ke ${OWNING_TEAM_LABELS[type]}.`}>
         <NativeSelect id="request-type" name="type" required value={type} onChange={(event) => setType(event.target.value as RequestType)}>
           {types.map((option) => (
             <option key={option} value={option}>
@@ -333,16 +333,16 @@ export function RequestForm({
         </NativeSelect>
       </Field>
       <div className="sm:col-span-2">
-        <Field id="request-title" label="Summary *" hint="One line that tells the team what is needed.">
+        <Field id="request-title" label="Summary *" hint="Satu baris yang memberi tahu tim apa yang dibutuhkan.">
           <Input id="request-title" name="title" required maxLength={150} />
         </Field>
       </div>
       <div className="sm:col-span-2">
-        <Field id="request-description" label="Details" hint="Known specifications, quantities, brands, constraints. Up to 4000 characters.">
+        <Field id="request-description" label="Details" hint="Spesifikasi, kuantitas, merek, dan batasan yang sudah diketahui. Maksimal 4000 karakter.">
           <Textarea id="request-description" name="description" maxLength={4000} className="min-h-32" />
         </Field>
       </div>
-      <Field id="request-needed" label="Needed by" hint="Optional.">
+      <Field id="request-needed" label="Needed by" hint="Opsional.">
         <DateInput id="request-needed" name="requiredBy" label="Needed by" />
       </Field>
       <div className="flex flex-col gap-2 sm:col-span-2">
@@ -445,7 +445,7 @@ export function RevisionForm({ requestId }: { requestId: string }) {
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`revision-reason-${requestId}`} label="What needs to change? *" hint="The ticket goes straight to Revision and SOA is told. Up to 500 characters.">
+      <Field id={`revision-reason-${requestId}`} label="What needs to change? *" hint="Tiket langsung masuk ke Revision dan SOA diberi tahu. Maksimal 500 karakter.">
         <Textarea id={`revision-reason-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
       </Field>
       <FormStatus state={state} />
@@ -470,7 +470,7 @@ export function RequestDatesForm({ requestId, createdAt, completedAt, canComplet
           <Input id={`created-at-${requestId}`} name="createdAt" type="datetime-local" required defaultValue={createdAt} />
         </Field>
         {canComplete ? (
-          <Field id={`completed-at-${requestId}`} label="Completed (UTC)" hint="Leave as it is to keep the stored completion time.">
+          <Field id={`completed-at-${requestId}`} label="Completed (UTC)" hint="Biarkan apa adanya untuk mempertahankan waktu penyelesaian yang tersimpan.">
             <Input id={`completed-at-${requestId}`} name="completedAt" type="datetime-local" defaultValue={completedAt ?? ""} />
           </Field>
         ) : null}

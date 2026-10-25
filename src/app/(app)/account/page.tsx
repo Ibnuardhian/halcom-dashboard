@@ -19,7 +19,7 @@ async function Account() {
   const user = await requireUser();
   return (
     <>
-      <DashboardHeader title="Account" summary="Your sign-in details and password." />
+      <DashboardHeader title="Account" summary="Detail akun dan kata sandi Anda." />
       <Card className="mb-6">
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-3">

@@ -11,6 +11,7 @@ import {
   type ProjectEditableField,
 } from "@/domain/projects/fields";
 import { ACTION_BODY_MAX_LENGTH, ACTION_KINDS } from "@/domain/projects/actions";
+import { categoryOf } from "@/domain/projects/growth";
 import { salesActsOn } from "@/domain/projects/source";
 import { notify, projectAudience } from "@/server/notifications/service";
 import {
@@ -26,6 +27,9 @@ export type Actor = { id: string; role: Role };
 
 const MAX_FIELD_LENGTH = 4000;
 
+/** `2026-10-17`: the calendar day of a moment in Asia/Jakarta, the business time zone. */
+const jakartaDay = (moment: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(moment);
+
 /**
  * Only the keys of PROJECT_EDITABLE_FIELDS are accepted, and `.strict()` rejects any other key, so a
  * crafted request cannot slip a commercial field (value, probability, stage, status) through this door.
@@ -37,7 +41,7 @@ const updateSchema = z.object({
       Object.fromEntries(
         PROJECT_EDITABLE_KEYS.map((key) => [
           key,
-          z.string().max(MAX_FIELD_LENGTH, `Each field can hold at most ${MAX_FIELD_LENGTH} characters.`).nullish(),
+          z.string().max(MAX_FIELD_LENGTH, `Setiap field maksimal ${MAX_FIELD_LENGTH} karakter.`).nullish(),
         ]),
       ) as Record<ProjectEditableField, z.ZodOptional<z.ZodNullable<z.ZodString>>>,
     )
@@ -63,21 +67,21 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid."));
+    return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid."));
   }
-  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId, values } = parsed.data;
 
   return db.$transaction(async (tx) => {
     // The stored role decides, so a demoted or deactivated user cannot act on a stale session.
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+    if (!actor?.isActive || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
     await setActor(tx, actor.id);
 
     // Serialise concurrent edits of one project, so each log row's "from" is the value really replaced.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
-    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
+    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
 
     const changes: FieldChange[] = diffFields(project, values);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies UpdateResult;
@@ -121,12 +125,12 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
 
 const postSchema = z.object({
   projectId: z.uuid(),
-  kind: z.enum(ACTION_KINDS, "Choose current action or next action."),
+  kind: z.enum(ACTION_KINDS, "Pilih current action atau next action."),
   body: z
     .string()
     .trim()
-    .min(1, "Write what was done or what comes next.")
-    .max(ACTION_BODY_MAX_LENGTH, `An update can hold at most ${ACTION_BODY_MAX_LENGTH} characters.`),
+    .min(1, "Tulis apa yang sudah dikerjakan atau apa yang berikutnya.")
+    .max(ACTION_BODY_MAX_LENGTH, `Update maksimal ${ACTION_BODY_MAX_LENGTH} karakter.`),
 });
 
 export type PostResult = { ok: true; id: string } | { ok: false; code: UpdateErrorCode; message: string };
@@ -138,19 +142,19 @@ export type PostResult = { ok: true; id: string } | { ok: false; code: UpdateErr
  */
 export async function postProjectUpdate(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<PostResult> {
   const parsed = postSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "The submitted data is invalid." };
-  if (!can(claimedActor.role, "projects.post-update")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid." };
+  if (!can(claimedActor.role, "projects.post-update")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, kind, body } = parsed.data;
 
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
     if (!actor?.isActive || !can(actor.role, "projects.post-update")) {
-      return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies PostResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies PostResult;
     }
     // Serialise updates of one project, so "the latest entry" and the project's copy of it never disagree.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, code: true, endUserCompany: true, deletedAt: true } });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies PostResult;
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." } satisfies PostResult;
 
     const entry = await tx.projectAction.create({ data: { projectId, kind, body, authorId: actor.id }, select: { id: true } });
     await tx.project.update({ where: { id: projectId }, data: kind === "CURRENT" ? { currentAction: body } : { nextAction: body } });
@@ -194,9 +198,9 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
   const parsed = commercialSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid.") };
+    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid.") };
   }
-  if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, values } = parsed.data;
 
   const submitted: Partial<Record<CommercialField, CommercialValue>> = {};
@@ -204,34 +208,38 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     if (!(field in values)) continue;
     const result = parseCommercialValue(field, values[field]);
     if (!result.ok) return { ok: false, code: "INVALID_INPUT", message: result.message };
-    // Progress and Status always have a value: choosing "nothing" is not a change but a mistake.
-    if ((field === "progress" || field === "trackStatus") && result.value === null) {
+    // Progress, Status and the creation date always have a value: choosing "nothing" is not a change but a mistake.
+    if ((field === "progress" || field === "trackStatus" || field === "createdAt") && result.value === null) {
       return { ok: false, code: "INVALID_INPUT", message: `${COMMERCIAL_FIELDS[field].label} is required.` };
+    }
+    if (field === "createdAt" && typeof result.value === "string" && result.value > jakartaDay(new Date())) {
+      return { ok: false, code: "INVALID_INPUT", message: "Opportunity date tidak boleh di masa depan." };
     }
     submitted[field] = result.value;
   }
   // The target margin is a percentage or an amount, never both: filling one clears the other.
   const [pct, amount] = [submitted.targetMargin ?? null, submitted.targetMarginValue ?? null];
-  if (pct !== null && amount !== null) return { ok: false, code: "INVALID_INPUT", message: "Enter the target margin as a percentage or as an amount, not both." };
+  if (pct !== null && amount !== null) return { ok: false, code: "INVALID_INPUT", message: "Isi target margin sebagai persentase atau sebagai nominal, tidak keduanya." };
   if (pct !== null && !("targetMarginValue" in submitted)) submitted.targetMarginValue = null;
   if (amount !== null && !("targetMargin" in submitted)) submitted.targetMargin = null;
 
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
     if (!actor?.isActive || !can(actor.role, "projects.edit.commercial")) {
-      return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies CommercialResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies CommercialResult;
     }
     await setActor(tx, actor.id);
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
     if (actor.role === "SALES" && !salesActsOn(project, actor.id)) {
-      return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda hanya dapat mengubah detail komersial proyek milik Anda sendiri." } satisfies CommercialResult;
     }
 
     const dateText = (date: Date | null) => (date ? date.toISOString().slice(0, 10) : null);
     const current = {
+      createdAt: jakartaDay(project.createdAt),
       progress: project.progress,
       trackStatus: project.trackStatus,
       estimatedValue: project.estimatedValue?.toNumber() ?? null,
@@ -242,14 +250,33 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
       finalValue: project.finalValue?.toNumber() ?? null,
       wonDate: dateText(project.wonDate),
     };
+    // The three stage dates (Opportunity = created, Quoted = quote released, Closed Won = won date) are kept in step with Progress in
+    // both directions. Setting a Quoted or Closed Won date by hand is what the sales export calls reaching that stage, so it moves
+    // Progress forward to match, the same as it would if Progress had been changed instead; typing a date never moves Progress back.
+    if (
+      "quoteReleasedAt" in submitted &&
+      submitted.quoteReleasedAt !== null &&
+      submitted.quoteReleasedAt !== current.quoteReleasedAt &&
+      categoryOf(String(submitted.progress ?? current.progress)) === "OPPORTUNITY"
+    ) {
+      submitted.progress = "PROPOSE";
+    }
+    if (
+      "wonDate" in submitted &&
+      submitted.wonDate !== null &&
+      submitted.wonDate !== current.wonDate &&
+      (submitted.progress ?? current.progress) !== "CLOSED_WON"
+    ) {
+      submitted.progress = "CLOSED_WON";
+    }
     // Closing a project as won with no won date puts it in the quarter it was closed in (today), so it counts toward the target.
     if (submitted.progress === "CLOSED_WON" && current.progress !== "CLOSED_WON" && current.wonDate === null && (submitted.wonDate ?? null) === null) {
-      submitted.wonDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+      submitted.wonDate = jakartaDay(new Date());
     }
     // Moving to Propose (30%) means the quotation was submitted: with no date yet, today is filled in. It stays editable (and can be
     // cleared) afterwards, so a date typed in the same change wins and later schedule changes are free.
     if (submitted.progress === "PROPOSE" && current.progress !== "PROPOSE" && current.quoteReleasedAt === null && (submitted.quoteReleasedAt ?? null) === null) {
-      submitted.quoteReleasedAt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+      submitted.quoteReleasedAt = jakartaDay(new Date());
     }
     const changes = diffCommercial(current, submitted);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies CommercialResult;
@@ -259,6 +286,8 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
       data: Object.fromEntries(
         changes.map((change) => {
           const value = submitted[change.field] ?? null; // already a number, a date string or null
+          // The creation date is a moment, not a plain date: the chosen day starts at midnight in Jakarta.
+          if (change.field === "createdAt") return [change.field, new Date(`${value}T00:00:00+07:00`)];
           const isDate = change.field === "targetDate" || change.field === "quoteReleasedAt" || change.field === "wonDate";
           return [change.field, isDate && typeof value === "string" ? new Date(`${value}T00:00:00Z`) : value];
         }),

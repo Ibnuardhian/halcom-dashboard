@@ -10,9 +10,22 @@ const LINK = "block rounded-md outline-none transition-colors hover:bg-accent/60
  * Horizontal bars, one row per category, largest first as given. Every row carries its exact value as text, so
  * nothing depends on colour or on reading the bar length. One measure on one axis starting at zero.
  */
-export function BarList({ items, color = 0, allowEmpty = false }: { items: BarItem[]; color?: number; allowEmpty?: boolean }) {
-  const max = Math.max(0, ...items.map((item) => item.value));
-  if (items.length === 0 || (max === 0 && !allowEmpty)) return <ChartEmpty>No values entered yet.</ChartEmpty>;
+export function BarList({
+  items,
+  color = 0,
+  allowEmpty = false,
+  scaleMax,
+  emptyText = "No values entered yet.",
+}: {
+  items: BarItem[];
+  color?: number;
+  allowEmpty?: boolean;
+  /** A fixed full-bar value (100 for percentages), instead of the largest row. */
+  scaleMax?: number;
+  emptyText?: string;
+}) {
+  const max = scaleMax ?? Math.max(0, ...items.map((item) => item.value));
+  if (items.length === 0 || (max === 0 && !allowEmpty)) return <ChartEmpty>{emptyText}</ChartEmpty>;
   return (
     <ul className="flex flex-col gap-2.5">
       {items.map((item) => {

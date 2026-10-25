@@ -32,7 +32,7 @@ export function ActionComposer({ projectId, projectCode }: { projectId: string; 
       </fieldset>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${projectCode}-update`}>Update</Label>
-        <Textarea id={`${projectCode}-update`} name="body" required maxLength={ACTION_BODY_MAX_LENGTH} rows={3} placeholder="Write the update" />
+        <Textarea id={`${projectCode}-update`} name="body" required maxLength={ACTION_BODY_MAX_LENGTH} rows={3} placeholder="Tulis update-nya" />
       </div>
       <FormStatus state={state} />
       <div>

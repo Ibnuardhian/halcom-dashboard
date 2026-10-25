@@ -191,7 +191,7 @@ export function Flowchart({ nodes, activeRoles, ownRoles }: Props) {
             <RotateCcw aria-hidden />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Drag or scroll to move around. Hover, focus or click a step for its details; press Escape to close them.</p>
+        <p className="text-xs text-muted-foreground">Seret atau scroll untuk bergeser. Arahkan kursor, fokus, atau klik sebuah langkah untuk melihat detailnya; tekan Escape untuk menutupnya.</p>
       </div>
 
       <div

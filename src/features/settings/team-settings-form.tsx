@@ -18,7 +18,7 @@ export function TeamSettingsForm({ role, label, sla, subject, body }: { role: Te
       <input type="hidden" name="role" value={role} />
       <div className="flex flex-col gap-1.5 sm:max-w-xs">
         <Label htmlFor={`${role}-sla`}>SLA of the {label} team (days)</Label>
-        <Input id={`${role}-sla`} name="sla" defaultValue={sla} maxLength={12} required inputMode="text" placeholder="for example 2-3" />
+        <Input id={`${role}-sla`} name="sla" defaultValue={sla} maxLength={12} required inputMode="text" placeholder="contoh: 2-3" />
         <span className="text-xs text-muted-foreground">
           Write one number (3) or a range (2-3, 1-4); at most {SLA_MAX_DAYS} days. The first number is when an answer is expected, the last is the deadline. Working days, counted from when
           the request is created; the clock stands still while the request waits for Sales.

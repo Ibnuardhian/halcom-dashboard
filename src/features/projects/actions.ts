@@ -133,7 +133,7 @@ export async function reassignProjectAction(_previous: FormState, formData: Form
 export async function removeTechnicalSectionAction(projectId: string, projectCode: string, field: string): Promise<FormState> {
   const user = await requireUser();
   const known = PROJECT_EDITABLE_KEYS.find((key) => key === field);
-  if (!known) return { ok: false, message: "That section does not exist." };
+  if (!known) return { ok: false, message: "Bagian itu tidak ada." };
   const result = await updateProjectDetails(getDb(), { id: user.id, role: user.role }, { projectId, values: { [known]: "" } });
   if (!result.ok) return { ok: false, message: result.message };
   void projectCode;

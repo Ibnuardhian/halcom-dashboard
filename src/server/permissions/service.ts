@@ -37,7 +37,7 @@ export type SavePermissionsResult =
   | { ok: true; changed: number }
   | { ok: false; code: "FORBIDDEN" | "INVALID_INPUT" | "BLOCKED"; message: string };
 
-const FORBIDDEN = "You are not allowed to do that.";
+const FORBIDDEN = "Anda tidak diizinkan melakukan ini.";
 
 /**
  * Grants and revokes permissions of roles. Only an actor who holds `permissions.manage` (a superadmin by default) may call it, and
@@ -52,7 +52,7 @@ export async function savePermissionChanges(db: PrismaClient, claimedActor: Acto
   // A quick refusal before any work; the transaction below decides again from the stored account and the stored rules.
   if (!can(claimedActor.role, "permissions.manage")) return { ok: false, code: "FORBIDDEN", message: FORBIDDEN };
   const parsed = saveSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "That change is not valid. Reload the page and try again." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Perubahan itu tidak valid. Muat ulang halaman lalu coba lagi." };
 
   const result = await db.$transaction(async (tx): Promise<SavePermissionsResult> => {
     // One editor at a time: the checks below read the current rows and must still be true when the rows are written.

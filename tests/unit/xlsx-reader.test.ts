@@ -66,24 +66,24 @@ describe("readXlsx", () => {
 
   it("refuses what is not a workbook, is empty or is too large", () => {
     expect(readXlsx(new Uint8Array())).toMatchObject({ ok: false });
-    expect(readXlsx(strToU8("a,b\n1,2"))).toMatchObject({ ok: false, message: expect.stringContaining("not an .xlsx") });
-    expect(readXlsx(zipSync({ "hello.txt": strToU8("hi") }))).toMatchObject({ ok: false, message: expect.stringContaining("no worksheet") });
-    expect(readXlsx(new Uint8Array(XLSX_LIMITS.fileBytes + 1).fill(0x50))).toMatchObject({ ok: false, message: expect.stringContaining("larger") });
-    expect(readXlsx(excelLike("<worksheet><sheetData></sheetData></worksheet>"))).toMatchObject({ ok: false, message: "The sheet has no data." });
+    expect(readXlsx(strToU8("a,b\n1,2"))).toMatchObject({ ok: false, message: expect.stringContaining("bukan workbook .xlsx") });
+    expect(readXlsx(zipSync({ "hello.txt": strToU8("hi") }))).toMatchObject({ ok: false, message: expect.stringContaining("tidak memiliki worksheet") });
+    expect(readXlsx(new Uint8Array(XLSX_LIMITS.fileBytes + 1).fill(0x50))).toMatchObject({ ok: false, message: expect.stringContaining("lebih besar") });
+    expect(readXlsx(excelLike("<worksheet><sheetData></sheetData></worksheet>"))).toMatchObject({ ok: false, message: "Sheet tidak berisi data." });
   });
 
   it("refuses a sheet with too many rows, too many columns or an oversized cell, and one that unpacks to too much", () => {
     const manyRows = Array.from({ length: XLSX_LIMITS.rows + 2 }, (_, i) => `<row r="${i + 1}"><c r="A${i + 1}" t="inlineStr"><is><t>x</t></is></c></row>`).join("");
-    expect(readXlsx(excelLike(`<worksheet><sheetData>${manyRows}</sheetData></worksheet>`))).toMatchObject({ ok: false, message: expect.stringContaining("more than 5000 rows") });
+    expect(readXlsx(excelLike(`<worksheet><sheetData>${manyRows}</sheetData></worksheet>`))).toMatchObject({ ok: false, message: expect.stringContaining("lebih dari 5000 baris") });
 
     const wide = `<row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c><c r="BZ1" t="inlineStr"><is><t>far</t></is></c></row>`;
-    expect(readXlsx(excelLike(`<worksheet><sheetData>${wide}</sheetData></worksheet>`))).toMatchObject({ ok: false, message: expect.stringContaining("beyond column 60") });
+    expect(readXlsx(excelLike(`<worksheet><sheetData>${wide}</sheetData></worksheet>`))).toMatchObject({ ok: false, message: expect.stringContaining("melewati kolom 60") });
 
     const big = `<row r="1"><c r="A1" t="inlineStr"><is><t>${"x".repeat(XLSX_LIMITS.cellChars + 1)}</t></is></c></row>`;
-    expect(readXlsx(excelLike(`<worksheet><sheetData>${big}</sheetData></worksheet>`))).toMatchObject({ ok: false, message: expect.stringContaining("characters") });
+    expect(readXlsx(excelLike(`<worksheet><sheetData>${big}</sheetData></worksheet>`))).toMatchObject({ ok: false, message: expect.stringContaining("karakter") });
 
     const bomb = excelLike("<worksheet><sheetData></sheetData></worksheet>", { "xl/worksheets/sheet9.xml": "a".repeat(XLSX_LIMITS.unpackedBytes + 10) });
-    expect(readXlsx(bomb)).toMatchObject({ ok: false, message: expect.stringContaining("unpacks") });
+    expect(readXlsx(bomb)).toMatchObject({ ok: false, message: expect.stringContaining("melebihi ukuran") });
   });
 
   it("ignores macros and external references: nothing outside the worksheet is read or run", () => {

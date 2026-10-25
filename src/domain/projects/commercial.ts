@@ -6,6 +6,8 @@ import { isProgress, isTrackStatus, PROGRESS_LABELS, TRACK_STATUS_LABELS } from 
  * The server rejects any key that is not listed (same approach as the technical fields in fields.ts).
  */
 export const COMMERCIAL_FIELDS = {
+  // The day the project was created (stored as `created_at`, midnight Asia/Jakarta when set by hand). Pipeline Growth counts the project from it.
+  createdAt: { label: "Opportunity date", kind: "date" },
   progress: { label: "Progress", kind: "progress" },
   trackStatus: { label: "Status", kind: "track-status" },
   estimatedValue: { label: "Estimated PO value", kind: "amount" },

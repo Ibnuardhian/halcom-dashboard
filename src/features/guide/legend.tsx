@@ -21,16 +21,16 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
             <UserCheck className="size-3" />
           </span>
           <span>
-            <strong>Highlighted</strong>: your role (tag “Your role”), or a role your permissions also cover (tag “Can act”).
+            <strong>Disorot</strong>: peran Anda (tag “Your role”), atau peran lain yang juga tercakup oleh permission Anda (tag “Can act”).
           </span>
         </p>
         <p className="flex items-start gap-2">
           <span aria-hidden className="mt-0.5 inline-block h-5 w-8 shrink-0 rounded border border-border bg-background opacity-75" />
           <span>
-            <strong>Subdued</strong>: other roles. They stay visible so you can see where work comes from and goes to.
+            <strong>Diredupkan</strong>: peran lain. Tetap terlihat agar Anda tahu dari mana pekerjaan datang dan ke mana perginya.
           </span>
         </p>
-        <p className="text-xs text-muted-foreground">Colour never shows status. A request’s status is written on its own page.</p>
+        <p className="text-xs text-muted-foreground">Warna tidak pernah menunjukkan status. Status sebuah request tertulis di halamannya sendiri.</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -53,9 +53,9 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
       <div className="flex flex-col gap-2">
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Arrows</h3>
         <ul className="flex flex-col gap-2">
-          <Line label="Handoff: the work passes to another role" strokeWidth={3} />
-          <Line label="Continues within the same role" strokeWidth={1.75} />
-          <Line label="Information or setup: nothing is handed over" strokeWidth={1.75} dash="7 5" />
+          <Line label="Handoff: pekerjaan berpindah ke peran lain" strokeWidth={3} />
+          <Line label="Berlanjut di peran yang sama" strokeWidth={1.75} />
+          <Line label="Informasi atau setup: tidak ada yang diserahkan" strokeWidth={1.75} dash="7 5" />
         </ul>
       </div>
 

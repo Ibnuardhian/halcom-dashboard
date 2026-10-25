@@ -16,16 +16,16 @@ export type DeleteResult = { ok: true; code: string } | { ok: false; code: "FORB
  */
 export async function deleteProject(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<DeleteResult> {
   const parsed = deleteSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Choose a project to delete." };
+  if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Pilih proyek yang akan dihapus." };
   const { projectId, confirmCode } = parsed.data;
 
   return db.$transaction(async (tx): Promise<DeleteResult> => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "projects.delete")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+    if (!actor?.isActive || !can(actor.role, "projects.delete")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
 
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId }, include: { requests: { select: { status: true } } } });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." };
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
     if (confirmCode !== project.code) return { ok: false, code: "INVALID_INPUT", message: `Type ${project.code} to confirm the deletion.` };
 
     await tx.project.update({ where: { id: project.id }, data: { deletedAt: new Date(), deletedById: actor.id } });

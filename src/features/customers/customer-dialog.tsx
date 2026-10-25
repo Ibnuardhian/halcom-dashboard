@@ -76,7 +76,7 @@ export function CustomerDialog({
               list={listId}
               defaultValue={customer.industry ?? ""}
               maxLength={INDUSTRY_MAX_LENGTH}
-              placeholder="for example Banking, Manufacturing, Education"
+              placeholder="contoh: Banking, Manufacturing, Education"
               readOnly={!canEdit}
               autoComplete="off"
             />

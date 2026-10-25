@@ -82,7 +82,7 @@ test.describe("persistent login and switching accounts", () => {
     await expect(async () => {
       await page.getByLabel("Password").fill("not-the-password");
       await page.getByRole("button", { name: "Sign in" }).click();
-      await expect(page.getByRole("alert").filter({ hasText: "Invalid email or password." })).toBeVisible({ timeout: 3000 });
+      await expect(page.getByRole("alert").filter({ hasText: "Email atau kata sandi salah." })).toBeVisible({ timeout: 3000 });
     }).toPass({ timeout: 30_000 });
     expect(await sessionCookie(page)).toBeUndefined();
 
@@ -464,7 +464,7 @@ test.describe("a project from another source (Other)", () => {
     await expect(finance.getByRole("link", { name: /^HIT-PROJ-\d+/ })).toHaveCount(1);
     await expect(finance.getByRole("cell", { name: "Other", exact: true })).toBeVisible();
     await finance.goto(`/projects?source=INTERNAL_SALES&q=${encodeURIComponent(source)}`);
-    await expect(finance.getByText("No project matches these filters.")).toBeVisible();
+    await expect(finance.getByText("Tidak ada project yang cocok dengan filter ini.")).toBeVisible();
     await finance.goto(projectUrl);
     await expect(finance.getByRole("heading", { name: "Project source" })).toHaveCount(0);
     await expectNotFound(finance, "/projects/new", "Project details");
@@ -513,7 +513,7 @@ test.describe("a project from another source (Other)", () => {
 
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Customers" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Customers" })).toBeVisible();
-    await page.getByPlaceholder("Search customers").fill(company);
+    await page.getByPlaceholder("Cari customer").fill(company);
     await page.getByRole("button", { name: "Search" }).click();
     // The name opens the customer's dialog, so it is a button.
     await expect(page.getByRole("button", { name: company })).toBeVisible();

@@ -24,7 +24,7 @@ async function MasterData() {
     <>
       <DashboardHeader
         title="Master data"
-        summary="The Principals and Solutions projects are classified with. New ones are created from a project's Technical section; here they are renamed, or deleted when no project uses them."
+        summary="Principal dan Solution yang digunakan untuk mengklasifikasikan proyek. Data baru dibuat dari bagian Technical sebuah proyek; di sini namanya dapat diubah, atau dihapus kalau tidak ada proyek yang memakainya lagi."
       />
       <div className="grid gap-6 xl:grid-cols-2">
         {lists.map(({ kind, records }) => (

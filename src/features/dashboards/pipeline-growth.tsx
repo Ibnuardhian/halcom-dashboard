@@ -70,16 +70,16 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
     setActive(null);
     try {
       const response = await fetch(`/api/pipeline-growth?granularity=${next}`, { signal: abort.signal, cache: "no-store", credentials: "same-origin" });
-      if (response.status === 401) throw new Error("Your session has ended. Sign in again to see this chart.");
-      if (!response.ok) throw new Error("The chart could not be loaded.");
+      if (response.status === 401) throw new Error("Sesi Anda sudah berakhir. Masuk lagi untuk melihat chart ini.");
+      if (!response.ok) throw new Error("Chart tidak dapat dimuat.");
       const body: unknown = await response.json();
-      if (!isGrowth(body)) throw new Error("The chart could not be read.");
+      if (!isGrowth(body)) throw new Error("Chart tidak dapat dibaca.");
       if (ticket !== latest.current) return; // a newer choice was made while this one was on its way
       setData(body);
       setPhase({ kind: "ready" });
     } catch (error) {
       if (ticket !== latest.current || (error instanceof DOMException && error.name === "AbortError")) return;
-      setPhase({ kind: "error", message: error instanceof Error ? error.message : "The chart could not be loaded." });
+      setPhase({ kind: "error", message: error instanceof Error ? error.message : "Chart tidak dapat dimuat." });
     }
   }, []);
 
@@ -112,7 +112,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
         <div className="min-w-0">
           <h2 className="text-base font-semibold">Pipeline Growth</h2>
           <p className="text-sm text-muted-foreground">
-            Projects in each group at the end of the {PERIOD_WORDS[granularity]}, from the stage history. Closed Lost projects are not counted. Weeks start on Monday; times are Asia/Jakarta.
+            Projects in each group at the end of the {PERIOD_WORDS[granularity]}, counted from the date each project was created. Quoted starts when a project reaches 30% (Propose), Closed Won at 100%. Closed Lost projects are not counted. Weeks start on Monday; times are Asia/Jakarta.
           </p>
         </div>
         <div role="group" aria-label="Period" className="inline-flex rounded-lg border p-0.5">
@@ -151,10 +151,10 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
         ) : empty ? (
           <p role="status" className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
             {phase.kind === "loading"
-              ? "Loading…"
+              ? "Memuat…"
               : data.historyStartsAt
-                ? `No period of this chart is covered yet: the stage history starts on ${formatDate(data.historyStartsAt)}.`
-                : "No stage history has been recorded yet."}
+                ? `Belum ada periode chart ini yang tercakup: riwayat tahap mulai dicatat pada ${formatDate(data.historyStartsAt)}.`
+                : "Belum ada riwayat tahap yang tercatat."}
           </p>
         ) : (
           <>
@@ -252,17 +252,20 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
             ) : null}
             {phase.kind === "loading" ? (
               <p role="status" className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-muted-foreground">
-                Loading…
+                Memuat…
               </p>
             ) : null}
           </>
         )}
       </div>
 
-      {unreliableCount > 0 && !empty ? (
+      {data.historyStartsAt && points.length > 0 && new Date(points[0]!.start).getTime() < new Date(data.historyStartsAt).getTime() && !empty ? (
         <p className="mt-2 text-xs text-muted-foreground" data-testid="pipeline-growth-notice">
-          {data.historyStartsAt ? `The stage history starts on ${formatDate(data.historyStartsAt)}. ` : ""}
-          Earlier periods are left out: the stage a project had before that date was not recorded, and none is estimated.
+          The stage history starts on {formatDate(data.historyStartsAt)}. Before it, a project is Quoted from its quote released date and Closed Won from its won date; without those dates it counts as an Opportunity.
+        </p>
+      ) : unreliableCount > 0 && !empty ? (
+        <p className="mt-2 text-xs text-muted-foreground" data-testid="pipeline-growth-notice">
+          Some periods are left out: the stage a project had then was not recorded, and none is estimated.
         </p>
       ) : null}
 

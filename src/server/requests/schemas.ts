@@ -22,7 +22,7 @@ const optionalDate = z
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     const date = match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : null;
     if (!match || !date || date.toISOString().slice(0, 10) !== value) {
-      ctx.addIssue({ code: "custom", message: "Enter a valid date." });
+      ctx.addIssue({ code: "custom", message: "Masukkan tanggal yang valid." });
       return z.NEVER;
     }
     return date;
@@ -32,14 +32,14 @@ const required = (label: string, max: number) =>
   z
     .string()
     .trim()
-    .min(1, `${label} is required.`)
-    .max(max, `${label} must be at most ${max} characters.`);
+    .min(1, `${label} wajib diisi.`)
+    .max(max, `${label} maksimal ${max} karakter.`);
 
 const submissionKey = z.string().trim().min(8).max(100).nullish().transform((value) => value || null);
 
 /** The request fields shared by the stand-alone request form and the "new project with a request" form. */
 const requestBody = {
-  type: z.enum(REQUEST_TYPES, "Choose a request type."),
+  type: z.enum(REQUEST_TYPES, "Pilih jenis request."),
   title: required("Summary", 150),
   description: optionalText(4000),
   requiredBy: optionalDate,
@@ -81,12 +81,12 @@ export const createRequestSchema = z.object({
 export const phaseSchema = z.object({
   requestId: z.uuid(),
   // "" clears the label (work has not reached a phase yet).
-  phase: z.enum(SOA_PHASES, "Choose Assessment, Sizing or POC.").or(z.literal("")).transform((value) => (value === "" ? null : value)),
+  phase: z.enum(SOA_PHASES, "Pilih Assessment, Sizing, atau POC.").or(z.literal("")).transform((value) => (value === "" ? null : value)),
 });
 
 export const handoverSchema = z.object({
   sourceId: z.uuid(),
-  targetType: z.enum(HANDOVER_TYPES, "Choose RFQ or PO."),
+  targetType: z.enum(HANDOVER_TYPES, "Pilih RFQ atau PO."),
 });
 
 export const stopFlowSchema = z.object({ sourceId: z.uuid(), note: optionalText(500) });
@@ -98,17 +98,17 @@ export const statusChangeSchema = z.object({
 });
 
 /** Sales ask for a revision of a completed BOQ; the reason is the change the customer asked for. */
-export const revisionSchema = z.object({ requestId: z.uuid(), reason: z.string().trim().min(1, "Say what needs to change.").max(500) });
+export const revisionSchema = z.object({ requestId: z.uuid(), reason: z.string().trim().min(1, "Tuliskan apa yang perlu diubah.").max(500) });
 
 /** A superadmin sets the creation and completion time of a request by hand (a datetime-local value, read as UTC, the zone the app shows). */
 const utcDateTime = z
   .string()
   .trim()
-  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Enter a valid date and time.")
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Masukkan tanggal dan jam yang valid.")
   .transform((value, ctx) => {
     const date = new Date(`${value}:00.000Z`);
     if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 16) !== value) {
-      ctx.addIssue({ code: "custom", message: "Enter a valid date and time." });
+      ctx.addIssue({ code: "custom", message: "Masukkan tanggal dan jam yang valid." });
       return z.NEVER;
     }
     return date;

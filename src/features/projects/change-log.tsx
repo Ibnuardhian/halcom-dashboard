@@ -1,12 +1,12 @@
 import { fieldLabel } from "@/domain/projects/fields";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import type { ProjectChangeRow } from "@/server/projects/queries";
 
 function Value({ value }: { value: string | null }) {
   return value === null ? <span className="text-muted-foreground italic">empty</span> : <span className="whitespace-pre-wrap">{value}</span>;
 }
 
-/** Who changed which field, from what to what, newest first. Times are UTC. */
+/** Who changed which field, from what to what, newest first, by day. */
 export function ChangeLog({ changes }: { changes: ProjectChangeRow[] }) {
   if (changes.length === 0) {
     return (
@@ -24,7 +24,7 @@ export function ChangeLog({ changes }: { changes: ProjectChangeRow[] }) {
             <span className="text-muted-foreground">changed</span>
             <span className="font-medium">{fieldLabel(change.field)}</span>
             <time dateTime={change.changedAt.toISOString()} className="text-xs text-muted-foreground">
-              {formatUtc(change.changedAt)}
+              {formatDay(change.changedAt)}
             </time>
           </p>
           <div className="grid gap-2 sm:grid-cols-2">

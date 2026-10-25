@@ -84,7 +84,7 @@ describe("parseAmount", () => {
 });
 
 describe("diffCommercial", () => {
-  const current = { progress: "PROPOSE", trackStatus: "ON_TRACK", estimatedValue: 100, targetMargin: null, targetMarginValue: null, quoteReleasedAt: null, targetDate: "2026-12-10", finalValue: null, wonDate: null };
+  const current = { createdAt: "2026-09-01", progress: "PROPOSE", trackStatus: "ON_TRACK", estimatedValue: 100, targetMargin: null, targetMarginValue: null, quoteReleasedAt: null, targetDate: "2026-12-10", finalValue: null, wonDate: null };
 
   it("lists only real changes, including clearing a value", () => {
     expect(diffCommercial(current, { estimatedValue: 100, targetMargin: 12.5, targetDate: null })).toEqual([

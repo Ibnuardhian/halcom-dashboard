@@ -165,7 +165,7 @@ export async function RequestList({
           defaultValue={q ?? ""}
           maxLength={100}
           aria-label="Search requests"
-          placeholder="Search request, project, End User, requester, PIC, Principal, Solution"
+          placeholder="Cari request, project, End User, requester, PIC, Principal, Solution"
           className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm sm:max-w-xl"
         />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
@@ -239,7 +239,7 @@ export async function RequestList({
       <RequestTable
         rows={rows}
         detailed
-        emptyText={filter.kind === "all" && !q && extraFilters.length === 0 ? "No requests yet." : "No requests match this search or filter."}
+        emptyText={filter.kind === "all" && !q && extraFilters.length === 0 ? "Belum ada request." : "Tidak ada request yang cocok dengan pencarian atau filter ini."}
         sorting={{
           sort,
           dir,

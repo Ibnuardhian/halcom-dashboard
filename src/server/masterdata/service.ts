@@ -34,10 +34,10 @@ function table(db: Db, kind: MasterKind): NamedTable {
 const nameSchema = z
   .string()
   .transform(cleanName)
-  .pipe(z.string().min(1, "Write a name.").max(MASTER_NAME_MAX_LENGTH, `A name can hold at most ${MASTER_NAME_MAX_LENGTH} characters.`))
+  .pipe(z.string().min(1, "Tulis nama.").max(MASTER_NAME_MAX_LENGTH, `Nama maksimal ${MASTER_NAME_MAX_LENGTH} karakter.`))
   .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "The name contains characters that are not allowed.");
 
-const kindSchema = z.enum(MASTER_KINDS, "Choose Principal or Solution.");
+const kindSchema = z.enum(MASTER_KINDS, "Pilih Principal atau Solution.");
 
 /** The records of one kind with how many projects use each, by name. Anyone who reads projects may read them. */
 export async function listMasterRecords(db: PrismaClient, viewer: Actor, kind: MasterKind): Promise<MasterRecord[]> {
@@ -61,14 +61,14 @@ const isUniqueViolation = (error: unknown) => error instanceof Prisma.PrismaClie
  */
 export async function createMasterRecord(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ id: string; name: string }>> {
   const parsed = z.object({ kind: kindSchema, name: nameSchema }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
-  if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
+  if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { kind, name } = parsed.data;
 
   try {
     return await db.$transaction(async (tx): Promise<MasterResult<{ id: string; name: string }>> => {
       const actor = await loadActor(tx, claimedActor);
-      if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
+      if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
       const existing = await table(tx, kind).findUnique({ where: { nameKey: nameKey(name) }, select: { id: true, name: true } });
       if (existing) return fail("DUPLICATE", `${MASTER_KIND_LABELS[kind]} "${existing.name}" already exists.`, existing);
 
@@ -88,16 +88,16 @@ export async function createMasterRecord(db: PrismaClient, claimedActor: Actor, 
 /** Renames a record. Its id, and so every project that uses it, stays; the new name must not belong to another record. */
 export async function renameMasterRecord(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ id: string; name: string }>> {
   const parsed = z.object({ kind: kindSchema, id: z.uuid(), name: nameSchema }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
-  if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
+  if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { kind, id, name } = parsed.data;
 
   try {
     return await db.$transaction(async (tx): Promise<MasterResult<{ id: string; name: string }>> => {
       const actor = await loadActor(tx, claimedActor);
-      if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
+      if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
       const current = await table(tx, kind).findUnique({ where: { id }, select: { id: true, name: true } });
-      if (!current) return fail("NOT_FOUND", `${MASTER_KIND_LABELS[kind]} not found.`);
+      if (!current) return fail("NOT_FOUND", `${MASTER_KIND_LABELS[kind]} tidak ditemukan.`);
       const other = await table(tx, kind).findUnique({ where: { nameKey: nameKey(name) }, select: { id: true, name: true } });
       if (other && other.id !== id) return fail("DUPLICATE", `${MASTER_KIND_LABELS[kind]} "${other.name}" already exists.`, other);
       if (current.name === name) return { ok: true, value: current };
@@ -115,15 +115,15 @@ export async function renameMasterRecord(db: PrismaClient, claimedActor: Actor, 
 /** Deletes a record that no project uses. One that is in use is refused: move its projects to another record first. */
 export async function deleteMasterRecord(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<MasterResult<{ id: string }>> {
   const parsed = z.object({ kind: kindSchema, id: z.uuid() }).strict().safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "The submitted data is invalid.");
-  if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Data yang dikirim tidak valid.");
+  if (!can(claimedActor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { kind, id } = parsed.data;
 
   return db.$transaction(async (tx): Promise<MasterResult<{ id: string }>> => {
     const actor = await loadActor(tx, claimedActor);
-    if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "You are not allowed to do that.");
+    if (!actor || !can(actor.role, "masterdata.manage")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
     const current = await table(tx, kind).findUnique({ where: { id }, select: { id: true, name: true } });
-    if (!current) return fail("NOT_FOUND", `${MASTER_KIND_LABELS[kind]} not found.`);
+    if (!current) return fail("NOT_FOUND", `${MASTER_KIND_LABELS[kind]} tidak ditemukan.`);
     // A project is linked to a principal through its link row (and the first one also sits in principal_id).
     const used = kind === "principal" ? await tx.project.count({ where: { OR: [{ principals: { some: { principalId: id } } }, { principalId: id }] } }) : await tx.project.count({ where: { solutionCategoryId: id } });
     if (used > 0) return fail("IN_USE", `${MASTER_KIND_LABELS[kind]} "${current.name}" is used by ${used} project${used === 1 ? "" : "s"}, so it cannot be deleted.`);
@@ -151,8 +151,8 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
     .strict()
     .refine((value) => value.principalId === undefined || value.principalIds === undefined, "Send either principalId or principalIds.")
     .safeParse(input);
-  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Choose a valid Principal and Solution.");
-  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+  if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Pilih Principal dan Solution yang valid.");
+  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId } = parsed.data;
   // The wanted principals, once each, in the order given; undefined when the caller did not send any.
   const wantedPrincipals: string[] | undefined =
@@ -160,7 +160,7 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
 
   return db.$transaction(async (tx): Promise<MasterResult<{ changed: MasterKind[] }>> => {
     const actor = await loadActor(tx, claimedActor);
-    if (!actor || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+    if (!actor || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({
       where: { id: projectId },
@@ -170,7 +170,7 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
         solutionCategory: { select: { name: true } },
       },
     });
-    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
+    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
 
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     const changes: { field: string; from: string | null; to: string | null }[] = [];
@@ -181,7 +181,7 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
       const sameList = wantedPrincipals.length === currentIds.length && wantedPrincipals.every((id, index) => id === currentIds[index]);
       if (!sameList) {
         const records = await tx.principal.findMany({ where: { id: { in: wantedPrincipals } }, select: { id: true, name: true } });
-        if (records.length !== wantedPrincipals.length) return fail("NOT_FOUND", `${MASTER_KIND_LABELS.principal} not found. Create it first.`);
+        if (records.length !== wantedPrincipals.length) return fail("NOT_FOUND", `${MASTER_KIND_LABELS.principal} tidak ditemukan. Buat dulu datanya.`);
         const nameOf = new Map(records.map((record) => [record.id, record.name]));
         // Links that stay keep their row; removed ones go; new ones are added; positions follow the order given.
         await tx.projectPrincipal.deleteMany({ where: { projectId: project.id, principalId: { notIn: wantedPrincipals } } });
@@ -208,7 +208,7 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
         let toName: string | null = null;
         if (next !== null) {
           const record = await tx.solutionCategory.findUnique({ where: { id: next }, select: { id: true, name: true } });
-          if (!record) return fail("NOT_FOUND", `${MASTER_KIND_LABELS.solution} not found. Create it first.`);
+          if (!record) return fail("NOT_FOUND", `${MASTER_KIND_LABELS.solution} tidak ditemukan. Buat dulu datanya.`);
           toName = record.name;
         }
         data.solutionCategoryId = next;

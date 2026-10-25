@@ -94,7 +94,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ status: 500, json: { error: "boom" } }));
     const chart = page.getByTestId("pipeline-growth");
     await chart.getByRole("button", { name: "Weekly" }).click();
-    await expect(chart.getByRole("alert")).toContainText("could not be loaded");
+    await expect(chart.getByRole("alert")).toContainText("tidak dapat dimuat");
     await page.unroute("**/api/pipeline-growth?granularity=weekly");
     await chart.getByRole("button", { name: "Try again" }).click();
     await expect(chart.getByRole("alert")).toHaveCount(0);
@@ -105,7 +105,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await open(page);
     await page.route("**/api/pipeline-growth?granularity=quarterly", (route) => route.fulfill({ status: 401, json: { error: "Sign in" } }));
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Quarterly" }).click();
-    await expect(page.getByTestId("pipeline-growth").getByRole("alert")).toContainText("session has ended");
+    await expect(page.getByTestId("pipeline-growth").getByRole("alert")).toContainText("sudah berakhir");
   });
 
   test("shows an empty state, not a blank chart, when no period is covered by the history", async ({ page }) => {
@@ -116,19 +116,16 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     });
     await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ json: none }));
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Weekly" }).click();
-    await expect(page.getByTestId("pipeline-growth").getByRole("status").filter({ hasText: /stage history starts/ })).toBeVisible();
+    await expect(page.getByTestId("pipeline-growth").getByRole("status").filter({ hasText: /riwayat tahap mulai dicatat/ })).toBeVisible();
   });
 
-  test("notes where the stage history starts when earlier periods are left out", async ({ page }) => {
-    await page.route("**/api/pipeline-growth?granularity=weekly", (route) => {
-      const data = body("weekly");
-      (data.points[0] as Record<string, unknown>).reliable = false;
-      Object.assign(data.points[0] as Record<string, unknown>, { counts: null, total: null, percents: null });
-      return route.fulfill({ json: data });
-    });
+  test("says how periods before the stage history are counted", async ({ page }) => {
+    await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ json: body("weekly", { historyStartsAt: "2026-01-15T00:00:00.000Z" }) }));
     await open(page);
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Weekly" }).click();
-    await expect(page.getByTestId("pipeline-growth-notice")).toContainText("stage history starts on 1 Jan 2026");
+    const notice = page.getByTestId("pipeline-growth-notice");
+    await expect(notice).toContainText("stage history starts on 15 Jan 2026");
+    await expect(notice).toContainText("quote released date");
   });
 
   test("an answer to an older choice never replaces a newer one", async ({ page }) => {

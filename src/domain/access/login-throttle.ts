@@ -77,5 +77,5 @@ export function isLocked(record: AttemptRecord | null, now: Date): boolean {
  * address belongs to anyone.
  */
 export function lockedMessage(minutesLeft: number): string {
-  return `Too many sign-in attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.`;
+  return `Terlalu banyak percobaan masuk. Coba lagi dalam ${minutesLeft} menit.`;
 }

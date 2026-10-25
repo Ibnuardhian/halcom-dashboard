@@ -3,7 +3,7 @@ import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { BackupForm } from "@/features/system/backup-form";
 import { formatBytes } from "@/features/system/format";
 import { requirePermission } from "@/server/auth/current-user";
@@ -27,7 +27,7 @@ async function Backups() {
     <>
       <DashboardHeader
         title="Backups"
-        summary="PostgreSQL dumps written to a folder on the host machine. The application only adds files; it never deletes or restores them."
+        summary="Hasil dump PostgreSQL yang disimpan ke folder di mesin host. Aplikasi hanya menambahkan berkas baru; tidak pernah menghapus atau memulihkan berkas yang ada."
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <Card>
@@ -78,7 +78,7 @@ async function Backups() {
                   <TableRow>
                     <TableHead>File</TableHead>
                     <TableHead className="text-right">Size</TableHead>
-                    <TableHead>Written (UTC)</TableHead>
+                    <TableHead>Written</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -86,7 +86,7 @@ async function Backups() {
                     <TableRow key={file.name}>
                       <TableCell className="font-mono text-xs">{file.name}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatBytes(file.sizeBytes)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatUtc(file.modifiedAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDay(file.modifiedAt)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

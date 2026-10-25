@@ -54,9 +54,9 @@ describe("project import from an Excel sheet", () => {
     if (!result.ok) return;
     expect(result.summary).toMatchObject({ totalRows: 6, ready: 2, duplicates: 3, errors: 1 });
     const byRow = new Map(result.summary.rows.map((row) => [row.sheetRow, row]));
-    expect(byRow.get(3)?.messages[0]).toContain("row 2 of this file"); // sheet row 3 is data row 2
+    expect(byRow.get(3)?.messages[0]).toContain("baris 2 berkas ini"); // sheet row 3 is data row 2
     expect(byRow.get(4)).toMatchObject({ status: "duplicate", messages: [expect.stringContaining(existing.value.code)] });
-    expect(byRow.get(5)).toMatchObject({ status: "duplicate", messages: [expect.stringContaining("already exists")] });
+    expect(byRow.get(5)).toMatchObject({ status: "duplicate", messages: [expect.stringContaining("sudah ada")] });
     expect(byRow.get(6)).toMatchObject({ status: "error", messages: expect.arrayContaining([expect.stringContaining('Progress "maybe"'), expect.stringContaining("Estimated PO value")]) });
     expect(result.summary.newPrincipals.sort()).toEqual([`Alpha ${tag}`, `Beta ${tag}`]);
     await expect(db.project.count()).resolves.toBe(before); // a preview writes nothing
@@ -225,6 +225,6 @@ describe("project import from an Excel sheet", () => {
     const result = await previewProjectImport(db, actor(soa), { bytes, mapping });
 
     expect(result.ok && result.summary).toMatchObject({ ready: 1, errors: 1 });
-    expect(result.ok && result.summary.rows.find((row) => row.status === "error")?.messages[0]).toContain("matches 2 accounts");
+    expect(result.ok && result.summary.rows.find((row) => row.status === "error")?.messages[0]).toContain("cocok dengan 2 akun");
   });
 });

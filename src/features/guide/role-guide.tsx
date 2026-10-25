@@ -111,7 +111,7 @@ export function RoleGuide({ sections, initialRole }: { sections: readonly RoleSe
           <>
             <div className="grid gap-4 md:grid-cols-3">
               <Bullets title="Can read" items={current.reads} />
-              <Bullets title="Can edit" items={current.edits} empty="Nothing: this role is read-only." />
+              <Bullets title="Can edit" items={current.edits} empty="Tidak ada: peran ini hanya membaca." />
               <Bullets title="Cannot" items={current.cannot} />
             </div>
             <ol className="flex flex-col gap-3" aria-label={`${ROLE_LABELS[current.role]} steps`}>
@@ -122,7 +122,7 @@ export function RoleGuide({ sections, initialRole }: { sections: readonly RoleSe
           </>
         ) : (
           <p role="note" className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-            The detailed steps for this role are shown to people who hold it.
+            Langkah detail untuk peran ini hanya ditampilkan kepada yang memegang peran tersebut.
           </p>
         )}
       </div>

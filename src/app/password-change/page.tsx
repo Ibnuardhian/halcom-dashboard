@@ -40,7 +40,7 @@ async function ChoosePassword() {
           <h2>Choose your own password</h2>
         </CardTitle>
         <CardDescription>
-          The password for {user.email} was set by someone else. Choose one only you know before you continue; nothing else in {APP_NAME} opens until you have.
+          Kata sandi untuk {user.email} diatur oleh orang lain. Pilih kata sandi yang hanya Anda yang tahu sebelum melanjutkan; bagian lain dari {APP_NAME} tidak akan terbuka sebelum itu dilakukan.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

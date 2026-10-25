@@ -52,7 +52,7 @@ test.describe("flowchart interaction", () => {
     await expect(card).toBeVisible();
     for (const label of ["Action", "Required input", "Output", "Next recipient"]) await expect(card.getByText(label, { exact: true })).toBeVisible();
     await expect(card).toContainText("SOA");
-    await expect(card).toContainText("Receive and triage the BOQ");
+    await expect(card).toContainText("Terima dan triase BOQ");
 
     await page.getByTestId("guide-chart").hover({ position: { x: 5, y: 5 } });
     await expect(card).toBeHidden();
@@ -107,7 +107,7 @@ test.describe("flowchart interaction", () => {
 
     await quote.focus();
     await expect(card).toBeVisible();
-    await expect(card).toContainText("Update quotation progress");
+    await expect(card).toContainText("Perbarui progres quotation");
 
     await page.keyboard.press("Enter");
     await expect(quote).toHaveAttribute("aria-expanded", "true");
@@ -169,14 +169,14 @@ test.describe("role-by-role steps", () => {
     await expect(salesTab).toHaveAttribute("aria-selected", "true");
 
     const panel = page.getByRole("tabpanel");
-    await expect(panel).toContainText("Create the project");
+    await expect(panel).toContainText("Buat proyek");
     await expect(panel.getByRole("link", { name: "New project" })).toBeVisible();
     for (const heading of ["Can read", "Can edit", "Cannot"]) await expect(panel.getByRole("heading", { name: heading, exact: true })).toBeVisible();
 
     await salesTab.focus();
     await page.keyboard.press("ArrowRight");
     await expect(page.getByRole("tab", { name: /^SOA/ })).toHaveAttribute("aria-selected", "true");
-    await expect(panel).toContainText("Receive and triage the BOQ");
+    await expect(panel).toContainText("Terima dan triase BOQ");
     // Sales may not open Purchasing Handoff, so the SOA step offers no link to it.
     await expect(panel.getByRole("link", { name: "Purchasing Handoff" })).toHaveCount(0);
   });
@@ -195,17 +195,17 @@ test.describe("role-by-role steps", () => {
   test("the administrators' instructions are shown only to people who hold those roles", async ({ page }) => {
     await openGuide(page, "SALES");
     await page.getByRole("tab", { name: /^Admin/ }).click();
-    await expect(page.getByRole("tabpanel")).toContainText("shown to people who hold it");
-    await expect(page.getByRole("tabpanel")).not.toContainText("Open Users and Roles");
-    expect(await page.content()).not.toContain("Open Permissions to grant or revoke");
+    await expect(page.getByRole("tabpanel")).toContainText("hanya ditampilkan kepada yang memegang peran tersebut");
+    await expect(page.getByRole("tabpanel")).not.toContainText("Buka Users and Roles");
+    expect(await page.content()).not.toContain("Buka Permissions untuk memberi atau mencabut");
 
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
     await openGuide(page, "ADMIN");
     await page.getByRole("tab", { name: /^Admin/ }).click();
-    await expect(page.getByRole("tabpanel")).toContainText("Open Users and Roles");
+    await expect(page.getByRole("tabpanel")).toContainText("Buka Users and Roles");
     await page.getByRole("tab", { name: /^Superadmin/ }).click();
-    await expect(page.getByRole("tabpanel")).toContainText("shown to people who hold it");
+    await expect(page.getByRole("tabpanel")).toContainText("hanya ditampilkan kepada yang memegang peran tersebut");
   });
 });
 

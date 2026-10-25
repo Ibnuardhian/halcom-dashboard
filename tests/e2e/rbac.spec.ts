@@ -37,7 +37,7 @@ test.describe("sign in", () => {
   test("a wrong password shows one generic error and keeps the visitor signed out", async ({ page }) => {
     await submitLogin(page, seedEmailFor("SALES"), "definitely-the-wrong-password");
 
-    await expect(page.getByRole("alert").filter({ hasText: "Invalid email or password." })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Email atau kata sandi salah." })).toBeVisible();
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login$/);
   });
@@ -67,7 +67,7 @@ test.describe("access control", () => {
     await signIn(page, "SALES");
     await expectOnDashboard(page, "/dashboard/sales", "Sales Pipeline");
 
-    await expectNotFound(page, "/dashboard/finance", "Projects to check");
+    await expectNotFound(page, "/dashboard/finance", "Proyek yang perlu dicek");
     await expectNotFound(page, "/dashboard/admin", "Recent administrative activity");
     await expectNotFound(page, "/dashboard/superadmin", "Full oversight of accounts");
     await expectNotFound(page, "/admin/users", "Accounts and roles");
@@ -92,7 +92,7 @@ test.describe("access control", () => {
   test("an unknown dashboard name shows not-found even for a superadmin", async ({ page }) => {
     await signIn(page, "SUPERADMIN");
 
-    await expectNotFound(page, "/dashboard/not-a-role", "Projects to check");
+    await expectNotFound(page, "/dashboard/not-a-role", "Proyek yang perlu dicek");
   });
 
   test("admin can open every dashboard except the superadmin one", async ({ page }) => {
