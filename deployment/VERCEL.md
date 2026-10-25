@@ -133,7 +133,8 @@ git-ignored: never commit it, and delete your copy when you are done.
 ## 5. Create the Vercel project
 
 1. **Add New → Project**, import the GitHub repository.
-2. Framework: **Next.js** (detected). Leave Build and Install commands on their defaults — the repository's `build` script already
+2. Framework: **Next.js** (detected). **Root Directory: leave it blank (`./`).** `package.json` sits at the repository root, not in
+   a subfolder; this is not a monorepo. Leave Build and Install commands on their defaults — the repository's `build` script already
    runs `prisma generate && next build`, and `postinstall` runs `prisma generate` too, because Vercel caches dependencies and would
    otherwise reuse a client generated against an older schema.
 3. **Node.js version: 24.** It is Vercel's default; `package.json` also pins `engines.node` to the 24 range. If a build complains
