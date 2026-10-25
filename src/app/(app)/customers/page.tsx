@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -79,7 +79,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
                 <TableCell>{customer.industry ?? <span className="text-muted-foreground">Not set</span>}</TableCell>
                 <TableCell className="text-right tabular-nums">{customer.projects}</TableCell>
                 <TableCell className="text-right tabular-nums">{customer.openProjects}</TableCell>
-                <TableCell className="hidden whitespace-nowrap md:table-cell">{customer.lastProjectAt ? formatUtc(customer.lastProjectAt) : "–"}</TableCell>
+                <TableCell className="hidden whitespace-nowrap md:table-cell">{customer.lastProjectAt ? formatDay(customer.lastProjectAt) : "–"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

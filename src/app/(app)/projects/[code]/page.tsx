@@ -14,7 +14,7 @@ import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn }
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
@@ -165,7 +165,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           <Fact label="Status">
             <TrackStatusBadge status={project.trackStatus} />
           </Fact>
-          <Fact label="Last updated">{formatUtc(project.updatedAt)}</Fact>
+          <Fact label="Last updated">{formatDay(project.updatedAt)}</Fact>
           <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
           <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
           <Fact label="End user">{project.customer?.name ?? project.endUserCompany}</Fact>
@@ -195,7 +195,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           {project.competitor ? <Fact label="Competitor">{project.competitor}</Fact> : null}
           {project.competitionStatus ? <Fact label="Competition status">{project.competitionStatus}</Fact> : null}
           {project.lostReason ? <Fact label="Lost reason">{project.lostReason}</Fact> : null}
-          <Fact label="Created">{formatUtc(project.createdAt)}</Fact>
+          <Fact label="Created">{formatDay(project.createdAt)}</Fact>
         </dl>
         <div className="mt-4 border-t pt-4">
           <Label>Description</Label>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import type { RequestRow, RequestSort } from "@/server/requests/queries";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatDateOnly } from "./format";
@@ -104,7 +104,7 @@ export function RequestTable({
             </TableCell>
             <TableCell className="hidden lg:table-cell">{row.assigneeName ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
             <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDateOnly(row.requiredBy)}</TableCell>
-            <TableCell className="hidden whitespace-nowrap xl:table-cell">{formatUtc(row.createdAt)}</TableCell>
+            <TableCell className="hidden whitespace-nowrap xl:table-cell">{formatDay(row.createdAt)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

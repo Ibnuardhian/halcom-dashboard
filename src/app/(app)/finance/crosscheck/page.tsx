@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CROSSCHECK_FLAGS, CROSSCHECK_FLAG_LABELS, isCrosscheckFlag } from "@/domain/finance/crosscheck";
 import { SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { CROSSCHECK_PATH, PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount } from "@/features/projects/format";
 import { formatDateOnly } from "@/features/requests/format";
@@ -143,7 +143,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
                 </TableCell>
                 <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
                   {row.auditEvents} event{row.auditEvents === 1 ? "" : "s"}
-                  {row.lastAuditAt ? <span className="block">last {formatUtc(row.lastAuditAt)}</span> : null}
+                  {row.lastAuditAt ? <span className="block">last {formatDay(row.lastAuditAt)}</span> : null}
                 </TableCell>
               </TableRow>
             ))}

@@ -3,7 +3,7 @@ import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { formatBytes, formatCount, formatDuration, formatPercent } from "@/features/system/format";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -35,7 +35,7 @@ async function System() {
     <>
       <DashboardHeader
         title="System"
-        summary={`Application and database health at ${formatUtc(snapshot.generatedAt)}. Reload the page to refresh; history is not recorded yet.`}
+        summary={`Application and database health at ${formatDay(snapshot.generatedAt)}. Reload the page to refresh; history is not recorded yet.`}
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

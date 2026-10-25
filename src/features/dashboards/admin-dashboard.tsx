@@ -11,7 +11,7 @@ import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
 import { countAdministrativeChanges, getUserStats, recentAuditEvents } from "@/server/users/queries";
 import { DashboardHeader } from "./dashboard-header";
-import { formatUtc } from "./format";
+import { formatDay } from "./format";
 import { StatTile } from "./stat-tile";
 
 /**
@@ -97,7 +97,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
             <CardTitle className="text-base">
               <h2>Recent administrative activity</h2>
             </CardTitle>
-            <CardDescription>Latest {events.length || 10} audit events. Times are UTC.</CardDescription>
+            <CardDescription>Latest {events.length || 10} audit events.</CardDescription>
           </CardHeader>
           <CardContent>
             {events.length === 0 ? (
@@ -114,7 +114,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
                 <TableBody>
                   {events.map((event) => (
                     <TableRow key={event.id}>
-                      <TableCell className="whitespace-nowrap">{formatUtc(event.createdAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDay(event.createdAt)}</TableCell>
                       <TableCell>{event.action}</TableCell>
                       <TableCell>{event.actorName ?? "System"}</TableCell>
                     </TableRow>

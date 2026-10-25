@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isRevisionNotification } from "@/domain/notifications/kinds";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { markAllReadAction, markReadAction } from "@/features/notifications/actions";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
@@ -56,7 +56,7 @@ async function Notifications() {
                     </Link>
                     {row.body ? <p className="mt-0.5 text-sm break-words text-muted-foreground">{row.body}</p> : null}
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatUtc(row.createdAt)}
+                      {formatDay(row.createdAt)}
                       {row.readAt === null ? " · unread" : ""}
                     </p>
                   </div>

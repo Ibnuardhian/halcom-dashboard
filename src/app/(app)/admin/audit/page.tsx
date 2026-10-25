@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { AUDIT_PATH } from "@/features/navigation/links";
 import { cn } from "@/lib/utils";
 import { getDb } from "@/lib/db";
@@ -68,7 +68,7 @@ async function Audit({ searchParams }: Pick<PageProps<"/admin/audit">, "searchPa
           <TableBody>
             {events.map((event) => (
               <TableRow key={event.id}>
-                <TableCell className="whitespace-nowrap">{formatUtc(event.createdAt)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDay(event.createdAt)}</TableCell>
                 <TableCell>{event.actorName ?? "System"}</TableCell>
                 <TableCell className="font-mono text-xs">{event.action}</TableCell>
                 <TableCell className="hidden font-mono text-xs md:table-cell">

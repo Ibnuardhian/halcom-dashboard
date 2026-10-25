@@ -9,7 +9,7 @@ import { formatSlaRange, slaOf } from "@/domain/requests/sla";
 import { allowedTransitions, canHandOver, isOpen, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
 import type { Role } from "@/domain/access/roles";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { buildRequestEmail } from "@/server/requests/email";
@@ -86,8 +86,8 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             )}
             <Fact label="Requested by">{request.raisedByPic ? `${request.raisedByPic.name} (SOA PIC, through the shared SOA login)` : request.requester.name}</Fact>
             <Fact label="Needed by">{formatDateOnly(request.requiredBy)}</Fact>
-            <Fact label="Created">{formatUtc(request.createdAt)}</Fact>
-            {request.completedAt ? <Fact label="Completed">{formatUtc(request.completedAt)}</Fact> : null}
+            <Fact label="Created">{formatDay(request.createdAt)}</Fact>
+            {request.completedAt ? <Fact label="Completed">{formatDay(request.completedAt)}</Fact> : null}
             {request.source ? (
               <Fact label="Handed over from">
                 <Link href={`/request/${request.source.code}`} className="font-mono text-primary underline-offset-4 hover:underline">
@@ -164,7 +164,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           <p className="font-semibold text-destructive">In revision</p>
           <p>
             {revisionEntry
-              ? `Sent back on ${formatUtc(revisionEntry.changedAt)} by ${revisionEntry.changedBy.name}${revisionEntry.reason ? `: ${revisionEntry.reason}` : "."}`
+              ? `Sent back on ${formatDay(revisionEntry.changedAt)} by ${revisionEntry.changedBy.name}${revisionEntry.reason ? `: ${revisionEntry.reason}` : "."}`
               : "This BOQ was sent back for changes."}
           </p>
         </div>
@@ -231,7 +231,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           <CardContent>
             {request.flowStoppedAt ? (
               <p className="mb-3 text-sm">
-                <span className="font-medium">Not continuing</span> – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatUtc(request.flowStoppedAt)}
+                <span className="font-medium">Not continuing</span> – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatDay(request.flowStoppedAt)}
                 {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
               </p>
             ) : null}
@@ -240,7 +240,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
         </Card>
       ) : request.flowStoppedAt ? (
         <p className="text-sm text-muted-foreground">
-          Not continuing to {next ?? "the next step"} – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatUtc(request.flowStoppedAt)}
+          Not continuing to {next ?? "the next step"} – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatDay(request.flowStoppedAt)}
           {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
         </p>
       ) : null}
@@ -248,7 +248,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
       {assignments.length > 0 ? (
         <details className="group rounded-xl ring-1 ring-foreground/10">
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold select-none marker:content-none">
-            PIC history <span className="font-normal text-muted-foreground">({assignments.length}) – append-only, times are UTC</span>
+            PIC history <span className="font-normal text-muted-foreground">({assignments.length}) – append-only</span>
           </summary>
           <div className="px-4 pb-4">
             <Table>
@@ -262,7 +262,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
               <TableBody>
                 {assignments.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell className="whitespace-nowrap">{formatUtc(row.changedAt)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDay(row.changedAt)}</TableCell>
                     <TableCell>
                       {row.fromName ?? "Unassigned"} → {row.toName ?? "Unassigned"}
                     </TableCell>
@@ -277,7 +277,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
 
       <details className="group rounded-xl ring-1 ring-foreground/10">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold select-none marker:content-none">
-          Status history <span className="font-normal text-muted-foreground">({request.statusHistory.length}) – append-only, times are UTC</span>
+          Status history <span className="font-normal text-muted-foreground">({request.statusHistory.length}) – append-only</span>
         </summary>
         <div className="px-4 pb-4">
           <Table>
@@ -292,7 +292,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <TableBody>
               {request.statusHistory.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="whitespace-nowrap">{formatUtc(row.changedAt)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDay(row.changedAt)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {row.fromStatus ? `${REQUEST_STATUS_LABELS[row.fromStatus]} → ` : "Created as "}
                     {REQUEST_STATUS_LABELS[row.toStatus]}

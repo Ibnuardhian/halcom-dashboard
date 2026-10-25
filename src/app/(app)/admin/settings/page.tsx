@@ -5,7 +5,7 @@ import { can } from "@/domain/access/permissions";
 import { formatSlaRange } from "@/domain/requests/sla";
 import { renderBody, renderSubject, SAMPLE_VALUES, TEMPLATE_VARIABLES } from "@/domain/requests/template";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import { TeamSettingsForm } from "@/features/settings/team-settings-form";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -72,7 +72,7 @@ async function Settings() {
                 </CardTitle>
                 <CardDescription>
                   {team.note}{" "}
-                  {setting.isDefault ? "Using the default template." : `Last saved ${formatUtc(setting.updatedAt!)}${setting.updatedByName ? ` by ${setting.updatedByName}` : ""}.`}
+                  {setting.isDefault ? "Using the default template." : `Last saved ${formatDay(setting.updatedAt!)}${setting.updatedByName ? ` by ${setting.updatedByName}` : ""}.`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">

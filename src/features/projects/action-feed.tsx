@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ACTION_KIND_LABELS, LATEST_CURRENT_COUNT, summariseActions } from "@/domain/projects/actions";
-import { formatUtc } from "@/features/dashboards/format";
+import { formatDay } from "@/features/dashboards/format";
 import type { ProjectActionRow } from "@/server/projects/queries";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ function Entry({ entry, showKind = true }: { entry: ProjectActionRow; showKind?:
         ) : null}
         <span className="font-medium">{entry.authorName ?? "Imported"}</span>
         <time dateTime={entry.createdAt.toISOString()} className="text-xs text-muted-foreground">
-          {formatUtc(entry.createdAt)}
+          {formatDay(entry.createdAt)}
         </time>
       </p>
       <p className="whitespace-pre-wrap">{entry.body}</p>
@@ -33,7 +33,7 @@ function Panel({ title, hint, children, className }: { title: string; hint: stri
 
 /**
  * The project's feed, written like comments. At the top: the last two current actions (what was done) and the
- * latest next action (what follows). Below: every entry, newest first, with who added it and when (UTC).
+ * latest next action (what follows). Below: every entry, newest first, with who added it and on which day.
  */
 export function ActionFeed({ entries }: { entries: ProjectActionRow[] }) {
   const { current, next } = summariseActions(entries);

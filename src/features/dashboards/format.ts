@@ -1,4 +1,6 @@
-/** `2026-10-17 01:56 UTC`. Fixed format and zone: the company time zone is not decided yet. */
-export function formatUtc(date: Date): string {
-  return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+const DAY = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Jakarta" });
+
+/** `17-10-2026`: the calendar day in the business time zone (Asia/Jakarta), without the time. */
+export function formatDay(date: Date): string {
+  return DAY.format(date).replaceAll("/", "-");
 }
