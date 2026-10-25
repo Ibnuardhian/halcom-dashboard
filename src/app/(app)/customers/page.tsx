@@ -34,7 +34,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
     <>
       <DashboardHeader
         title="Customers"
-        summary="The end-user companies of your projects. A customer is added automatically when a project is created with a new end-user company; the same name is one customer. Click a customer to fill in its industry."
+        summary="Perusahaan end-user dari proyek-proyek Anda. Customer baru ditambahkan otomatis saat proyek dibuat dengan nama end-user company baru; nama yang sama dianggap satu customer. Klik sebuah customer untuk mengisi industrinya."
       />
       <datalist id={INDUSTRY_LIST_ID}>
         {suggestions.map((value) => (
@@ -52,7 +52,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
       </form>
       {customers.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {search ? "No customer matches." : "No customer yet. Create a project and its end-user company appears here."}
+          {search ? "Tidak ada customer yang cocok." : "Belum ada customer. Buat sebuah proyek dan end-user company-nya akan muncul di sini."}
         </p>
       ) : (
         <Table>

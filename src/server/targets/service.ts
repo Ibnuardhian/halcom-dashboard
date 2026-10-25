@@ -78,7 +78,7 @@ export type SaveTargetsResult =
 export async function saveSalesTargets(db: PrismaClient, claimedActor: Viewer, input: unknown): Promise<SaveTargetsResult> {
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "The submitted targets are invalid." };
-  if (!can(claimedActor.role, "targets.edit")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "targets.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { year, quarters } = parsed.data;
 
   const wanted = new Map<Quarter, number | null>();
@@ -90,7 +90,7 @@ export async function saveSalesTargets(db: PrismaClient, claimedActor: Viewer, i
 
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "targets.edit")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies SaveTargetsResult;
+    if (!actor?.isActive || !can(actor.role, "targets.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies SaveTargetsResult;
 
     const existing = await tx.salesTarget.findMany({ where: { salesUserId: actor.id, year } });
     const before: Record<string, unknown> = {};

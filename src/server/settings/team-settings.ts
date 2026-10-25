@@ -66,7 +66,7 @@ export type SaveSettingResult = { ok: true; changed: boolean } | { ok: false; co
 export async function saveTeamSetting(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<SaveSettingResult> {
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "The submitted settings are invalid." };
-  if (!can(claimedActor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { role, restoreDefaults } = parsed.data;
   const sla = parseSlaRange(parsed.data.sla);
   if (!sla) return { ok: false, code: "INVALID_INPUT", message: `Write the SLA as a number of days or a range such as 2-3, from 1 to ${SLA_MAX_DAYS} days.` };
@@ -77,7 +77,7 @@ export async function saveTeamSetting(db: PrismaClient, claimedActor: Actor, inp
 
   return db.$transaction(async (tx): Promise<SaveSettingResult> => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+    if (!actor?.isActive || !can(actor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
 
     const before = await getTeamSetting(tx, role);
     const sameSla = before.sla.minDays === sla.minDays && before.sla.maxDays === sla.maxDays;

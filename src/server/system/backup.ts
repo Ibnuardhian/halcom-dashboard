@@ -105,10 +105,10 @@ export async function createBackup(
   claimedActor: { id: string; role: Role },
   options: BackupOptions = {},
 ): Promise<BackupResult> {
-  if (!can(claimedActor.role, "system.backup")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "system.backup")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const actor = await db.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
   if (!actor?.isActive || !can(actor.role, "system.backup")) {
-    return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+    return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   }
   if (running) return { ok: false, code: "BUSY", message: "A backup is already running." };
   if (!backupsSupported()) {

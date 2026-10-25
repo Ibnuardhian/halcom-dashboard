@@ -24,7 +24,7 @@ export type SourceUpdateResult =
   | { ok: true; changed: string[] }
   | { ok: false; code: "FORBIDDEN" | "NOT_FOUND" | "INVALID_INPUT"; message: string };
 
-const FORBIDDEN = { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } as const;
+const FORBIDDEN = { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } as const;
 
 /**
  * Changes where a project came from. For a project from another source that means its external details; it can also be
@@ -48,7 +48,7 @@ export async function updateProjectSource(db: PrismaClient, claimedActor: Actor,
 
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId }, include: { salesOwner: { select: { name: true, email: true } } } });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." };
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
 
     const next = wanted.value;
     if (project.sourceType === "INTERNAL_SALES" && next.sourceType === "OTHER") {

@@ -14,7 +14,7 @@ export type PicErrorCode = "FORBIDDEN" | "NOT_FOUND" | "INVALID_INPUT" | "DUPLIC
 export type PicResult<T> = { ok: true; value: T } | { ok: false; code: PicErrorCode; message: string; existing?: { id: string; name: string } };
 
 const fail = (code: PicErrorCode, message: string, existing?: { id: string; name: string }): PicResult<never> => ({ ok: false, code, message, ...(existing ? { existing } : {}) });
-const FORBIDDEN = "You are not allowed to do that.";
+const FORBIDDEN = "Anda tidak diizinkan melakukan ini.";
 
 const nameSchema = z
   .string()
@@ -95,7 +95,7 @@ export async function updatePic(db: PrismaClient, claimedActor: Actor, input: un
       const actor = await loadActor(tx, claimedActor);
       if (!actor || !can(actor.role, "pics.manage")) return fail("FORBIDDEN", FORBIDDEN);
       const current = await tx.pic.findUnique({ where: { id } });
-      if (!current) return fail("NOT_FOUND", "PIC not found.");
+      if (!current) return fail("NOT_FOUND", "PIC tidak ditemukan.");
       if (name !== undefined && name !== current.name) {
         const other = await tx.pic.findUnique({ where: { team_nameKey: { team: current.team, nameKey: nameKey(name) } }, select: { id: true, name: true } });
         if (other && other.id !== id) return fail("DUPLICATE", `${PIC_TEAM_LABELS[current.team]} already has a PIC named "${other.name}".`, other);
@@ -150,14 +150,14 @@ export async function assignRequestPic(db: PrismaClient, claimedActor: Actor, in
     if (!actor) return fail("FORBIDDEN", FORBIDDEN);
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { deletedAt: true } }, pic: { select: { name: true } } } });
-    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (!can(actor.role, workPermission(request.type))) return fail("FORBIDDEN", FORBIDDEN);
     if (wanted === request.picId) return { ok: true, value: { code: request.code, picId: request.picId } };
 
     let toName: string | null = null;
     if (wanted !== null) {
       const pic = await tx.pic.findUnique({ where: { id: wanted }, select: { id: true, name: true, team: true, isActive: true } });
-      if (!pic) return fail("NOT_FOUND", "PIC not found.");
+      if (!pic) return fail("NOT_FOUND", "PIC tidak ditemukan.");
       if (pic.team !== picTeamOf(request.type)) return fail("INVALID_INPUT", `A ${request.type} request goes to a ${PIC_TEAM_LABELS[picTeamOf(request.type)]} PIC.`);
       if (!pic.isActive) return fail("INVALID_INPUT", `${pic.name} is not active, so nothing can be assigned to them.`);
       toName = pic.name;

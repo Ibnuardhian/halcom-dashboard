@@ -18,15 +18,15 @@ const schema = z.object({ customerId: z.uuid(), industry: z.string().max(400).nu
 export async function setCustomerIndustry(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<SetIndustryResult> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "The submitted customer is invalid." };
-  if (!can(claimedActor.role, "customers.edit")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "customers.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const industry = normaliseIndustry(parsed.data.industry);
   if (!industry.ok) return { ok: false, code: "INVALID_INPUT", message: industry.message };
 
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "customers.edit")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies SetIndustryResult;
+    if (!actor?.isActive || !can(actor.role, "customers.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies SetIndustryResult;
     const customer = await tx.customer.findUnique({ where: { id: parsed.data.customerId }, select: { id: true, name: true, industry: true } });
-    if (!customer) return { ok: false, code: "NOT_FOUND", message: "Customer not found." } satisfies SetIndustryResult;
+    if (!customer) return { ok: false, code: "NOT_FOUND", message: "Customer tidak ditemukan." } satisfies SetIndustryResult;
     if (customer.industry === industry.value) return { ok: true, changed: false, industry: industry.value } satisfies SetIndustryResult;
 
     await tx.customer.update({ where: { id: customer.id }, data: { industry: industry.value } });

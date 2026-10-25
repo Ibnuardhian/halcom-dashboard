@@ -464,7 +464,7 @@ test.describe("a project from another source (Other)", () => {
     await expect(finance.getByRole("link", { name: /^HIT-PROJ-\d+/ })).toHaveCount(1);
     await expect(finance.getByRole("cell", { name: "Other", exact: true })).toBeVisible();
     await finance.goto(`/projects?source=INTERNAL_SALES&q=${encodeURIComponent(source)}`);
-    await expect(finance.getByText("No project matches these filters.")).toBeVisible();
+    await expect(finance.getByText("Tidak ada project yang cocok dengan filter ini.")).toBeVisible();
     await finance.goto(projectUrl);
     await expect(finance.getByRole("heading", { name: "Project source" })).toHaveCount(0);
     await expectNotFound(finance, "/projects/new", "Project details");

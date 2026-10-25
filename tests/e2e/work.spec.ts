@@ -229,7 +229,7 @@ test.describe("projects and requests", () => {
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill("RFQ routing demo");
     await page.getByText(/^RFQ – /).click();
-    await expect(page.getByText("Goes to Purchasing.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Masuk ke Purchasing.", { exact: true })).toBeVisible();
     await page.getByLabel("Request summary").fill("Price for 10 servers");
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
@@ -591,7 +591,7 @@ test.describe("projects and requests", () => {
     await expect(email.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
     await expect(email.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     expect(await email.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
-    await expect(soa.getByText("Reply inside the original [HITBOQ] email thread")).toBeVisible();
+    await expect(soa.getByText("Balas di dalam thread email [HITBOQ] asli")).toBeVisible();
     await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
     // The BOQ now lists its RFQ, and the next-step buttons are gone: it has been continued.
@@ -603,7 +603,7 @@ test.describe("projects and requests", () => {
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/request/${rfq}`);
     // A handed-over request arrives In progress by itself: the team only has to complete it.
-    await expect(purchasing.getByText("Status is In progress.")).toBeVisible();
+    await expect(purchasing.getByText("Status saat ini In progress.")).toBeVisible();
     await moveCard(purchasing, "RFQ", rfq, "COMPLETED");
     await purchasing.goto(`/request/${rfq}`);
     await expect(purchasing.getByLabel("Subject", { exact: true })).toHaveCount(0); // Purchasing does not send these emails
@@ -670,7 +670,7 @@ test.describe("projects and requests", () => {
     await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
     await expect(soa.getByRole("dialog")).toHaveCount(0);
     await soa.goto(`/request/${boq}`);
-    await expect(soa.getByText("Status is Revision.")).toBeVisible();
+    await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
     await moveCard(soa, "BOQ", boq, "COMPLETED");
     await soa.goto(`/request/${boq}`);

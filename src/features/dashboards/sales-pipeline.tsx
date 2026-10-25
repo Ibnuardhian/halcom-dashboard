@@ -50,7 +50,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
 
   return (
     <>
-      <DashboardHeader title="Sales Pipeline" summary="Your projects, target margins and BOQ, RFQ and PO requests in one place." />
+      <DashboardHeader title="Sales Pipeline" summary="Proyek, target margin, dan request BOQ, RFQ serta PO Anda dalam satu tempat." />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>

@@ -40,9 +40,9 @@ export function ActionFeed({ entries }: { entries: ProjectActionRow[] }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title={`Current action (last ${LATEST_CURRENT_COUNT})`} hint="What has been done, most recent first.">
+        <Panel title={`Current action (last ${LATEST_CURRENT_COUNT})`} hint="Apa yang sudah dikerjakan, terbaru di atas.">
           {current.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
+            <p className="text-sm text-muted-foreground">Belum ada yang dicatat.</p>
           ) : (
             <ol aria-label="Latest current actions" className="flex flex-col divide-y rounded-lg border">
               {current.map((entry) => (
@@ -51,17 +51,17 @@ export function ActionFeed({ entries }: { entries: ProjectActionRow[] }) {
             </ol>
           )}
         </Panel>
-        <Panel title="Next action" hint="What will be done after the current action.">
+        <Panel title="Next action" hint="Apa yang akan dikerjakan setelah current action.">
           {next ? (
             <ol aria-label="Latest next action" className="flex flex-col rounded-lg border border-primary/40 bg-accent/40">
               <Entry entry={next} showKind={false} />
             </ol>
           ) : (
-            <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
+            <p className="text-sm text-muted-foreground">Belum ada yang dicatat.</p>
           )}
         </Panel>
       </div>
-      <Panel title="All updates" hint="Newest first. Entries are never edited; a correction is a new entry.">
+      <Panel title="All updates" hint="Terbaru di atas. Entri tidak pernah diubah; koreksi dicatat sebagai entri baru.">
         {entries.length === 0 ? (
           <p role="status" className="text-sm text-muted-foreground">
             No updates yet.

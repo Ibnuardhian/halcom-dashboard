@@ -8,8 +8,8 @@ import { createUserSchema, resetPasswordSchema, roleSchema, uuidSchema } from ".
 export type Actor = { id: string; role: Role };
 
 const ERROR_MESSAGES = {
-  FORBIDDEN: "You are not allowed to do that.",
-  NOT_FOUND: "User not found.",
+  FORBIDDEN: "Anda tidak diizinkan melakukan ini.",
+  NOT_FOUND: "User tidak ditemukan.",
   EMAIL_TAKEN: "A user with this email already exists.",
   SELF_CHANGE: "You cannot change your own account here.",
   INVALID_INPUT: "The submitted data is invalid.",

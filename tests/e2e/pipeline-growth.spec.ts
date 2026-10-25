@@ -116,7 +116,7 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     });
     await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ json: none }));
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Weekly" }).click();
-    await expect(page.getByTestId("pipeline-growth").getByRole("status").filter({ hasText: /stage history starts/ })).toBeVisible();
+    await expect(page.getByTestId("pipeline-growth").getByRole("status").filter({ hasText: /riwayat tahap mulai dicatat/ })).toBeVisible();
   });
 
   test("says how periods before the stage history are counted", async ({ page }) => {

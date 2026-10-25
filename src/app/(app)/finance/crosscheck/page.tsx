@@ -39,7 +39,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
     <>
       <DashboardHeader
         title="Financial Crosscheck"
-        summary="Each project with its value, its quotation (RFQ) and PO references, and where those disagree with its progress. Read-only: nothing on this page changes a project or a request."
+        summary="Setiap proyek beserta nilainya, referensi quotation (RFQ) dan PO-nya, serta bagian yang tidak sesuai dengan progress-nya. Hanya untuk dibaca: tidak ada perubahan pada proyek atau request dari halaman ini."
       />
       <nav aria-label="Filter by flag" className="mb-3 flex flex-wrap gap-1.5">
         <Link href={CROSSCHECK_PATH} aria-current={!flag ? "true" : undefined} className={cn("rounded-full border px-3 py-1 text-xs font-medium hover:bg-muted", !flag && "border-primary bg-primary text-primary-foreground hover:bg-primary/90")}>
@@ -74,7 +74,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
       </p>
       {rows.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {flag || search ? "No project matches." : "No projects yet."}
+          {flag || search ? "Tidak ada project yang cocok." : "Belum ada project."}
         </p>
       ) : (
         <Table>

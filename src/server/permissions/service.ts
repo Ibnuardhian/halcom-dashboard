@@ -37,7 +37,7 @@ export type SavePermissionsResult =
   | { ok: true; changed: number }
   | { ok: false; code: "FORBIDDEN" | "INVALID_INPUT" | "BLOCKED"; message: string };
 
-const FORBIDDEN = "You are not allowed to do that.";
+const FORBIDDEN = "Anda tidak diizinkan melakukan ini.";
 
 /**
  * Grants and revokes permissions of roles. Only an actor who holds `permissions.manage` (a superadmin by default) may call it, and

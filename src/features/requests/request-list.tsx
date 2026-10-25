@@ -239,7 +239,7 @@ export async function RequestList({
       <RequestTable
         rows={rows}
         detailed
-        emptyText={filter.kind === "all" && !q && extraFilters.length === 0 ? "No requests yet." : "No requests match this search or filter."}
+        emptyText={filter.kind === "all" && !q && extraFilters.length === 0 ? "Belum ada request." : "Tidak ada request yang cocok dengan pencarian atau filter ini."}
         sorting={{
           sort,
           dir,

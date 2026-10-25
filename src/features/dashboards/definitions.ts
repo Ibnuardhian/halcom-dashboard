@@ -13,15 +13,15 @@ export type DashboardDefinition = {
  */
 export const SHARED_DASHBOARD: DashboardDefinition = {
   title: "Overview",
-  summary: "Project progress and request statistics visible to everyone who signs in.",
+  summary: "Statistik progress proyek dan request, terlihat oleh siapa saja yang masuk ke aplikasi.",
   widgets: [
     {
       title: "Project progress",
-      description: "Milestone status per project. Never inferred from the number of closed tickets alone.",
+      description: "Status milestone per proyek. Tidak pernah disimpulkan hanya dari jumlah tiket yang ditutup.",
     },
-    { title: "Incoming vs completed", description: "Trend of new and finished requests over time." },
-    { title: "SLA state", description: "On track, at risk and overdue counts. Shows “not configured” until SLA targets are approved." },
-    { title: "Handover SOA → Purchasing", description: "How long completed BOQs wait before reaching Purchasing as an RFQ." },
+    { title: "Incoming vs completed", description: "Tren request baru dan request yang selesai dari waktu ke waktu." },
+    { title: "SLA state", description: "Jumlah yang on track, berisiko, dan terlambat. Menampilkan “belum diatur” sampai target SLA disetujui." },
+    { title: "Handover SOA → Purchasing", description: "Berapa lama BOQ yang sudah selesai menunggu sebelum sampai ke Purchasing sebagai RFQ." },
   ],
 };
 
@@ -32,12 +32,12 @@ export const SHARED_DASHBOARD: DashboardDefinition = {
 export const ROLE_DASHBOARDS: Record<"management", DashboardDefinition> = {
   management: {
     title: "Management dashboard",
-    summary: "Operational health across teams.",
+    summary: "Kesehatan operasional di semua tim.",
     widgets: [
-      { title: "Open tickets by team", description: "Workload per team and per assignee." },
-      { title: "SLA at risk and overdue", description: "Tickets needing attention, with drill-down. Shows “not configured” until targets exist." },
-      { title: "Bottlenecks", description: "Time spent per status, and delay reasons." },
-      { title: "Delayed or blocked projects", description: "Projects with work waiting on someone." },
+      { title: "Open tickets by team", description: "Beban kerja per tim dan per penanggung jawab." },
+      { title: "SLA at risk and overdue", description: "Tiket yang perlu perhatian, dengan drill-down. Menampilkan “belum diatur” sampai target ditetapkan." },
+      { title: "Bottlenecks", description: "Waktu yang dihabiskan per status, dan alasan keterlambatan." },
+      { title: "Delayed or blocked projects", description: "Proyek dengan pekerjaan yang masih menunggu seseorang." },
     ],
   },
 };

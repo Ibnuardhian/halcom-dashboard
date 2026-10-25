@@ -151,10 +151,10 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
         ) : empty ? (
           <p role="status" className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
             {phase.kind === "loading"
-              ? "Loading…"
+              ? "Memuat…"
               : data.historyStartsAt
-                ? `No period of this chart is covered yet: the stage history starts on ${formatDate(data.historyStartsAt)}.`
-                : "No stage history has been recorded yet."}
+                ? `Belum ada periode chart ini yang tercakup: riwayat tahap mulai dicatat pada ${formatDate(data.historyStartsAt)}.`
+                : "Belum ada riwayat tahap yang tercatat."}
           </p>
         ) : (
           <>
@@ -252,7 +252,7 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
             ) : null}
             {phase.kind === "loading" ? (
               <p role="status" className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-muted-foreground">
-                Loading…
+                Memuat…
               </p>
             ) : null}
           </>

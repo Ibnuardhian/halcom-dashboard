@@ -42,7 +42,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
 
   return (
     <>
-      <DashboardHeader title="Admin Dashboard" summary="Accounts, settings and recent administrative activity. Admins manage operational users; only a superadmin manages admin accounts and the system." />
+      <DashboardHeader title="Admin Dashboard" summary="Akun, pengaturan, dan aktivitas administratif terbaru. Admin mengelola pengguna operasional; hanya superadmin yang dapat mengelola akun admin dan sistem." />
       <section aria-label="Administration" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Active accounts" value={stats.active} href={USERS_PATH} note={`${stats.total - stats.active} inactive`} />
         <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={SETTINGS_PATH} note="Working days to answer a request" />

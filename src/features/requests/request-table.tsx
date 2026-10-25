@@ -29,7 +29,7 @@ function SortableHead({ label, column, sorting, className }: { label: string; co
  */
 export function RequestTable({
   rows,
-  emptyText = "No requests yet.",
+  emptyText = "Belum ada request.",
   detailed = false,
   sorting,
 }: {

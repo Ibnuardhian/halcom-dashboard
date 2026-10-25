@@ -69,19 +69,19 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
     const issue = parsed.error.issues[0];
     return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid."));
   }
-  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId, values } = parsed.data;
 
   return db.$transaction(async (tx) => {
     // The stored role decides, so a demoted or deactivated user cannot act on a stale session.
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "You are not allowed to do that.");
+    if (!actor?.isActive || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
     await setActor(tx, actor.id);
 
     // Serialise concurrent edits of one project, so each log row's "from" is the value really replaced.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
-    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
+    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
 
     const changes: FieldChange[] = diffFields(project, values);
     if (changes.length === 0) return { ok: true, changed: [] } satisfies UpdateResult;
@@ -143,18 +143,18 @@ export type PostResult = { ok: true; id: string } | { ok: false; code: UpdateErr
 export async function postProjectUpdate(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<PostResult> {
   const parsed = postSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "The submitted data is invalid." };
-  if (!can(claimedActor.role, "projects.post-update")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "projects.post-update")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, kind, body } = parsed.data;
 
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
     if (!actor?.isActive || !can(actor.role, "projects.post-update")) {
-      return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies PostResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies PostResult;
     }
     // Serialise updates of one project, so "the latest entry" and the project's copy of it never disagree.
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, code: true, endUserCompany: true, deletedAt: true } });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies PostResult;
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." } satisfies PostResult;
 
     const entry = await tx.projectAction.create({ data: { projectId, kind, body, authorId: actor.id }, select: { id: true } });
     await tx.project.update({ where: { id: projectId }, data: kind === "CURRENT" ? { currentAction: body } : { nextAction: body } });
@@ -200,7 +200,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     const issue = parsed.error.issues[0];
     return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "That field cannot be changed here." : (issue?.message ?? "The submitted data is invalid.") };
   }
-  if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, values } = parsed.data;
 
   const submitted: Partial<Record<CommercialField, CommercialValue>> = {};
@@ -226,12 +226,12 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
   return db.$transaction(async (tx) => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
     if (!actor?.isActive || !can(actor.role, "projects.edit.commercial")) {
-      return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." } satisfies CommercialResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies CommercialResult;
     }
     await setActor(tx, actor.id);
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId } });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." } satisfies CommercialResult;
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
     if (actor.role === "SALES" && !salesActsOn(project, actor.id)) {
       return { ok: false, code: "FORBIDDEN", message: "You can only change the commercial details of your own projects." } satisfies CommercialResult;

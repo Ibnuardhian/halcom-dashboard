@@ -20,8 +20,8 @@ import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, 
 export type Actor = { id: string; role: Role };
 
 const ERROR_MESSAGES = {
-  FORBIDDEN: "You are not allowed to do that.",
-  NOT_FOUND: "The record was not found.",
+  FORBIDDEN: "Anda tidak diizinkan melakukan ini.",
+  NOT_FOUND: "Data tidak ditemukan.",
   INVALID_INPUT: "The submitted data is invalid.",
   INVALID_STATE: "This is not possible in the current status.",
   PROJECT_NOT_ACTIVE: "Requests can only be added to a project that is On Track.",
@@ -242,7 +242,7 @@ export async function createRequest(db: PrismaClient, claimedActor: Actor, input
         if (again) return succeed({ ...again, created: false });
       }
       const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true, deletedAt: true, sourceType: true } });
-      if (!project || project.deletedAt) return fail("NOT_FOUND", "Project not found.");
+      if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
       if (!canRaiseRequestOn(actor.role, type, project.sourceType)) return fail("FORBIDDEN");
       if (project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
       if (type === "PO" && (await tx.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED" } })) === 0) return fail("INVALID_STATE", PO_NEEDS_RFQ);
@@ -287,7 +287,7 @@ export async function handOverToPurchasing(
 
       await tx.$executeRaw`SELECT id FROM requests WHERE id = ${sourceId}::uuid FOR UPDATE`;
       const source = await tx.request.findUnique({ where: { id: sourceId }, include: { project: { select: { trackStatus: true, salesOwnerId: true, sourceType: true, deletedAt: true } } } });
-      if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+      if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
       if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
       if (!canHandOver(source.type, source.status)) {
         return fail("INVALID_STATE", "Only a completed BOQ or RFQ can be continued to the next step.");
@@ -364,7 +364,7 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
       where: { id: sourceId },
       include: { project: { select: { salesOwnerId: true, sourceType: true, deletedAt: true } }, handovers: { select: { id: true } } },
     });
-    if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
     if (!canHandOver(source.type, source.status)) return fail("INVALID_STATE", "Only a completed BOQ or RFQ has a next step to decide on.");
     if (source.handovers.length > 0) return fail("INVALID_STATE", "This request has already been continued.");
@@ -402,7 +402,7 @@ export async function changeRequestStatus(
     // Serialise concurrent changes of one request: the second caller sees the first one's result.
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId } });
-    if (!request) return fail("NOT_FOUND", "Request not found.");
+    if (!request) return fail("NOT_FOUND", "Request tidak ditemukan.");
     const project = await tx.project.findUnique({ where: { id: request.projectId }, select: { salesOwnerId: true, sourceType: true } });
     // Only the team that works on this type moves its requests (SOA for a BOQ, Purchasing for an RFQ or PO; admins too).
     if (!can(actor.role, workPermission(request.type))) return fail("FORBIDDEN");
@@ -464,7 +464,7 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
       where: { id: requestId },
       include: { project: { select: { salesOwnerId: true, sourceType: true, technicalPicId: true, deletedAt: true, endUserCompany: true, name: true } } },
     });
-    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (actor.role === "SALES" && !salesActsOn(request.project, actor.id)) return fail("FORBIDDEN");
     if (request.type !== "BOQ") return fail("INVALID_STATE", "A revision can be asked for on a BOQ only.");
     if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Only a completed BOQ can be sent back for a revision.");
@@ -506,7 +506,7 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
     if (!actor || !can(actor.role, "requests.edit-dates")) return fail("FORBIDDEN");
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { deletedAt: true } } } });
-    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request not found.");
+    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     const finished = request.status === "COMPLETED" || request.status === "REVISION";
     if (!finished && completedAt) return fail("INVALID_STATE", "Only a completed request has a completion date.");
     // A finished request keeps a completion date: an empty field leaves the stored one.
@@ -539,7 +539,7 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
 
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { code: true, endUserCompany: true } } } });
-    if (!request) return fail("NOT_FOUND", "Request not found.");
+    if (!request) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (request.type !== "BOQ") return fail("INVALID_STATE", "Only a BOQ request has an SOA phase.");
     if (!isOpen(request.status)) return fail("INVALID_STATE", "This request is already closed.");
     if (request.phase === phase) return succeed({ code: request.code });

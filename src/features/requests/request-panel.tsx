@@ -109,7 +109,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           </dl>
           <div className="mt-4 border-t pt-4">
             <h3 className="text-sm font-semibold">{request.title}</h3>
-            <p className="mt-1 text-sm whitespace-pre-wrap">{request.description || <span className="text-muted-foreground">No details.</span>}</p>
+            <p className="mt-1 text-sm whitespace-pre-wrap">{request.description || <span className="text-muted-foreground">Tidak ada detail.</span>}</p>
           </div>
           {email ? (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
@@ -123,11 +123,11 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
                 linkConfigured={email.linkConfigured}
                 hint={
                   request.source
-                    ? `Reply inside the original ${SUBJECT_TAGS.BOQ} email thread for ${request.source.code} so the conversation stays together, and use this subject and text.`
+                    ? `Balas di dalam thread email ${SUBJECT_TAGS.BOQ} asli untuk ${request.source.code} agar percakapan tetap satu alur, dan gunakan subject serta teks ini.`
                     : undefined
                 }
               />
-              <span className="text-xs text-muted-foreground">Opens the subject, recipients and text to send.</span>
+              <span className="text-xs text-muted-foreground">Membuka subject, penerima, dan teks untuk dikirim.</span>
             </div>
           ) : null}
         </CardContent>
@@ -135,11 +135,11 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
 
       {mayWork && allowedTransitions(request.status, request.type).length > 0 ? (
         <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-          Status is {REQUEST_STATUS_LABELS[request.status]}. It is changed by dragging this request&apos;s card on the{" "}
+          Status saat ini {REQUEST_STATUS_LABELS[request.status]}. Diubah dengan menyeret kartu request ini di{" "}
           <Link href={`/requests/${request.type.toLowerCase()}?view=board`} className="underline underline-offset-4">
             {request.type} board
           </Link>
-          . Questions to Sales and revision details go by email, which keeps the history.
+          . Pertanyaan ke Sales dan detail revisi disampaikan lewat email, agar riwayatnya tetap tercatat.
         </p>
       ) : null}
 

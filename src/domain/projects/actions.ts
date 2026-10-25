@@ -8,8 +8,8 @@ export const ACTION_KIND_LABELS: Record<ProjectActionKind, string> = {
 };
 
 export const ACTION_KIND_HINTS: Record<ProjectActionKind, string> = {
-  CURRENT: "What has been done (this week).",
-  NEXT: "What will be done after the current action.",
+  CURRENT: "Apa yang sudah dikerjakan (minggu ini).",
+  NEXT: "Apa yang akan dikerjakan setelah current action.",
 };
 
 /** The project page highlights the last two current actions: what was done most recently. */

@@ -140,7 +140,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     <>
       <DashboardHeader
         title="Projects"
-        summary="Every project in the pipeline, newest first. Values are plain numbers (assumed IDR); weighted value is estimated value times probability."
+        summary="Semua proyek dalam pipeline, terbaru di atas. Nilai berupa angka biasa (diasumsikan dalam Rupiah/IDR); weighted value dihitung dari estimated value dikali probability."
       />
       <div className="mb-4 flex flex-col gap-3">
         <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]">
@@ -214,7 +214,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
       </div>
       {projects.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {filtered ? "No project matches these filters." : "No projects yet."}
+          {filtered ? "Tidak ada project yang cocok dengan filter ini." : "Belum ada project."}
         </p>
       ) : (
         <Table>

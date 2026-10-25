@@ -33,7 +33,7 @@ async function Audit({ searchParams }: Pick<PageProps<"/admin/audit">, "searchPa
     <>
       <DashboardHeader
         title="Audit log"
-        summary="Append-only record of administrative and workflow changes. The newest 200 events are shown, times are UTC."
+        summary="Catatan perubahan administratif dan alur kerja yang hanya bertambah (tidak bisa diubah atau dihapus). 200 kejadian terbaru ditampilkan."
       />
       <nav aria-label="Filter by entity" className="mb-4 flex flex-wrap gap-1.5">
         {[{ label: "All", value: undefined }, ...types.map((t) => ({ label: t, value: t }))].map((chip) => (

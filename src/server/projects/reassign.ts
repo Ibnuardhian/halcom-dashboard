@@ -37,14 +37,14 @@ export async function reassignProject(db: PrismaClient, claimedActor: Actor, inp
 
   return db.$transaction(async (tx): Promise<ReassignResult> => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-    if (!actor?.isActive || !can(actor.role, "projects.reassign")) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+    if (!actor?.isActive || !can(actor.role, "projects.reassign")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
 
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({
       where: { id: projectId },
       include: { salesOwner: { select: { name: true, email: true } }, technicalPic: { select: { name: true, email: true } }, purchasingPic: { select: { name: true, email: true } } },
     });
-    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project not found." };
+    if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
 
     const data: Record<string, string | null> = {};
     const changes: { field: string; from: string | null; to: string | null }[] = [];

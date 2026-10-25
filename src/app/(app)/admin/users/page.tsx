@@ -30,7 +30,7 @@ async function Users() {
     <>
       <DashboardHeader
         title="Users"
-        summary="Accounts and roles. Every change is recorded in the audit trail."
+        summary="Akun dan peran pengguna. Setiap perubahan dicatat dalam audit trail."
       />
       {mayManage ? (
         <Card className="mb-6">

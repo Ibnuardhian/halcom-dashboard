@@ -24,7 +24,7 @@ async function Pics() {
     <>
       <DashboardHeader
         title="PICs"
-        summary="The people SOA and Purchasing hand their tickets to. A PIC is not a login account: each team signs in with one shared account, and Workload by assignee counts requests per PIC."
+        summary="Orang-orang yang menjadi tujuan tiket SOA dan Purchasing. PIC bukan akun login: setiap tim masuk dengan satu akun bersama, dan Workload by assignee menghitung jumlah request per PIC."
       />
       <div className="grid gap-6 xl:grid-cols-2">
         {PIC_TEAMS.map((team) => {

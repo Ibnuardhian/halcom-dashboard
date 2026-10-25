@@ -30,7 +30,7 @@ export async function changeOwnPassword(
   const { currentPassword, newPassword } = parsed.data;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, passwordHash: true, isActive: true } });
-  if (!user?.isActive) return { ok: false, code: "FORBIDDEN", message: "You are not allowed to do that." };
+  if (!user?.isActive) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   if (!(await verifyPassword(currentPassword, user.passwordHash))) {
     return { ok: false, code: "WRONG_PASSWORD", message: "The current password is incorrect." };
   }

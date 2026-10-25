@@ -229,7 +229,7 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     await expect(purchasing.getByRole("link", { name: bravoRfq })).toBeVisible();
     await expect(purchasing.getByRole("link", { name: alphaRfq })).toHaveCount(0);
     await purchasing.goto(`/requests/rfq?view=list&q=nothing-${id}`);
-    await expect(purchasing.getByText("No requests match this search or filter.")).toBeVisible();
+    await expect(purchasing.getByText("Tidak ada request yang cocok dengan pencarian atau filter ini.")).toBeVisible();
 
     // Sorting by project reverses with a second click, and the choice lives in the URL.
     await purchasing.goto(`/requests/rfq?view=list&q=${id}`);
