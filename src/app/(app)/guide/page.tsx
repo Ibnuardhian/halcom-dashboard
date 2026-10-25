@@ -78,7 +78,7 @@ async function Guide() {
     <>
       <DashboardHeader
         title="User Guide"
-        summary={`How a project moves from Sales to SOA and Purchasing, and what each role does. You are signed in as ${ROLE_LABELS[user.role]}; the steps you take part in are highlighted.`}
+        summary={`Bagaimana proyek bergerak dari Sales ke SOA dan Purchasing, dan apa yang dilakukan setiap peran. Anda masuk sebagai ${ROLE_LABELS[user.role]}; langkah-langkah yang melibatkan Anda ditandai.`}
       />
 
       <Card className="mb-6">
@@ -87,8 +87,8 @@ async function Guide() {
             <h2>The workflow</h2>
           </CardTitle>
           <CardDescription>
-            A project is created, then a BOQ goes to SOA and, once completed, continues to Purchasing as an RFQ and then a PO. A BOQ can be skipped: Sales may start with an RFQ. Every role can read every project and
-            request; each role edits only its own part.
+            Proyek dibuat, lalu BOQ masuk ke SOA dan, setelah selesai, dilanjutkan ke Purchasing sebagai RFQ lalu PO. BOQ boleh dilewati: Sales dapat memulai dengan RFQ. Semua peran dapat membaca semua proyek dan
+            request; setiap peran hanya mengedit bagiannya sendiri.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -97,7 +97,7 @@ async function Guide() {
             <Flowchart nodes={chartNodes} activeRoles={activeRoles} ownRoles={accountRoles} />
           </div>
           <div className="md:hidden">
-            <p className="mb-2 text-sm text-muted-foreground">The flowchart needs a wider screen. These are the same steps in order; open one for its details.</p>
+            <p className="mb-2 text-sm text-muted-foreground">Flowchart membutuhkan layar yang lebih lebar. Berikut langkah yang sama secara berurutan; buka salah satunya untuk melihat detailnya.</p>
             <FlowList nodes={chartNodes} activeRoles={activeRoles} ownRoles={accountRoles} />
           </div>
         </CardContent>
@@ -108,7 +108,7 @@ async function Guide() {
           <CardTitle className="text-base">
             <h2>Step by step, by role</h2>
           </CardTitle>
-          <CardDescription>Pick a role. Links open only the pages your account is allowed to use.</CardDescription>
+          <CardDescription>Pilih sebuah peran. Link hanya membuka halaman yang boleh digunakan akun Anda.</CardDescription>
         </CardHeader>
         <CardContent>
           <RoleGuide sections={sections} initialRole={initialRole} />
@@ -121,8 +121,8 @@ async function Guide() {
             <h2>Request statuses</h2>
           </CardTitle>
           <CardDescription>
-            Where a request can move next. SOA moves BOQs and Purchasing moves RFQs and POs by dragging cards on the board. Cancelling asks for a reason, and so does reopening a completed RFQ or PO. Questions and revisions go by
-            email, which keeps the history.
+            Ke mana sebuah request dapat berpindah berikutnya. SOA memindahkan BOQ, dan Purchasing memindahkan RFQ serta PO, dengan menyeret kartu di board. Membatalkan memerlukan alasan, begitu juga membuka kembali RFQ atau PO
+            yang sudah selesai. Pertanyaan dan revisi disampaikan lewat email, agar riwayatnya tetap tersimpan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -143,7 +143,7 @@ async function Guide() {
                     const next = allowedTransitions(status, type);
                     return (
                       <TableCell key={type}>
-                        {next.length === 0 ? "None" : next.map((to) => `${REQUEST_STATUS_LABELS[to]}${reasonRequired(status, to) ? " (reason)" : ""}`).join(", ")}
+                        {next.length === 0 ? "Tidak ada" : next.map((to) => `${REQUEST_STATUS_LABELS[to]}${reasonRequired(status, to) ? " (dengan alasan)" : ""}`).join(", ")}
                       </TableCell>
                     );
                   })}
@@ -151,7 +151,7 @@ async function Guide() {
               ))}
             </TableBody>
           </Table>
-          <p className="mt-3 text-xs text-muted-foreground">Revision applies to a BOQ only. “Waiting for Sales” is retired: older requests may still show it, but nobody can move a request into it.</p>
+          <p className="mt-3 text-xs text-muted-foreground">Revision hanya berlaku untuk BOQ. “Waiting for Sales” sudah tidak dipakai: request lama mungkin masih menampilkannya, tetapi tidak ada yang dapat memindahkan request ke status itu.</p>
         </CardContent>
       </Card>
     </>
