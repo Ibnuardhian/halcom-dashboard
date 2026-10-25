@@ -113,6 +113,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   const marginValue = project.targetMarginValue?.toNumber() ?? null;
   const targetMargin = targetMarginPercentOf(estimated, finalValue, marginPercent, marginValue);
   const commercialValues = {
+    createdAt: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(project.createdAt),
     progress: project.progress,
     trackStatus: project.trackStatus,
     quoteReleasedAt: project.quoteReleasedAt ? project.quoteReleasedAt.toISOString().slice(0, 10) : "",
@@ -222,7 +223,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         title="Commercial"
         description={
           mayEditCommercial
-            ? "Progress, status, value, target margin, quote release and target closing. Every change is written to the change log below."
+            ? "Creation date, progress, status, value, target margin, quote release and target closing. Every change is written to the change log below."
             : "Owned by the Sales PIC of the project. You can read it but not change it."
         }
       >

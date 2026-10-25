@@ -16,12 +16,15 @@ import { MoneyInput } from "./money-input";
 type Values = Record<CommercialField, string>;
 
 const HINTS: Partial<Record<CommercialField, string>> = {
-  progress: "Each step stands for a win probability, which the weighted pipeline uses. 30% - Propose means the quotation was submitted.",
-  estimatedValue: "Dots are added as you type, for example 1.200.000.000",
-  quoteReleasedAt: "Date the quotation was submitted to the customer. Filled with today when you move to Propose; change or clear it when the schedule moves.",
-  targetDate: "Date the deal should close",
-  finalValue: "The agreed PO value once known; with the target margin, gives the gross profit counted toward your target",
-  wonDate: "Set when the project is closed as won; decides which quarter it counts in",
+  createdAt: "Tanggal proyek ini menjadi opportunity. Pipeline Growth menghitung proyek sejak tanggal ini; tidak boleh di masa depan.",
+  progress: "Setiap tahap mewakili sebuah win probability, dipakai oleh weighted pipeline. 30% - Propose berarti quotation sudah diajukan.",
+  estimatedValue: "Titik ditambahkan otomatis saat Anda mengetik, contoh 1.200.000.000",
+  quoteReleasedAt:
+    "Tanggal quotation diajukan ke customer (mencapai 30% - Propose). Terisi hari ini saat Progress dipindah ke Propose; atau isi tanggal ini secara manual dan Progress akan ikut berpindah ke Propose. Ubah atau kosongkan saat jadwal berubah.",
+  targetDate: "Tanggal target deal ini akan ditutup",
+  finalValue: "Nilai PO yang disepakati setelah diketahui; bersama target margin, menghasilkan gross profit yang dihitung ke target Anda",
+  wonDate:
+    "Tanggal proyek ditutup sebagai won. Terisi hari ini saat Progress dipindah ke Closed Won; atau isi tanggal ini secara manual dan Progress akan ikut berpindah ke Closed Won. Menentukan kuartal mana yang dihitung.",
 };
 
 /** Sales' part of the project record. Every change is written to the change log. `values` are the stored values as text. */

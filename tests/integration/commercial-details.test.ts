@@ -55,6 +55,27 @@ describe("updateCommercialDetails", () => {
     await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ targetDate: null });
   });
 
+  it("lets Sales move the creation date of their project to an earlier day, logged, but never empty or in the future", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+    const before = await db.project.findUniqueOrThrow({ where: { id: project.id } });
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "2026-03-02" } });
+
+    expect(result).toEqual({ ok: true, changed: ["createdAt"] });
+    const stored = await db.project.findUniqueOrThrow({ where: { id: project.id } });
+    expect(stored.createdAt.toISOString()).toBe("2026-03-01T17:00:00.000Z"); // midnight in Jakarta
+    const fromDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(before.createdAt);
+    await expect(db.projectChange.findFirst({ where: { projectId: project.id, field: "createdAt" } })).resolves.toMatchObject({ fromValue: fromDay, toValue: "2026-03-02" });
+    // The same day again changes nothing.
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "2026-03-02" } })).resolves.toEqual({ ok: true, changed: [] });
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { createdAt: "2999-01-01" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+
+    const other = await actorOf("SALES");
+    await expect(updateCommercialDetails(db, other, { projectId: project.id, values: { createdAt: "2026-01-05" } })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+  });
+
   it("takes the target margin as an amount or as a percentage, never both", async () => {
     const sales = await actorOf("SALES");
     const project = await makeProject(sales, { estimatedValue: 1_000 });
@@ -153,6 +174,55 @@ describe("Progress, Status and Quote released", () => {
     await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "QUALIFY" } })).resolves.toEqual({ ok: true, changed: [] });
     await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { trackStatus: "Late" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+  });
+
+  it("setting the Quoted date by hand moves Progress to Propose when it was still an Opportunity", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales); // starts at QUALIFY
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } });
+
+    expect(result).toMatchObject({ ok: true });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "PROPOSE" });
+    const log = await db.projectChange.findMany({ where: { projectId: project.id }, orderBy: { field: "asc" } });
+    expect(log.map((row) => [row.field, row.fromValue, row.toValue])).toEqual([
+      ["progress", "5% - Qualify", "30% - Propose"],
+      ["quoteReleasedAt", null, "2026-05-01"],
+    ]);
+  });
+
+  it("does not move Progress backward when the Quoted date is set on a project already past it", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { progress: "AGREE" } });
+
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } });
+
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "AGREE" });
+  });
+
+  it("setting the Won date by hand moves Progress to Closed Won from any earlier stage", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+
+    const result = await updateCommercialDetails(db, sales, { projectId: project.id, values: { wonDate: "2026-06-15" } });
+
+    expect(result).toMatchObject({ ok: true });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "CLOSED_WON" });
+    await expect(db.projectChange.findFirst({ where: { projectId: project.id, field: "progress" } })).resolves.toMatchObject({ toValue: "100% - Closed Won" });
+  });
+
+  it("clearing a date, or re-submitting the same one, does not move Progress", async () => {
+    const sales = await actorOf("SALES");
+    const project = await makeProject(sales);
+    await updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } });
+
+    await expect(updateCommercialDetails(db, sales, { projectId: project.id, values: { quoteReleasedAt: "2026-05-01" } })).resolves.toEqual({ ok: true, changed: [] });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ progress: "PROPOSE" });
+
+    const other = await makeProject(sales);
+    await updateCommercialDetails(db, sales, { projectId: other.id, values: { quoteReleasedAt: "" } });
+    await expect(db.project.findUniqueOrThrow({ where: { id: other.id } })).resolves.toMatchObject({ progress: "QUALIFY" });
   });
 
   it("closed or done projects are not in the open pipeline", async () => {

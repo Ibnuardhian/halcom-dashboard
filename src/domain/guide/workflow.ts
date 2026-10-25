@@ -246,7 +246,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Follow the Sales Pipeline dashboard for your pipeline and the Sales Targets page for your targets.",
         "Check the Requests section to see where the BOQ, RFQ and PO stand.",
       ],
-      editable: ["Progress", "Status", "Estimated PO value", "Target margin", "Quote released", "Target closing", "Final value", "Won date"],
+      editable: ["Opportunity date", "Progress", "Status", "Estimated PO value", "Target margin", "Quote released", "Target closing", "Final value", "Won date"],
       handoff: "Nothing is handed over. Project details stay readable by every role; only the Sales PIC edits the commercial fields.",
       links: [
         { label: "Sales Pipeline", href: "/dashboard/sales", anyOf: ["dashboard.sales.view"] },

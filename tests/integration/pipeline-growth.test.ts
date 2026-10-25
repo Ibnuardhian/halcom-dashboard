@@ -174,7 +174,7 @@ describe("Pipeline Growth from the stage history", () => {
     expect(points.some((p) => p.total === 1)).toBe(true);
   });
 
-  it("counts nothing for a project without any history, and starts counting an incomplete one at its first row", async () => {
+  it("counts a project without history as an Opportunity from its creation, and an incomplete one by its first row once it is reached", async () => {
     const owner = await salesPerson();
     await projectWithoutHistory(owner.id);
     const partial = await projectWithoutHistory(owner.id);
@@ -183,20 +183,70 @@ describe("Pipeline Growth from the stage history", () => {
 
     const { points } = await growth(owner, "weekly", new Date(t0.getTime() + 14 * DAY));
 
-    expect(points.at(-1)).toMatchObject({ total: 1, counts: { QUOTED: 1 } });
-    expect(points.filter((p) => p.reliable && new Date(p.asOf).getTime() < t0.getTime() + 3 * DAY).every((p) => p.total === 0)).toBe(true);
+    expect(points.at(-1)).toMatchObject({ total: 2, counts: { OPPORTUNITY: 1, QUOTED: 1 } });
+    // Before the first row, with no quote released date, the partial one was an Opportunity too.
+    const early = points.filter((p) => new Date(p.asOf).getTime() >= t0.getTime() && new Date(p.asOf).getTime() < t0.getTime() + 3 * DAY);
+    expect(early.every((p) => p.counts!.OPPORTUNITY === 2 && p.total === 2)).toBe(true);
   });
 
-  it("shows no counts, and says so, for a period that ended before the history started", async () => {
+  it("counts a project from the creation date Sales set, and nothing before it", async () => {
+    const owner = await salesPerson();
+    const project = await newProject(owner);
+    const now = new Date();
+    const created = new Date(now.getTime() - 40 * DAY);
+    await db.$executeRaw`UPDATE projects SET created_at = ${created} WHERE id = ${project.id}::uuid`;
+
+    const { points } = await growth(owner, "weekly", now);
+
+    expect(points.filter((p) => new Date(p.asOf).getTime() < created.getTime()).every((p) => p.total === 0)).toBe(true);
+    const since = points.filter((p) => new Date(p.asOf).getTime() >= created.getTime());
+    expect(since.length).toBeGreaterThan(4);
+    expect(since.every((p) => p.counts!.OPPORTUNITY === 1 && p.total === 1)).toBe(true);
+  });
+
+  it("before the stage history, takes Quoted from the quote released date and Closed Won from the won date", async () => {
+    const owner = await salesPerson();
+    const project = await projectWithoutHistory(owner.id);
+    const t0 = new Date("2026-01-05T00:00:00Z");
+    await db.project.update({
+      where: { id: project.id },
+      data: { createdAt: t0, quoteReleasedAt: new Date("2026-02-10T00:00:00Z"), wonDate: new Date("2026-04-20T00:00:00Z") },
+    });
+    await addHistory(project.id, [{ from: null, to: "CLOSED_WON", at: new Date("2026-06-15T00:00:00Z") }]);
+
+    const { points } = await growth(owner, "monthly", new Date("2026-07-15T00:00:00Z"));
+    const month = (key: string) => points.find((p) => p.key === key)!.counts;
+
+    expect(month("2025-12")).toMatchObject({ OPPORTUNITY: 0, QUOTED: 0, CLOSED_WON: 0 });
+    expect(month("2026-01")).toMatchObject({ OPPORTUNITY: 1, QUOTED: 0, CLOSED_WON: 0 });
+    expect(month("2026-02")).toMatchObject({ OPPORTUNITY: 0, QUOTED: 1, CLOSED_WON: 0 });
+    expect(month("2026-03")).toMatchObject({ QUOTED: 1 });
+    expect(month("2026-04")).toMatchObject({ OPPORTUNITY: 0, QUOTED: 0, CLOSED_WON: 1 });
+    expect(month("2026-07")).toMatchObject({ CLOSED_WON: 1 });
+  });
+
+  it("does not take a quote or won date as a stage the first recorded stage contradicts", async () => {
+    const owner = await salesPerson();
+    const project = await projectWithoutHistory(owner.id);
+    await db.project.update({
+      where: { id: project.id },
+      data: { createdAt: new Date("2026-01-05T00:00:00Z"), quoteReleasedAt: new Date("2026-02-10T00:00:00Z"), wonDate: new Date("2026-02-20T00:00:00Z") },
+    });
+    await addHistory(project.id, [{ from: null, to: "UNDERSTAND", at: new Date("2026-06-15T00:00:00Z") }]);
+
+    const { points } = await growth(owner, "monthly", new Date("2026-07-15T00:00:00Z"));
+
+    expect(points.find((p) => p.key === "2026-03")!.counts).toMatchObject({ OPPORTUNITY: 1, QUOTED: 0, CLOSED_WON: 0 });
+  });
+
+  it("gives zeros, not gaps, for periods before any project existed", async () => {
     const owner = await salesPerson();
     await newProject(owner);
 
     const result = await growth(owner, "monthly", new Date("2020-06-15T00:00:00Z"));
 
-    expect(result.historyStartsAt).not.toBeNull();
     expect(result.points).toHaveLength(12);
-    expect(result.points.every((p) => !p.reliable && p.counts === null && p.total === null && p.percents === null)).toBe(true);
-    expect(result.cards.map((c) => [c.count, c.percent, c.comparison.kind])).toEqual([[null, null, "na"], [null, null, "na"], [null, null, "na"]]);
+    expect(result.points.every((p) => p.reliable && p.total === 0)).toBe(true);
   });
 
   it("returns zeros and zero percentages, never NaN, when the person has no project", async () => {

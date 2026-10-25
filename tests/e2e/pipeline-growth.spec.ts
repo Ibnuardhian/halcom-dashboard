@@ -119,16 +119,13 @@ test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
     await expect(page.getByTestId("pipeline-growth").getByRole("status").filter({ hasText: /stage history starts/ })).toBeVisible();
   });
 
-  test("notes where the stage history starts when earlier periods are left out", async ({ page }) => {
-    await page.route("**/api/pipeline-growth?granularity=weekly", (route) => {
-      const data = body("weekly");
-      (data.points[0] as Record<string, unknown>).reliable = false;
-      Object.assign(data.points[0] as Record<string, unknown>, { counts: null, total: null, percents: null });
-      return route.fulfill({ json: data });
-    });
+  test("says how periods before the stage history are counted", async ({ page }) => {
+    await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ json: body("weekly", { historyStartsAt: "2026-01-15T00:00:00.000Z" }) }));
     await open(page);
     await page.getByTestId("pipeline-growth").getByRole("button", { name: "Weekly" }).click();
-    await expect(page.getByTestId("pipeline-growth-notice")).toContainText("stage history starts on 1 Jan 2026");
+    const notice = page.getByTestId("pipeline-growth-notice");
+    await expect(notice).toContainText("stage history starts on 15 Jan 2026");
+    await expect(notice).toContainText("quote released date");
   });
 
   test("an answer to an older choice never replaces a newer one", async ({ page }) => {
