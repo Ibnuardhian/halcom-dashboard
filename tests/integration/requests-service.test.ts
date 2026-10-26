@@ -471,6 +471,7 @@ describe("setRequestDates", () => {
     expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2026-09-01", completedAt: "2026-09-02" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
     expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2026-09-05", completedAt: "2026-09-02" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2999-01-01", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "0261-02-20", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" }); // a short year
     expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "not a date", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     // An open request can still get a corrected creation date.
     expect((await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2026-09-01", completedAt: null })).ok).toBe(true);

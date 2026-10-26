@@ -111,6 +111,11 @@ const dayInput = z
       ctx.addIssue({ code: "custom", message: "Masukkan tanggal yang valid." });
       return z.NEVER;
     }
+    // A year typed short ("0261" for 2026) would give a turnaround of centuries, so only 2000 to 2100 is taken.
+    if (date.getUTCFullYear() < 2000 || date.getUTCFullYear() > 2100) {
+      ctx.addIssue({ code: "custom", message: "Tahun harus antara 2000 dan 2100." });
+      return z.NEVER;
+    }
     return date;
   });
 export const requestDatesSchema = z.object({
