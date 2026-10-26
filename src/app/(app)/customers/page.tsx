@@ -12,6 +12,7 @@ import { requirePermission } from "@/server/auth/current-user";
 import { CustomerDialog } from "@/features/customers/customer-dialog";
 import { can } from "@/domain/access/permissions";
 import { listCustomers, listIndustrySuggestions } from "@/server/customers/queries";
+import { listCustomerOptions } from "@/server/requests/queries";
 
 const INDUSTRY_LIST_ID = "industry-suggestions";
 
@@ -29,6 +30,9 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
   const search = (typeof query.q === "string" ? query.q : "").slice(0, 100);
   const [customers, suggestions] = await Promise.all([listCustomers(getDb(), viewer, search), listIndustrySuggestions(getDb(), viewer)]);
   const canEdit = can(viewer.role, "customers.edit");
+  const canRename = can(viewer.role, "customers.rename");
+  // Merging may point at any customer, not only the ones the search shows.
+  const allCustomers = canRename ? await listCustomerOptions(getDb(), viewer) : [];
 
   return (
     <>
@@ -74,6 +78,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
                     listId={INDUSTRY_LIST_ID}
                     canEdit={canEdit}
                     projectsHref={`${PROJECTS_PATH}?q=${encodeURIComponent(customer.name)}`}
+                    others={canRename ? allCustomers.filter((other) => other.id !== customer.id) : undefined}
                   />
                 </TableCell>
                 <TableCell>{customer.industry ?? <span className="text-muted-foreground">Not set</span>}</TableCell>

@@ -46,6 +46,7 @@ export type Permission =
   | "requests.create.rfq"
   | "requests.revise"
   | "requests.edit-dates"
+  | "customers.rename"
   | "requests.email"
   | "requests.work.boq"
   | "requests.work.purchasing"
@@ -91,6 +92,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "requests.create.rfq",
   "requests.revise",
   "requests.edit-dates",
+  "customers.rename",
   "requests.email",
   "requests.work.boq",
   "requests.work.purchasing",
@@ -100,9 +102,9 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
 /** Permissions a role may never lose or gain through the permission editor, so the editor cannot lock everyone out or hand out the keys. */
 export const PERMISSION_GUARDS = {
   /** A superadmin always keeps these: they are how permissions, accounts and the superadmin's own dashboard are reached and repaired. */
-  lockedForSuperadmin: ["permissions.view", "permissions.manage", "users.view", "users.manage", "users.manage-privileged", "requests.edit-dates", "dashboard.superadmin.view"],
+  lockedForSuperadmin: ["permissions.view", "permissions.manage", "users.view", "users.manage", "users.manage-privileged", "requests.edit-dates", "customers.rename", "dashboard.superadmin.view"],
   /** Only a superadmin can ever hold these. They cannot be granted to another role. */
-  superadminOnly: ["permissions.manage", "users.manage-privileged", "requests.edit-dates"],
+  superadminOnly: ["permissions.manage", "users.manage-privileged", "requests.edit-dates", "customers.rename"],
 } as const satisfies Record<string, readonly Permission[]>;
 
 const LOCKED_FOR_SUPERADMIN: ReadonlySet<Permission> = new Set(PERMISSION_GUARDS.lockedForSuperadmin);

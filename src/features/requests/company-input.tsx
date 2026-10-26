@@ -5,11 +5,11 @@ import { filterMasterOptions, type MasterOption } from "@/domain/projects/master
 import { Input } from "@/components/ui/input";
 
 /** How long typing must stop before the existing customers that match are offered. */
-export const COMPANY_SUGGEST_DELAY_MS = 2000;
+export const COMPANY_SUGGEST_DELAY_MS = 1000;
 
 /**
  * The End-user company box. It stays free text (a new company is created when the project is saved), and once typing has paused
- * for two seconds it offers the existing customers that match, so the same company is not written twice in different ways.
+ * for a second it offers the existing customers that match, so the same company is not written twice in different ways.
  */
 export function CompanyInput({ id, name, customers }: { id: string; name: string; customers: readonly MasterOption[] }) {
   const [value, setValue] = useState("");

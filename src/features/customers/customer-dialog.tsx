@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { INDUSTRY_MAX_LENGTH } from "@/domain/customers/industry";
 import { saveCustomerIndustryAction } from "./actions";
+import { CustomerAdmin } from "./customer-admin";
 
 /**
  * The customer's name as a button that opens a window with the customer's details to fill in (the industry). The industry box suggests
@@ -19,12 +20,15 @@ export function CustomerDialog({
   listId,
   canEdit,
   projectsHref,
+  others,
 }: {
   customer: { id: string; name: string; industry: string | null; projects: number };
   /** The id of a `<datalist>` on the page that holds the industries already in use. */
   listId: string;
   canEdit: boolean;
   projectsHref: string;
+  /** The other customers a Superadmin can merge this one into; absent for everyone else (who then see no rename or merge). */
+  others?: { id: string; name: string }[];
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, formAction, pending] = useActionState<FormState, FormData>(saveCustomerIndustryAction, null);
@@ -98,6 +102,7 @@ export function CustomerDialog({
             ) : null}
           </div>
         </form>
+        {others ? <CustomerAdmin customer={{ id: customer.id, name: customer.name, projects: customer.projects }} others={others} /> : null}
       </dialog>
     </>
   );

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./helpers";
 
-test("the End-user company box offers existing customers only after typing has paused for two seconds", async ({ page }) => {
+test("the End-user company box offers existing customers only after typing has paused for a second", async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, "SALES");
   const company = `PT Saran ${Date.now()}`;
@@ -20,9 +20,9 @@ test("the End-user company box offers existing customers only after typing has p
   await expect(async () => {
     await box.fill("");
     await box.pressSequentially(company.slice(0, 12), { delay: 30 });
-    // Right after typing nothing is offered yet; the list comes once two seconds have passed.
-    await expect(list).toBeHidden({ timeout: 800 });
-    await expect(list).toBeVisible({ timeout: 4000 });
+    // Right after typing nothing is offered yet; the list comes once a second has passed.
+    await expect(list).toBeHidden({ timeout: 300 });
+    await expect(list).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 60_000 });
 
   await list.getByRole("button", { name: company }).click();
