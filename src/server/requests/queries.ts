@@ -1,3 +1,4 @@
+import { TECHNICAL_FIELDS } from "@/domain/projects/fields";
 import { PROPOSE_OR_BEYOND } from "@/domain/projects/growth";
 import { effectiveIndustry } from "@/domain/customers/industry";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
@@ -110,6 +111,14 @@ function showWhere(show: ProjectShow | undefined) {
 const numberOrNull = (value: { toNumber(): number } | null): number | null => (value === null ? null : value.toNumber());
 
 /** Highest project number first, so the newest project is on top (HIT-PROJ-1000 sorts after HIT-PROJ-999). */
+const TECHNICAL_FIELD_LIST: string[] = [...TECHNICAL_FIELDS];
+
+/** When SOA last worked on a project: its newest posted update (Current or Next action) or its newest change to a technical field, whichever is later. */
+function lastSoaUpdateOf(project: { actions: { createdAt: Date }[]; changes: { changedAt: Date }[] }): Date | null {
+  const times = [project.actions[0]?.createdAt, project.changes[0]?.changedAt].filter((time): time is Date => time !== undefined);
+  return times.length === 0 ? null : new Date(Math.max(...times.map((time) => time.getTime())));
+}
+
 function byCodeDescending(a: { code: string }, b: { code: string }): number {
   return Number(b.code.slice(9)) - Number(a.code.slice(9));
 }
@@ -138,6 +147,7 @@ const PROJECT_SORT_KEY_SELECT = {
   soaPic: { select: { name: true } },
   customer: { select: { industry: true } },
   actions: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+  changes: { where: { field: { in: TECHNICAL_FIELD_LIST } }, orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
 } as const;
 type ProjectSortKey = Prisma.ProjectGetPayload<{ select: typeof PROJECT_SORT_KEY_SELECT }>;
 
@@ -174,7 +184,7 @@ function byProjectSort(sort: ProjectSort, dir: "asc" | "desc") {
       case "technicalPic":
         return compareText(a.soaPic?.name ?? null, b.soaPic?.name ?? null, d) || byCodeDescending(a, b);
       case "lastUpdate":
-        return compareNumber(a.actions[0]?.createdAt.getTime() ?? null, b.actions[0]?.createdAt.getTime() ?? null, d) || byCodeDescending(a, b);
+        return compareNumber(lastSoaUpdateOf(a)?.getTime() ?? null, lastSoaUpdateOf(b)?.getTime() ?? null, d) || byCodeDescending(a, b);
     }
   };
 }
@@ -248,6 +258,7 @@ const PROJECT_ROW_INCLUDE = {
   solutionCategory: { select: { name: true } },
   requests: { select: { status: true } },
   actions: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+  changes: { where: { field: { in: TECHNICAL_FIELD_LIST } }, orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
 } as const;
 
 type ProjectWithRelations = Prisma.ProjectGetPayload<{ include: typeof PROJECT_ROW_INCLUDE }>;
@@ -271,7 +282,7 @@ function toProjectRow(project: ProjectWithRelations): ProjectRow {
     weightedValue: weightedValue(estimatedValue, project.progress),
     finalValue: numberOrNull(project.finalValue),
     targetDate: project.targetDate,
-    lastSoaUpdate: project.actions[0]?.createdAt ?? null,
+    lastSoaUpdate: lastSoaUpdateOf(project),
     nextAction: project.nextAction,
     openRequests: project.requests.filter((request) => isOpen(request.status)).length,
     totalRequests: project.requests.length,

@@ -5,6 +5,7 @@ import { summariseActions } from "@/domain/projects/actions";
 import { getDb } from "@/lib/db";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
 import { postProjectUpdate, updateProjectDetails } from "@/server/projects/service";
+import { searchProjects } from "@/server/requests/queries";
 import { createProject } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
@@ -336,5 +337,28 @@ describe("project change log rules", () => {
     await expect(
       db.projectChange.create({ data: { projectId: project.id, changedById: soa.id, field: " ", fromValue: "a", toValue: "b" } }),
     ).rejects.toThrow(/project_changes_field_not_blank_chk/);
+  });
+});
+
+describe("the projects table's Last updated (SOA)", () => {
+  it("is the later of SOA's newest update and newest technical edit, empty when SOA did nothing, and the default order puts the latest first", async () => {
+    const soa = await actorOf("SOA");
+    const root = await actorOf("SUPERADMIN");
+    const quiet = await makeProject();
+    const edited = await makeProject();
+    const posted = await makeProject();
+    await updateProjectDetails(db, soa, { projectId: edited.id, values: { technicalNotes: "Sized" } });
+    await postProjectUpdate(db, soa, { projectId: posted.id, kind: "CURRENT", body: "Compiled the BOQ" });
+    // The post is the later of the two, so it leads; a technical edit counts as an update too; a project SOA never touched has none.
+    await updateProjectDetails(db, soa, { projectId: posted.id, values: { technicalNotes: "Early note" } });
+    await postProjectUpdate(db, soa, { projectId: posted.id, kind: "NEXT", body: "Send the BOQ" });
+
+    const page = await searchProjects(db, root, {}, { pageSize: "all", sort: "lastUpdate", dir: "desc" });
+    const byId = new Map(page.rows.map((row) => [row.id, row]));
+    expect(byId.get(quiet.id)?.lastSoaUpdate).toBeNull();
+    expect(byId.get(edited.id)?.lastSoaUpdate).toBeInstanceOf(Date);
+    const order = page.rows.map((row) => row.id);
+    expect(order.indexOf(posted.id)).toBeLessThan(order.indexOf(edited.id));
+    expect(order.indexOf(edited.id)).toBeLessThan(order.indexOf(quiet.id));
   });
 });

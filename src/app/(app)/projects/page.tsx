@@ -102,9 +102,9 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const wantedSize = one(query.per);
   const pageSize: ProjectPageSize = wantedSize === "all" ? "all" : (PROJECT_PAGE_SIZES.find((size) => String(size) === wantedSize) ?? DEFAULT_PROJECT_PAGE_SIZE);
   // The whole matching set is sorted before a page is cut out of it (`searchProjects`), so "Rows per page" never changes what a
-  // column sort covers. With no column chosen, newest project first (by project number) is kept as the default.
-  const sort: ProjectSort = PROJECT_SORTS.find((s) => s === one(query.sort)) ?? "code";
-  const defaultDir = (column: ProjectSort): "asc" | "desc" => (column === "code" ? "desc" : "asc");
+  // column sort covers. With no column chosen, the project SOA updated last comes first (projects never updated follow, newest number first).
+  const sort: ProjectSort = PROJECT_SORTS.find((s) => s === one(query.sort)) ?? "lastUpdate";
+  const defaultDir = (column: ProjectSort): "asc" | "desc" => (column === "code" || column === "lastUpdate" ? "desc" : "asc");
   const dir: "asc" | "desc" = one(query.dir) === "asc" || one(query.dir) === "desc" ? (one(query.dir) as "asc" | "desc") : defaultDir(sort);
   const result = await searchProjects(getDb(), viewer, filter, { page: Number(one(query.page)) || 1, pageSize, sort, dir });
   const projects = result.rows;
@@ -125,7 +125,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     if (per !== DEFAULT_PROJECT_PAGE_SIZE) params.set("per", String(per));
     const nextSort = next.sort ?? sort;
     const nextDir = next.dir ?? dir;
-    if (nextSort !== "code") params.set("sort", nextSort);
+    if (nextSort !== "lastUpdate") params.set("sort", nextSort);
     if (nextDir !== defaultDir(nextSort)) params.set("dir", nextDir);
     if (next.page && next.page > 1) params.set("page", String(next.page));
     const text = params.toString();
