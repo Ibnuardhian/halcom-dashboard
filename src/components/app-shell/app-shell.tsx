@@ -38,6 +38,8 @@ const PROFILE_MENU_ID = "profile-menu";
  */
 export function AppShell({ sections, user, accountHref, controls, notifications, guideHref, signOut, children }: Props) {
   const pathname = usePathname();
+  // Every entry of the menu, so an entry can step aside for one that covers the page more closely.
+  const allHrefs = sections.flatMap((section) => section.links.map((link) => link.href));
   // The drawer is open only for the page it was opened on, so navigating closes it without an effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null);
   const open = openedOn === pathname;
@@ -88,7 +90,7 @@ export function AppShell({ sections, user, accountHref, controls, notifications,
               <ul className="flex flex-col gap-0.5">
                 {section.links.map((link) => (
                   <li key={link.href}>
-                    <NavLink href={link.href} icon={link.icon}>
+                    <NavLink href={link.href} icon={link.icon} others={allHrefs}>
                       {link.label}
                     </NavLink>
                   </li>

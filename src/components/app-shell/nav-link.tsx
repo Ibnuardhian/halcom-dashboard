@@ -48,13 +48,22 @@ const ICONS: Record<NavIcon, LucideIcon> = {
 /** These two are parents of other menu entries, so only an exact match marks them active. */
 const EXACT_ONLY = new Set(["/dashboard", "/requests"]);
 
-export function isActivePath(pathname: string, href: string): boolean {
+
+/** The path is the page or inside it. */
+const covers = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+/**
+ * Whether a menu entry is the current page. Only one entry is: when another entry of the same menu (`others`) covers the page more
+ * closely, the shorter one steps aside ("/projects/new" marks New project, not Projects as well).
+ */
+export function isActivePath(pathname: string, href: string, others: readonly string[] = []): boolean {
   if (pathname === href) return true;
-  return !EXACT_ONLY.has(href) && pathname.startsWith(`${href}/`);
+  if (EXACT_ONLY.has(href) || !covers(pathname, href)) return false;
+  return !others.some((other) => other.length > href.length && covers(pathname, other));
 }
 
-export function NavLink({ href, icon, children }: { href: string; icon: NavIcon; children: React.ReactNode }) {
-  const active = isActivePath(usePathname(), href);
+export function NavLink({ href, icon, others, children }: { href: string; icon: NavIcon; others?: readonly string[]; children: React.ReactNode }) {
+  const active = isActivePath(usePathname(), href, others);
   const Icon = ICONS[icon];
   return (
     <Link
