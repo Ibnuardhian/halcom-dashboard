@@ -340,8 +340,8 @@ describe("project change log rules", () => {
   });
 });
 
-describe("the projects table's Last updated (SOA)", () => {
-  it("is the later of SOA's newest update and newest technical edit, empty when SOA did nothing, and the default order puts the latest first", async () => {
+describe("the projects table's Last updated", () => {
+  it("is the newest activity of any kind, the creation date for a project nobody touched, and the default order puts the latest first", async () => {
     const soa = await actorOf("SOA");
     const root = await actorOf("SUPERADMIN");
     const quiet = await makeProject();
@@ -349,15 +349,17 @@ describe("the projects table's Last updated (SOA)", () => {
     const posted = await makeProject();
     await updateProjectDetails(db, soa, { projectId: edited.id, values: { technicalNotes: "Sized" } });
     await postProjectUpdate(db, soa, { projectId: posted.id, kind: "CURRENT", body: "Compiled the BOQ" });
-    // The post is the later of the two, so it leads; a technical edit counts as an update too; a project SOA never touched has none.
-    await updateProjectDetails(db, soa, { projectId: posted.id, values: { technicalNotes: "Early note" } });
-    await postProjectUpdate(db, soa, { projectId: posted.id, kind: "NEXT", body: "Send the BOQ" });
+    // A project registered after all of that is the newest thing there is, so it leads.
+    const fresh = await makeProject();
 
     const page = await searchProjects(db, root, {}, { pageSize: "all", sort: "lastUpdate", dir: "desc" });
     const byId = new Map(page.rows.map((row) => [row.id, row]));
-    expect(byId.get(quiet.id)?.lastSoaUpdate).toBeNull();
-    expect(byId.get(edited.id)?.lastSoaUpdate).toBeInstanceOf(Date);
+    // A project nobody touched still has a date: when it was created (makeProject sets some fields after creating it, so it is not older than that).
+    const created = (await db.project.findUniqueOrThrow({ where: { id: quiet.id } })).createdAt;
+    expect(byId.get(quiet.id)?.lastUpdated.getTime()).toBeGreaterThanOrEqual(created.getTime());
+    expect(byId.get(edited.id)?.lastUpdated.getTime()).toBeGreaterThan(byId.get(quiet.id)!.lastUpdated.getTime());
     const order = page.rows.map((row) => row.id);
+    expect(order.indexOf(fresh.id)).toBeLessThan(order.indexOf(posted.id));
     expect(order.indexOf(posted.id)).toBeLessThan(order.indexOf(edited.id));
     expect(order.indexOf(edited.id)).toBeLessThan(order.indexOf(quiet.id));
   });

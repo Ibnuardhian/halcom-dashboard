@@ -227,7 +227,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               <TableHead className="hidden lg:table-cell">Principals</TableHead>
               <SortableHead label="Sales PIC" column="salesOwner" active={sort === "salesOwner"} dir={dir} href={sortHref} className="hidden md:table-cell" />
               <SortableHead label="Technical PIC" column="technicalPic" active={sort === "technicalPic"} dir={dir} href={sortHref} className="hidden xl:table-cell" />
-              <SortableHead label="Last updated (SOA)" column="lastUpdate" active={sort === "lastUpdate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
+              <SortableHead label="Last updated" column="lastUpdate" active={sort === "lastUpdate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
               <TableHead className="hidden text-right md:table-cell">Open requests</TableHead>
             </TableRow>
           </TableHeader>
@@ -253,7 +253,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
                   {project.sourceType !== "INTERNAL_SALES" ? <span className="ml-1 text-xs text-muted-foreground">({SOURCE_LABELS[project.sourceType]})</span> : null}
                 </TableCell>
                 <TableCell className="hidden xl:table-cell">{project.technicalPicName ?? "–"}</TableCell>
-                <TableCell className="hidden whitespace-nowrap lg:table-cell">{project.lastSoaUpdate ? formatDay(project.lastSoaUpdate) : "–"}</TableCell>
+                <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDay(project.lastUpdated)}</TableCell>
                 <TableCell className="hidden text-right tabular-nums md:table-cell">
                   {project.openRequests} / {project.totalRequests}
                 </TableCell>
