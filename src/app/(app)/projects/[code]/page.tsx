@@ -25,6 +25,7 @@ import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
 import { ReassignPics } from "@/features/projects/reassign-pics";
+import { RenameProjectForm } from "@/features/projects/rename-form";
 import { SourceForm } from "@/features/projects/source-form";
 import { ClassificationForm } from "@/features/masterdata/classification-form";
 import { ChangeLog } from "@/features/projects/change-log";
@@ -193,6 +194,11 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           {project.lostReason ? <Fact label="Lost reason">{project.lostReason}</Fact> : null}
           <Fact label="Created">{formatDay(project.createdAt)}</Fact>
         </dl>
+        {can(viewer.role, "projects.rename") ? (
+          <div className="mt-4 max-w-xl border-t pt-4">
+            <RenameProjectForm projectId={project.id} projectCode={project.code} name={project.name} />
+          </div>
+        ) : null}
         <div className="mt-4 border-t pt-4">
           <Label>Description</Label>
           <Prose value={project.description} />

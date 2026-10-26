@@ -11,6 +11,7 @@ import { requireUser } from "@/server/auth/current-user";
 import { redirect } from "next/navigation";
 import { deleteProject } from "@/server/projects/delete";
 import { reassignProject } from "@/server/projects/reassign";
+import { renameProject } from "@/server/projects/rename";
 import { updateProjectSource } from "@/server/projects/source";
 import { postProjectUpdate, updateCommercialDetails, updateProjectDetails } from "@/server/projects/service";
 
@@ -138,4 +139,15 @@ export async function removeTechnicalSectionAction(projectId: string, projectCod
   if (!result.ok) return { ok: false, message: result.message };
   void projectCode;
   return { ok: true, message: `${fieldLabel(known)} removed. The change log keeps what it said; it shows after the page is reloaded.` };
+}
+
+/** Superadmin, Admin and SOA correct a project's name; the old and the new name go to the change log. */
+export async function renameProjectAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const result = await renameProject(getDb(), { id: user.id, role: user.role }, { projectId: formData.get("projectId"), name: formData.get("name") });
+  if (!result.ok) return { ok: false, message: result.message };
+  const code = formData.get("projectCode");
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  revalidatePath(PROJECTS_PATH);
+  return { ok: true, message: result.changed ? "Nama project diubah dan dicatat di change log." : "Nama project tidak berubah." };
 }

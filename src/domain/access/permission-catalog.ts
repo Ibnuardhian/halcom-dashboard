@@ -59,6 +59,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "projects.import": { category: "project-management", label: "Import projects", description: "Import projects from an Excel sheet and download the template." },
   "projects.edit.source": { category: "project-management", label: "Edit project source", description: "Change whether a project is Internal Sales or Other, and the external sales details." },
   "projects.edit.technical": { category: "project-management", label: "Edit technical fields", description: "Change the technical fields of a project, with a change log." },
+  "projects.rename": { category: "project-management", label: "Rename projects", description: "Change the name of a project; the old and the new name go to the change log." },
   "projects.edit.commercial": { category: "project-management", label: "Edit commercial fields", description: "Change value, margin, probability and other commercial fields of a project." },
   "projects.delete": { category: "project-management", label: "Delete projects", description: "Delete a project (it is hidden, its history stays)." },
   "projects.reassign": { category: "project-management", label: "Reassign project PICs", description: "Move a project to another Sales, Technical (SOA) or Purchasing PIC." },

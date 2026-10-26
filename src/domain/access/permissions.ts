@@ -23,6 +23,7 @@ export type Permission =
   | "projects.import"
   | "projects.edit.source"
   | "projects.edit.technical"
+  | "projects.rename"
   | "projects.edit.commercial"
   | "projects.delete"
   | "projects.reassign"
@@ -69,6 +70,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.import",
   "projects.edit.source",
   "projects.edit.technical",
+  "projects.rename",
   "projects.edit.commercial",
   "projects.delete",
   "projects.reassign",
@@ -153,6 +155,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "requests.create.external",
     "requests.create.rfq",
     "projects.edit.technical",
+    "projects.rename",
     "projects.post-update",
     "masterdata.manage",
     "sections.manage",
@@ -178,6 +181,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.edit.source",
     "requests.create.external",
     "projects.edit.technical",
+    "projects.rename",
     "projects.post-update",
     "masterdata.manage",
     "requests.email",

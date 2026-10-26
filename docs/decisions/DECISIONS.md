@@ -692,3 +692,12 @@ SOA phases (Assessment, Sizing, POC and any an Admin or Superadmin added, see th
 - **What it no longer does.** Setting a phase used to start an untouched BOQ (Submitted to In progress). It no longer does: a BOQ changes status only through its own status control, since the phase is not about one request.
 - **Audit and notifications.** `project.phase_changed` (entity `project`) replaces `request.phase_changed`; Sales owner and teams are told with a link to the project. Old audit rows and notifications of the earlier kind are left as they are.
 - **Tests.** Integration (`notifications`, `flow`, `technical-sections`) and E2E (`work`, `technical-sections`) were rewritten for the project-level phase; the "BOQ nobody touched starts" and "database keeps a phase off RFQ/PO" cases were removed with the behaviour.
+
+## D-042: Superadmin, Admin and SOA can rename a project (2026-10-26)
+
+A project's name was written once, at creation, and nobody could correct it (only the end user, by a Superadmin, through the customer). The product owner asked that Superadmin, Admin and SOA can change it, and that it be a permission.
+
+- **Permission.** `projects.rename` (category project management, "Rename projects") is in the default set of SUPERADMIN, ADMIN and SOA; it shows on `/admin/permissions` and a Superadmin can change it there like any other.
+- **Behaviour.** `renameProject` (`src/server/projects/rename.ts`) trims and single-spaces the name (1 to 160 characters), rechecks the stored role inside the transaction, writes one change-log row (field `name`, shown as "Project name", old and new value), the audit event `project.renamed` and a notification to the project's people. Saving the same name writes nothing. The request codes, the project code and the end user are untouched.
+- **Where.** A "Nama project" box in the Overview of the project page, shown only with the permission.
+- **Also.** The forms that kept showing the old value after a successful save (React 19 clears a form after its action) were rebuilt from the saved value (key on the form), and the PIC Workload chart says it counts only open projects.

@@ -397,6 +397,26 @@ test.describe("projects and requests", () => {
     await root.context().close();
   });
 
+  test("SOA renames a project, the box keeps the new name, and Sales has no rename box", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Old naem");
+    await page.goto(`/projects/${projectCode}`);
+    await expect(page.getByLabel("Nama project")).toHaveCount(0);
+
+    const soa = await asRole(browser, "SOA");
+    await soa.goto(`/projects/${projectCode}`);
+    const box = soa.getByLabel("Nama project");
+    await expect(async () => {
+      await box.fill("Old name fixed");
+      await soa.getByRole("button", { name: "Ubah nama" }).click();
+      await expect(soa.getByRole("status").filter({ hasText: "Nama project diubah" })).toBeVisible({ timeout: 1500 });
+    }).toPass();
+    await expect(box).toHaveValue("Old name fixed");
+    await soa.reload();
+    await expect(soa.getByLabel("Nama project")).toHaveValue("Old name fixed");
+    await soa.context().close();
+  });
+
   test("only the superadmin can delete a project, and it then disappears", async ({ page, browser }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Delete me");
