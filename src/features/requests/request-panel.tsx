@@ -4,7 +4,6 @@ import { salesActsOn } from "@/domain/projects/source";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canContinueFlow, canSeeEmail, canWorkOn } from "@/domain/requests/access";
-import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatSlaRange, slaOf } from "@/domain/requests/sla";
 import { allowedTransitions, canHandOver, isOpen, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
@@ -13,7 +12,7 @@ import { formatDay } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { buildRequestEmail } from "@/server/requests/email";
-import type { RequestDetail } from "@/server/requests/queries";
+import { listSoaPhases, type RequestDetail } from "@/server/requests/queries";
 import { getTeamSetting } from "@/server/settings/team-settings";
 import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
 import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
@@ -46,6 +45,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
+  const phases = mayPhase ? await listSoaPhases(getDb(), viewer) : [];
   const people = can(viewer.role, "requests.edit-dates") ? await requesterChoices(request) : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
@@ -68,7 +68,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
               <SlaBadge sla={sla} />
             </Fact>
             {request.type === "BOQ" ? (
-              <Fact label="SOA phase">{request.phase ? SOA_PHASE_LABELS[request.phase] : <span className="text-muted-foreground">Not started</span>}</Fact>
+              <Fact label="SOA phase">{request.phaseOption?.label ?? <span className="text-muted-foreground">Not started</span>}</Fact>
             ) : null}
             <Fact label="PIC">
               {request.pic ? (
@@ -218,7 +218,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <CardDescription>Label the part of the work you are on: Assessment, Sizing or POC. Sales and Purchasing are notified.</CardDescription>
           </CardHeader>
           <CardContent>
-            <PhaseForm requestId={request.id} current={request.phase} />
+            <PhaseForm requestId={request.id} current={request.phase} phases={phases} />
           </CardContent>
         </Card>
       ) : null}

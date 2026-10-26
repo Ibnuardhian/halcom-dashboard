@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { allowedTransitions, boardColumns, columnOf, reasonRequired, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
 import type { RequestType } from "@/domain/requests/types";
 import { cn } from "@/lib/utils";
@@ -171,7 +170,7 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
                         </div>
                         {card.phase || card.requiredBy ? (
                           <p className="mt-1 text-[11px] text-muted-foreground">
-                            {card.phase ? SOA_PHASE_LABELS[card.phase] : null}
+                            {card.phaseLabel}
                             {card.phase && card.requiredBy ? " · " : null}
                             {card.requiredBy ? `needed by ${formatDateOnly(card.requiredBy)}` : null}
                           </p>

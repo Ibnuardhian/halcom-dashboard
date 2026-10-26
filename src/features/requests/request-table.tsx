@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDay } from "@/features/dashboards/format";
 import type { RequestRow, RequestSort } from "@/server/requests/queries";
-import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -72,7 +71,7 @@ export function RequestTable({
             </TableCell>
             <TableCell>
               <TypeBadge type={row.type} />
-              {row.phase ? <span className="mt-1 block text-[11px] text-muted-foreground">{SOA_PHASE_LABELS[row.phase]}</span> : null}
+              {row.phase ? <span className="mt-1 block text-[11px] text-muted-foreground">{row.phaseLabel}</span> : null}
             </TableCell>
             <TableCell className="max-w-56">
               <Link href={`/projects/${row.projectCode}`} className="block truncate hover:underline">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { CalendarDays, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,15 @@ function mask(raw: string): string {
 export function DateInput({ label, name, defaultValue = "", className, required, ...props }: Props) {
   const [text, setText] = useState(isoToDisplay(defaultValue));
   const input = useRef<HTMLInputElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  // The calendar of the browser: a click on the box or the button opens it, and the day picked is written as DD/MM/YYYY.
+  const openCalendar = () => {
+    try {
+      picker.current?.showPicker();
+    } catch {
+      // A browser without showPicker, or one that refuses it, leaves typing as it is.
+    }
+  };
   const iso = displayToIso(text);
 
   // A half-typed or impossible date blocks the form with a message instead of being silently dropped.
@@ -54,7 +63,7 @@ export function DateInput({ label, name, defaultValue = "", className, required,
   }, [text, iso]);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative flex items-center gap-2">
       <Input
         {...props}
         ref={input}
@@ -66,9 +75,22 @@ export function DateInput({ label, name, defaultValue = "", className, required,
         required={required}
         value={text}
         onChange={(event) => setText(mask(event.target.value))}
+        onClick={openCalendar}
         className={cn("min-w-0 flex-1", className)}
       />
       <input type="hidden" name={name} value={iso ?? ""} />
+      <input
+        ref={picker}
+        type="date"
+        tabIndex={-1}
+        aria-hidden
+        className="pointer-events-none absolute size-0 opacity-0"
+        value={iso ?? ""}
+        onChange={(event) => setText(isoToDisplay(event.target.value))}
+      />
+      <Button type="button" variant="outline" size="icon-sm" aria-label={`Pilih tanggal ${label}`} onClick={openCalendar}>
+        <CalendarDays aria-hidden />
+      </Button>
       {text !== "" ? (
         <Button
           type="button"

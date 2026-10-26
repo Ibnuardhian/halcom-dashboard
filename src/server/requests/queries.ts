@@ -10,7 +10,6 @@ import { principalNamesOf } from "@/domain/projects/master-data";
 import { weightedValue } from "@/domain/projects/pipeline";
 import { salesSideName, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
 import { PROGRESS_LABELS, PROGRESS_PERCENT, TRACK_STATUS_LABELS, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
-import type { SoaPhase } from "@/domain/requests/phase";
 import { deadlineState } from "@/domain/requests/metrics";
 import { slaOf, type Sla, type SlaState } from "@/domain/requests/sla";
 import { OWNING_ROLE, REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
@@ -389,7 +388,9 @@ export type RequestRow = {
   type: RequestType;
   status: RequestStatus;
   /** The part of the BOQ work SOA is on (BOQ requests only). */
-  phase: SoaPhase | null;
+  phase: string | null;
+  /** The phase as written in the list of SOA phases (it can be renamed there). */
+  phaseLabel: string | null;
   title: string;
   /** The item details Sales or SOA wrote on the request. */
   description: string;
@@ -443,6 +444,7 @@ const ROW_INCLUDE = {
   requester: { select: { name: true } },
   // The PIC (an operational assignee, not a login account) is who the request is handed to.
   pic: { select: { name: true } },
+  phaseOption: { select: { label: true } },
   statusHistory: { select: { toStatus: true, changedAt: true } },
 } as const;
 
@@ -491,6 +493,7 @@ function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeo
     type: request.type,
     status: request.status,
     phase: request.phase,
+    phaseLabel: request.phaseOption?.label ?? null,
     title: request.title,
     description: request.description,
     projectCode: request.project.code,
@@ -662,6 +665,7 @@ const REQUEST_DETAIL = {
   pic: { select: { name: true, isActive: true } },
   // The SOA person who raised it, when SOA did (SOA signs in with one shared account).
   raisedByPic: { select: { name: true } },
+  phaseOption: { select: { label: true } },
   source: { select: { code: true } },
   handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
   flowStoppedBy: { select: { name: true } },
@@ -715,4 +719,10 @@ export async function getWorkStats(db: PrismaClient, viewer: Viewer, projectOwne
 export async function listCustomerOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.view"));
   return db.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+}
+
+/** The SOA phases, in order; the inactive ones stay listed so a request that still holds one shows its name. */
+export async function listSoaPhases(db: PrismaClient, viewer: Viewer) {
+  assertPermitted(can(viewer.role, "requests.view"));
+  return db.soaPhaseOption.findMany({ orderBy: [{ position: "asc" }, { label: "asc" }], select: { key: true, label: true, isActive: true } });
 }

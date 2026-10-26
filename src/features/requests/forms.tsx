@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { PROGRESS_OPTION_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
-import { SOA_PHASES, SOA_PHASE_LABELS, type SoaPhase } from "@/domain/requests/phase";
+
 import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
 import { MarginInput } from "@/features/projects/margin-input";
@@ -414,7 +414,7 @@ export function AssignPicForm({ requestId, current, pics, teamLabel }: { request
 }
 
 /** SOA labels the part of the BOQ work they are on. */
-export function PhaseForm({ requestId, current }: { requestId: string; current: SoaPhase | null }) {
+export function PhaseForm({ requestId, current, phases }: { requestId: string; current: string | null; phases: { key: string; label: string; isActive: boolean }[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setPhaseAction, null);
 
   return (
@@ -423,9 +423,9 @@ export function PhaseForm({ requestId, current }: { requestId: string; current: 
       <Field id={`phase-${requestId}`} label="Phase">
         <NativeSelect id={`phase-${requestId}`} name="phase" defaultValue={current ?? ""}>
           <option value="">Not started</option>
-          {SOA_PHASES.map((phase) => (
-            <option key={phase} value={phase}>
-              {SOA_PHASE_LABELS[phase]}
+          {phases.filter((phase) => phase.isActive || phase.key === current).map((phase) => (
+            <option key={phase.key} value={phase.key}>
+              {phase.label}
             </option>
           ))}
         </NativeSelect>

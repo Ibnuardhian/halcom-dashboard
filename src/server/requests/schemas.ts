@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HANDOVER_TYPES, REQUEST_STATUSES } from "@/domain/requests/status";
-import { SOA_PHASES } from "@/domain/requests/phase";
+
 import { REQUEST_TYPES } from "@/domain/requests/types";
 
 /** Empty form fields arrive as "" or null; both mean "not provided". */
@@ -81,7 +81,7 @@ export const createRequestSchema = z.object({
 export const phaseSchema = z.object({
   requestId: z.uuid(),
   // "" clears the label (work has not reached a phase yet).
-  phase: z.enum(SOA_PHASES, "Pilih Assessment, Sizing, atau POC.").or(z.literal("")).transform((value) => (value === "" ? null : value)),
+  phase: z.string().trim().max(40, "Pilih SOA phase yang tersedia.").transform((value) => (value === "" ? null : value)),
 });
 
 export const handoverSchema = z.object({

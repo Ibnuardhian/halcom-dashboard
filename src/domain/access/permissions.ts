@@ -34,6 +34,7 @@ export type Permission =
   | "finance.crosscheck.view"
   | "reports.technical.view"
   | "masterdata.manage"
+  | "sections.manage"
   | "pics.manage"
   | "targets.edit"
   | "customers.view"
@@ -78,6 +79,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "finance.crosscheck.view",
   "reports.technical.view",
   "masterdata.manage",
+  "sections.manage",
   "pics.manage",
   "targets.edit",
   "customers.view",
@@ -151,6 +153,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.edit.technical",
     "projects.post-update",
     "masterdata.manage",
+    "sections.manage",
     // Admin keeps the list of PICs (the operational assignees of SOA and Purchasing tickets).
     "pics.manage",
     "requests.work.boq",

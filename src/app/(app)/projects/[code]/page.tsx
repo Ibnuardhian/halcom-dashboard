@@ -11,7 +11,6 @@ import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/doma
 import { principalNamesOf } from "@/domain/projects/master-data";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn } from "@/domain/projects/source";
-import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { REQUEST_TYPES } from "@/domain/requests/types";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatDay } from "@/features/dashboards/format";
@@ -19,6 +18,8 @@ import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
 import { ProjectTabs } from "@/features/projects/project-tabs";
+import { ProjectSectionsForm } from "@/features/sections/section-forms";
+import { listSections, listSectionValues } from "@/server/sections/service";
 import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
@@ -83,6 +84,10 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   const [principals, solutions] = can(viewer.role, "projects.edit.technical")
     ? await Promise.all([listMasterRecords(getDb(), viewer, "principal"), listMasterRecords(getDb(), viewer, "solution")])
     : [[], []];
+  // Sections an Admin or Superadmin added to the Technical tab, and what is written in them on this project.
+  const [sections, addedValues] = await Promise.all([listSections(getDb(), viewer, { includeInactive: true }), listSectionValues(getDb(), viewer, project.id)]);
+  const sectionList = sections.map((section) => ({ id: section.id, label: section.label, kind: section.kind as "TEXT" | "CHOICE", options: section.options, isActive: section.isActive }));
+  const sectionValues = Object.fromEntries(addedValues.map((row) => [row.sectionId, row.value]));
   const [requests, details, changes, actions] = await Promise.all([
     listRequests(getDb(), viewer, { projectId: project.id }),
     listProjectRequestDetails(getDb(), viewer, project.id),
@@ -298,12 +303,13 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
                   <Link href={`/request/${r.code}`} className="font-mono text-primary underline-offset-4 hover:underline">
                     {r.code}
                   </Link>{" "}
-                  · {SOA_PHASE_LABELS[r.phase!]}
+                  · {r.phaseLabel ?? r.phase}
                 </li>
               ))}
             </ul>
           )}
         </div>
+        {mayEditTechnical ? <ProjectSectionsForm projectId={project.id} projectCode={project.code} sections={sectionList} values={sectionValues} /> : <AddedSectionsView rows={addedValues} />}
         <div className="mt-6 border-t pt-4">
           <h3 className="mb-2 text-sm font-semibold">Change log</h3>
           <ChangeLog changes={changes} />
@@ -409,5 +415,20 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         </div>
       ) : null}
     </>
+  );
+}
+
+/** What is written in the added sections, for people who may read the Technical tab but not edit it. */
+function AddedSectionsView({ rows }: { rows: { sectionId: string; label: string; value: string }[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <dl className="mt-6 grid gap-4 border-t pt-6">
+      {rows.map((row) => (
+        <div key={row.sectionId}>
+          <Label>{row.label}</Label>
+          <Prose value={row.value} />
+        </div>
+      ))}
+    </dl>
   );
 }

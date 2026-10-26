@@ -171,12 +171,6 @@ enum TrackStatus {
 }
 
 // The part of the BOQ work SOA is on: they label a BOQ request Assessment, Sizing or POC as it moves along.
-// Keep in sync with src/domain/requests/phase.ts.
-enum SoaPhase {
-  ASSESSMENT
-  SIZING
-  POC
-}
 
 // Where a project came from. INTERNAL_SALES is the company's own Sales team (the project has a Sales PIC); OTHER is work SOA
 // registers that comes from an external sales company or another source (no internal Sales PIC; the external fields describe
@@ -351,6 +345,7 @@ model Project {
   deletedBy        User?             @relation("ProjectDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   requests         Request[]
   changes          ProjectChange[]
+  sectionValues    ProjectSectionValue[]
   progressHistory  ProjectProgressHistory[]
   actions          ProjectAction[]
 
@@ -385,7 +380,8 @@ model Request {
   // Set on an RFQ or PO that was handed over from a completed BOQ.
   sourceRequestId String?       @map("source_request_id") @db.Uuid
   // Set by SOA on a BOQ request only (a database check keeps it off RFQ and PO).
-  phase           SoaPhase?
+  phase           String?
+  phaseOption     SoaPhaseOption? @relation(fields: [phase], references: [key], onDelete: Restrict)
   submissionKey   String?       @unique @map("submission_key")
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
   // The SOA PIC who raised it, when SOA raised it (SOA signs in with one shared account, so the person is a PIC). Null for a request
@@ -627,4 +623,51 @@ model RolePermissionOverride {
 
   @@id([role, permission])
   @@map("role_permission_overrides")
+}
+
+/** A technical section an Admin or Superadmin added to the project page (the built-in ones are columns of the project). */
+model TechnicalSection {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  label     String
+  // Trimmed, single-spaced, lower-cased label: two sections cannot share a name.
+  labelKey  String   @unique @map("label_key")
+  // TEXT: free text. CHOICE: one of `options`.
+  kind      String
+  options   String[] @default([])
+  position  Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  values ProjectSectionValue[]
+
+  @@map("technical_sections")
+}
+
+model ProjectSectionValue {
+  projectId String   @map("project_id") @db.Uuid
+  sectionId String   @map("section_id") @db.Uuid
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  section TechnicalSection @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, sectionId])
+  @@index([sectionId])
+  @@map("project_section_values")
+}
+
+/** The parts of the BOQ work SOA can be on (Assessment, Sizing, POC and any an Admin or Superadmin added). A request keeps the key. */
+model SoaPhaseOption {
+  key       String   @id
+  label     String
+  labelKey  String   @unique @map("label_key")
+  position  Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  requests Request[]
+
+  @@map("soa_phases")
 }

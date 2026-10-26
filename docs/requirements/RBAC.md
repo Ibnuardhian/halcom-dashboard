@@ -91,7 +91,7 @@ categories, each with a label, a description and its identifier. Dashboards are 
 | 3 | Permission Management | `permissions.view`, `permissions.manage` |
 | 4 | Project Management | `projects.view`, `.create`, `.create.external`, `.assign-sales`, `.import`, `.edit.source`, `.edit.technical`, `.edit.commercial`, `.delete`, `.reassign`, `.post-update` |
 | 5 | Request, BOQ, RFQ & Handoffs | `requests.view`, `.create`, `.create.external`, `.create.rfq`, `.email`, `.work.boq`, `.work.purchasing`, `.handover`, `handoffs.view` |
-| 6 | Master Data, Principals, Customers & PICs | `masterdata.manage`, `pics.manage`, `customers.view` |
+| 6 | Master Data, Principals, Customers & PICs | `masterdata.manage`, `sections.manage`, `pics.manage`, `customers.view` |
 | 7 | Sales Pipeline & Targets | `targets.edit` |
 | 8 | Finance & Crosscheck | `finance.crosscheck.view` |
 | 9 | Reports & Analytics | `reports.technical.view` |

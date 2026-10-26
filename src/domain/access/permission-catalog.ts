@@ -77,6 +77,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "handoffs.view": { category: "request-workflow", label: "View Purchasing handoffs", description: "Open the Purchasing Handoff page." },
 
   "masterdata.manage": { category: "master-data", label: "Manage master data", description: "Maintain principals, solution categories and customers, and classify projects with them." },
+  "sections.manage": { category: "master-data", label: "Manage technical sections and SOA phases", description: "Add sections to the Technical tab of a project and phases SOA can pick, rename them or switch them off." },
   "pics.manage": { category: "master-data", label: "Manage PICs", description: "Add, rename and deactivate the PICs SOA and Purchasing tickets are assigned to." },
   "customers.view": { category: "master-data", label: "View customers", description: "Open the Customers page." },
   "customers.edit": { category: "master-data", label: "Edit customer details", description: "Fill in a customer's industry on the Customers page; charts, filters and exports use it for all of the customer's projects." },

@@ -10,7 +10,6 @@ import { canCreateProjectWithSource, canRaiseRequestOn, canRaiseWithNewProject, 
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
-import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { jakartaDay } from "@/domain/requests/metrics";
 import { codePrefixFor, codePrefixForPic, nextProjectCode, nextRequestCode, recodeFor } from "./codes";
@@ -581,6 +580,9 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     if (request.type !== "BOQ") return fail("INVALID_STATE", "Hanya request BOQ yang memiliki SOA phase.");
     if (!isOpen(request.status)) return fail("INVALID_STATE", "Request ini sudah ditutup.");
     if (request.phase === phase) return succeed({ code: request.code });
+    // The phase must be one of the list (an inactive one is refused too, only the one already on the request may stay).
+    const option = phase === null ? null : await tx.soaPhaseOption.findUnique({ where: { key: phase } });
+    if (phase !== null && (!option || !option.isActive)) return fail("INVALID_INPUT", "Pilih SOA phase yang tersedia.");
 
     // Labelling the work with a phase means SOA has started it: a request nobody had touched goes to In progress by itself.
     const starts = phase !== null && request.status === "SUBMITTED";
@@ -590,7 +592,7 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
     });
     if (starts) {
       await tx.requestStatusHistory.create({
-        data: { requestId: request.id, fromStatus: "SUBMITTED", toStatus: "IN_PROGRESS", changedById: actor.id, reason: `Started: phase set to ${SOA_PHASE_LABELS[phase]}` },
+        data: { requestId: request.id, fromStatus: "SUBMITTED", toStatus: "IN_PROGRESS", changedById: actor.id, reason: `Started: phase set to ${option?.label ?? phase}` },
       });
     }
     await audit(tx, actor.id, "request", "request.phase_changed", request.id, { phase: request.phase }, { phase });
@@ -598,7 +600,7 @@ export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, inp
       actorId: actor.id,
       recipientIds: await projectAudience(tx, request.projectId),
       kind: "request.phase_changed",
-      title: phase ? `${request.code} is now in ${SOA_PHASE_LABELS[phase]}` : `${request.code}: phase cleared`,
+      title: option ? `${request.code} is now in ${option.label}` : `${request.code}: phase cleared`,
       body: `${request.project.endUserCompany} (${request.project.code})`,
       href: `/request/${request.code}`,
     });
