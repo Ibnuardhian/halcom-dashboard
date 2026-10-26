@@ -19,6 +19,7 @@ import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
 import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
+import { jakartaDay } from "@/domain/requests/metrics";
 import { AssignPicForm, NextStepForm, PhaseForm, RequestDatesForm, RevisionForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
@@ -44,6 +45,10 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
+  // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
+  const people = can(viewer.role, "requests.edit-dates")
+    ? await getDb().user.findMany({ where: { OR: [{ isActive: true }, { id: request.requesterId }] }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+    : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
     ? buildRequestEmail(request, { subject: setting.emailSubject, body: setting.emailBody, sla: setting.sla, dueAt: sla.dueAt })
@@ -190,14 +195,16 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <CardTitle className="text-base">
               <h3>Correct the dates</h3>
             </CardTitle>
-            <CardDescription>Set when this request was created and when it was completed, for a ticket entered late or recorded wrongly. The status history is not rewritten; the change is audited.</CardDescription>
+            <CardDescription>Atur tanggal (tanpa jam) request ini dibuat dan selesai, serta siapa pemohonnya (Requested by), untuk tiket yang diinput terlambat atau salah catat. The status history is not rewritten; the change is audited.</CardDescription>
           </CardHeader>
           <CardContent>
             <RequestDatesForm
               requestId={request.id}
-              createdAt={request.createdAt.toISOString().slice(0, 16)}
-              completedAt={request.completedAt ? request.completedAt.toISOString().slice(0, 16) : null}
+              createdAt={jakartaDay(request.createdAt)}
+              completedAt={request.completedAt ? jakartaDay(request.completedAt) : null}
               canComplete={request.status === "COMPLETED" || request.status === "REVISION"}
+              requesterId={request.requesterId}
+              people={people}
             />
           </CardContent>
         </Card>

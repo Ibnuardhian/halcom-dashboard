@@ -458,22 +458,31 @@ export function RevisionForm({ requestId }: { requestId: string }) {
   );
 }
 
-/** A superadmin sets the creation and completion time by hand. The values are UTC, the zone the app shows. */
-export function RequestDatesForm({ requestId, createdAt, completedAt, canComplete }: { requestId: string; createdAt: string; completedAt: string | null; canComplete: boolean }) {
+/** A superadmin sets the creation and completion day by hand: a calendar day, no time (Jakarta). */
+export function RequestDatesForm({ requestId, createdAt, completedAt, canComplete, requesterId, people }: { requestId: string; createdAt: string; completedAt: string | null; canComplete: boolean; requesterId: string; people: { id: string; name: string }[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setRequestDatesAction, null);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={requestId} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id={`created-at-${requestId}`} label="Created (UTC) *">
-          <Input id={`created-at-${requestId}`} name="createdAt" type="datetime-local" required defaultValue={createdAt} />
+        <Field id={`created-at-${requestId}`} label="Created *" hint="Format DD/MM/YYYY, tanpa jam.">
+          <DateInput id={`created-at-${requestId}`} name="createdAt" label="Created" required defaultValue={createdAt} />
         </Field>
         {canComplete ? (
-          <Field id={`completed-at-${requestId}`} label="Completed (UTC)" hint="Biarkan apa adanya untuk mempertahankan waktu penyelesaian yang tersimpan.">
-            <Input id={`completed-at-${requestId}`} name="completedAt" type="datetime-local" defaultValue={completedAt ?? ""} />
+          <Field id={`completed-at-${requestId}`} label="Completed" hint="Format DD/MM/YYYY. Kosongkan untuk mempertahankan tanggal penyelesaian yang tersimpan.">
+            <DateInput id={`completed-at-${requestId}`} name="completedAt" label="Completed" defaultValue={completedAt ?? ""} />
           </Field>
         ) : null}
+        <Field id={`requester-${requestId}`} label="Requested by">
+          <NativeSelect id={`requester-${requestId}`} name="requesterId" defaultValue={requesterId}>
+            {people.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
       </div>
       <FormStatus state={state} />
       <div>

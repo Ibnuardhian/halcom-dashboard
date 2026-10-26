@@ -26,7 +26,7 @@ async function createProject(page: Page, name: string): Promise<string> {
 
 /** Opens the new-request form for a project and type (via the project page buttons) and submits it. */
 async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ" | "PO", title: string): Promise<string> {
-  await page.goto(`/projects/${projectCode}`);
+  await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: `New ${type}`, exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue(type);
   // A click before the page is interactive reloads the form instead of submitting it, so the whole step is retried.
@@ -133,7 +133,7 @@ test.describe("projects and requests", () => {
     await expect(async () => {
       // A fill before hydration leaves the typed value in the box; emptying it first makes the next fill a real change.
       await target.fill("");
-      await target.fill("2026-12-31");
+      await target.fill("31/12/2026");
       await expect(page.getByRole("button", { name: "Clear Target closing" })).toBeVisible({ timeout: 2000 });
     }).toPass({ timeout: 30_000 });
     await page.getByRole("button", { name: "Clear Target closing" }).click();
@@ -143,7 +143,7 @@ test.describe("projects and requests", () => {
     // The request's own date has the same button.
     await page.getByText(/^BOQ – /).click();
     const needed = page.getByLabel("Needed by", { exact: true });
-    await needed.fill("2026-11-30");
+    await needed.fill("30/11/2026");
     await page.getByRole("button", { name: "Clear Needed by" }).click();
     await expect(needed).toHaveValue("");
   });
@@ -174,10 +174,10 @@ test.describe("projects and requests", () => {
     await expect(quote).toHaveValue(today);
 
     // The date stays editable at Propose: moved when the schedule moves...
-    await quote.fill("2026-12-15");
+    await quote.fill("15/12/2026");
     await save();
     await page.goto(`/projects/${projectCode}`);
-    await expect(quote).toHaveValue("2026-12-15");
+    await expect(quote).toHaveValue("15/12/2026");
 
     // ...and cleared with the button, which disappears with the value.
     await commercial.getByRole("button", { name: "Clear Quote released" }).click();
@@ -197,7 +197,7 @@ test.describe("projects and requests", () => {
     await commercial.getByLabel("Estimated PO value").fill("1000000");
     await commercial.getByLabel("Progress").selectOption({ label: "60% - Negotiate" });
     await commercial.getByLabel("Status").selectOption({ label: "On Hold" });
-    await commercial.getByLabel("Quote released").fill("2026-10-01");
+    await commercial.getByLabel("Quote released").fill("01/10/2026");
     await expect(commercial.getByLabel(/Probability/)).toHaveCount(0); // the probability comes from Progress
     await commercial.getByLabel("Target margin (amount)").fill("150000");
     await page.getByRole("button", { name: "Save commercial details" }).click();
@@ -481,7 +481,7 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "Updates demo");
 
     const soa = await asRole(browser, "SOA");
-    await soa.goto(`/projects/${projectCode}`);
+    await soa.goto(`/projects/${projectCode}#activity`);
     const post = async (kind: "Current action" | "Next action", text: string) => {
       await soa.getByRole("radio", { name: new RegExp(`^${kind}`) }).check();
       await soa.getByLabel("Update", { exact: true }).fill(text);
@@ -561,7 +561,7 @@ test.describe("projects and requests", () => {
     expect(rfq).toMatch(/^RFQ-S[A-Z]*-/);
 
     // The flow is BOQ -> RFQ -> PO: the BOQ was skipped, but a PO waits for the RFQ to be completed.
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("link", { name: "New RFQ", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "New PO", exact: true })).toHaveCount(0);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQSkipped");

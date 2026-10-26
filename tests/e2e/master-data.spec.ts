@@ -17,7 +17,7 @@ async function createProject(page: Page, company: string, name: string): Promise
 }
 
 async function createRfq(page: Page, projectCode: string, title: string, details: string): Promise<string> {
-  await page.goto(`/projects/${projectCode}`);
+  await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: "New RFQ", exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue("RFQ");
   await expect(async () => {
@@ -194,7 +194,7 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     const alphaRfq = await createRfq(page, alpha, `Switches ${id}`, `48 port switches for ${id}`);
     const bravoRfq = await createRfq(page, bravo, `Cables ${id}`, "Cat6A cables");
     const boqProject = await createProject(page, `Charlie ${id}`, "Charlie project");
-    await page.goto(`/projects/${boqProject}`);
+    await page.goto(`/projects/${boqProject}#requests`);
     await page.getByRole("link", { name: "New BOQ", exact: true }).click();
     await expect(async () => {
       await page.getByLabel("Summary").fill(`BOQ ${id}`);

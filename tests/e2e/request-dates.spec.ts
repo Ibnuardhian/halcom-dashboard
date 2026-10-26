@@ -19,7 +19,7 @@ async function createProject(page: Page, name: string): Promise<string> {
 }
 
 async function createBoq(page: Page, projectCode: string, title: string): Promise<string> {
-  await page.goto(`/projects/${projectCode}`);
+  await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: "New BOQ", exact: true }).click();
   await expect(async () => {
     await page.getByLabel("Summary").fill(title);
@@ -43,13 +43,21 @@ test.describe("a superadmin sets the dates of a request by hand", () => {
     await page.goto(`/request/${requestCode}`);
     await expect(page.getByRole("heading", { name: "Correct the dates" })).toBeVisible();
     // An open request has no completion date to set.
-    await expect(page.getByLabel("Completed (UTC)")).toHaveCount(0);
+    await expect(page.getByLabel("Completed")).toHaveCount(0);
     await expect(async () => {
-      await page.getByLabel("Created (UTC) *").fill("2026-09-01T03:30");
+      await page.getByLabel("Created *").fill("01/09/2026");
       await page.getByRole("button", { name: "Save dates" }).click();
       await expect(page.getByText(`The dates of ${requestCode} were saved.`)).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
+    // The requester can be corrected on the same card.
+    const requester = page.getByLabel("Requested by", { exact: true });
+    const other = await requester.locator("option:not(:checked)").first().getAttribute("value");
+    await requester.selectOption(other!);
+    await page.getByRole("button", { name: "Save dates" }).click();
+    await expect(page.getByLabel("Requested by", { exact: true })).toHaveValue(other!, { timeout: 15_000 });
+    await page.waitForTimeout(1500);
     await page.reload();
-    await expect(page.getByLabel("Created (UTC) *")).toHaveValue("2026-09-01T03:30");
+    await expect(page.getByLabel("Created *")).toHaveValue("01/09/2026");
+    await expect(page.getByLabel("Requested by", { exact: true })).toHaveValue(other!);
   });
 });

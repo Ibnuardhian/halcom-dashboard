@@ -28,7 +28,7 @@ async function createProject(page: Page, company: string, name: string): Promise
 }
 
 async function createBoq(page: Page, projectCode: string, title: string): Promise<string> {
-  await page.goto(`/projects/${projectCode}`);
+  await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: "New BOQ", exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue("BOQ");
   await expect(async () => {

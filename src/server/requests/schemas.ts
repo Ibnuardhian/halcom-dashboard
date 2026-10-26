@@ -100,23 +100,24 @@ export const statusChangeSchema = z.object({
 /** Sales ask for a revision of a completed BOQ; the reason is the change the customer asked for. */
 export const revisionSchema = z.object({ requestId: z.uuid(), reason: z.string().trim().min(1, "Tuliskan apa yang perlu diubah.").max(500) });
 
-/** A superadmin sets the creation and completion time of a request by hand (a datetime-local value, read as UTC, the zone the app shows). */
-const utcDateTime = z
+/** A superadmin sets the creation and completion day of a request by hand: a calendar day (YYYY-MM-DD, no time), read as Jakarta midnight. */
+const dayInput = z
   .string()
   .trim()
-  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Masukkan tanggal dan jam yang valid.")
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Masukkan tanggal yang valid.")
   .transform((value, ctx) => {
-    const date = new Date(`${value}:00.000Z`);
-    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 16) !== value) {
-      ctx.addIssue({ code: "custom", message: "Masukkan tanggal dan jam yang valid." });
+    const date = new Date(`${value}T00:00:00+07:00`);
+    if (Number.isNaN(date.getTime()) || new Date(date.getTime() + 7 * 3_600_000).toISOString().slice(0, 10) !== value) {
+      ctx.addIssue({ code: "custom", message: "Masukkan tanggal yang valid." });
       return z.NEVER;
     }
     return date;
   });
 export const requestDatesSchema = z.object({
   requestId: z.uuid(),
-  createdAt: utcDateTime,
-  completedAt: z.string().trim().nullish().transform((value) => (value ? value : null)).pipe(utcDateTime.nullable()),
+  createdAt: dayInput,
+  completedAt: z.string().trim().nullish().transform((value) => (value ? value : null)).pipe(dayInput.nullable()),
+  requesterId: z.string().trim().nullish().transform((value) => (value ? value : undefined)).pipe(z.uuid().optional()),
 });
 
 export const uuidSchema = z.uuid();

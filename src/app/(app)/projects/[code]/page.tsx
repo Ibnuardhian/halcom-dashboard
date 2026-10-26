@@ -18,6 +18,7 @@ import { formatDay } from "@/features/dashboards/format";
 import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
+import { ProjectTabs } from "@/features/projects/project-tabs";
 import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
@@ -142,6 +143,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   };
   // A fresh key after every save rebuilds the fields, so they show the stored values.
   const formKey = project.updatedAt.toISOString();
+  // The tab a person opens on: the request they came for, else the part of the project their team works on.
+  const defaultTab = focus && details.some((r) => r.code === focus) ? "requests" : viewer.role === "PURCHASING" ? "requests" : mayEditTechnical && !mayEditCommercial ? "technical" : "commercial";
 
   return (
     <>
@@ -217,7 +220,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           ) : null}
         </div>
       </Section>
-
+      <ProjectTabs defaultTab={defaultTab} tabs={[
+    { id: "commercial", label: "Commercial", content: (
       <Section
         id="commercial"
         title="Commercial"
@@ -248,7 +252,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           Target margin is a percentage of the sale; the estimated gross profit is computed from the final value, or the estimate until it is known.
         </p>
       </Section>
-
+      ) },
+    { id: "technical", label: "Technical", content: (
       <Section
         id="technical"
         title="Technical"
@@ -319,7 +324,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           <ChangeLog changes={changes} />
         </div>
       </Section>
-
+      ) },
+    { id: "activity", label: "Activity", content: (
       <Section
         id="activity"
         title="Activity"
@@ -335,7 +341,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         </div>
         {project.importedFrom ? <p className="mt-4 text-xs text-muted-foreground">Diimpor dari {project.importedFrom}.</p> : null}
       </Section>
-
+      ) },
+    { id: "requests", label: "Requests", content: (
       <Section id="requests" title="Requests" description="BOQ, RFQ, dan PO proyek ini. Buka salah satunya untuk melihat status, aksi, email, dan riwayatnya.">
         <div className="flex flex-col gap-4">
           <FlowTracker requests={requests.map((r) => ({ code: r.code, type: r.type, status: r.status, flowStopped: r.flowStopped }))} />
@@ -381,7 +388,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           )}
         </div>
       </Section>
-
+      ) },
+    ]} />
       {mayEditSource ? (
         <Section id="source" title="Project source" description="Proyek ini berasal dari sumber lain, jadi tidak punya Sales PIC internal. Setiap perubahan dicatat di change log dan audit log.">
           <SourceForm
