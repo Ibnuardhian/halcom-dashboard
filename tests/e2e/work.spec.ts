@@ -272,15 +272,14 @@ test.describe("projects and requests", () => {
     await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toBeVisible();
     await expect(soa.getByRole("link", { name: /^Notifications, \d+ unread/ })).toBeVisible();
 
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     await soa.getByLabel("Phase").selectOption("SIZING");
     await soa.getByRole("button", { name: "Save phase" }).click();
     await expect(soa.getByRole("status").filter({ hasText: "Phase saved." })).toBeVisible();
-    await expect(soa.getByText("Sizing").first()).toBeVisible();
     await soa.context().close();
 
     await page.goto("/notifications");
-    await expect(page.getByRole("link", { name: `${boq} is now in Sizing` })).toBeVisible();
+    await expect(page.getByRole("link", { name: `${projectCode} is now in Sizing` })).toBeVisible();
     await page.getByRole("button", { name: "Mark all as read" }).click();
     await expect(page.getByText("You are all caught up.")).toBeVisible();
   });
@@ -574,12 +573,12 @@ test.describe("projects and requests", () => {
     const boq = await createRequest(page, projectCode, "BOQ", "BOQ for handover");
 
     const soa = await asRole(browser, "SOA");
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     await expect(soa.getByRole("button", { name: "Continue to RFQ" })).toHaveCount(0); // not completed yet
     await moveCard(soa, "BOQ", boq, "IN_PROGRESS");
     await moveCard(soa, "BOQ", boq, "COMPLETED");
 
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
     await expect(soa).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
     const rfq = new URL(soa.url()).searchParams.get("request")!;
@@ -595,7 +594,7 @@ test.describe("projects and requests", () => {
     await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
     // The BOQ now lists its RFQ, and the next-step buttons are gone: it has been continued.
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     await expect(soa.getByRole("link", { name: rfq }).first()).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0);
 
@@ -669,11 +668,11 @@ test.describe("projects and requests", () => {
     await moveCard(soa, "BOQ", boq, "COMPLETED");
     await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
     await expect(soa.getByRole("dialog")).toHaveCount(0);
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
     await moveCard(soa, "BOQ", boq, "COMPLETED");
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     // The project page holds both requests; the history belongs to the BOQ that is open.
     const boqPanel = soa.locator(`li#request-${boq}`);
     await boqPanel.getByText(/^Status history/).click();
@@ -708,7 +707,7 @@ test.describe("projects and requests", () => {
     await expect(soa.locator(`[data-column="SUBMITTED"] [data-request="${boq}"]`)).toBeVisible();
 
     await moveCard(soa, "BOQ", boq, "CANCELLED", "Customer cancelled the tender");
-    await soa.goto(`/request/${boq}`);
+    await soa.goto(`/projects/${projectCode}#technical`);
     await soa.getByText(/^Status history/).click(); // the history is collapsed at the end of the page
     await expect(soa.getByRole("cell", { name: "Customer cancelled the tender" })).toBeVisible();
     // Cancelled is final: the card cannot be dragged on.

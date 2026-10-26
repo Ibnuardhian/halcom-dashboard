@@ -5,21 +5,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { canContinueFlow, canSeeEmail, canWorkOn } from "@/domain/requests/access";
 import { formatSlaRange, slaOf } from "@/domain/requests/sla";
-import { allowedTransitions, canHandOver, isOpen, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, nextRequestType, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { OWNING_TEAM_LABELS, SUBJECT_TAGS } from "@/domain/requests/types";
 import type { Role } from "@/domain/access/roles";
 import { formatDay } from "@/features/dashboards/format";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { buildRequestEmail } from "@/server/requests/email";
-import { listSoaPhases, type RequestDetail } from "@/server/requests/queries";
+import { type RequestDetail } from "@/server/requests/queries";
 import { getTeamSetting } from "@/server/settings/team-settings";
 import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
 import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
 import { jakartaDay } from "@/domain/requests/metrics";
-import { AssignPicForm, NextStepForm, PhaseForm, RequestDatesForm, RevisionForm } from "./forms";
+import { AssignPicForm, NextStepForm, RequestDatesForm, RevisionForm } from "./forms";
 import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 import { StatusBadge, TypeBadge } from "./status-badges";
@@ -37,7 +37,6 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
   // The latest time this BOQ was sent back (by Sales from the request page, or by SOA on the board), with the reason that was given.
   const revisionEntry = [...request.statusHistory].reverse().find((row) => row.toStatus === "REVISION") ?? null;
-  const mayPhase = mayWork && request.type === "BOQ" && isOpen(request.status);
   // Sales (on a project they act on) and admins can send a completed BOQ back to SOA; it goes straight to the Revision stage.
   const mayRevise = can(viewer.role, "requests.revise") && request.type === "BOQ" && request.status === "COMPLETED" && (viewer.role !== "SALES" || ownsProject);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
@@ -45,7 +44,6 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
-  const phases = mayPhase ? await listSoaPhases(getDb(), viewer) : [];
   const people = can(viewer.role, "requests.edit-dates") ? await requesterChoices(request) : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
@@ -67,9 +65,6 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <Fact label={`SLA (${formatSlaRange(setting.sla)} working days)`}>
               <SlaBadge sla={sla} />
             </Fact>
-            {request.type === "BOQ" ? (
-              <Fact label="SOA phase">{request.phaseOption?.label ?? <span className="text-muted-foreground">Not started</span>}</Fact>
-            ) : null}
             <Fact label="PIC">
               {request.pic ? (
                 <>
@@ -209,19 +204,6 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
         </Card>
       ) : null}
 
-      {mayPhase ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              <h3>SOA phase</h3>
-            </CardTitle>
-            <CardDescription>Label the part of the work you are on: Assessment, Sizing or POC. Sales and Purchasing are notified.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PhaseForm requestId={request.id} current={request.phase} phases={phases} />
-          </CardContent>
-        </Card>
-      ) : null}
 
       {mayDecide && next ? (
         <Card>

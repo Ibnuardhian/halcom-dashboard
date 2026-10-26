@@ -390,10 +390,6 @@ export type RequestRow = {
   code: string;
   type: RequestType;
   status: RequestStatus;
-  /** The part of the BOQ work SOA is on (BOQ requests only). */
-  phase: string | null;
-  /** The phase as written in the list of SOA phases (it can be renamed there). */
-  phaseLabel: string | null;
   title: string;
   /** The item details Sales or SOA wrote on the request. */
   description: string;
@@ -447,7 +443,6 @@ const ROW_INCLUDE = {
   requester: { select: { name: true } },
   // The PIC (an operational assignee, not a login account) is who the request is handed to.
   pic: { select: { name: true } },
-  phaseOption: { select: { label: true } },
   statusHistory: { select: { toStatus: true, changedAt: true } },
 } as const;
 
@@ -495,8 +490,6 @@ function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeo
     code: request.code,
     type: request.type,
     status: request.status,
-    phase: request.phase,
-    phaseLabel: request.phaseOption?.label ?? null,
     title: request.title,
     description: request.description,
     projectCode: request.project.code,
@@ -599,6 +592,7 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
       soaPic: { select: { name: true } },
+      phaseOption: { select: { label: true } },
       purchasingPicRef: { select: { name: true } },
       purchasingPic: { select: { name: true } },
       customer: { select: { name: true, industry: true } },
@@ -668,7 +662,6 @@ const REQUEST_DETAIL = {
   pic: { select: { name: true, isActive: true } },
   // The SOA person who raised it, when SOA did (SOA signs in with one shared account).
   raisedByPic: { select: { name: true } },
-  phaseOption: { select: { label: true } },
   source: { select: { code: true } },
   handovers: { select: { code: true, type: true }, orderBy: { createdAt: "asc" } },
   flowStoppedBy: { select: { name: true } },
@@ -724,7 +717,7 @@ export async function listCustomerOptions(db: PrismaClient, viewer: Viewer) {
   return db.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 
-/** The SOA phases, in order; the inactive ones stay listed so a request that still holds one shows its name. */
+/** The SOA phases, in order; the inactive ones stay listed so a project that still holds one shows its name. */
 export async function listSoaPhases(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "requests.view"));
   return db.soaPhaseOption.findMany({ orderBy: [{ position: "asc" }, { label: "asc" }], select: { key: true, label: true, isActive: true } });

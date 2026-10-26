@@ -71,7 +71,6 @@ export function RequestTable({
             </TableCell>
             <TableCell>
               <TypeBadge type={row.type} />
-              {row.phase ? <span className="mt-1 block text-[11px] text-muted-foreground">{row.phaseLabel}</span> : null}
             </TableCell>
             <TableCell className="max-w-56">
               <Link href={`/projects/${row.projectCode}`} className="block truncate hover:underline">

@@ -79,7 +79,7 @@ export const createRequestSchema = z.object({
 });
 
 export const phaseSchema = z.object({
-  requestId: z.uuid(),
+  projectId: z.uuid(),
   // "" clears the label (work has not reached a phase yet).
   phase: z.string().trim().max(40, "Pilih SOA phase yang tersedia.").transform((value) => (value === "" ? null : value)),
 });

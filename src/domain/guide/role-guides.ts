@@ -31,7 +31,7 @@ export const ROLE_GUIDES: Record<Role, RoleGuide> = {
     edits: [
       "Field teknis dan klasifikasi proyek, dengan change log",
       "Update Current action dan Next action",
-      "Status, PIC, dan SOA phase BOQ",
+      "Status dan PIC BOQ, serta SOA phase proyek",
       "Keputusan untuk melanjutkan BOQ yang sudah selesai ke RFQ",
       "Proyek yang didaftarkan untuk salesperson atau dari sumber lain, serta import proyek",
       "Master data principal dan solution",

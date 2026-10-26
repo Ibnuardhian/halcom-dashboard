@@ -2,7 +2,7 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { setActor } from "@/server/projects/actor-context";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { allowedTransitions, canHandOver, canTransition, isOpen, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
+import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
 import { z } from "zod";
@@ -560,50 +560,38 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
 }
 
 /**
- * SOA labels a BOQ request with the part of the work it is on: Assessment, Sizing or POC (or clears the label).
- * Only people who work on BOQ requests may do it, and only on a BOQ that is still open. The change is audited and
- * the project's Sales owner and teams are told.
+ * SOA labels a project with the part of the work it is on: Assessment, Sizing, POC or any phase an administrator added (or clears the label).
+ * The phase belongs to the project, whatever BOQ requests it holds. Only people who work on BOQ requests may set it. The change is audited
+ * and the project's Sales owner and teams are told.
  */
-export async function setRequestPhase(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
+export async function setProjectPhase(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<WorkResult<{ code: string }>> {
   const parsed = phaseSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
   if (!can(claimedActor.role, "requests.work.boq")) return fail("FORBIDDEN");
-  const { requestId, phase } = parsed.data;
+  const { projectId, phase } = parsed.data;
 
   return db.$transaction(async (tx) => {
     const actor = await loadActor(tx, claimedActor);
     if (!actor || !can(actor.role, "requests.work.boq")) return fail("FORBIDDEN");
 
-    await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
-    const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { code: true, endUserCompany: true } } } });
-    if (!request) return fail("NOT_FOUND", "Request tidak ditemukan.");
-    if (request.type !== "BOQ") return fail("INVALID_STATE", "Hanya request BOQ yang memiliki SOA phase.");
-    if (!isOpen(request.status)) return fail("INVALID_STATE", "Request ini sudah ditutup.");
-    if (request.phase === phase) return succeed({ code: request.code });
-    // The phase must be one of the list (an inactive one is refused too, only the one already on the request may stay).
+    await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
+    const project = await tx.project.findUnique({ where: { id: projectId } });
+    if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
+    if (project.phase === phase) return succeed({ code: project.code });
+    // The phase must be one of the list (an inactive one is refused too, only the one already on the project may stay).
     const option = phase === null ? null : await tx.soaPhaseOption.findUnique({ where: { key: phase } });
     if (phase !== null && (!option || !option.isActive)) return fail("INVALID_INPUT", "Pilih SOA phase yang tersedia.");
 
-    // Labelling the work with a phase means SOA has started it: a request nobody had touched goes to In progress by itself.
-    const starts = phase !== null && request.status === "SUBMITTED";
-    await tx.request.update({
-      where: { id: request.id },
-      data: { phase, ...(starts ? { status: "IN_PROGRESS" as const } : {}) },
-    });
-    if (starts) {
-      await tx.requestStatusHistory.create({
-        data: { requestId: request.id, fromStatus: "SUBMITTED", toStatus: "IN_PROGRESS", changedById: actor.id, reason: `Started: phase set to ${option?.label ?? phase}` },
-      });
-    }
-    await audit(tx, actor.id, "request", "request.phase_changed", request.id, { phase: request.phase }, { phase });
+    await tx.project.update({ where: { id: project.id }, data: { phase } });
+    await audit(tx, actor.id, "project", "project.phase_changed", project.id, { phase: project.phase }, { phase });
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: await projectAudience(tx, request.projectId),
-      kind: "request.phase_changed",
-      title: option ? `${request.code} is now in ${option.label}` : `${request.code}: phase cleared`,
-      body: `${request.project.endUserCompany} (${request.project.code})`,
-      href: `/request/${request.code}`,
+      recipientIds: await projectAudience(tx, project.id),
+      kind: "project.phase_changed",
+      title: option ? `${project.code} is now in ${option.label}` : `${project.code}: phase cleared`,
+      body: `${project.endUserCompany} (${project.code})`,
+      href: `/projects/${project.code}`,
     });
-    return succeed({ code: request.code });
+    return succeed({ code: project.code });
   });
 }

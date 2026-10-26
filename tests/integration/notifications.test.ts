@@ -4,7 +4,7 @@ import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { countUnread, listNotifications, markAllRead, markRead } from "@/server/notifications/service";
 import { postProjectUpdate, updateCommercialDetails, updateProjectDetails } from "@/server/projects/service";
-import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setRequestPhase } from "@/server/requests/service";
+import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setProjectPhase } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
 const db = getDb();
@@ -135,45 +135,36 @@ describe("project updates across divisions", () => {
 });
 
 describe("SOA phase", () => {
-  it("SOA labels a BOQ; the project's people are told and the change is audited", async () => {
-    const { sales, soa, boq } = await scene();
+  it("SOA labels a project; the project's people are told and the change is audited", async () => {
+    const { sales, soa, project } = await scene();
 
-    const result = await setRequestPhase(db, soa, { requestId: boq.id, phase: "SIZING" });
+    const result = await setProjectPhase(db, soa, { projectId: project.id, phase: "SIZING" });
 
-    expect(result).toEqual({ ok: true, value: { code: boq.code } });
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ phase: "SIZING" });
-    expect((await mine(sales.id, boq.code)).at(-1)).toMatchObject({ kind: "request.phase_changed", title: `${boq.code} is now in Sizing` });
-    await expect(db.auditEvent.count({ where: { action: "request.phase_changed", entityId: boq.id, actorId: soa.id } })).resolves.toBe(1);
+    expect(result).toEqual({ ok: true, value: { code: project.code } });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ phase: "SIZING" });
+    expect((await mine(sales.id, project.code)).at(-1)).toMatchObject({ kind: "project.phase_changed", title: `${project.code} is now in Sizing` });
+    await expect(db.auditEvent.count({ where: { action: "project.phase_changed", entityId: project.id, actorId: soa.id } })).resolves.toBe(1);
 
-    const again = await setRequestPhase(db, soa, { requestId: boq.id, phase: "SIZING" }); // no change, no second notification
+    const again = await setProjectPhase(db, soa, { projectId: project.id, phase: "SIZING" }); // no change, no second notification
     expect(again.ok).toBe(true);
-    expect((await mine(sales.id, boq.code)).filter((n) => n.kind === "request.phase_changed")).toHaveLength(1);
+    expect((await mine(sales.id, project.code)).filter((n) => n.kind === "project.phase_changed")).toHaveLength(1);
 
-    await setRequestPhase(db, soa, { requestId: boq.id, phase: "" });
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ phase: null });
+    await setProjectPhase(db, soa, { projectId: project.id, phase: "" });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ phase: null });
   });
 
-  it("only BOQ people may label, only a BOQ, only while it is open", async () => {
+  it("the phase does not depend on a BOQ: it can be set with no request, and stays when the BOQ is cancelled", async () => {
     const { sales, soa, purchasing, project, boq } = await scene();
-    const rfq = await createRequest(db, sales, { projectId: project.id, type: "RFQ", title: "Prices" });
-    if (!rfq.ok) throw new Error(rfq.message);
 
     for (const actor of [sales, purchasing]) {
-      await expect(setRequestPhase(db, actor, { requestId: boq.id, phase: "POC" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+      await expect(setProjectPhase(db, actor, { projectId: project.id, phase: "POC" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
-    await expect(setRequestPhase(db, soa, { requestId: rfq.value.id, phase: "POC" })).resolves.toMatchObject({ ok: false, code: "INVALID_STATE" });
-    await expect(setRequestPhase(db, soa, { requestId: boq.id, phase: "DEPLOYMENT" })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(setProjectPhase(db, soa, { projectId: project.id, phase: "DEPLOYMENT" })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(setProjectPhase(db, soa, { projectId: project.id, phase: "POC" })).resolves.toMatchObject({ ok: true });
     await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED", reason: "Customer cancelled" });
-    await expect(setRequestPhase(db, soa, { requestId: boq.id, phase: "POC" })).resolves.toMatchObject({ ok: false, code: "INVALID_STATE" });
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ phase: null });
-  });
-
-  it("the database keeps a phase off RFQ and PO requests", async () => {
-    const { sales, project } = await scene();
-    const rfq = await createRequest(db, sales, { projectId: project.id, type: "RFQ", title: "Prices" });
-    if (!rfq.ok) throw new Error(rfq.message);
-
-    await expect(db.request.update({ where: { id: rfq.value.id }, data: { phase: "SIZING" } })).rejects.toThrow(/requests_phase_boq_only_chk/);
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ phase: "POC" });
+    // Setting a phase no longer starts a BOQ.
+    await expect(db.request.findUniqueOrThrow({ where: { id: boq.id } })).resolves.toMatchObject({ status: "CANCELLED" });
   });
 });
 

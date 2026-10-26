@@ -301,6 +301,8 @@ model Project {
   purchasingPicId    String? @map("purchasing_pic_id") @db.Uuid
   // The people behind the two accounts above (see Pic): what the pages show and what a superadmin moves. The accounts stay for notifications.
   soaPicId           String? @map("soa_pic_id") @db.Uuid
+  // The part of the BOQ work SOA is on for this project (a key of soa_phases); null until SOA starts.
+  phase              String?
   purchasingPicRefId String? @map("purchasing_pic_ref_id") @db.Uuid
   requirement        String?
   assessmentStatus   String? @map("assessment_status")
@@ -337,6 +339,7 @@ model Project {
   technicalPic     User?             @relation("ProjectTechnicalPic", fields: [technicalPicId], references: [id], onDelete: Restrict)
   purchasingPic    User?             @relation("ProjectPurchasingPic", fields: [purchasingPicId], references: [id], onDelete: Restrict)
   soaPic           Pic?              @relation("ProjectSoaPic", fields: [soaPicId], references: [id], onDelete: Restrict)
+  phaseOption      SoaPhaseOption?   @relation(fields: [phase], references: [key], onDelete: Restrict)
   purchasingPicRef Pic?              @relation("ProjectPurchasingPicRef", fields: [purchasingPicRefId], references: [id], onDelete: Restrict)
   customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
   principal        Principal?        @relation(fields: [principalId], references: [id], onDelete: Restrict)
@@ -379,9 +382,6 @@ model Request {
   picId           String?       @map("pic_id") @db.Uuid
   // Set on an RFQ or PO that was handed over from a completed BOQ.
   sourceRequestId String?       @map("source_request_id") @db.Uuid
-  // Set by SOA on a BOQ request only (a database check keeps it off RFQ and PO).
-  phase           String?
-  phaseOption     SoaPhaseOption? @relation(fields: [phase], references: [key], onDelete: Restrict)
   submissionKey   String?       @unique @map("submission_key")
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(3)
   // The SOA PIC who raised it, when SOA raised it (SOA signs in with one shared account, so the person is a PIC). Null for a request
@@ -658,7 +658,7 @@ model ProjectSectionValue {
   @@map("project_section_values")
 }
 
-/** The parts of the BOQ work SOA can be on (Assessment, Sizing, POC and any an Admin or Superadmin added). A request keeps the key. */
+/** The parts of the BOQ work SOA can be on (Assessment, Sizing, POC and any an Admin or Superadmin added). A project keeps the key. */
 model SoaPhaseOption {
   key       String   @id
   label     String
@@ -667,7 +667,7 @@ model SoaPhaseOption {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  requests Request[]
+  projects Project[]
 
   @@map("soa_phases")
 }

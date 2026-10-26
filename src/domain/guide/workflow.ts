@@ -327,11 +327,11 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       "Field teknis yang diperbarui (setiap perubahan dicatat dari dan ke), label phase yang diberitahukan ke Sales dan Purchasing, serta entri Current action dan Next action di Activity feed proyek.",
     recipient: "Sales, lewat email untuk pertanyaan; semua orang, lewat halaman proyek",
     guide: {
-      where: "Project → Technical and Activity; request page → SOA phase",
+      where: "Project → Technical and Activity (SOA phase is on the Technical tab)",
       prerequisites: ["BOQ masih terbuka (Submitted, In progress, atau Revision)."],
       steps: [
         "Buka proyek. Di bagian Technical, atur klasifikasi (principal dan solution) dan isi detail teknis, lalu pilih Save technical details.",
-        "Buka request BOQ dan pilih phase (Assessment, Sizing, atau POC) di kartu SOA phase.",
+        "Masih di bagian Technical, pilih SOA phase proyek (Assessment, Sizing, POC, atau phase tambahan). Phase milik proyek, bukan milik satu request BOQ.",
         "Di bagian Activity, posting apa yang sudah dikerjakan (Current action) dan apa yang berikutnya (Next action).",
         "Ajukan pertanyaan ke Sales dan sepakati revisi lewat email agar riwayatnya tetap tersimpan. Status Waiting for Sales sudah tidak dipakai.",
       ],

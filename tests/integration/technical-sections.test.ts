@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { createPhase, createSection, listSectionValues, setSectionValues, updatePhase, updateSection } from "@/server/sections/service";
-import { createRequest, createProject, setRequestPhase } from "@/server/requests/service";
+import { createProject, setProjectPhase } from "@/server/requests/service";
 import { listProjectChanges } from "@/server/projects/queries";
 import { makeUser } from "./helpers";
 
@@ -66,7 +66,7 @@ describe("technical sections", () => {
 });
 
 describe("SOA phases", () => {
-  it("lets an Admin add a phase that SOA can then pick, refuses an unknown or switched-off one, and keeps a request on a phase that was switched off", async () => {
+  it("lets an Admin add a phase that SOA can then pick, refuses an unknown or switched-off one, and keeps a project on a phase that was switched off", async () => {
     const [admin, soa, sales, other] = await Promise.all([actorOf("ADMIN"), actorOf("SOA"), actorOf("SALES"), actorOf("SALES")]);
     const label = unique("Pre Assessment");
     const created = await createPhase(db, admin, { label });
@@ -76,18 +76,16 @@ describe("SOA phases", () => {
 
     const project = await createProject(db, sales, { endUserCompany: unique("PT Phase"), name: "phase" });
     if (!project.ok) throw new Error(project.message);
-    const boq = await createRequest(db, sales, { projectId: project.value.id, type: "BOQ", title: "phase test" });
-    if (!boq.ok) throw new Error(boq.message);
 
-    expect(await setRequestPhase(db, soa, { requestId: boq.value.id, phase: created.value.key })).toMatchObject({ ok: true });
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ phase: created.value.key });
-    expect(await setRequestPhase(db, soa, { requestId: boq.value.id, phase: "NOT_A_PHASE" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setProjectPhase(db, soa, { projectId: project.value.id, phase: created.value.key })).toMatchObject({ ok: true });
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.value.id } })).resolves.toMatchObject({ phase: created.value.key });
+    expect(await setProjectPhase(db, soa, { projectId: project.value.id, phase: "NOT_A_PHASE" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
 
     expect((await updatePhase(db, admin, { key: created.value.key, isActive: false })).ok).toBe(true);
-    const second = await createRequest(db, other, { projectId: (await createProject(db, other, { endUserCompany: unique("PT Phase2"), name: "p2" }) as { ok: true; value: { id: string } }).value.id, type: "BOQ", title: "second" });
+    const second = await createProject(db, other, { endUserCompany: unique("PT Phase2"), name: "p2" });
     if (!second.ok) throw new Error(second.message);
-    expect(await setRequestPhase(db, soa, { requestId: second.value.id, phase: created.value.key })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
-    // The first request still holds the switched-off phase.
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ phase: created.value.key });
+    expect(await setProjectPhase(db, soa, { projectId: second.value.id, phase: created.value.key })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    // The first project still holds the switched-off phase.
+    await expect(db.project.findUniqueOrThrow({ where: { id: project.value.id } })).resolves.toMatchObject({ phase: created.value.key });
   });
 });

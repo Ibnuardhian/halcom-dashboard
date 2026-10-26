@@ -7,7 +7,7 @@ async function signOut(page: Page) {
   await expect(page).toHaveURL(/\/login$/);
 }
 
-test("an Admin adds a technical section and an SOA phase, and SOA fills the section on a project and sees the phase on a BOQ", async ({ page }) => {
+test("an Admin adds a technical section and an SOA phase, and SOA fills the section on a project and sees the phase on the project", async ({ page }) => {
   test.setTimeout(300_000);
   const stamp = Date.now().toString().slice(-6);
   const section = `Pre Assessment ${stamp}`;
@@ -30,7 +30,6 @@ test("an Admin adds a technical section and an SOA phase, and SOA fills the sect
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\?request=BOQ-/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });
-  const boqCode = new URL(page.url()).searchParams.get("request")!;
   await signOut(page);
 
   // The Admin adds a section and a phase.
@@ -49,7 +48,7 @@ test("an Admin adds a technical section and an SOA phase, and SOA fills the sect
   await expect(page.getByLabel(`Nama bagian ${section}`)).toBeVisible();
   await signOut(page);
 
-  // SOA fills the section on the project's Technical tab, and picks the phase on the BOQ.
+  // SOA fills the section on the project's Technical tab, and finds the phase on the project.
   await signIn(page, "SOA");
   await page.goto(`${projectUrl}#technical`);
   const box = page.getByLabel(section, { exact: true });
@@ -61,6 +60,6 @@ test("an Admin adds a technical section and an SOA phase, and SOA fills the sect
   await page.reload();
   await expect(page.getByLabel(section, { exact: true })).toHaveValue("Form sent to the customer");
 
-  await page.goto(`${projectUrl}?request=${boqCode}`);
+  await page.goto(`${projectUrl}#technical`);
   await expect(page.getByLabel("Phase").locator("option", { hasText: phase })).toHaveCount(1);
 });

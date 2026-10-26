@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { listPendingDecisions } from "@/server/requests/queries";
-import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, setRequestPhase, stopFlow } from "@/server/requests/service";
+import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, stopFlow } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
 const db = getDb();
@@ -194,13 +194,12 @@ describe("Revision of a completed BOQ", () => {
     expect(await changeRequestStatus(db, purchasing, { requestId: boq.id, to: "COMPLETED" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
-  it("a revision needs a reason only to be cancelled, and the SOA phase can still be set while revising", async () => {
+  it("a revision needs a reason only to be cancelled", async () => {
     const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
     const project = await makeProject(sales);
     const boq = await completedRequest(sales, soa, project.id, "BOQ");
     await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
 
-    expect(await setRequestPhase(db, soa, { requestId: boq.id, phase: "SIZING" })).toMatchObject({ ok: true });
     expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED", reason: "Customer dropped the project" })).toMatchObject({ ok: true });
   });
@@ -232,18 +231,5 @@ describe("less manual status work", () => {
     expect(await changeRequestStatus(db, purchasing, { requestId: rfq.value.id, to: "COMPLETED" })).toMatchObject({ ok: true });
     await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", picId: null });
     await expect(db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).resolves.toMatchObject({ status: "COMPLETED", picId: null }); // PICs are handed work by hand
-  });
-
-  it("setting the SOA phase on a BOQ nobody had touched starts it", async () => {
-    const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
-    const project = await makeProject(sales);
-    const boq = await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "start by labelling" });
-    if (!boq.ok) throw new Error(boq.message);
-
-    expect(await setRequestPhase(db, soa, { requestId: boq.value.id, phase: "ASSESSMENT" })).toMatchObject({ ok: true });
-
-    await expect(db.request.findUniqueOrThrow({ where: { id: boq.value.id } })).resolves.toMatchObject({ status: "IN_PROGRESS", phase: "ASSESSMENT" });
-    const history = await db.requestStatusHistory.findMany({ where: { requestId: boq.value.id }, orderBy: { changedAt: "asc" } });
-    expect(history.at(-1)).toMatchObject({ fromStatus: "SUBMITTED", toStatus: "IN_PROGRESS", changedById: soa.id });
   });
 });

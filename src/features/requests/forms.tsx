@@ -413,15 +413,15 @@ export function AssignPicForm({ requestId, current, pics, teamLabel }: { request
   );
 }
 
-/** SOA labels the part of the BOQ work they are on. */
-export function PhaseForm({ requestId, current, phases }: { requestId: string; current: string | null; phases: { key: string; label: string; isActive: boolean }[] }) {
+/** SOA labels the part of the work they are on, for the whole project. */
+export function PhaseForm({ projectId, current, phases }: { projectId: string; current: string | null; phases: { key: string; label: string; isActive: boolean }[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setPhaseAction, null);
 
   return (
     <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
-      <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`phase-${requestId}`} label="Phase">
-        <NativeSelect id={`phase-${requestId}`} name="phase" defaultValue={current ?? ""}>
+      <input type="hidden" name="projectId" value={projectId} />
+      <Field id={`phase-${projectId}`} label="Phase">
+        <NativeSelect id={`phase-${projectId}`} name="phase" defaultValue={current ?? ""}>
           <option value="">Not started</option>
           {phases.filter((phase) => phase.isActive || phase.key === current).map((phase) => (
             <option key={phase.key} value={phase.key}>

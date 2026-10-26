@@ -18,6 +18,7 @@ import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { ActionComposer } from "@/features/projects/action-composer";
 import { ActionFeed } from "@/features/projects/action-feed";
 import { ProjectTabs } from "@/features/projects/project-tabs";
+import { PhaseForm } from "@/features/requests/forms";
 import { ProjectSectionsForm } from "@/features/sections/section-forms";
 import { listSections, listSectionValues } from "@/server/sections/service";
 import { CommercialForm } from "@/features/projects/commercial-form";
@@ -39,7 +40,7 @@ import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
 import { isOpen } from "@/domain/requests/status";
 import { listMasterRecords } from "@/server/masterdata/service";
-import { getProjectByCode, listPicOptions, listProjectRequestDetails, listRequests, listSalesPeopleOptions } from "@/server/requests/queries";
+import { getProjectByCode, listPicOptions, listSoaPhases, listProjectRequestDetails, listRequests, listSalesPeopleOptions } from "@/server/requests/queries";
 
 export default function ProjectPage({ params, searchParams }: PageProps<"/projects/[code]">) {
   return (
@@ -94,7 +95,6 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
     listProjectChanges(getDb(), viewer, project.id),
     listProjectActions(getDb(), viewer, project.id),
   ]);
-  const soaPhases = requests.filter((r) => r.type === "BOQ" && r.phase !== null && r.status !== "COMPLETED" && r.status !== "CANCELLED");
   // Sales and admins raise any request; SOA raises a BOQ on a project from another source (Other).
   const raisable = REQUEST_TYPES.filter((type) => canRaiseRequestOn(viewer.role, type, project.sourceType));
   const mayCreate = raisable.length > 0 && project.trackStatus === "ON_TRACK";
@@ -102,6 +102,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   const salesPeople = mayEditSource ? await listSalesPeopleOptions(getDb(), viewer) : [];
   // SOA (and admins) edit the technical fields and post updates; commercial fields stay read-only for them.
   const mayEditTechnical = can(viewer.role, "projects.edit.technical");
+  const mayPhase = can(viewer.role, "requests.work.boq");
+  const phases = mayPhase ? await listSoaPhases(getDb(), viewer) : [];
   const mayPostUpdate = can(viewer.role, "projects.post-update");
   // Sales change their own projects; admins support any project (the service enforces the same rule).
   const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
@@ -294,19 +296,10 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         )}
         <div className="mt-6 border-t pt-4">
           <h3 className="mb-2 text-sm font-semibold">SOA phase</h3>
-          {soaPhases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Belum ada request BOQ terbuka yang memiliki phase. SOA memberi label saat pekerjaan berpindah dari Assessment ke Sizing ke POC.</p>
+          {mayPhase ? (
+            <PhaseForm projectId={project.id} current={project.phase} phases={phases} />
           ) : (
-            <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-              {soaPhases.map((r) => (
-                <li key={r.code}>
-                  <Link href={`/request/${r.code}`} className="font-mono text-primary underline-offset-4 hover:underline">
-                    {r.code}
-                  </Link>{" "}
-                  · {r.phaseLabel ?? r.phase}
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm">{project.phaseOption?.label ?? <span className="text-muted-foreground">Belum dimulai</span>}</p>
           )}
         </div>
         {mayEditTechnical ? <ProjectSectionsForm projectId={project.id} projectCode={project.code} sections={sectionList} values={sectionValues} /> : <AddedSectionsView rows={addedValues} />}

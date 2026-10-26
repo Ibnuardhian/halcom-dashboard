@@ -8,7 +8,7 @@ import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
 import { assignRequestPic } from "@/server/pics/service";
-import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, requestRevision, setRequestDates, setRequestPhase, stopFlow } from "@/server/requests/service";
+import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, requestRevision, setRequestDates, setProjectPhase, stopFlow } from "@/server/requests/service";
 
 // Each action checks the sign-in (and, where one permission fits, that permission) on the server;
 // the service then re-checks the actor and the record-specific rules inside its transaction.
@@ -115,13 +115,13 @@ export async function assignPicAction(_previous: FormState, formData: FormData):
   return { ok: true, message: result.value.picId ? "PIC saved." : "PIC cleared." };
 }
 
-/** SOA labels a BOQ request Assessment, Sizing or POC (or clears the label). */
+/** SOA labels a project with the phase of the work (or clears the label). */
 export async function setPhaseAction(_previous: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const result = await setRequestPhase(getDb(), { id: user.id, role: user.role }, { requestId: text(formData, "requestId"), phase: text(formData, "phase") ?? "" });
+  const result = await setProjectPhase(getDb(), { id: user.id, role: user.role }, { projectId: text(formData, "projectId"), phase: text(formData, "phase") ?? "" });
   if (!result.ok) return { ok: false, message: result.message };
-  revalidatePath(`/request/${result.value.code}`);
-  revalidatePath(REQUESTS_PATH);
+  revalidatePath(`/projects/${result.value.code}`);
+  revalidatePath(PROJECTS_PATH);
   return { ok: true, message: "Phase saved." };
 }
 

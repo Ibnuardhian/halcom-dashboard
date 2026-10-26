@@ -168,11 +168,9 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
                           <SlaBadge sla={card.sla} />
                           <span className="text-xs text-muted-foreground">{card.assigneeName ?? "Unassigned"}</span>
                         </div>
-                        {card.phase || card.requiredBy ? (
+                        {card.requiredBy ? (
                           <p className="mt-1 text-[11px] text-muted-foreground">
-                            {card.phaseLabel}
-                            {card.phase && card.requiredBy ? " · " : null}
-                            {card.requiredBy ? `needed by ${formatDateOnly(card.requiredBy)}` : null}
+                            {`needed by ${formatDateOnly(card.requiredBy)}`}
                           </p>
                         ) : null}
                       </li>
