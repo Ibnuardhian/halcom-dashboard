@@ -6,17 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDuration, formatPct, METRICS_WINDOW_DAYS, UPCOMING_DAYS } from "@/domain/requests/metrics";
 import { REQUEST_STATUS_LABELS } from "@/domain/requests/status";
-import { HANDOFFS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
+import { HANDOFFS_PATH, PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
 import { getTeamDashboard } from "@/server/dashboards/metrics";
+import { getPipelineAnalytics } from "@/server/projects/analytics";
+import { CollapsibleSection } from "./collapsible-section";
+import { ProjectMixCharts } from "./pipeline-charts";
 import { DashboardHeader } from "./dashboard-header";
 import { StatTile } from "./stat-tile";
 
 const COPY = {
   SOA: {
     title: "Technical Dashboard",
-    summary: "Request BOQ yang dikerjakan SOA: berapa yang selesai, apa yang masih terbuka, apa yang terlambat, siapa yang menanggung beban kerja, dan di mana request menunggu.",
+    summary: "Proyek dan request BOQ yang dikerjakan SOA: proyek terbuka, beban PIC, dan sebaran principal, solusi serta industri; di bawahnya request BOQ: berapa yang selesai, apa yang masih terbuka, apa yang terlambat, siapa yang menanggung beban kerja, dan di mana request menunggu.",
     noun: "BOQ",
     base: `${REQUESTS_PATH}/boq?`,
     emptyText: "Belum ada request BOQ yang diajukan, jadi belum ada yang bisa diukur.",
@@ -42,15 +45,11 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
   const measured = metrics.slaMet + metrics.slaLate;
   const empty = metrics.open === 0 && metrics.completedInWindow === 0 && metrics.workload.length === 0;
 
-  return (
-    <>
-      <DashboardHeader title={copy.title} summary={copy.summary} />
-      {empty ? (
-        <p role="status" className="mb-6 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          {copy.emptyText}
-        </p>
-      ) : null}
+  // The technical team works on projects first: their numbers lead and the requests come below (Purchasing has only requests).
+  const analytics = team === "SOA" ? await getPipelineAnalytics(getDb(), viewer) : null;
 
+  const requests = (
+    <>
       <section aria-label={`Total ${copy.noun}`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label={`Total ${copy.noun}`} value={summary.total} href={to("")} note="Semua request tim, terbuka maupun tertutup" />
         <StatTile label="Done" value={summary.done} href={to("status=COMPLETED")} note="Status Completed" />
@@ -198,6 +197,31 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      <DashboardHeader title={copy.title} summary={copy.summary} />
+      {empty ? (
+        <p role="status" className="mb-6 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          {copy.emptyText}
+        </p>
+      ) : null}
+
+      {analytics ? (
+        <>
+          <section aria-label="Open projects" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile label="Open projects" value={analytics.totals.open} href={`${PROJECTS_PATH}?show=open`} note={`dari ${analytics.totals.projects} proyek`} />
+          </section>
+          <ProjectMixCharts analytics={analytics} />
+          <CollapsibleSection id="request-overview" title="Requests (BOQ)" note={`${metrics.open} terbuka`}>
+            {requests}
+          </CollapsibleSection>
+        </>
+      ) : (
+        requests
+      )}
     </>
   );
 }

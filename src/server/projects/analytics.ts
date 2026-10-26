@@ -46,6 +46,8 @@ export type PipelineAnalytics = {
   bySolution: Slice[];
   byIndustry: Slice[];
   bySalesPerson: Slice[];
+  /** Open projects per SOA PIC (the technical PIC), most first; "Not set" holds the open projects nobody has taken yet. */
+  bySoaPic: Slice[];
   /** Pipeline Conversion of each Sales PIC, highest first, so people can be compared. Someone with no open project is left out. */
   conversionBySalesPerson: ConversionRow[];
 };
@@ -135,6 +137,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
       solutionCategory: { select: { id: true, name: true } },
       salesOwner: { select: { id: true, name: true } },
+      soaPic: { select: { id: true, name: true } },
     },
   });
 
@@ -144,6 +147,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const solutions = new Map<string, Slice>();
   const industries = new Map<string, Slice>();
   const salespeople = new Map<string, Slice>();
+  const soaPics = new Map<string, Slice>();
   const conversion = new Map<string, { label: string; open: number; quoted: number; drill: string }>();
   const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, openQuoted: 0, wonCount: 0, wonValue: 0 };
 
@@ -167,6 +171,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
 
     if (isOpenProject(project.progress, project.trackStatus)) {
       totals.open += 1;
+      add(soaPics, project.soaPic?.id ?? UNSET, project.soaPic?.name ?? UNSET, estimated, weighted, undefined, project.id);
       totals.openValue += estimated ?? 0;
       totals.openWeighted += weighted ?? 0;
       const atPropose = PROPOSE_OR_BEYOND.includes(project.progress);
@@ -195,6 +200,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     bySolution: topSlices(solutions.values()),
     byIndustry: topSlices(industries.values()),
     bySalesPerson: topSlices(salespeople.values()),
+    bySoaPic: topSlices(soaPics.values()),
     conversionBySalesPerson: [...conversion.entries()]
       .map(([key, person]) => ({ key, label: person.label, open: person.open, quoted: person.quoted, percent: pipelineConversion(person.open, person.quoted).percent ?? 0, drill: person.drill }))
       .sort((a, b) => b.percent - a.percent || b.open - a.open || a.label.localeCompare(b.label)),

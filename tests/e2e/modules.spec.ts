@@ -261,6 +261,13 @@ test.describe("dashboards use the stored requests", () => {
       for (const label of [`Total ${noun}`, "Done", "Completion rate", "On going"]) await expect(summary.getByText(label, { exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: `${noun} by status` })).toBeVisible();
       await expect(page.getByRole("heading", { name: `${noun} per PIC` })).toBeVisible();
+      if (role === "SOA") {
+        // Projects lead on the Technical Dashboard; the BOQ requests sit below them.
+        await expect(page.getByRole("region", { name: "Open projects" }).getByText("Open projects", { exact: true })).toBeVisible();
+        for (const title of ["PIC Workload", "Projects by principal", "Value by principal", "Solution mix", "Value by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
+        const order = await page.getByText(/^(PIC Workload|BOQ by status)$/).allTextContents();
+        expect(order).toEqual(["PIC Workload", "BOQ by status"]);
+      }
       await page.context().close();
     }
     // Purchasing counts RFQ and PO together, and its numbers link to a list of both.

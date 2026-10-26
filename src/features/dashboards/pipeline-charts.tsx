@@ -111,3 +111,36 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
     </section>
   );
 }
+
+/**
+ * The project side of the Technical Dashboard: open projects per SOA PIC, then how all projects split by principal, solution and
+ * industry (the same charts and drill-downs as the Overview, without the sales-only ones).
+ */
+export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }) {
+  const to = (filters: DrillFilters) => projectsHref(PROJECTS_PATH, filters, { mine: false });
+  const by = (name: "principal" | "solution" | "industry"): SliceHref => (slice) => (slice.drill && slice.drill.length > 0 ? to({ [name]: slice.drill }) : null);
+  const principal = by("principal");
+  return (
+    <section aria-label="Project charts" className="mb-8 grid gap-4 lg:grid-cols-2">
+      <ChartCard title="PIC Workload" description="Open project per PIC SOA (Technical PIC). Project tanpa PIC tampil sebagai Not set.">
+        <BarList
+          items={analytics.bySoaPic.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s) }))}
+          allowEmpty
+          emptyText="Belum ada open project."
+        />
+      </ChartCard>
+      <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
+        <DonutChart items={countItems(analytics.byPrincipal, principal)} />
+      </ChartCard>
+      <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
+        <BarList items={valueItems(analytics.byPrincipal, (s) => s.value, principal)} />
+      </ChartCard>
+      <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
+        <DonutChart items={countItems(analytics.bySolution, by("solution"))} />
+      </ChartCard>
+      <ChartCard title="Value by industry" description="Estimated value per industri customer.">
+        <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />
+      </ChartCard>
+    </section>
+  );
+}
