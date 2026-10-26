@@ -47,7 +47,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
   const people = can(viewer.role, "requests.edit-dates")
-    ? await getDb().user.findMany({ where: { OR: [{ isActive: true }, { id: request.requesterId }] }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+    ? await getDb().user.findMany({ where: { OR: [{ isActive: true }, { id: request.requesterId }] }, select: { id: true, name: true, codePrefix: true }, orderBy: { name: "asc" } })
     : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
@@ -204,6 +204,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
               completedAt={request.completedAt ? jakartaDay(request.completedAt) : null}
               canComplete={request.status === "COMPLETED" || request.status === "REVISION"}
               requesterId={request.requesterId}
+              code={request.code}
               people={people}
             />
           </CardContent>

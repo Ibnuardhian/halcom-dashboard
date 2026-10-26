@@ -13,7 +13,7 @@ import { notify, projectAudience, usersWithRole } from "@/server/notifications/s
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { jakartaDay } from "@/domain/requests/metrics";
-import { nextProjectCode, nextRequestCode } from "./codes";
+import { codePrefixFor, nextProjectCode, nextRequestCode, recodeFor } from "./codes";
 import { ensureCustomer } from "./master-data";
 import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
 import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, requestDatesSchema, revisionSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
@@ -520,17 +520,26 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
 
     // "Requested by" can be corrected too: it must be an active account.
     const nextRequester = requesterId ?? request.requesterId;
+    // The code follows the new requester: their prefix and their next number (the year of the old code is kept). The same prefix keeps the code.
+    let nextCode = request.code;
     if (nextRequester !== request.requesterId) {
-      const person = await tx.user.findUnique({ where: { id: nextRequester }, select: { isActive: true } });
+      const person = await tx.user.findUnique({ where: { id: nextRequester }, select: { id: true, email: true, isActive: true, codePrefix: true } });
       if (!person?.isActive) return fail("INVALID_INPUT", "Pemohon harus akun yang aktif.");
+      const [, oldPrefix, serial] = request.code.split("-");
+      const prefix = person.codePrefix ?? (await codePrefixFor(tx, person));
+      if (prefix !== oldPrefix) nextCode = await recodeFor(tx, request.type, person, (serial ?? "").slice(0, 2));
     }
 
-    const before = { createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null, requesterId: request.requesterId };
-    const after = { createdAt: nextCreated.toISOString(), completedAt: nextCompleted?.toISOString() ?? null, requesterId: nextRequester };
+    const before = { code: request.code, createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null, requesterId: request.requesterId };
+    const after = { code: nextCode, createdAt: nextCreated.toISOString(), completedAt: nextCompleted?.toISOString() ?? null, requesterId: nextRequester };
     if (before.createdAt === after.createdAt && before.completedAt === after.completedAt && before.requesterId === after.requesterId) return fail("INVALID_INPUT", "Tidak ada yang berubah.");
-    await tx.request.update({ where: { id: request.id }, data: { createdAt: nextCreated, completedAt: nextCompleted, requesterId: nextRequester } });
-    await audit(tx, actor.id, "request", "request.dates_corrected", request.id, before, { code: request.code, ...after });
-    return succeed({ code: request.code });
+    await tx.request.update({ where: { id: request.id }, data: { code: nextCode, createdAt: nextCreated, completedAt: nextCompleted, requesterId: nextRequester } });
+    // Notifications name the code in their text and link; the old link would lead nowhere.
+    if (nextCode !== request.code) {
+      await tx.$executeRaw`UPDATE notifications SET title = replace(title, ${request.code}, ${nextCode}), body = replace(body, ${request.code}, ${nextCode}), href = replace(href, ${request.code}, ${nextCode}) WHERE title LIKE ${"%" + request.code + "%"} OR body LIKE ${"%" + request.code + "%"} OR href LIKE ${"%" + request.code + "%"}`;
+    }
+    await audit(tx, actor.id, "request", "request.dates_corrected", request.id, before, after);
+    return succeed({ code: nextCode });
   });
 }
 

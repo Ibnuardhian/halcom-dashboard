@@ -49,15 +49,24 @@ test.describe("a superadmin sets the dates of a request by hand", () => {
       await page.getByRole("button", { name: "Save dates" }).click();
       await expect(page.getByText(`The dates of ${requestCode} were saved.`)).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
-    // The requester can be corrected on the same card.
+    // The requester can be corrected on the same card; a confirmation window comes first because the request code follows the new person.
     const requester = page.getByLabel("Requested by", { exact: true });
-    const other = await requester.locator("option:not(:checked)").first().getAttribute("value");
+    const now = await requester.inputValue();
+    const other = await requester.locator("option", { hasText: /^(Dzaki|Satrio)$/ }).evaluateAll((options, current) => options.map((o) => (o as HTMLOptionElement).value).find((value) => value !== current), now);
     await requester.selectOption(other!);
     await page.getByRole("button", { name: "Save dates" }).click();
-    await expect(page.getByLabel("Requested by", { exact: true })).toHaveValue(other!, { timeout: 15_000 });
-    await page.waitForTimeout(1500);
-    await page.reload();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: `Ganti pemohon ${requestCode}?` })).toBeVisible();
+    await dialog.getByRole("button", { name: "Batal" }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole("button", { name: "Save dates" }).click();
+    await dialog.getByRole("button", { name: "Ya, ganti pemohon" }).click();
+    await expect(page.getByText(/were saved\.|Requested by/).first()).toBeVisible();
+    // After the save the page is on the (possibly new) address of the request, and the requester is the chosen one.
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByLabel("Requested by", { exact: true })).toHaveValue(other!, { timeout: 5000 });
+    }).toPass({ timeout: 60_000 });
     await expect(page.getByLabel("Created *")).toHaveValue("01/09/2026");
-    await expect(page.getByLabel("Requested by", { exact: true })).toHaveValue(other!);
   });
 });

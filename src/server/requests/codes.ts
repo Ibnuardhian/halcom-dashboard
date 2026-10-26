@@ -51,3 +51,12 @@ export async function nextProjectCode(tx: Tx): Promise<string> {
   const scope = codeScope("PRJ", "", "");
   return formatCode(scope, await nextSequence(tx, scope), PROJECT_CODE_WIDTH);
 }
+
+/**
+ * A new code for an existing request whose requester changed: the new person's prefix, the year kept from the old code, and the next
+ * number of that person's counter (the old number is not reused anywhere, so history that names it stays unambiguous).
+ */
+export async function recodeFor(tx: Tx, type: RequestType, requester: { id: string; email: string }, yy: string): Promise<string> {
+  const scope = codeScope(type, await codePrefixFor(tx, requester), yy);
+  return formatCode(scope, await nextSequence(tx, scope));
+}

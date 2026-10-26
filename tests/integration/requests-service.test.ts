@@ -486,9 +486,17 @@ describe("setRequestDates: requested by", () => {
 
     const moved = await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: day, completedAt: null, requesterId: other.id });
     expect(moved.ok).toBe(true);
-    expect((await db.request.findUniqueOrThrow({ where: { id: boq.id } })).requesterId).toBe(other.id);
+    const stored = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
+    expect(stored.requesterId).toBe(other.id);
+    // The code follows the new requester: their prefix, the year kept, a number from their own counter; the old code is free of the request.
+    const otherPrefix = (await db.user.findUniqueOrThrow({ where: { id: other.id } })).codePrefix;
+    expect(stored.code).toBe(`BOQ-${otherPrefix}-${YY}0001`);
+    expect(stored.code).not.toBe(boq.code);
+    expect(moved.ok && moved.value.code).toBe(stored.code);
+    expect(await db.request.count({ where: { code: boq.code } })).toBe(0);
     const event = await db.auditEvent.findFirstOrThrow({ where: { action: "request.dates_corrected", entityId: boq.id } });
-    expect(event.after).toMatchObject({ requesterId: other.id });
+    expect(event.after).toMatchObject({ requesterId: other.id, code: stored.code });
+    expect(event.before).toMatchObject({ code: boq.code });
 
     await db.user.update({ where: { id: sales.id }, data: { isActive: false } });
     expect(await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: day, completedAt: null, requesterId: sales.id })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
