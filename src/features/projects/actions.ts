@@ -115,8 +115,8 @@ export async function reassignProjectAction(_previous: FormState, formData: Form
   const result = await reassignProject(getDb(), { id: user.id, role: user.role }, {
     projectId: formData.get("projectId"),
     salesOwnerId: pick("salesOwnerId"),
-    technicalPicId: pick("technicalPicId"),
-    purchasingPicId: pick("purchasingPicId"),
+    soaPicId: pick("soaPicId"),
+    purchasingPicRefId: pick("purchasingPicRefId"),
   });
   if (!result.ok) return { ok: false, message: result.message };
   const code = formData.get("projectCode");

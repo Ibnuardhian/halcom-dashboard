@@ -186,8 +186,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
             </>
           ) : null}
           <Fact label="Sales PIC">{project.salesOwner?.name ?? "None (project from another source)"}</Fact>
-          <Fact label="Technical PIC (SOA)">{project.technicalPic?.name ?? "–"}</Fact>
-          <Fact label="Purchasing PIC">{project.purchasingPic?.name ?? "–"}</Fact>
+          <Fact label="Technical PIC (SOA)">{project.soaPic?.name ?? "–"}</Fact>
+          <Fact label="Purchasing PIC">{project.purchasingPicRef?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
           <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
           <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
@@ -411,7 +411,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           <ReassignPics
             projectId={project.id}
             projectCode={project.code}
-            current={{ salesOwnerId: project.salesOwnerId, technicalPicId: project.technicalPicId, purchasingPicId: project.purchasingPicId }}
+            current={{ salesOwnerId: project.salesOwnerId, soaPicId: project.soaPicId, purchasingPicRefId: project.purchasingPicRefId }}
             options={picOptions}
           />
         </Section>

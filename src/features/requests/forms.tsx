@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
 import { DateInput } from "@/components/ui/date-input";
@@ -459,12 +459,23 @@ export function RevisionForm({ requestId }: { requestId: string }) {
 }
 
 /** A superadmin sets the creation and completion day by hand: a calendar day, no time (Jakarta). */
-export function RequestDatesForm({ requestId, createdAt, completedAt, canComplete, requesterId, people }: { requestId: string; createdAt: string; completedAt: string | null; canComplete: boolean; requesterId: string; people: { id: string; name: string }[] }) {
+export function RequestDatesForm({ requestId, code, createdAt, completedAt, canComplete, requesterId, people }: { requestId: string; code: string; createdAt: string; completedAt: string | null; canComplete: boolean; requesterId: string; people: { value: string; name: string; codePrefix: string | null }[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setRequestDatesAction, null);
+  const form = useRef<HTMLFormElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [chosen, setChosen] = useState(requesterId);
+  const from = people.find((person) => person.value === requesterId);
+  const to = people.find((person) => person.value === chosen);
+  const changesRequester = chosen !== requesterId;
+  // The code changes only when the new person's prefix differs from the one in the code now (BOQ-S-260001: the prefix is "S").
+  const prefixNow = code.split("-")[1];
+  const codeChanges = changesRequester && to?.codePrefix !== prefixNow;
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <>
+    <form ref={form} action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={requestId} />
+      <input type="hidden" name="code" value={code} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id={`created-at-${requestId}`} label="Created *" hint="Format DD/MM/YYYY, tanpa jam.">
           <DateInput id={`created-at-${requestId}`} name="createdAt" label="Created" required defaultValue={createdAt} />
@@ -475,9 +486,9 @@ export function RequestDatesForm({ requestId, createdAt, completedAt, canComplet
           </Field>
         ) : null}
         <Field id={`requester-${requestId}`} label="Requested by">
-          <NativeSelect id={`requester-${requestId}`} name="requesterId" defaultValue={requesterId}>
+          <NativeSelect id={`requester-${requestId}`} name="requesterId" value={chosen} onChange={(event) => setChosen(event.target.value)}>
             {people.map((person) => (
-              <option key={person.id} value={person.id}>
+              <option key={person.value} value={person.value}>
                 {person.name}
               </option>
             ))}
@@ -486,10 +497,49 @@ export function RequestDatesForm({ requestId, createdAt, completedAt, canComplet
       </div>
       <FormStatus state={state} />
       <div>
-        <Button type="submit" disabled={pending}>
+        {/* A change of requester asks first: it can change the request code. */}
+        <Button type="button" disabled={pending} onClick={() => (changesRequester ? dialog.current?.showModal() : form.current?.requestSubmit())}>
           {pending ? "Saving…" : "Save dates"}
         </Button>
       </div>
     </form>
+    <dialog
+      ref={dialog}
+      aria-labelledby={`requester-title-${requestId}`}
+      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl border bg-popover p-0 text-popover-foreground shadow-xl backdrop:bg-black/50"
+      onClick={(event) => {
+        if (event.target === dialog.current) dialog.current?.close();
+      }}
+    >
+      <div className="flex flex-col gap-4 p-5">
+        <div>
+          <h2 id={`requester-title-${requestId}`} className="text-base font-semibold">
+            Ganti pemohon {code}?
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pemohon berubah dari <strong>{from?.name}</strong> menjadi <strong>{to?.name}</strong>.{" "}
+            {codeChanges
+              ? `Kode request ikut berubah: ${code} diganti kode baru dengan awalan ${to?.codePrefix ?? "milik pemohon baru (dibuat otomatis)"} dan nomor berikutnya dari pemohon itu. Link lama ke ${code} tidak berlaku lagi; notifikasi diperbarui.`
+              : "Kode request tetap sama karena awalannya sama."}{" "}
+            Perubahan dicatat di audit.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>
+            Batal
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              dialog.current?.close();
+              form.current?.requestSubmit();
+            }}
+          >
+            Ya, ganti pemohon
+          </Button>
+        </div>
+      </div>
+    </dialog>
+    </>
   );
 }

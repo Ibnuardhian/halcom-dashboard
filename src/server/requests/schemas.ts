@@ -117,7 +117,8 @@ export const requestDatesSchema = z.object({
   requestId: z.uuid(),
   createdAt: dayInput,
   completedAt: z.string().trim().nullish().transform((value) => (value ? value : null)).pipe(dayInput.nullable()),
-  requesterId: z.string().trim().nullish().transform((value) => (value ? value : undefined)).pipe(z.uuid().optional()),
+  // An account id, or "pic:<id>" for a SOA PIC who raised the request through the shared SOA login.
+  requesterId: z.string().trim().nullish().transform((value) => (value ? value : undefined)).pipe(z.string().regex(/^(pic:)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Pilih pemohon yang valid.").optional()),
 });
 
 export const uuidSchema = z.uuid();

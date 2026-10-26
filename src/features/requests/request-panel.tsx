@@ -46,9 +46,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
-  const people = can(viewer.role, "requests.edit-dates")
-    ? await getDb().user.findMany({ where: { OR: [{ isActive: true }, { id: request.requesterId }] }, select: { id: true, name: true }, orderBy: { name: "asc" } })
-    : [];
+  const people = can(viewer.role, "requests.edit-dates") ? await requesterChoices(request) : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
     ? buildRequestEmail(request, { subject: setting.emailSubject, body: setting.emailBody, sla: setting.sla, dueAt: sla.dueAt })
@@ -203,7 +201,8 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
               createdAt={jakartaDay(request.createdAt)}
               completedAt={request.completedAt ? jakartaDay(request.completedAt) : null}
               canComplete={request.status === "COMPLETED" || request.status === "REVISION"}
-              requesterId={request.requesterId}
+              requesterId={request.raisedByPicId ? `pic:${request.raisedByPicId}` : request.requesterId}
+              code={request.code}
               people={people}
             />
           </CardContent>
@@ -314,4 +313,19 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
       </details>
     </div>
   );
+}
+
+/**
+ * Who a superadmin can name as the requester: the active accounts, and the SOA PICs who raise requests through the shared SOA login.
+ * The one now on the request stays in the list even if it was deactivated.
+ */
+async function requesterChoices(request: RequestDetail): Promise<{ value: string; name: string; codePrefix: string | null }[]> {
+  const [users, pics] = await Promise.all([
+    getDb().user.findMany({ where: { OR: [{ isActive: true }, { id: request.requesterId }] }, select: { id: true, name: true, codePrefix: true }, orderBy: { name: "asc" } }),
+    getDb().pic.findMany({ where: { team: "SOA", OR: [{ isActive: true }, ...(request.raisedByPicId ? [{ id: request.raisedByPicId }] : [])] }, select: { id: true, name: true, codePrefix: true }, orderBy: { name: "asc" } }),
+  ]);
+  return [
+    ...users.map((user) => ({ value: user.id, name: user.name, codePrefix: user.codePrefix })),
+    ...pics.map((pic) => ({ value: `pic:${pic.id}`, name: `${pic.name} (PIC SOA)`, codePrefix: pic.codePrefix })),
+  ];
 }

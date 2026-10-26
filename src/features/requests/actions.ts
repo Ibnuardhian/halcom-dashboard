@@ -138,6 +138,8 @@ export async function setRequestDatesAction(_previous: FormState, formData: Form
   revalidatePath(`/request/${result.value.code}`);
   revalidatePath(REQUESTS_PATH);
   revalidatePath(PROJECTS_PATH);
+  // The code changed with the requester: the old address is gone, so the person is taken to the new one.
+  if (result.value.code !== text(formData, "code")) redirect(`/request/${result.value.code}`);
   return { ok: true, message: `The dates of ${result.value.code} were saved.` };
 }
 

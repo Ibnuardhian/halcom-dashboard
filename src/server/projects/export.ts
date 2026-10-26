@@ -18,7 +18,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
     include: {
       salesOwner: { select: { name: true } },
       customer: { select: { industry: true } },
-      technicalPic: { select: { name: true } },
+      soaPic: { select: { name: true } },
       principal: { select: { name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
       solutionCategory: { select: { name: true } },
@@ -54,7 +54,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): P
         externalContact: row.externalContact,
         externalReference: row.externalReference,
         sourceNotes: row.sourceNotes,
-        technicalPic: row.technicalPic?.name ?? null,
+        technicalPic: row.soaPic?.name ?? null,
         principal: principalNamesOf(row).join("; ") || null,
         solution: row.solutionCategory?.name ?? null,
         industry: effectiveIndustry(row.customer?.industry, row.industry),

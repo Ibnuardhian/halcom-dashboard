@@ -305,6 +305,9 @@ model Project {
   // Technical fields (SOA-owned).
   technicalPicId     String? @map("technical_pic_id") @db.Uuid
   purchasingPicId    String? @map("purchasing_pic_id") @db.Uuid
+  // The people behind the two accounts above (see Pic): what the pages show and what a superadmin moves. The accounts stay for notifications.
+  soaPicId           String? @map("soa_pic_id") @db.Uuid
+  purchasingPicRefId String? @map("purchasing_pic_ref_id") @db.Uuid
   requirement        String?
   assessmentStatus   String? @map("assessment_status")
   solutionProposed   String? @map("solution_proposed")
@@ -339,6 +342,8 @@ model Project {
   salesOwner       User?             @relation("ProjectSalesOwner", fields: [salesOwnerId], references: [id], onDelete: Restrict)
   technicalPic     User?             @relation("ProjectTechnicalPic", fields: [technicalPicId], references: [id], onDelete: Restrict)
   purchasingPic    User?             @relation("ProjectPurchasingPic", fields: [purchasingPicId], references: [id], onDelete: Restrict)
+  soaPic           Pic?              @relation("ProjectSoaPic", fields: [soaPicId], references: [id], onDelete: Restrict)
+  purchasingPicRef Pic?              @relation("ProjectPurchasingPicRef", fields: [purchasingPicRefId], references: [id], onDelete: Restrict)
   customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
   principal        Principal?        @relation(fields: [principalId], references: [id], onDelete: Restrict)
   principals       ProjectPrincipal[]
@@ -354,6 +359,8 @@ model Project {
   @@index([sourceType])
   @@index([technicalPicId])
   @@index([purchasingPicId])
+  @@index([soaPicId])
+  @@index([purchasingPicRefId])
   @@index([customerId])
   @@index([principalId])
   @@index([solutionCategoryId])
@@ -512,6 +519,8 @@ model Pic {
   name      String
   // Trimmed, single-spaced, lower-cased name: one team cannot hold the same name twice.
   nameKey   String   @map("name_key")
+  // The prefix of request codes raised in this PIC's name (RFQ-A-260001 for Adityo); like a user's, it is kept once given.
+  codePrefix String? @unique @map("code_prefix")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -520,6 +529,8 @@ model Pic {
   raisedRequests   Request[]              @relation("RequestRaisedBy")
   assignedTo       RequestPicAssignment[] @relation("AssignmentTo")
   assignedFrom     RequestPicAssignment[] @relation("AssignmentFrom")
+  soaProjects      Project[]              @relation("ProjectSoaPic")
+  purchasingProjects Project[]            @relation("ProjectPurchasingPicRef")
 
   @@unique([team, nameKey])
   @@index([team, isActive])

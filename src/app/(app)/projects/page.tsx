@@ -12,9 +12,8 @@ import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABEL
 import { PROJECT_SOURCE_TYPES, SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
-import { formatAmount } from "@/features/projects/format";
+import { formatDay } from "@/features/dashboards/format";
 import { ImportDialog } from "@/features/projects/import-dialog";
-import { formatDateOnly } from "@/features/requests/format";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -103,9 +102,9 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const wantedSize = one(query.per);
   const pageSize: ProjectPageSize = wantedSize === "all" ? "all" : (PROJECT_PAGE_SIZES.find((size) => String(size) === wantedSize) ?? DEFAULT_PROJECT_PAGE_SIZE);
   // The whole matching set is sorted before a page is cut out of it (`searchProjects`), so "Rows per page" never changes what a
-  // column sort covers. With no column chosen, newest project first (by project number) is kept as the default.
-  const sort: ProjectSort = PROJECT_SORTS.find((s) => s === one(query.sort)) ?? "code";
-  const defaultDir = (column: ProjectSort): "asc" | "desc" => (column === "code" ? "desc" : "asc");
+  // column sort covers. With no column chosen, the project SOA updated last comes first (projects never updated follow, newest number first).
+  const sort: ProjectSort = PROJECT_SORTS.find((s) => s === one(query.sort)) ?? "lastUpdate";
+  const defaultDir = (column: ProjectSort): "asc" | "desc" => (column === "code" || column === "lastUpdate" ? "desc" : "asc");
   const dir: "asc" | "desc" = one(query.dir) === "asc" || one(query.dir) === "desc" ? (one(query.dir) as "asc" | "desc") : defaultDir(sort);
   const result = await searchProjects(getDb(), viewer, filter, { page: Number(one(query.page)) || 1, pageSize, sort, dir });
   const projects = result.rows;
@@ -126,7 +125,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     if (per !== DEFAULT_PROJECT_PAGE_SIZE) params.set("per", String(per));
     const nextSort = next.sort ?? sort;
     const nextDir = next.dir ?? dir;
-    if (nextSort !== "code") params.set("sort", nextSort);
+    if (nextSort !== "lastUpdate") params.set("sort", nextSort);
     if (nextDir !== defaultDir(nextSort)) params.set("dir", nextDir);
     if (next.page && next.page > 1) params.set("page", String(next.page));
     const text = params.toString();
@@ -228,8 +227,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
               <TableHead className="hidden lg:table-cell">Principals</TableHead>
               <SortableHead label="Sales PIC" column="salesOwner" active={sort === "salesOwner"} dir={dir} href={sortHref} className="hidden md:table-cell" />
               <SortableHead label="Technical PIC" column="technicalPic" active={sort === "technicalPic"} dir={dir} href={sortHref} className="hidden xl:table-cell" />
-              <SortableHead label="Estimated" column="estimated" active={sort === "estimated"} dir={dir} href={sortHref} className="hidden text-right lg:table-cell" />
-              <SortableHead label="Target closing" column="targetDate" active={sort === "targetDate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
+              <SortableHead label="Last updated (SOA)" column="lastUpdate" active={sort === "lastUpdate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
               <TableHead className="hidden text-right md:table-cell">Open requests</TableHead>
             </TableRow>
           </TableHeader>
@@ -255,8 +253,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
                   {project.sourceType !== "INTERNAL_SALES" ? <span className="ml-1 text-xs text-muted-foreground">({SOURCE_LABELS[project.sourceType]})</span> : null}
                 </TableCell>
                 <TableCell className="hidden xl:table-cell">{project.technicalPicName ?? "–"}</TableCell>
-                <TableCell className="hidden text-right tabular-nums lg:table-cell">{formatAmount(project.estimatedValue)}</TableCell>
-                <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDateOnly(project.targetDate)}</TableCell>
+                <TableCell className="hidden whitespace-nowrap lg:table-cell">{project.lastSoaUpdate ? formatDay(project.lastSoaUpdate) : "–"}</TableCell>
                 <TableCell className="hidden text-right tabular-nums md:table-cell">
                   {project.openRequests} / {project.totalRequests}
                 </TableCell>

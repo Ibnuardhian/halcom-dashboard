@@ -35,7 +35,7 @@ export async function codePrefixFor(tx: Tx, user: { id: string; email: string })
   // Read again under the lock: another transaction may have given this person a prefix while this one waited.
   const again = await tx.user.findUnique({ where: { id: user.id }, select: { codePrefix: true } });
   if (again?.codePrefix) return again.codePrefix;
-  const taken = new Set((await tx.user.findMany({ where: { codePrefix: { not: null } }, select: { codePrefix: true } })).map((row) => row.codePrefix!));
+  const taken = await takenPrefixes(tx);
   const prefix = pickCodePrefix(user.email, taken);
   await tx.user.update({ where: { id: user.id }, data: { codePrefix: prefix } });
   return prefix;
@@ -50,4 +50,31 @@ export async function nextRequestCode(tx: Tx, type: RequestType, requester: { id
 export async function nextProjectCode(tx: Tx): Promise<string> {
   const scope = codeScope("PRJ", "", "");
   return formatCode(scope, await nextSequence(tx, scope), PROJECT_CODE_WIDTH);
+}
+
+/**
+ * A new code for an existing request whose requester changed: the new person's prefix, the year kept from the old code, and the next
+ * number of that person's counter (the old number is not reused anywhere, so history that names it stays unambiguous).
+ */
+export async function recodeFor(tx: Tx, type: RequestType, prefix: string, yy: string): Promise<string> {
+  const scope = codeScope(type, prefix, yy);
+  return formatCode(scope, await nextSequence(tx, scope));
+}
+
+/** Prefixes already used by people or by PICs: one prefix belongs to one of them. */
+async function takenPrefixes(tx: Tx): Promise<Set<string>> {
+  const [users, pics] = await Promise.all([
+    tx.user.findMany({ where: { codePrefix: { not: null } }, select: { codePrefix: true } }),
+    tx.pic.findMany({ where: { codePrefix: { not: null } }, select: { codePrefix: true } }),
+  ]);
+  return new Set([...users, ...pics].map((row) => row.codePrefix!));
+}
+
+/** The prefix of a PIC's request codes: the one stored, else the first free letters of the name, stored from then on. */
+export async function codePrefixForPic(tx: Tx, pic: { id: string; name: string; codePrefix: string | null }): Promise<string> {
+  if (pic.codePrefix) return pic.codePrefix;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${PREFIX_LOCK_KEY})`;
+  const prefix = pickCodePrefix(pic.name, await takenPrefixes(tx));
+  await tx.pic.update({ where: { id: pic.id }, data: { codePrefix: prefix } });
+  return prefix;
 }
