@@ -13,7 +13,7 @@ import { notify, projectAudience, usersWithRole } from "@/server/notifications/s
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { jakartaDay } from "@/domain/requests/metrics";
-import { codePrefixFor, nextProjectCode, nextRequestCode, recodeFor } from "./codes";
+import { codePrefixFor, codePrefixForPic, nextProjectCode, nextRequestCode, recodeFor } from "./codes";
 import { ensureCustomer } from "./master-data";
 import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
 import { createProjectSchema, createRequestSchema, handoverSchema, phaseSchema, requestDatesSchema, revisionSchema, statusChangeSchema, stopFlowSchema } from "./schemas";
@@ -518,22 +518,39 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
     const nextCompleted = finished ? (wantedCompleted ?? request.completedAt) : null;
     if (nextCompleted && jakartaDay(nextCompleted) < jakartaDay(nextCreated)) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh sebelum tanggal pembuatan.");
 
-    // "Requested by" can be corrected too: it must be an active account.
-    const nextRequester = requesterId ?? request.requesterId;
-    // The code follows the new requester: their prefix and their next number (the year of the old code is kept). The same prefix keeps the code.
+    // "Requested by" can be corrected too: an active account, or a SOA PIC who raised it through the shared SOA login ("pic:<id>").
+    // What is selected now: the PIC when one is named, else the account.
+    const selectedNow = request.raisedByPicId ? `pic:${request.raisedByPicId}` : request.requesterId;
+    const selected = requesterId ?? selectedNow;
+    let nextRequester = request.requesterId;
+    let nextRaisedByPicId: string | null = request.raisedByPicId;
     let nextCode = request.code;
-    if (nextRequester !== request.requesterId) {
-      const person = await tx.user.findUnique({ where: { id: nextRequester }, select: { id: true, email: true, isActive: true, codePrefix: true } });
-      if (!person?.isActive) return fail("INVALID_INPUT", "Pemohon harus akun yang aktif.");
+    if (selected !== selectedNow) {
+      let prefix: string;
+      if (selected.startsWith("pic:")) {
+        const pic = await tx.pic.findUnique({ where: { id: selected.slice(4) }, select: { id: true, name: true, team: true, isActive: true, codePrefix: true } });
+        if (!pic?.isActive || pic.team !== "SOA") return fail("INVALID_INPUT", "Pilih PIC SOA yang aktif.");
+        const shared = await tx.user.findFirst({ where: { role: "SOA", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } });
+        if (!shared) return fail("INVALID_INPUT", "Tidak ada akun SOA yang aktif untuk mengajukan atas nama PIC.");
+        nextRequester = shared.id;
+        nextRaisedByPicId = pic.id;
+        prefix = await codePrefixForPic(tx, pic);
+      } else {
+        const person = await tx.user.findUnique({ where: { id: selected }, select: { id: true, email: true, isActive: true, codePrefix: true } });
+        if (!person?.isActive) return fail("INVALID_INPUT", "Pemohon harus akun yang aktif.");
+        nextRequester = person.id;
+        nextRaisedByPicId = null;
+        prefix = person.codePrefix ?? (await codePrefixFor(tx, person));
+      }
+      // The code follows the new requester: their prefix and their next number (the year of the old code is kept). The same prefix keeps the code.
       const [, oldPrefix, serial] = request.code.split("-");
-      const prefix = person.codePrefix ?? (await codePrefixFor(tx, person));
-      if (prefix !== oldPrefix) nextCode = await recodeFor(tx, request.type, person, (serial ?? "").slice(0, 2));
+      if (prefix !== oldPrefix) nextCode = await recodeFor(tx, request.type, prefix, (serial ?? "").slice(0, 2));
     }
 
-    const before = { code: request.code, createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null, requesterId: request.requesterId };
-    const after = { code: nextCode, createdAt: nextCreated.toISOString(), completedAt: nextCompleted?.toISOString() ?? null, requesterId: nextRequester };
-    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt && before.requesterId === after.requesterId) return fail("INVALID_INPUT", "Tidak ada yang berubah.");
-    await tx.request.update({ where: { id: request.id }, data: { code: nextCode, createdAt: nextCreated, completedAt: nextCompleted, requesterId: nextRequester } });
+    const before = { code: request.code, createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null, requesterId: request.requesterId, raisedByPicId: request.raisedByPicId };
+    const after = { code: nextCode, createdAt: nextCreated.toISOString(), completedAt: nextCompleted?.toISOString() ?? null, requesterId: nextRequester, raisedByPicId: nextRaisedByPicId };
+    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt && before.requesterId === after.requesterId && before.raisedByPicId === after.raisedByPicId) return fail("INVALID_INPUT", "Tidak ada yang berubah.");
+    await tx.request.update({ where: { id: request.id }, data: { code: nextCode, createdAt: nextCreated, completedAt: nextCompleted, requesterId: nextRequester, raisedByPicId: nextRaisedByPicId } });
     // Notifications name the code in their text and link; the old link would lead nowhere.
     if (nextCode !== request.code) {
       await tx.$executeRaw`UPDATE notifications SET title = replace(title, ${request.code}, ${nextCode}), body = replace(body, ${request.code}, ${nextCode}), href = replace(href, ${request.code}, ${nextCode}) WHERE title LIKE ${"%" + request.code + "%"} OR body LIKE ${"%" + request.code + "%"} OR href LIKE ${"%" + request.code + "%"}`;

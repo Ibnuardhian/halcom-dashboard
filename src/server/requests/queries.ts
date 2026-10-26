@@ -44,6 +44,8 @@ export type ProjectRow = {
   weightedValue: number | null;
   finalValue: number | null;
   targetDate: Date | null;
+  /** When SOA last posted an update on the project (its newest Current or Next action), or null when none was posted. */
+  lastSoaUpdate: Date | null;
   nextAction: string | null;
   openRequests: number;
   totalRequests: number;
@@ -113,7 +115,7 @@ function byCodeDescending(a: { code: string }, b: { code: string }): number {
 }
 
 /** The Projects table's sortable columns. Computed or joined columns (Principals, Prob., Weighted, Open requests) are not sortable. */
-export const PROJECT_SORTS = ["code", "endUser", "name", "progress", "status", "source", "salesOwner", "technicalPic", "estimated", "targetDate"] as const;
+export const PROJECT_SORTS = ["code", "endUser", "name", "progress", "status", "source", "salesOwner", "technicalPic", "lastUpdate"] as const;
 export type ProjectSort = (typeof PROJECT_SORTS)[number];
 export function isProjectSort(value: unknown): value is ProjectSort {
   return typeof value === "string" && (PROJECT_SORTS as readonly string[]).includes(value);
@@ -135,6 +137,7 @@ const PROJECT_SORT_KEY_SELECT = {
   salesOwner: { select: { name: true } },
   soaPic: { select: { name: true } },
   customer: { select: { industry: true } },
+  actions: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
 } as const;
 type ProjectSortKey = Prisma.ProjectGetPayload<{ select: typeof PROJECT_SORT_KEY_SELECT }>;
 
@@ -170,10 +173,8 @@ function byProjectSort(sort: ProjectSort, dir: "asc" | "desc") {
         return compareText(salesSideName({ sourceType: a.sourceType, externalSourceName: a.externalSourceName, salesOwner: a.salesOwner }), salesSideName({ sourceType: b.sourceType, externalSourceName: b.externalSourceName, salesOwner: b.salesOwner }), d) || byCodeDescending(a, b);
       case "technicalPic":
         return compareText(a.soaPic?.name ?? null, b.soaPic?.name ?? null, d) || byCodeDescending(a, b);
-      case "estimated":
-        return compareNumber(numberOrNull(a.estimatedValue), numberOrNull(b.estimatedValue), d) || byCodeDescending(a, b);
-      case "targetDate":
-        return compareNumber(a.targetDate?.getTime() ?? null, b.targetDate?.getTime() ?? null, d) || byCodeDescending(a, b);
+      case "lastUpdate":
+        return compareNumber(a.actions[0]?.createdAt.getTime() ?? null, b.actions[0]?.createdAt.getTime() ?? null, d) || byCodeDescending(a, b);
     }
   };
 }
@@ -246,6 +247,7 @@ const PROJECT_ROW_INCLUDE = {
   principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
   solutionCategory: { select: { name: true } },
   requests: { select: { status: true } },
+  actions: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
 } as const;
 
 type ProjectWithRelations = Prisma.ProjectGetPayload<{ include: typeof PROJECT_ROW_INCLUDE }>;
@@ -269,6 +271,7 @@ function toProjectRow(project: ProjectWithRelations): ProjectRow {
     weightedValue: weightedValue(estimatedValue, project.progress),
     finalValue: numberOrNull(project.finalValue),
     targetDate: project.targetDate,
+    lastSoaUpdate: project.actions[0]?.createdAt ?? null,
     nextAction: project.nextAction,
     openRequests: project.requests.filter((request) => isOpen(request.status)).length,
     totalRequests: project.requests.length,

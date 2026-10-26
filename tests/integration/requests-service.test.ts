@@ -503,3 +503,31 @@ describe("setRequestDates: requested by", () => {
     expect(await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: day, completedAt: null, requesterId: "not-an-id" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 });
+
+describe("setRequestDates: requested by a SOA PIC", () => {
+  it("names the PIC through the shared SOA login and takes the PIC's prefix for the code, and a Purchasing PIC is refused", async () => {
+    const [sales, soa, superadmin] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("SUPERADMIN")]);
+    const project = await makeProject(sales);
+    const rfq = await makeRequest(sales, project.id, "RFQ");
+    const day = (await db.request.findUniqueOrThrow({ where: { id: rfq.id } })).createdAt.toISOString().slice(0, 10);
+    const name = `Pic${randomBytes(2).toString("hex")}`;
+    const pic = await db.pic.create({ data: { team: "SOA", name, nameKey: name.toLowerCase() } });
+    const purchasing = await db.pic.create({ data: { team: "PURCHASING", name: `${name}p`, nameKey: `${name}p`.toLowerCase() } });
+
+    expect(await setRequestDates(db, superadmin, { requestId: rfq.id, createdAt: day, completedAt: null, requesterId: `pic:${purchasing.id}` })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+
+    const moved = await setRequestDates(db, superadmin, { requestId: rfq.id, createdAt: day, completedAt: null, requesterId: `pic:${pic.id}` });
+    expect(moved.ok).toBe(true);
+    const stored = await db.request.findUniqueOrThrow({ where: { id: rfq.id }, include: { requester: true } });
+    const prefix = (await db.pic.findUniqueOrThrow({ where: { id: pic.id } })).codePrefix;
+    expect(prefix).toBeTruthy();
+    expect(stored.raisedByPicId).toBe(pic.id);
+    expect(stored.requester.role).toBe("SOA");
+    expect(stored.code).toBe(`RFQ-${prefix}-${YY}0001`);
+    // Choosing an account again clears the PIC and the code follows that account.
+    const back = await setRequestDates(db, superadmin, { requestId: rfq.id, createdAt: day, completedAt: null, requesterId: sales.id });
+    expect(back.ok).toBe(true);
+    expect((await db.request.findUniqueOrThrow({ where: { id: rfq.id } })).raisedByPicId).toBeNull();
+    void soa;
+  });
+});

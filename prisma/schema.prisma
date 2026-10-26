@@ -519,6 +519,8 @@ model Pic {
   name      String
   // Trimmed, single-spaced, lower-cased name: one team cannot hold the same name twice.
   nameKey   String   @map("name_key")
+  // The prefix of request codes raised in this PIC's name (RFQ-A-260001 for Adityo); like a user's, it is kept once given.
+  codePrefix String? @unique @map("code_prefix")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)

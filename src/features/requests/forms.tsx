@@ -459,13 +459,13 @@ export function RevisionForm({ requestId }: { requestId: string }) {
 }
 
 /** A superadmin sets the creation and completion day by hand: a calendar day, no time (Jakarta). */
-export function RequestDatesForm({ requestId, code, createdAt, completedAt, canComplete, requesterId, people }: { requestId: string; code: string; createdAt: string; completedAt: string | null; canComplete: boolean; requesterId: string; people: { id: string; name: string; codePrefix: string | null }[] }) {
+export function RequestDatesForm({ requestId, code, createdAt, completedAt, canComplete, requesterId, people }: { requestId: string; code: string; createdAt: string; completedAt: string | null; canComplete: boolean; requesterId: string; people: { value: string; name: string; codePrefix: string | null }[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setRequestDatesAction, null);
   const form = useRef<HTMLFormElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [chosen, setChosen] = useState(requesterId);
-  const from = people.find((person) => person.id === requesterId);
-  const to = people.find((person) => person.id === chosen);
+  const from = people.find((person) => person.value === requesterId);
+  const to = people.find((person) => person.value === chosen);
   const changesRequester = chosen !== requesterId;
   // The code changes only when the new person's prefix differs from the one in the code now (BOQ-S-260001: the prefix is "S").
   const prefixNow = code.split("-")[1];
@@ -488,7 +488,7 @@ export function RequestDatesForm({ requestId, code, createdAt, completedAt, canC
         <Field id={`requester-${requestId}`} label="Requested by">
           <NativeSelect id={`requester-${requestId}`} name="requesterId" value={chosen} onChange={(event) => setChosen(event.target.value)}>
             {people.map((person) => (
-              <option key={person.id} value={person.id}>
+              <option key={person.value} value={person.value}>
                 {person.name}
               </option>
             ))}
