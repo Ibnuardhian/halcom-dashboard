@@ -71,14 +71,6 @@ function Label({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{children}</h3>;
 }
 
-const SECTIONS = [
-  ["overview", "Overview"],
-  ["commercial", "Commercial"],
-  ["technical", "Technical"],
-  ["activity", "Activity"],
-  ["requests", "Requests"],
-] as const;
-
 async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code]">, "params" | "searchParams">) {
   const viewer = await requirePermission("projects.view");
   // `?request=CODE` (what /request/CODE leads to) opens that request and scrolls to it; the rest of the page is the project as always.
@@ -150,13 +142,6 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
     <>
       <DashboardHeader title={`${project.endUserCompany} – ${project.name}`} summary={`Project ${project.code}`} />
       {focus && details.some((r) => r.code === focus) ? <ScrollToRequest code={focus} /> : null}
-      <nav aria-label="On this page" className="sticky top-0 z-10 -mx-4 mb-4 flex gap-1 overflow-x-auto border-b bg-background/95 px-4 py-2 backdrop-blur md:static md:mx-0 md:px-0">
-        {SECTIONS.map(([id, label]) => (
-          <a key={id} href={`#${id}`} className="rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground">
-            {label}
-          </a>
-        ))}
-      </nav>
 
       <Section id="overview" title="Overview">
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
