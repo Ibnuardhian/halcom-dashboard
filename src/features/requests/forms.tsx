@@ -391,7 +391,7 @@ export function AssignPicForm({ requestId, current, pics, teamLabel }: { request
   const [state, formAction, pending] = useActionState<FormState, FormData>(assignPicAction, null);
 
   return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
+    <form key={current ?? ""} action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
       <input type="hidden" name="requestId" value={requestId} />
       <Field id={`pic-${requestId}`} label="PIC" hint={pics.length === 0 ? `No active ${teamLabel} PIC yet. An administrator adds them under PICs.` : undefined}>
         <NativeSelect id={`pic-${requestId}`} name="picId" defaultValue={current}>
@@ -418,7 +418,7 @@ export function PhaseForm({ projectId, current, phases }: { projectId: string; c
   const [state, formAction, pending] = useActionState<FormState, FormData>(setPhaseAction, null);
 
   return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
+    <form key={current ?? ""} action={formAction} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_auto] sm:items-end">
       <input type="hidden" name="projectId" value={projectId} />
       <Field id={`phase-${projectId}`} label="Phase">
         <NativeSelect id={`phase-${projectId}`} name="phase" defaultValue={current ?? ""}>
@@ -475,7 +475,7 @@ export function RequestDatesForm({ requestId, code, createdAt, completedAt, canC
 
   return (
     <>
-    <form ref={form} action={formAction} className="flex flex-col gap-3">
+    <form key={`${String(createdAt)}|${String(completedAt)}|${requesterId}`} ref={form} action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={requestId} />
       <input type="hidden" name="code" value={code} />
       <div className="grid gap-3 sm:grid-cols-2">

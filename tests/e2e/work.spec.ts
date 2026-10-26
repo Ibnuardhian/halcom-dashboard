@@ -379,13 +379,17 @@ test.describe("projects and requests", () => {
     await root.goto(`/projects/${projectCode}`);
     const soa = root.getByLabel("SOA PIC (technical)");
     await expect(soa).toBeVisible();
+    let chosen = "";
     // A click before the page is interactive reloads it and resets the box, so the choice is made again on every try.
     await expect(async () => {
       const options = await soa.locator("option").evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value).filter(Boolean));
-      await soa.selectOption(options[options.length - 1]!);
+      chosen = options[options.length - 1]!;
+      await soa.selectOption(chosen);
       await root.getByRole("button", { name: "Move project" }).click();
       await expect(root.getByRole("status").filter({ hasText: /was moved/ })).toBeVisible({ timeout: 1500 });
     }).toPass();
+    // The box keeps the PIC that was saved (React clears a form after its action, so it must be rebuilt from the new value).
+    await expect(soa).toHaveValue(chosen);
 
     await root.reload();
     await expect(root.locator("#overview").getByText("Technical PIC (SOA)", { exact: true }).locator("..")).not.toContainText("–");

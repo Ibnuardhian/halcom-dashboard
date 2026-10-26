@@ -21,7 +21,7 @@ export function ReassignPics({ projectId, projectCode, current, options }: { pro
     { name: "purchasingPicRefId", label: "Purchasing PIC", people: options.purchasing, value: current.purchasingPicRefId ?? "", optional: true },
   ];
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    <form key={`${current.salesOwnerId}|${current.soaPicId}|${current.purchasingPicRefId}`} action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="projectCode" value={projectCode} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

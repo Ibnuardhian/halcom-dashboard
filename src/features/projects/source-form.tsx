@@ -21,7 +21,7 @@ export function SourceForm({ projectId, projectCode, values, salesPeople }: { pr
   const [adopt, setAdopt] = useState(false);
 
   return (
-    <form action={formAction} className="grid gap-4 sm:grid-cols-2">
+    <form key={JSON.stringify(values)} action={formAction} className="grid gap-4 sm:grid-cols-2">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="projectCode" value={projectCode} />
       <input type="hidden" name="sourceType" value={adopt ? "INTERNAL_SALES" : "OTHER"} />

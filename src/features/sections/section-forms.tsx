@@ -52,7 +52,7 @@ export function SectionRow({ section }: { section: SectionRecord }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateSectionAction, null);
   return (
     <li className="py-3">
-      <form action={action} className="flex flex-col gap-2">
+      <form key={JSON.stringify(section)} action={action} className="flex flex-col gap-2">
         <input type="hidden" name="id" value={section.id} />
         <div className="flex flex-wrap items-center gap-2">
           <Input name="label" defaultValue={section.label} maxLength={60} required aria-label={`Nama bagian ${section.label}`} className="max-w-sm" />
@@ -95,7 +95,7 @@ export function PhaseRow({ phase }: { phase: PhaseRecord }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updatePhaseAction, null);
   return (
     <li className="py-3">
-      <form action={action} className="flex flex-wrap items-center gap-2">
+      <form key={JSON.stringify(phase)} action={action} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="key" value={phase.key} />
         <Input name="label" defaultValue={phase.label} maxLength={60} required aria-label={`Nama phase ${phase.label}`} className="max-w-sm" />
         <label className="flex items-center gap-1.5 text-sm">
@@ -118,7 +118,7 @@ export function ProjectSectionsForm({ projectId, projectCode, sections, values }
   const shown = sections.filter((section) => section.isActive || values[section.id] !== undefined);
   if (shown.length === 0) return null;
   return (
-    <form action={action} className="mt-6 flex flex-col gap-3 border-t pt-6">
+    <form key={JSON.stringify(values)} action={action} className="mt-6 flex flex-col gap-3 border-t pt-6">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="projectCode" value={projectCode} />
       <h3 className="text-sm font-semibold">Bagian tambahan</h3>

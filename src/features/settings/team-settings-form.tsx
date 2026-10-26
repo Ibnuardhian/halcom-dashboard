@@ -14,7 +14,7 @@ import { saveTeamSettingAction } from "./actions";
 export function TeamSettingsForm({ role, label, sla, subject, body }: { role: TemplateTeam; label: string; sla: string; subject: string; body: string }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(saveTeamSettingAction, null);
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form key={`${sla}|${subject}|${body}`} action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="role" value={role} />
       <div className="flex flex-col gap-1.5 sm:max-w-xs">
         <Label htmlFor={`${role}-sla`}>SLA of the {label} team (days)</Label>
