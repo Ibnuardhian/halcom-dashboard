@@ -8,7 +8,7 @@ type Actor = { id: string; role: Role };
 
 const idOrBlank = z.union([z.uuid(), z.literal("")]);
 const reassignSchema = z
-  .object({ projectId: z.uuid(), salesOwnerId: idOrBlank.optional(), technicalPicId: idOrBlank.optional(), purchasingPicId: idOrBlank.optional() })
+  .object({ projectId: z.uuid(), salesOwnerId: idOrBlank.optional(), soaPicId: idOrBlank.optional(), purchasingPicRefId: idOrBlank.optional() })
   .strict();
 
 export type ReassignResult =
@@ -21,8 +21,8 @@ const label = (person: { name: string; email: string }) => `${person.name} (${pe
 /** The PIC slots of a project: the project column, the role the person must have, and the name the change log uses. */
 const SLOTS = [
   { key: "salesOwnerId", log: "salesOwner", label: "Sales PIC", role: "SALES", required: true },
-  { key: "technicalPicId", log: "technicalPic", label: "Technical PIC (SOA)", role: "SOA", required: false },
-  { key: "purchasingPicId", log: "purchasingPic", label: "Purchasing PIC", role: "PURCHASING", required: false },
+  { key: "soaPicId", log: "technicalPic", label: "Technical PIC (SOA)", role: "SOA", required: false },
+  { key: "purchasingPicRefId", log: "purchasingPic", label: "Purchasing PIC", role: "PURCHASING", required: false },
 ] as const;
 
 /**
@@ -42,7 +42,7 @@ export async function reassignProject(db: PrismaClient, claimedActor: Actor, inp
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({
       where: { id: projectId },
-      include: { salesOwner: { select: { name: true, email: true } }, technicalPic: { select: { name: true, email: true } }, purchasingPic: { select: { name: true, email: true } } },
+      include: { salesOwner: { select: { name: true, email: true } }, soaPic: { select: { name: true } }, purchasingPicRef: { select: { name: true } } },
     });
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
 
@@ -63,16 +63,24 @@ export async function reassignProject(db: PrismaClient, claimedActor: Actor, inp
       if (next === null && slot.required) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} is required.` };
 
       let toName: string | null = null;
-      if (next !== null) {
-        const person = await tx.user.findUnique({ where: { id: next }, select: { name: true, email: true, role: true, isActive: true } });
-        if (!person?.isActive || person.role !== slot.role) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} must be an active ${slot.role === "SOA" ? "SOA" : slot.role.charAt(0) + slot.role.slice(1).toLowerCase()} account.` };
-        toName = label(person);
-        involved.add(next);
+      if (slot.key === "salesOwnerId") {
+        // The Sales PIC is a login account.
+        if (next !== null) {
+          const person = await tx.user.findUnique({ where: { id: next }, select: { name: true, email: true, role: true, isActive: true } });
+          if (!person?.isActive || person.role !== slot.role) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} must be an active Sales account.` };
+          toName = label(person);
+          involved.add(next);
+        }
+        if (current) involved.add(current);
+      } else if (next !== null) {
+        // The SOA and Purchasing PICs are people of the PIC list (team SOA or Purchasing), not accounts.
+        const pic = await tx.pic.findUnique({ where: { id: next }, select: { name: true, team: true, isActive: true } });
+        if (!pic?.isActive || pic.team !== slot.role) return { ok: false, code: "INVALID_INPUT", message: `${slot.label} harus PIC ${slot.role === "SOA" ? "SOA" : "Purchasing"} yang aktif.` };
+        toName = pic.name;
       }
-      if (current) involved.add(current);
       data[slot.key] = next;
-      const was = project[slot.log];
-      changes.push({ field: slot.log, from: was ? label(was) : null, to: toName });
+      const was = slot.key === "salesOwnerId" ? project.salesOwner : slot.key === "soaPicId" ? project.soaPic : project.purchasingPicRef;
+      changes.push({ field: slot.log, from: was ? (slot.key === "salesOwnerId" ? label(was as { name: string; email: string }) : was.name) : null, to: toName });
       changed.push(slot.log);
     }
     if (changes.length === 0) return { ok: true, changed: [] };

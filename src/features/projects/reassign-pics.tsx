@@ -9,7 +9,7 @@ import { reassignProjectAction } from "./actions";
 
 type Person = { id: string; name: string };
 export type PicOptions = { sales: Person[]; soa: Person[]; purchasing: Person[] };
-export type CurrentPics = { salesOwnerId: string | null; technicalPicId: string | null; purchasingPicId: string | null };
+export type CurrentPics = { salesOwnerId: string | null; soaPicId: string | null; purchasingPicRefId: string | null };
 
 /** Superadmin only (the page decides). Picks who the project belongs to; nothing else about the project changes. */
 export function ReassignPics({ projectId, projectCode, current, options }: { projectId: string; projectCode: string; current: CurrentPics; options: PicOptions }) {
@@ -17,8 +17,8 @@ export function ReassignPics({ projectId, projectCode, current, options }: { pro
   const fields = [
     // A project from another source has no internal Sales PIC to move; its source is edited in the Source section.
     ...(current.salesOwnerId === null ? [] : [{ name: "salesOwnerId", label: "Sales PIC", people: options.sales, value: current.salesOwnerId, optional: false }]),
-    { name: "technicalPicId", label: "SOA PIC (technical)", people: options.soa, value: current.technicalPicId ?? "", optional: true },
-    { name: "purchasingPicId", label: "Purchasing PIC", people: options.purchasing, value: current.purchasingPicId ?? "", optional: true },
+    { name: "soaPicId", label: "SOA PIC (technical)", people: options.soa, value: current.soaPicId ?? "", optional: true },
+    { name: "purchasingPicRefId", label: "Purchasing PIC", people: options.purchasing, value: current.purchasingPicRefId ?? "", optional: true },
   ];
   return (
     <form action={formAction} className="flex flex-col gap-3">

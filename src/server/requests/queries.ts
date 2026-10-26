@@ -133,7 +133,7 @@ const PROJECT_SORT_KEY_SELECT = {
   targetDate: true,
   industry: true,
   salesOwner: { select: { name: true } },
-  technicalPic: { select: { name: true } },
+  soaPic: { select: { name: true } },
   customer: { select: { industry: true } },
 } as const;
 type ProjectSortKey = Prisma.ProjectGetPayload<{ select: typeof PROJECT_SORT_KEY_SELECT }>;
@@ -169,7 +169,7 @@ function byProjectSort(sort: ProjectSort, dir: "asc" | "desc") {
       case "salesOwner":
         return compareText(salesSideName({ sourceType: a.sourceType, externalSourceName: a.externalSourceName, salesOwner: a.salesOwner }), salesSideName({ sourceType: b.sourceType, externalSourceName: b.externalSourceName, salesOwner: b.salesOwner }), d) || byCodeDescending(a, b);
       case "technicalPic":
-        return compareText(a.technicalPic?.name ?? null, b.technicalPic?.name ?? null, d) || byCodeDescending(a, b);
+        return compareText(a.soaPic?.name ?? null, b.soaPic?.name ?? null, d) || byCodeDescending(a, b);
       case "estimated":
         return compareNumber(numberOrNull(a.estimatedValue), numberOrNull(b.estimatedValue), d) || byCodeDescending(a, b);
       case "targetDate":
@@ -228,7 +228,7 @@ function projectWhere(filter: ProjectFilter): Prisma.ProjectWhereInput {
                 { externalSourceName: { contains: search, mode: "insensitive" as const } },
                 { externalContact: { contains: search, mode: "insensitive" as const } },
                 { externalReference: { contains: search, mode: "insensitive" as const } },
-                { technicalPic: { name: { contains: search, mode: "insensitive" as const } } },
+                { soaPic: { name: { contains: search, mode: "insensitive" as const } } },
                 { principal: { name: { contains: search, mode: "insensitive" as const } } },
                 { principals: { some: { principal: { name: { contains: search, mode: "insensitive" as const } } } } },
               ],
@@ -241,7 +241,7 @@ function projectWhere(filter: ProjectFilter): Prisma.ProjectWhereInput {
 
 const PROJECT_ROW_INCLUDE = {
   salesOwner: { select: { name: true } },
-  technicalPic: { select: { name: true } },
+  soaPic: { select: { name: true } },
   principal: { select: { name: true } },
   principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
   solutionCategory: { select: { name: true } },
@@ -263,7 +263,7 @@ function toProjectRow(project: ProjectWithRelations): ProjectRow {
     solutionName: project.solutionCategory?.name ?? null,
     salesOwnerName: salesSideName(project),
     sourceType: project.sourceType,
-    technicalPicName: project.technicalPic?.name ?? null,
+    technicalPicName: project.soaPic?.name ?? null,
     estimatedValue,
     probability: PROGRESS_PERCENT[project.progress],
     weightedValue: weightedValue(estimatedValue, project.progress),
@@ -328,16 +328,15 @@ export async function searchProjects(
 }
 
 /** Principals that at least one project uses, for the filter. */
-/** The accounts a superadmin can move a project to, by role. */
+/** Who a superadmin can move a project to: Sales accounts, and the active SOA and Purchasing PICs of the PIC list. */
 export async function listPicOptions(db: PrismaClient, viewer: Viewer) {
   assertPermitted(can(viewer.role, "projects.reassign"));
-  const users = await db.user.findMany({
-    where: { isActive: true, role: { in: ["SALES", "SOA", "PURCHASING"] } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, role: true },
-  });
-  const of = (role: Role) => users.filter((user) => user.role === role).map(({ id, name }) => ({ id, name }));
-  return { sales: of("SALES"), soa: of("SOA"), purchasing: of("PURCHASING") };
+  const [users, pics] = await Promise.all([
+    db.user.findMany({ where: { isActive: true, role: "SALES" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.pic.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, team: true } }),
+  ]);
+  const of = (team: "SOA" | "PURCHASING") => pics.filter((pic) => pic.team === team).map(({ id, name }) => ({ id, name }));
+  return { sales: users, soa: of("SOA"), purchasing: of("PURCHASING") };
 }
 
 /** Active Sales accounts, for handing a project from another source to an internal Sales PIC and for SOA registering a project for one. */
@@ -579,6 +578,8 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
     include: {
       salesOwner: { select: { name: true } },
       technicalPic: { select: { name: true } },
+      soaPic: { select: { name: true } },
+      purchasingPicRef: { select: { name: true } },
       purchasingPic: { select: { name: true } },
       customer: { select: { name: true, industry: true } },
       principal: { select: { name: true } },
