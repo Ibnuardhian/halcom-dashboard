@@ -4,6 +4,8 @@ import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
 import { DateInput } from "@/components/ui/date-input";
+import { CompanyInput } from "./company-input";
+import type { MasterOption } from "@/domain/projects/master-data";
 import { SearchSelect } from "@/components/ui/search-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,7 +79,7 @@ function ExternalSourceFields() {
   );
 }
 
-export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCOPE }: { submissionKey: string; defaultType?: RequestType | ""; scope?: ProjectFormScope }) {
+export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCOPE, customers = [] }: { submissionKey: string; defaultType?: RequestType | ""; scope?: ProjectFormScope; customers?: readonly MasterOption[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(createProjectAction, null);
   const [source, setSource] = useState<ProjectSourceType>(scope.sources[0] ?? "INTERNAL_SALES");
   const requestTypes = scope.requestTypes[source];
@@ -122,7 +124,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       ) : null}
       {source === "OTHER" ? <ExternalSourceFields /> : null}
       <Field id="project-company" label="End-user company *">
-        <Input id="project-company" name="endUserCompany" required maxLength={120} placeholder="PT ABC" />
+        <CompanyInput id="project-company" name="endUserCompany" customers={customers} />
       </Field>
       <Field id="project-name" label="Project name *">
         <Input id="project-name" name="name" required maxLength={120} placeholder="CCTV AI" />

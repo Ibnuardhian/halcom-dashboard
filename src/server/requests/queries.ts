@@ -710,3 +710,9 @@ export async function getWorkStats(db: PrismaClient, viewer: Viewer, projectOwne
   ) as WorkStats["openByType"];
   return { projectsActive, openByType, statusCounts, unassignedOpen };
 }
+
+/** Existing customers, for suggesting a company name while a project is being registered (nobody writes the same company twice). */
+export async function listCustomerOptions(db: PrismaClient, viewer: Viewer) {
+  assertPermitted(can(viewer.role, "projects.view"));
+  return db.customer.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+}

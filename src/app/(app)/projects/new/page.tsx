@@ -7,7 +7,7 @@ import { can } from "@/domain/access/permissions";
 import { canCreateProjectWithSource, canRaiseWithNewProject, PROJECT_SOURCE_TYPES } from "@/domain/projects/source";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/lib/db";
-import { listSalesPeopleOptions } from "@/server/requests/queries";
+import { listCustomerOptions, listSalesPeopleOptions } from "@/server/requests/queries";
 import { isRequestType, type RequestType } from "@/domain/requests/types";
 import { ProjectForm, type ProjectFormScope } from "@/features/requests/forms";
 
@@ -21,6 +21,7 @@ export default function NewProjectPage({ searchParams }: PageProps<"/projects/ne
 
 async function NewProject({ searchParams }: Pick<PageProps<"/projects/new">, "searchParams">) {
   const viewer = await requireUser();
+  const customers = can(viewer.role, "projects.view") ? await listCustomerOptions(getDb(), viewer) : [];
   // Sales register their own Internal Sales projects; SOA register a project for a salesperson they pick (Internal Sales) or from another source (Other); admins both.
   const sources = PROJECT_SOURCE_TYPES.filter((source) => canCreateProjectWithSource(viewer.role, source));
   if (sources.length === 0) notFound();
@@ -46,7 +47,7 @@ async function NewProject({ searchParams }: Pick<PageProps<"/projects/new">, "se
           <CardDescription>The Project ID (HIT-PROJ-001, HIT-PROJ-002 and so on) is assigned when you save. {sources.includes("INTERNAL_SALES") ? "An Internal Sales project makes you its Sales owner. " : ""}{sources.includes("OTHER") ? "A project from another source (Other) has no internal Sales PIC." : ""}</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProjectForm submissionKey={crypto.randomUUID()} defaultType={defaultType} scope={scope} />
+          <ProjectForm submissionKey={crypto.randomUUID()} defaultType={defaultType} scope={scope} customers={customers} />
         </CardContent>
       </Card>
     </>
