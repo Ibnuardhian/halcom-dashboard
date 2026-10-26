@@ -13,7 +13,7 @@ async function createProject(page: Page, name: string): Promise<string> {
 }
 
 async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ", title: string): Promise<string> {
-  await page.goto(`/projects/${projectCode}`);
+  await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: `New ${type}`, exact: true }).click();
   await expect(async () => {
     await page.getByLabel("Summary").fill(title);

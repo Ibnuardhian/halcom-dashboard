@@ -12,7 +12,7 @@ import { PROGRESS_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABEL
 import { PROJECT_SOURCE_TYPES, SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
-import { formatAmount, formatPercent } from "@/features/projects/format";
+import { formatAmount } from "@/features/projects/format";
 import { ImportDialog } from "@/features/projects/import-dialog";
 import { formatDateOnly } from "@/features/requests/format";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
@@ -217,21 +217,18 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           {filtered ? "Tidak ada project yang cocok dengan filter ini." : "Belum ada project."}
         </p>
       ) : (
-        <Table>
+        <Table topScroll>
           <TableHeader>
             <TableRow>
-              <SortableHead label="Project ID" column="code" active={sort === "code"} dir={dir} href={sortHref} />
+              <SortableHead label="Project ID" column="code" active={sort === "code"} dir={dir} href={sortHref} className="sticky left-0 z-10 bg-background" />
               <SortableHead label="End user" column="endUser" active={sort === "endUser"} dir={dir} href={sortHref} />
               <SortableHead label="Project" column="name" active={sort === "name"} dir={dir} href={sortHref} />
               <SortableHead label="Progress" column="progress" active={sort === "progress"} dir={dir} href={sortHref} />
               <SortableHead label="Status" column="status" active={sort === "status"} dir={dir} href={sortHref} className="hidden sm:table-cell" />
               <TableHead className="hidden lg:table-cell">Principals</TableHead>
-              <SortableHead label="Source" column="source" active={sort === "source"} dir={dir} href={sortHref} className="hidden md:table-cell" />
               <SortableHead label="Sales PIC" column="salesOwner" active={sort === "salesOwner"} dir={dir} href={sortHref} className="hidden md:table-cell" />
               <SortableHead label="Technical PIC" column="technicalPic" active={sort === "technicalPic"} dir={dir} href={sortHref} className="hidden xl:table-cell" />
               <SortableHead label="Estimated" column="estimated" active={sort === "estimated"} dir={dir} href={sortHref} className="hidden text-right lg:table-cell" />
-              <TableHead className="hidden text-right xl:table-cell">Prob.</TableHead>
-              <TableHead className="hidden text-right xl:table-cell">Weighted</TableHead>
               <SortableHead label="Target closing" column="targetDate" active={sort === "targetDate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
               <TableHead className="hidden text-right md:table-cell">Open requests</TableHead>
             </TableRow>
@@ -239,7 +236,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           <TableBody>
             {projects.map((project) => (
               <TableRow key={project.id}>
-                <TableCell className="font-mono text-xs font-medium whitespace-nowrap">
+                <TableCell className="sticky left-0 z-10 bg-background font-mono text-xs font-medium whitespace-nowrap">
                   <Link href={`${PROJECTS_PATH}/${project.code}`} className="text-primary underline-offset-4 hover:underline">
                     {project.code}
                   </Link>
@@ -253,12 +250,12 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
                   <TrackStatusBadge status={project.trackStatus} />
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">{project.principalName ?? "–"}</TableCell>
-                <TableCell className="hidden md:table-cell">{SOURCE_LABELS[project.sourceType]}</TableCell>
-                <TableCell className="hidden md:table-cell">{project.salesOwnerName}</TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {project.salesOwnerName}
+                  {project.sourceType !== "INTERNAL_SALES" ? <span className="ml-1 text-xs text-muted-foreground">({SOURCE_LABELS[project.sourceType]})</span> : null}
+                </TableCell>
                 <TableCell className="hidden xl:table-cell">{project.technicalPicName ?? "–"}</TableCell>
                 <TableCell className="hidden text-right tabular-nums lg:table-cell">{formatAmount(project.estimatedValue)}</TableCell>
-                <TableCell className="hidden text-right tabular-nums xl:table-cell">{formatPercent(project.probability)}</TableCell>
-                <TableCell className="hidden text-right tabular-nums xl:table-cell">{formatAmount(project.weightedValue)}</TableCell>
                 <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDateOnly(project.targetDate)}</TableCell>
                 <TableCell className="hidden text-right tabular-nums md:table-cell">
                   {project.openRequests} / {project.totalRequests}

@@ -434,24 +434,23 @@ describe("read queries", () => {
 });
 
 describe("setRequestDates", () => {
-  const stamp = (iso: string) => iso.slice(0, 16);
 
-  it("lets a superadmin set the creation and completion time, audits the change and leaves the history alone", async () => {
+  it("lets a superadmin set the creation and completion day (no time), audits the change and leaves the history alone", async () => {
     const [sales, soa, superadmin] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("SUPERADMIN")]);
     const project = await makeProject(sales);
     const boq = await completedBoq(sales, soa, project.id);
     const historyBefore = await db.requestStatusHistory.count({ where: { requestId: boq.id } });
 
-    const result = await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: stamp("2026-09-04T10:00:00Z") });
+    const result = await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: "2026-09-01", completedAt: "2026-09-04" });
 
     expect(result.ok).toBe(true);
     const stored = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
-    expect(stored.createdAt.toISOString()).toBe("2026-09-01T03:30:00.000Z");
-    expect(stored.completedAt?.toISOString()).toBe("2026-09-04T10:00:00.000Z");
+    expect(stored.createdAt.toISOString()).toBe("2026-08-31T17:00:00.000Z");
+    expect(stored.completedAt?.toISOString()).toBe("2026-09-03T17:00:00.000Z");
     expect(await db.requestStatusHistory.count({ where: { requestId: boq.id } })).toBe(historyBefore);
     const event = await db.auditEvent.findFirstOrThrow({ where: { action: "request.dates_corrected", entityId: boq.id } });
     expect(event.actorId).toBe(superadmin.id);
-    expect(event.after).toMatchObject({ createdAt: "2026-09-01T03:30:00.000Z", completedAt: "2026-09-04T10:00:00.000Z" });
+    expect(event.after).toMatchObject({ createdAt: "2026-08-31T17:00:00.000Z", completedAt: "2026-09-03T17:00:00.000Z" });
   });
 
   it("is for a superadmin only", async () => {
@@ -459,7 +458,7 @@ describe("setRequestDates", () => {
     const project = await makeProject(sales);
     const boq = await completedBoq(sales, soa, project.id);
     for (const actor of [sales, soa, admin]) {
-      const result = await setRequestDates(db, actor, { requestId: boq.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: null });
+      const result = await setRequestDates(db, actor, { requestId: boq.id, createdAt: "2026-09-01", completedAt: null });
       expect(result).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
   });
@@ -469,11 +468,30 @@ describe("setRequestDates", () => {
     const project = await makeProject(sales);
     const open = await makeRequest(sales, project.id, "BOQ");
 
-    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: stamp("2026-09-02T03:30:00Z") })).toMatchObject({ ok: false, code: "INVALID_STATE" });
-    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: stamp("2026-09-05T03:30:00Z"), completedAt: stamp("2026-09-02T03:30:00Z") })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
-    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2999-01-01T00:00", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2026-09-01", completedAt: "2026-09-02" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2026-09-05", completedAt: "2026-09-02" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2999-01-01", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "not a date", completedAt: null })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     // An open request can still get a corrected creation date.
-    expect((await setRequestDates(db, superadmin, { requestId: open.id, createdAt: stamp("2026-09-01T03:30:00Z"), completedAt: null })).ok).toBe(true);
+    expect((await setRequestDates(db, superadmin, { requestId: open.id, createdAt: "2026-09-01", completedAt: null })).ok).toBe(true);
+  });
+});
+
+describe("setRequestDates: requested by", () => {
+  it("lets a superadmin change the requester to an active account, audits it, and refuses an inactive or unknown one", async () => {
+    const [sales, other, superadmin] = await Promise.all([actorOf("SALES"), actorOf("SALES", "tester.two"), actorOf("SUPERADMIN")]);
+    const project = await makeProject(sales);
+    const boq = await makeRequest(sales, project.id, "BOQ");
+    const day = (await db.request.findUniqueOrThrow({ where: { id: boq.id } })).createdAt.toISOString().slice(0, 10);
+
+    const moved = await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: day, completedAt: null, requesterId: other.id });
+    expect(moved.ok).toBe(true);
+    expect((await db.request.findUniqueOrThrow({ where: { id: boq.id } })).requesterId).toBe(other.id);
+    const event = await db.auditEvent.findFirstOrThrow({ where: { action: "request.dates_corrected", entityId: boq.id } });
+    expect(event.after).toMatchObject({ requesterId: other.id });
+
+    await db.user.update({ where: { id: sales.id }, data: { isActive: false } });
+    expect(await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: day, completedAt: null, requesterId: sales.id })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setRequestDates(db, superadmin, { requestId: boq.id, createdAt: day, completedAt: null, requesterId: "not-an-id" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 });

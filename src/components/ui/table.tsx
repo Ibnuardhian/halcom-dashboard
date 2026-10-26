@@ -46,8 +46,36 @@ function sortColumn(table: HTMLTableElement, head: HTMLTableCellElement): void {
   for (const row of rows) body.appendChild(row)
 }
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({ className, topScroll = false, ...props }: React.ComponentProps<"table"> & { topScroll?: boolean }) {
   const ref = React.useRef<HTMLTableElement>(null)
+  const container = React.useRef<HTMLDivElement>(null)
+  const top = React.useRef<HTMLDivElement>(null)
+  const topInner = React.useRef<HTMLDivElement>(null)
+  const [overflowing, setOverflowing] = React.useState(false)
+  // A wide table gets a second scrollbar above it, kept in step with the one below, so nobody has to scroll to the bottom to move sideways.
+  React.useEffect(() => {
+    const table = ref.current
+    const box = container.current
+    if (!topScroll || !table || !box) return
+    const measure = () => {
+      if (topInner.current) topInner.current.style.width = `${table.scrollWidth}px`
+      setOverflowing(table.scrollWidth > box.clientWidth + 1)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(table)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [topScroll])
+  const syncing = React.useRef(false)
+  const follow = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
+    if (!from || !to || syncing.current) {
+      syncing.current = false
+      return
+    }
+    syncing.current = true
+    to.scrollLeft = from.scrollLeft
+  }
   // Marks the sortable headers once the page is interactive, so a header that cannot sort never looks clickable.
   React.useEffect(() => {
     const table = ref.current
@@ -64,9 +92,23 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     if (table && head) sortColumn(table, head)
   }
   return (
+    <>
+    {topScroll && overflowing ? (
+      <div
+        ref={top}
+        data-slot="table-top-scroll"
+        aria-hidden
+        className="w-full overflow-x-auto overflow-y-hidden"
+        onScroll={() => follow(top.current, container.current)}
+      >
+        <div ref={topInner} className="h-3" />
+      </div>
+    ) : null}
     <div
+      ref={container}
       data-slot="table-container"
       className="relative w-full overflow-x-auto"
+      onScroll={() => follow(container.current, top.current)}
     >
       <table
         ref={ref}
@@ -74,7 +116,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
         className={cn(
           "w-full caption-bottom text-sm",
           "[&_th[data-sortable]]:cursor-pointer [&_th[data-sortable]]:select-none [&_th[data-sortable]:hover]:underline",
-          "[&_th[aria-sort=ascending]]:after:content-['_↑'] [&_th[aria-sort=descending]]:after:content-['_↓']",
+          "[&_th[data-sortable][aria-sort=ascending]]:after:content-['_↑'] [&_th[data-sortable][aria-sort=descending]]:after:content-['_↓']",
           className
         )}
         onClick={(event) => sortFrom(event.target)}
@@ -90,6 +132,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
         {...props}
       />
     </div>
+    </>
   )
 }
 

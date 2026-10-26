@@ -12,6 +12,7 @@ import type { RequestType } from "@/domain/requests/types";
 import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
 import { SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { OWNING_ROLE } from "@/domain/requests/types";
+import { jakartaDay } from "@/domain/requests/metrics";
 import { nextProjectCode, nextRequestCode } from "./codes";
 import { ensureCustomer } from "./master-data";
 import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
@@ -496,9 +497,10 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
   const parsed = requestDatesSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
   if (!can(claimedActor.role, "requests.edit-dates")) return fail("FORBIDDEN");
-  const { requestId, createdAt, completedAt } = parsed.data;
-  if (createdAt.getTime() > Date.now()) return fail("INVALID_INPUT", "Tanggal pembuatan tidak boleh di masa depan.");
-  if (completedAt && completedAt.getTime() > Date.now()) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh di masa depan.");
+  const { requestId, createdAt, completedAt, requesterId } = parsed.data;
+  const today = jakartaDay(new Date());
+  if (jakartaDay(createdAt) > today) return fail("INVALID_INPUT", "Tanggal pembuatan tidak boleh di masa depan.");
+  if (completedAt && jakartaDay(completedAt) > today) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh di masa depan.");
   if (completedAt && completedAt.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh sebelum tanggal pembuatan.");
 
   return db.$transaction(async (tx) => {
@@ -509,14 +511,24 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
     if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     const finished = request.status === "COMPLETED" || request.status === "REVISION";
     if (!finished && completedAt) return fail("INVALID_STATE", "Hanya request yang sudah selesai yang memiliki tanggal penyelesaian.");
+    // Only days are entered. A day that is the one already stored keeps its exact time, so saving the form never moves a time by itself.
+    const nextCreated = jakartaDay(request.createdAt) === jakartaDay(createdAt) ? request.createdAt : createdAt;
     // A finished request keeps a completion date: an empty field leaves the stored one.
-    const nextCompleted = finished ? (completedAt ?? request.completedAt) : null;
-    if (nextCompleted && nextCompleted.getTime() < createdAt.getTime()) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh sebelum tanggal pembuatan.");
+    const wantedCompleted = completedAt && request.completedAt && jakartaDay(request.completedAt) === jakartaDay(completedAt) ? request.completedAt : completedAt;
+    const nextCompleted = finished ? (wantedCompleted ?? request.completedAt) : null;
+    if (nextCompleted && jakartaDay(nextCompleted) < jakartaDay(nextCreated)) return fail("INVALID_INPUT", "Tanggal penyelesaian tidak boleh sebelum tanggal pembuatan.");
 
-    const before = { createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null };
-    const after = { createdAt: createdAt.toISOString(), completedAt: nextCompleted?.toISOString() ?? null };
-    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt) return fail("INVALID_INPUT", "Nothing changed.");
-    await tx.request.update({ where: { id: request.id }, data: { createdAt, completedAt: nextCompleted } });
+    // "Requested by" can be corrected too: it must be an active account.
+    const nextRequester = requesterId ?? request.requesterId;
+    if (nextRequester !== request.requesterId) {
+      const person = await tx.user.findUnique({ where: { id: nextRequester }, select: { isActive: true } });
+      if (!person?.isActive) return fail("INVALID_INPUT", "Pemohon harus akun yang aktif.");
+    }
+
+    const before = { createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null, requesterId: request.requesterId };
+    const after = { createdAt: nextCreated.toISOString(), completedAt: nextCompleted?.toISOString() ?? null, requesterId: nextRequester };
+    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt && before.requesterId === after.requesterId) return fail("INVALID_INPUT", "Tidak ada yang berubah.");
+    await tx.request.update({ where: { id: request.id }, data: { createdAt: nextCreated, completedAt: nextCompleted, requesterId: nextRequester } });
     await audit(tx, actor.id, "request", "request.dates_corrected", request.id, before, { code: request.code, ...after });
     return succeed({ code: request.code });
   });

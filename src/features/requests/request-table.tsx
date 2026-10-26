@@ -46,7 +46,7 @@ export function RequestTable({
     );
   }
   return (
-    <Table>
+    <Table topScroll>
       <TableHeader>
         <TableRow>
           <SortableHead label="Request ID" column="code" sorting={sorting} />

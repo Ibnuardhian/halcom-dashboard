@@ -132,6 +132,7 @@ export async function setRequestDatesAction(_previous: FormState, formData: Form
     requestId: text(formData, "requestId"),
     createdAt: text(formData, "createdAt"),
     completedAt: text(formData, "completedAt"),
+    requesterId: text(formData, "requesterId"),
   });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(`/request/${result.value.code}`);
