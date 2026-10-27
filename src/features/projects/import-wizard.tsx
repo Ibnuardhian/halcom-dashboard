@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { IMPORT_FIELDS, type ColumnMapping, type ImportFieldKey } from "@/domain/projects/import";
 import { cn } from "@/lib/utils";
 import type { CommitMode, CommitResult, ImportSummary, PreviewResult } from "@/server/import/xlsx-projects";
-import { commitImportAction, inspectSheetAction, previewImportAction, type InspectResult } from "./import-actions";
+import type { UpdateCommitResult, UpdatePreviewResult, UpdateSummary } from "@/server/import/xlsx-projects-update";
+import { commitImportAction, commitUpdateAction, inspectSheetAction, previewImportAction, previewUpdateAction, type InspectResult } from "./import-actions";
 
 type Inspected = Extract<InspectResult, { ok: true }>;
 
@@ -27,7 +28,7 @@ function columnLabel(index: number, header: string): string {
  * Importing projects from an Excel sheet in three steps: choose the file, match its columns to the fields, check the rows and import.
  * The file is sent again with every step and checked again on the server; this component only holds what the person chose.
  */
-export function ImportWizard({ onClose }: { onClose?: () => void }) {
+export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => void; canUpdate?: boolean }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -35,6 +36,11 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [mode, setMode] = useState<CommitMode>("atomic");
+  // "update" changes existing projects found by Project ID; only offered to those who may bulk update.
+  const [intent, setIntent] = useState<"create" | "update">("create");
+  const [updateSummary, setUpdateSummary] = useState<UpdateSummary | null>(null);
+  const [updateResult, setUpdateResult] = useState<Extract<UpdateCommitResult, { ok: true }> | null>(null);
+  const [confirmNew, setConfirmNew] = useState(false);
   const [result, setResult] = useState<Extract<CommitResult, { ok: true }> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -55,6 +61,9 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
     setResult(null);
     setError(null);
     setMode("atomic");
+    setUpdateSummary(null);
+    setUpdateResult(null);
+    setConfirmNew(false);
     if (fileInput.current) fileInput.current.value = "";
   }
 
@@ -62,6 +71,9 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
     setFile(chosen);
     setInspected(null);
     setSummary(null);
+    setUpdateSummary(null);
+    setUpdateResult(null);
+    setConfirmNew(false);
     setResult(null);
     setError(null);
     startTransition(async () => {
@@ -99,13 +111,69 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
     });
   }
 
+  function checkUpdate() {
+    setError(null);
+    setUpdateSummary(null);
+    setConfirmNew(false);
+    startTransition(async () => {
+      const answer: UpdatePreviewResult = await previewUpdateAction(body());
+      if (answer.ok) setUpdateSummary(answer.summary);
+      else setError(answer.message);
+    });
+  }
+
+  function runUpdate() {
+    setError(null);
+    startTransition(async () => {
+      const answer = await commitUpdateAction(body({ confirmNew: String(confirmNew) }));
+      if (answer.ok) {
+        setUpdateResult(answer);
+        setUpdateSummary(answer.summary);
+      } else {
+        setError(answer.message);
+        if (answer.summary) setUpdateSummary(answer.summary);
+      }
+    });
+  }
+
   const changeMapping = (key: ImportFieldKey, value: string) => {
     setSummary(null);
+    setUpdateSummary(null);
     setMapping((current) => (current ? { ...current, [key]: value === "" ? null : Number(value) } : current));
   };
 
-  const missingRequired = mapping ? IMPORT_FIELDS.filter((field) => field.required && mapping[field.key] === null) : [];
+  // Updating finds each project by its Project ID, so that column is required too.
+  const missingRequired = mapping ? IMPORT_FIELDS.filter((field) => (field.required || (intent === "update" && field.key === "code")) && mapping[field.key] === null) : [];
   const usedTwice = mapping ? Object.values(mapping).filter((value): value is number => value !== null).some((value, _, all) => all.indexOf(value) !== all.lastIndexOf(value)) : false;
+
+  if (updateResult) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            <h2>Update finished</h2>
+          </CardTitle>
+          <CardDescription>
+            {file?.name}: {updateResult.updated} project{updateResult.updated === 1 ? "" : "s"} updated, {updateResult.unchanged} unchanged, {updateResult.skipped} skipped.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p role="status" className="text-sm">
+            Updated: {updateResult.codes.slice(0, 20).join(", ")}
+            {updateResult.codes.length > 20 ? ` and ${updateResult.codes.length - 20} more` : ""}. Every change is in the project&apos;s Change log.
+          </p>
+          <div className="flex gap-2">
+            <Button type="button" onClick={onClose}>
+              Close and show the projects
+            </Button>
+            <Button type="button" variant="outline" onClick={reset}>
+              Update another file
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (result) {
     return (
@@ -150,6 +218,19 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {canUpdate ? (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-medium">What do you want to do?</legend>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="import-intent" checked={intent === "create"} onChange={() => setIntent("create")} className="mt-1" />
+                <span>Import new projects (a Project ID that exists is skipped)</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="import-intent" checked={intent === "update"} onChange={() => setIntent("update")} className="mt-1" />
+                <span>Update existing projects: edit an export of the projects, then upload it. Rows are matched by Project ID; an empty cell changes nothing.</span>
+              </label>
+            </fieldset>
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <a href="/export/projects-template" download className={buttonVariants({ variant: "outline" })}>
               <Download aria-hidden data-icon="inline-start" />
@@ -292,7 +373,7 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
               </div>
             </details>
             <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" disabled={pending || missingRequired.length > 0 || usedTwice} onClick={check}>
+              <Button type="button" disabled={pending || missingRequired.length > 0 || usedTwice} onClick={intent === "update" ? checkUpdate : check}>
                 {pending ? "Checking…" : "Check the sheet"}
               </Button>
               {missingRequired.length > 0 ? <span className="text-sm text-muted-foreground">Choose a column for {missingRequired.map((field) => field.label).join(" and ")}.</span> : null}
@@ -301,7 +382,7 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
         </Card>
       ) : null}
 
-      {summary ? (
+      {intent === "create" && summary ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -340,6 +421,48 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
                 Check again
               </Button>
               {mode === "atomic" && summary.errors > 0 ? <span className="text-sm text-muted-foreground">Fix the rows with problems in Excel and choose the file again, or choose to skip them.</span> : null}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {intent === "update" && updateSummary ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>3. Check and update</h2>
+            </CardTitle>
+            <CardDescription>
+              {updateSummary.totalRows} row{updateSummary.totalRows === 1 ? "" : "s"} in “{updateSummary.sheetName}”: <strong>{updateSummary.toUpdate}</strong> to update, <strong>{updateSummary.unchanged}</strong> unchanged,{" "}
+              <strong>{updateSummary.skipped}</strong> skipped (no matching Project ID), <strong>{updateSummary.errors}</strong> with problems. Nothing is written until you update.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {updateSummary.newCustomers.length + updateSummary.newPrincipals.length + updateSummary.newSolutions.length > 0 ? (
+              <div role="alert" className="flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/5 px-3 py-2 text-sm">
+                <p>
+                  These names do not exist yet and will be <strong>created</strong>. Check the spelling: a typo makes a new customer or principal.
+                </p>
+                <ul className="list-disc pl-5">
+                  {updateSummary.newCustomers.length > 0 ? <li>Customers: {updateSummary.newCustomers.join(", ")}</li> : null}
+                  {updateSummary.newPrincipals.length > 0 ? <li>Principals: {updateSummary.newPrincipals.join(", ")}</li> : null}
+                  {updateSummary.newSolutions.length > 0 ? <li>Solutions: {updateSummary.newSolutions.join(", ")}</li> : null}
+                </ul>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={confirmNew} onChange={(event) => setConfirmNew(event.target.checked)} />
+                  The spelling is right, create them
+                </label>
+              </div>
+            ) : null}
+            <UpdateTable summary={updateSummary} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" disabled={pending || updateSummary.toUpdate === 0 || updateSummary.errors > 0 || (updateSummary.newCustomers.length + updateSummary.newPrincipals.length + updateSummary.newSolutions.length > 0 && !confirmNew)} onClick={runUpdate}>
+                {pending ? "Updating…" : `Update ${updateSummary.toUpdate} project${updateSummary.toUpdate === 1 ? "" : "s"}`}
+              </Button>
+              <Button type="button" variant="outline" disabled={pending} onClick={checkUpdate}>
+                Check again
+              </Button>
+              {updateSummary.errors > 0 ? <span className="text-sm text-muted-foreground">All or nothing: fix the rows with problems in Excel and choose the file again.</span> : null}
             </div>
           </CardContent>
         </Card>
@@ -385,6 +508,55 @@ function SummaryTable({ summary }: { summary: ImportSummary }) {
         </TableBody>
       </Table>
       {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Only the first rows with problems are listed; the counts above cover every row.</p> : null}
+    </div>
+  );
+}
+
+const UPDATE_STATUS_TEXT = { update: "Will be updated", unchanged: "No change", skipped: "Skipped", error: "Problem" } as const;
+
+function UpdateTable({ summary }: { summary: UpdateSummary }) {
+  if (summary.rows.length === 0) return null;
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Sheet row</TableHead>
+            <TableHead>Result</TableHead>
+            <TableHead>Project</TableHead>
+            <TableHead>What changes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {summary.rows.map((row) => (
+            <TableRow key={`${row.status}-${row.sheetRow}`}>
+              <TableCell className="tabular-nums">{row.sheetRow}</TableCell>
+              <TableCell className={row.status === "error" ? "text-destructive" : row.status === "skipped" ? "text-amber-700 dark:text-amber-400" : undefined}>{UPDATE_STATUS_TEXT[row.status]}</TableCell>
+              <TableCell className="max-w-64">
+                <span className="font-mono text-xs">{row.code || "–"}</span>
+                <span className="block truncate">{row.name || "–"}</span>
+              </TableCell>
+              <TableCell>
+                {row.messages.length === 0 && row.changes.length === 0 ? (
+                  "–"
+                ) : (
+                  <ul className="list-disc pl-4">
+                    {row.messages.map((message) => (
+                      <li key={message}>{message}</li>
+                    ))}
+                    {row.changes.map((change) => (
+                      <li key={change.label}>
+                        {change.label}: {change.from ?? "–"} → {change.to ?? "–"}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Only the first rows are listed; the counts above cover every row.</p> : null}
     </div>
   );
 }

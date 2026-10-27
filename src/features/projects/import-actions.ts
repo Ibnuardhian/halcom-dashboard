@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { commitProjectImport, previewProjectImport, type CommitMode, type CommitResult, type PreviewResult } from "@/server/import/xlsx-projects";
 import { readXlsx, XLSX_LIMITS } from "@/server/import/xlsx-reader";
+import { commitProjectUpdate, previewProjectUpdate, type UpdateCommitResult, type UpdatePreviewResult } from "@/server/import/xlsx-projects-update";
 
 // The sheet is posted again with every step and read again on the server each time: nothing from an earlier step is trusted.
 
@@ -61,6 +62,27 @@ export async function commitImportAction(formData: FormData): Promise<CommitResu
   if (result.ok) {
     revalidatePath(PROJECTS_PATH);
     revalidatePath(REQUESTS_PATH);
+  }
+  return result;
+}
+
+/** Update mode, step 2: plans every row against the stored projects and reports what would change; writes nothing. */
+export async function previewUpdateAction(formData: FormData): Promise<UpdatePreviewResult> {
+  const user = await requirePermission("projects.bulk-update");
+  const file = await fileOf(formData);
+  if (!file.ok) return { ok: false, code: "INVALID_FILE", message: file.message };
+  return previewProjectUpdate(getDb(), { id: user.id, role: user.role }, { bytes: file.bytes, mapping: mappingOf(formData) });
+}
+
+/** Update mode, step 3: applies the changes in one transaction. New customer, principal and solution names need `confirmNew`. */
+export async function commitUpdateAction(formData: FormData): Promise<UpdateCommitResult> {
+  const user = await requirePermission("projects.bulk-update");
+  const file = await fileOf(formData);
+  if (!file.ok) return { ok: false, code: "INVALID_FILE", message: file.message };
+  const result = await commitProjectUpdate(getDb(), { id: user.id, role: user.role }, { bytes: file.bytes, fileName: file.name, mapping: mappingOf(formData), confirmNew: formData.get("confirmNew") === "true" });
+  if (result.ok) {
+    revalidatePath(PROJECTS_PATH);
+    revalidatePath("/dashboard", "layout");
   }
   return result;
 }

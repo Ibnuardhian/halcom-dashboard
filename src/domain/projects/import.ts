@@ -32,6 +32,7 @@ export const IMPORT_FIELD_KEYS = [
   "location",
   "currentAction",
   "nextAction",
+  "lastUpdated",
 ] as const;
 export type ImportFieldKey = (typeof IMPORT_FIELD_KEYS)[number];
 
@@ -58,6 +59,7 @@ export const IMPORT_FIELDS: readonly ImportField[] = [
   { key: "location", label: "Location", required: false, synonyms: ["location", "city", "site"] },
   { key: "currentAction", label: "Current action", required: false, synonyms: ["current action", "current", "last action", "update"] },
   { key: "nextAction", label: "Next action", required: false, synonyms: ["next action", "next step", "next"] },
+  { key: "lastUpdated", label: "Last updated", required: false, hint: "Filled by the export. Used only when updating: a project changed since the export is refused.", synonyms: ["last updated", "updated", "updated at", "last update"] },
 ];
 
 export const IMPORT_FIELD_BY_KEY = Object.fromEntries(IMPORT_FIELDS.map((field) => [field.key, field])) as Record<ImportFieldKey, ImportField>;
@@ -359,6 +361,7 @@ export function importRowOf(project: ExportProject): (string | number | null)[] 
     location: project.location,
     currentAction: project.currentAction,
     nextAction: project.nextAction,
+    lastUpdated: project.lastUpdated.toISOString(),
   };
   return IMPORT_FIELD_KEYS.map((key) => cells[key]);
 }

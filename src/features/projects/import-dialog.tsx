@@ -10,7 +10,7 @@ import { ImportWizard } from "./import-wizard";
  * Importing projects from Excel, in a modal that opens from the Projects page: download the template, drop the file, match the columns,
  * check and import. Closing it starts the next import from scratch, and the list is refreshed so imported projects show at once.
  */
-export function ImportDialog() {
+export function ImportDialog({ canUpdate = false }: { canUpdate?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const router = useRouter();
@@ -41,13 +41,13 @@ export function ImportDialog() {
               <h2 id={titleId} className="text-base font-semibold">
                 Import projects
               </h2>
-              <p className="text-sm text-muted-foreground">Add many projects from an Excel sheet. Every row is checked before anything is written; projects that already exist are skipped, never changed.</p>
+              <p className="text-sm text-muted-foreground">Add many projects from an Excel sheet. Every row is checked before anything is written; importing adds new projects (a Project ID that exists is skipped){canUpdate ? ", and updating changes the projects found by Project ID" : ""}.</p>
             </div>
             <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => dialog.current?.close()}>
               <X aria-hidden />
             </Button>
           </div>
-          <ImportWizard key={session} onClose={() => dialog.current?.close()} />
+          <ImportWizard key={session} canUpdate={canUpdate} onClose={() => dialog.current?.close()} />
         </div>
       </dialog>
     </>

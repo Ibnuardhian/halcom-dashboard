@@ -39,13 +39,17 @@ const OWNER_LABELS: Record<string, string> = {
   technicalPic: "Technical PIC (SOA)",
   purchasingPic: "Purchasing PIC",
   principal: "Principal",
+  name: "Project name",
+  endUserCompany: "End user",
+  description: "Description",
+  industry: "Industry",
+  location: "Location",
   solution: "Solution",
 };
 
 /** A field label for a stored change; an unknown key (a field removed later) is shown as it was stored. */
 export function fieldLabel(key: string): string {
   if (key.startsWith("custom:")) return key.slice("custom:".length);
-  if (key === "name") return "Project name";
   if (key in OWNER_LABELS) return OWNER_LABELS[key]!;
   if (key in SOURCE_LOG_LABELS) return SOURCE_LOG_LABELS[key]!;
   if (isEditableField(key)) return PROJECT_EDITABLE_FIELDS[key].label;

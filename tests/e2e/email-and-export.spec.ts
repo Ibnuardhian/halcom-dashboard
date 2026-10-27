@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { strFromU8, unzipSync } from "fflate";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { templateHeaders } from "@/domain/projects/import";
+import { toXlsx } from "@/server/export/xlsx";
 import { signIn, signInAs, submitLogin } from "./helpers";
 
 async function asRole(browser: Browser, role: Parameters<typeof signIn>[1]): Promise<Page> {
@@ -108,4 +110,55 @@ test("the projects can be exported in the import template, and that file imports
   const [file] = await Promise.all([sales.waitForEvent("download"), sales.getByRole("button", { name: "Export in import format (.xlsx)" }).click()]);
   expect(file.suggestedFilename()).toContain("import-format");
   await sales.context().close();
+});
+
+test("an admin updates existing projects from a sheet: end user, Sales PIC and principals, with a confirmation for new names", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const stamp = Date.now();
+  const seller = await asRole(browser, "SALES");
+  await seller.goto("/projects/new");
+  await expect(async () => {
+    await seller.getByLabel("End-user company").fill(`Bulk Old ${stamp}`);
+    await seller.getByLabel("Project name").fill(`Bulk job ${stamp}`);
+    await seller.getByRole("button", { name: "Create project" }).click();
+    await expect(seller).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 15_000 });
+  }).toPass({ timeout: 45_000 });
+  const code = seller.url().split("/").pop()!;
+  await seller.context().close();
+
+  // The sheet an admin would have edited: the template's columns, with the project's ID and the cells to change.
+  const headers = templateHeaders();
+  const values: Record<string, string> = { "End user": `Bulk New ${stamp}`, "Project name": `Bulk job ${stamp}`, "Project ID": code, Principals: `Bulk HPE ${stamp}; Bulk Aruba ${stamp}` };
+  const merged = headers.map((header) => values[header.replace(/ \*$/, "")] ?? null);
+  const workbook = Buffer.from(toXlsx("Projects", headers, [merged]));
+
+  const admin = await asRole(browser, "ADMIN");
+  await admin.goto("/projects");
+  await expect(async () => {
+    await admin.getByRole("button", { name: "Export/Import (xlsx)" }).click();
+    await expect(admin.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await admin.getByLabel(/^Update existing projects/).check();
+  await expect(async () => {
+    await admin.getByLabel("Excel workbook (.xlsx)").setInputFiles({ name: `bulk-${stamp}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
+    await expect(admin.getByRole("heading", { name: "2. Match the columns" })).toBeVisible({ timeout: 4000 });
+  }).toPass({ timeout: 45_000 });
+  await admin.getByRole("button", { name: "Check the sheet" }).click();
+  await expect(admin.getByText(/Nothing is written until you update/)).toContainText(/1\s+to update,\s+0\s+unchanged/, { timeout: 30_000 });
+  await expect(admin.getByText(`End user: Bulk Old ${stamp} → Bulk New ${stamp}`)).toBeVisible();
+  await expect(admin.getByText(`Principal: – → Bulk HPE ${stamp}; Bulk Aruba ${stamp}`)).toBeVisible();
+
+  // New names are created only after the spelling is confirmed.
+  const update = admin.getByRole("button", { name: "Update 1 project" });
+  await expect(update).toBeDisabled();
+  await admin.getByLabel("The spelling is right, create them").check();
+  await update.click();
+  await expect(admin.getByRole("heading", { name: "Update finished" })).toBeVisible({ timeout: 60_000 });
+  await admin.context().close();
+
+  const check = await asRole(browser, "SOA");
+  await check.goto(`/projects/${code}`);
+  await expect(check.getByText(`Bulk New ${stamp}`).first()).toBeVisible();
+  await expect(check.getByText(`Bulk Aruba ${stamp}`).first()).toBeVisible();
+  await check.context().close();
 });

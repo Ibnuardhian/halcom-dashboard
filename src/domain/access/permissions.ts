@@ -27,6 +27,7 @@ export type Permission =
   | "projects.edit.commercial"
   | "projects.delete"
   | "projects.reassign"
+  | "projects.bulk-update"
   | "settings.manage"
   | "settings.view"
   | "permissions.view"
@@ -75,6 +76,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.edit.commercial",
   "projects.delete",
   "projects.reassign",
+  "projects.bulk-update",
   "settings.manage",
   "settings.view",
   "permissions.view",
@@ -153,6 +155,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     ...SALES_WORK,
     "projects.create.external",
     "projects.import",
+    "projects.bulk-update",
     "projects.edit.source",
     "requests.create.external",
     "requests.create.rfq",
