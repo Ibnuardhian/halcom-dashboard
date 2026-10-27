@@ -2,7 +2,8 @@ import { parseAmount } from "./commercial";
 import { cleanName, nameKey } from "./pipeline";
 import { MAX_PROJECT_PRINCIPALS } from "./master-data";
 import { PROGRESS_LABELS, PROGRESS_PERCENT, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATUS_LABELS, type ProjectProgress, type TrackStatus } from "./progress";
-import { SOURCE_FIELD_LIMITS, type ProjectSourceType } from "./source";
+import type { ExportProject } from "./export";
+import { SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ProjectSourceType } from "./source";
 
 /**
  * Importing projects from an Excel sheet. This module is the pure part: which fields can be imported, how a sheet's columns are
@@ -327,4 +328,37 @@ export function projectIdentity(endUser: string, name: string): string {
 /** The first row of the downloadable template: one column per field, a required one marked with * (the column matcher ignores the mark). */
 export function templateHeaders(): string[] {
   return IMPORT_FIELDS.map((field) => (field.required ? `${field.label} *` : field.label));
+}
+
+const dayOf = (date: Date | null): string | null => (date ? date.toISOString().slice(0, 10) : null);
+
+/**
+ * One exported project as a row of the import template: the same columns in the same order as `templateHeaders()`, written the way the
+ * import reads them, so the file can be imported again as it is (a Project ID that exists is then a duplicate and is skipped).
+ */
+export function importRowOf(project: ExportProject): (string | number | null)[] {
+  const cells: Record<ImportFieldKey, string | number | null> = {
+    endUser: project.accountName,
+    name: project.projectTitle,
+    code: project.code,
+    description: project.description,
+    salesPic: project.salesPic,
+    source: SOURCE_LABELS[project.sourceType],
+    externalSourceName: project.externalSourceName,
+    progress: PROGRESS_LABELS[project.progress],
+    status: TRACK_STATUS_LABELS[project.trackStatus],
+    estimatedValue: project.estimatedValue,
+    // The import takes a percentage or an amount, never both: the one that was entered wins.
+    targetMarginAmount: project.marginPercentInput === null ? project.marginAmountInput : null,
+    targetMarginPercent: project.marginPercentInput,
+    quoteReleasedAt: dayOf(project.quoteReleasedAt),
+    targetDate: dayOf(project.targetDate),
+    principals: project.principal,
+    solution: project.solution,
+    industry: project.industry,
+    location: project.location,
+    currentAction: project.currentAction,
+    nextAction: project.nextAction,
+  };
+  return IMPORT_FIELD_KEYS.map((key) => cells[key]);
 }

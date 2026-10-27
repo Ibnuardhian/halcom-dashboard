@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROLE_LABELS, type Role } from "@/domain/access/roles";
 import {
+  changeEmailAction,
   changeRoleAction,
   createUserAction,
   resetPasswordAction,
@@ -117,5 +118,88 @@ export function ResetPasswordForm({ userId, label }: { userId: string; label: st
       </div>
       <Status state={state} />
     </form>
+  );
+}
+
+export function ChangeEmailForm({ userId, email }: { userId: string; email: string }) {
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(changeEmailAction, null);
+
+  return (
+    <form key={email} action={formAction} className="flex flex-col gap-1">
+      <input type="hidden" name="userId" value={userId} />
+      <div className="flex gap-2">
+        <Input name="email" type="email" required maxLength={254} defaultValue={email} autoComplete="off" aria-label={`Email for ${email}`} className="w-56" />
+        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+          Change email
+        </Button>
+      </div>
+      <Status state={state} />
+    </form>
+  );
+}
+
+/**
+ * The one button in an account's Actions column. It opens a window with everything that can be changed on the account: the e-mail
+ * (Superadmin), the role, a new password, and switching the account off or on. The window stays open after each change so its message
+ * can be read; the table behind it refreshes by itself.
+ */
+export function UserEditDialog({
+  user,
+  roles,
+  canChangeEmail,
+}: {
+  user: { id: string; name: string; email: string; role: Role; isActive: boolean };
+  roles: readonly Role[];
+  canChangeEmail: boolean;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const id = useId();
+  return (
+    <>
+      <Button type="button" variant="outline" size="sm" aria-haspopup="dialog" aria-label={`Edit ${user.email}`} onClick={() => dialog.current?.showModal()}>
+        Edit
+      </Button>
+      <dialog
+        ref={dialog}
+        aria-labelledby={`${id}-title`}
+        className="m-auto max-h-[90svh] w-[min(34rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border bg-card p-0 text-card-foreground shadow-xl backdrop:bg-black/40"
+        onClick={(event) => {
+          // A click on the dimmed area outside the window closes it.
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
+      >
+        <div className="flex flex-col gap-5 p-5">
+          <div>
+            <h2 id={`${id}-title`} className="font-heading text-lg font-semibold">
+              Edit {user.name}
+            </h2>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+          </div>
+          {canChangeEmail ? (
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-sm font-semibold">Email</h3>
+              <ChangeEmailForm userId={user.id} email={user.email} />
+            </section>
+          ) : null}
+          <section className="flex flex-col gap-1.5">
+            <h3 className="text-sm font-semibold">Role</h3>
+            <RoleForm userId={user.id} currentRole={user.role} roles={roles} label={user.email} />
+          </section>
+          <section className="flex flex-col gap-1.5">
+            <h3 className="text-sm font-semibold">Password</h3>
+            <ResetPasswordForm userId={user.id} label={user.email} />
+          </section>
+          <section className="flex flex-col gap-1.5">
+            <h3 className="text-sm font-semibold">Account status</h3>
+            <ActiveForm userId={user.id} isActive={user.isActive} label={user.email} />
+          </section>
+          <div className="flex justify-end border-t pt-4">
+            <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }

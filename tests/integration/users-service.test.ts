@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { authenticate } from "@/server/auth/authenticate";
 import { createSession, findSessionUser } from "@/server/auth/session-store";
 import { getUserStats, listUsers, recentAuditEvents } from "@/server/users/queries";
-import { changeUserRole, createUser, resetUserPassword, setUserActive, type Actor } from "@/server/users/service";
+import { changeUserEmail, changeUserRole, createUser, resetUserPassword, setUserActive, type Actor } from "@/server/users/service";
 import { makeUser, TEST_PASSWORD, uniqueEmail } from "./helpers";
 
 const db = getDb();
@@ -329,5 +329,28 @@ describe("queries", () => {
       action: "user.role_changed",
       actorName: "Test ADMIN",
     });
+  });
+});
+
+describe("changeUserEmail", () => {
+  it("lets only a superadmin change another account's e-mail, audits it, and refuses a taken or invalid one", async () => {
+    const [root, admin] = await Promise.all([actorOf("SUPERADMIN"), actorOf("ADMIN")]);
+    const target = await makeUser("SALES");
+    const other = await makeUser("SALES");
+    const email = uniqueEmail("renamed");
+
+    expect(await changeUserEmail(db, admin, target.id, { email })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(await changeUserEmail(db, root, root.id, { email })).toMatchObject({ ok: false, code: "SELF_CHANGE" });
+    expect(await changeUserEmail(db, root, target.id, { email: "not an email" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await changeUserEmail(db, root, target.id, { email: other.email })).toMatchObject({ ok: false, code: "EMAIL_TAKEN" });
+    expect(await changeUserEmail(db, root, "00000000-0000-4000-8000-000000000000", { email })).toMatchObject({ ok: false, code: "NOT_FOUND" });
+
+    expect(await changeUserEmail(db, root, target.id, { email: ` ${email.toUpperCase()} ` })).toMatchObject({ ok: true });
+    await expect(db.user.findUniqueOrThrow({ where: { id: target.id } })).resolves.toMatchObject({ email });
+    await expect(authenticate(db, email, TEST_PASSWORD)).resolves.toMatchObject({ id: target.id });
+    await expect(authenticate(db, target.email, TEST_PASSWORD)).resolves.toBeNull();
+    const events = (await auditFor(target.id)).filter((event) => event.action === "user.email_changed");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ actorId: root.id, before: { email: target.email }, after: { email } });
   });
 });

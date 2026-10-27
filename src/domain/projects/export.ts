@@ -6,6 +6,7 @@ export type ExportProject = {
   code: string;
   accountName: string;
   projectTitle: string;
+  description: string | null;
   progress: ProjectProgress;
   trackStatus: TrackStatus;
   lastUpdated: Date;
@@ -14,6 +15,9 @@ export type ExportProject = {
   probability: number | null;
   weightedValue: number | null;
   targetMargin: number | null;
+  /** The margin as stored (a percentage or a fixed amount), for a file that is read back by the import. */
+  marginPercentInput: number | null;
+  marginAmountInput: number | null;
   estimatedGrossProfit: number | null;
   finalValue: number | null;
   targetDate: Date | null;

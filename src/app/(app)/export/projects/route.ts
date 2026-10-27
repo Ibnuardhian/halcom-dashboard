@@ -1,4 +1,5 @@
 import { chooseColumns } from "@/domain/projects/export";
+import { importRowOf, templateHeaders } from "@/domain/projects/import";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { toCsv } from "@/server/export/csv";
@@ -11,6 +12,20 @@ import { listProjectsForExport } from "@/server/projects/export";
  */
 export async function GET(request: Request): Promise<Response> {
   const viewer = await requirePermission("projects.view");
+  const params = new URL(request.url).searchParams;
+  // The import template filled with the projects: the same columns, so the file can be edited and imported again.
+  if (params.get("format") === "import") {
+    const db = getDb();
+    const projects = await listProjectsForExport(db, viewer);
+    await db.auditEvent.create({ data: { actorId: viewer.id, action: "export.projects", entityType: "export", entityId: "projects", after: { template: "import", rows: projects.length, format: "xlsx" } } });
+    return new Response(Buffer.from(toXlsx("Projects", templateHeaders(), projects.map(importRowOf))), {
+      headers: {
+        "content-type": XLSX_CONTENT_TYPE,
+        "content-disposition": `attachment; filename="halcom-projects-import-format-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+        "cache-control": "no-store",
+      },
+    });
+  }
   const columns = chooseColumns(new URL(request.url).searchParams.getAll("c"));
   if (columns.length === 0) {
     return new Response("Choose at least one column to export.", { status: 400, headers: { "content-type": "text/plain; charset=utf-8" } });

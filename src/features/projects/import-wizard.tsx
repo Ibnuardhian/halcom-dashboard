@@ -155,6 +155,10 @@ export function ImportWizard({ onClose }: { onClose?: () => void }) {
               <Download aria-hidden data-icon="inline-start" />
               Download template
             </a>
+            <a href="/export/projects?format=import" download className={buttonVariants({ variant: "outline" })}>
+              <Download aria-hidden data-icon="inline-start" />
+              Export projects in this format
+            </a>
             <span className="text-xs text-muted-foreground">Columns marked * must be filled; the others are optional.</span>
           </div>
           <details>

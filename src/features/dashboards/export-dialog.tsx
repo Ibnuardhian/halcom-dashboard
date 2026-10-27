@@ -62,6 +62,9 @@ export function ExportDialog() {
               <Download aria-hidden data-icon="inline-start" />
               Export Excel (.xlsx)
             </Button>
+            <Button type="submit" name="format" value="import" variant="outline">
+              Export in import format (.xlsx)
+            </Button>
             <Button type="submit" name="format" value="csv" variant="outline">
               CSV
             </Button>

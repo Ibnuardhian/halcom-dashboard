@@ -183,6 +183,7 @@ test.describe("user management", () => {
     await signInAs(victimPage, email, password);
     await expect(victimPage).toHaveURL(/\/password-change$/);
 
+    await page.getByRole("button", { name: `Edit ${email}` }).click();
     await page.getByRole("button", { name: `Deactivate ${email}` }).click();
     await expect(page.getByRole("status").filter({ hasText: "User deactivated." })).toBeVisible();
 

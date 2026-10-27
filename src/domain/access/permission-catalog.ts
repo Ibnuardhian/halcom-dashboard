@@ -48,6 +48,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "users.view": { category: "user-role-management", label: "View users", description: "See the list of accounts and the account counts on the Admin dashboard." },
   "users.manage": { category: "user-role-management", label: "Manage users", description: "Create accounts, change roles, deactivate and reset passwords of operational users." },
   "users.manage-privileged": { category: "user-role-management", label: "Manage admin accounts", description: "Create and change Admin and Superadmin accounts. Only a superadmin can hold this." },
+  "users.change-email": { category: "user-role-management", label: "Change user e-mail", description: "Change the e-mail address an account signs in with. Only a superadmin can hold this." },
 
   "permissions.view": { category: "permission-management", label: "View permissions", description: "Open the Permissions page and see what each role may do." },
   "permissions.manage": { category: "permission-management", label: "Manage permissions", description: "Grant and revoke permissions of roles. Only a superadmin can hold this." },

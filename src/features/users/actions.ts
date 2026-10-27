@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { USERS_PATH } from "@/features/navigation/links";
 import {
+  changeUserEmail,
   changeUserRole,
   createUser,
   resetUserPassword,
@@ -55,4 +56,11 @@ export async function resetPasswordAction(_previous: ActionState, formData: Form
     password: formData.get("password"),
   });
   return toState(result, "Password reset. The user was signed out everywhere.");
+}
+
+/** Superadmin only: its own permission, not users.manage, decides. */
+export async function changeEmailAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requirePermission("users.change-email");
+  const result = await changeUserEmail(getDb(), { id: user.id, role: user.role }, String(formData.get("userId")), { email: formData.get("email") });
+  return toState(result, "Email diubah.");
 }

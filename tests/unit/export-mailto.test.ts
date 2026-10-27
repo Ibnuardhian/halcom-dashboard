@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chooseColumns, EXPORT_COLUMNS, type ExportProject } from "@/domain/projects/export";
+import { checkImportRow, IMPORT_FIELD_KEYS, importRowOf, rowToRaw, suggestMapping, templateHeaders } from "@/domain/projects/import";
 import { buildMailto, MAILTO_MAX_LENGTH } from "@/domain/requests/mailto";
 import { isSoaPhase, SOA_PHASE_LABELS } from "@/domain/requests/phase";
 import { toCsv } from "@/server/export/csv";
@@ -55,6 +56,7 @@ describe("export columns", () => {
     code: "HIT-PROJ-001",
     accountName: "PT A",
     projectTitle: "CCTV",
+    description: null,
     progress: "PROPOSE",
     trackStatus: "ON_HOLD",
     lastUpdated: new Date("2026-10-18T10:30:45.000Z"),
@@ -64,6 +66,8 @@ describe("export columns", () => {
     weightedValue: 300,
     targetMargin: 12.5,
     estimatedGrossProfit: 125,
+    marginPercentInput: 12.5,
+    marginAmountInput: null,
     finalValue: null,
     targetDate: null,
     wonDate: null,
@@ -137,5 +141,77 @@ describe("SOA phase", () => {
     expect(Object.values(SOA_PHASE_LABELS)).toEqual(["Assessment", "Sizing", "POC"]);
     expect(isSoaPhase("SIZING")).toBe(true);
     expect(isSoaPhase("BOQ")).toBe(false);
+  });
+});
+
+describe("export in the import format", () => {
+  const project: ExportProject = {
+    code: "HIT-PROJ-007",
+    accountName: "PT A",
+    projectTitle: "CCTV",
+    description: "Eight sites",
+    progress: "PROPOSE",
+    trackStatus: "ON_HOLD",
+    lastUpdated: new Date("2026-10-18T10:30:45.000Z"),
+    quoteReleasedAt: new Date("2026-10-01T00:00:00.000Z"),
+    estimatedValue: 1000,
+    probability: 30,
+    weightedValue: 300,
+    targetMargin: null,
+    marginPercentInput: null,
+    marginAmountInput: 125,
+    estimatedGrossProfit: 125,
+    finalValue: null,
+    targetDate: new Date("2026-12-31T00:00:00.000Z"),
+    wonDate: null,
+    salesPic: "Satrio",
+    sourceType: "INTERNAL_SALES",
+    externalSourceName: null,
+    externalContact: null,
+    externalReference: null,
+    sourceNotes: null,
+    technicalPic: null,
+    principal: "HPE; Aruba",
+    solution: "Network",
+    industry: "Retail",
+    location: "Jakarta",
+    currentAction: "Survey done",
+    nextAction: "Send quote",
+    openRequests: 0,
+    totalRequests: 0,
+  };
+
+  it("has one cell per template column and reads back through the import as the same project", () => {
+    const headers = templateHeaders();
+    const cells = importRowOf(project);
+    expect(cells).toHaveLength(headers.length);
+
+    const mapping = suggestMapping(headers);
+    const check = checkImportRow(rowToRaw(cells.map((cell) => (cell === null ? "" : String(cell))), mapping));
+    expect(check.ok).toBe(true);
+    if (!check.ok) return;
+    expect(check.value).toMatchObject({
+      code: "HIT-PROJ-007",
+      endUser: "PT A",
+      name: "CCTV",
+      salesPic: "Satrio",
+      progress: "PROPOSE",
+      trackStatus: "ON_HOLD",
+      estimatedValue: 1000,
+      targetMarginAmount: 125,
+      targetMarginPercent: null,
+      quoteReleasedAt: "2026-10-01",
+      targetDate: "2026-12-31",
+      principals: ["HPE", "Aruba"],
+      solution: "Network",
+    });
+  });
+
+  it("writes the margin the way it was entered, never both", () => {
+    const columns = Object.fromEntries(IMPORT_FIELD_KEYS.map((key, index) => [key, index]));
+    const percent = importRowOf({ ...project, marginPercentInput: 12.5, marginAmountInput: null });
+    expect([percent[columns["targetMarginPercent"]!], percent[columns["targetMarginAmount"]!]]).toEqual([12.5, null]);
+    const amount = importRowOf(project);
+    expect([amount[columns["targetMarginPercent"]!], amount[columns["targetMarginAmount"]!]]).toEqual([null, 125]);
   });
 });

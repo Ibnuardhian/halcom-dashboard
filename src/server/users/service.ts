@@ -3,7 +3,7 @@ import { can, canAssignRole, canManageUser } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { hashPassword } from "@/server/auth/password";
 import { revokeAllSessions } from "@/server/auth/session-store";
-import { createUserSchema, resetPasswordSchema, roleSchema, uuidSchema } from "./schemas";
+import { changeEmailSchema, createUserSchema, resetPasswordSchema, roleSchema, uuidSchema } from "./schemas";
 
 export type Actor = { id: string; role: Role };
 
@@ -184,4 +184,31 @@ export async function resetUserPassword(
     await audit(tx, actor, "user.password_reset", target.id, null, null);
     return succeed(undefined);
   });
+}
+
+/** Superadmin changes the e-mail an account signs in with. The password and the sessions stay; the old and the new address are audited. */
+export async function changeUserEmail(db: PrismaClient, claimedActor: Actor, userId: string, input: unknown): Promise<UserResult> {
+  const id = uuidSchema.safeParse(userId);
+  const parsed = changeEmailSchema.safeParse(input);
+  if (!id.success) return fail("INVALID_INPUT");
+  if (!parsed.success) return fail("INVALID_INPUT", "Masukkan alamat email yang valid.");
+  if (!can(claimedActor.role, "users.change-email")) return fail("FORBIDDEN");
+  if (id.data === claimedActor.id) return fail("SELF_CHANGE");
+
+  try {
+    return await db.$transaction(async (tx) => {
+      const actor = await beginAdministration(tx, claimedActor);
+      if (!actor || !can(actor.role, "users.change-email")) return fail("FORBIDDEN");
+      const target = await tx.user.findUnique({ where: { id: id.data } });
+      if (!target) return fail("NOT_FOUND");
+      if (target.email === parsed.data.email) return succeed(undefined);
+
+      await tx.user.update({ where: { id: target.id }, data: { email: parsed.data.email } });
+      await audit(tx, actor, "user.email_changed", target.id, { email: target.email }, { email: parsed.data.email });
+      return succeed(undefined);
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return fail("EMAIL_TAKEN");
+    throw error;
+  }
 }

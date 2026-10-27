@@ -7,7 +7,7 @@ import { assignableRoles, can, canManageUser } from "@/domain/access/permissions
 import { ROLE_LABELS } from "@/domain/access/roles";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatDay } from "@/features/dashboards/format";
-import { ActiveForm, CreateUserForm, ResetPasswordForm, RoleForm } from "@/features/users/user-forms";
+import { CreateUserForm, UserEditDialog } from "@/features/users/user-forms";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { listUsers } from "@/server/users/queries";
@@ -76,11 +76,7 @@ async function Users() {
                 {mayManage ? (
                   <TableCell>
                     {editable ? (
-                      <div className="flex flex-col gap-3">
-                        <RoleForm userId={user.id} currentRole={user.role} roles={roles} label={user.email} />
-                        <ResetPasswordForm userId={user.id} label={user.email} />
-                        <ActiveForm userId={user.id} isActive={user.isActive} label={user.email} />
-                      </div>
+                      <UserEditDialog user={{ id: user.id, name: user.name, email: user.email, role: user.role, isActive: user.isActive }} roles={roles} canChangeEmail={can(viewer.role, "users.change-email")} />
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}

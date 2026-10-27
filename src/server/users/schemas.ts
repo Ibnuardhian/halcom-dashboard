@@ -27,3 +27,5 @@ export const loginSchema = z.object({
 });
 
 export { roleSchema };
+
+export const changeEmailSchema = z.object({ email: emailSchema });
