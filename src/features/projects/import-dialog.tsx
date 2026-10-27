@@ -21,7 +21,7 @@ export function ImportDialog() {
     <>
       <Button type="button" variant="outline" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
         <Upload aria-hidden data-icon="inline-start" />
-        Import from Excel
+        Export/Import (xlsx)
       </Button>
       <dialog
         ref={dialog}

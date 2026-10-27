@@ -194,7 +194,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await soa.goto("/projects");
     // The import is a modal on the Projects page, not a page of its own.
     await expect(async () => {
-      await soa.getByRole("button", { name: "Import from Excel" }).click();
+      await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
       await expect(soa.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
     }).toPass({ timeout: 30_000 });
     await expect(soa).toHaveURL(/\/projects$/);
@@ -317,7 +317,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     const workbook = Buffer.from(toXlsx("Pipeline", HEADERS, [["PT Drop", "Dropped job", "sales@example.invalid", null, null, null, null, null]]));
     const soa = await asRole(browser, "SOA");
     await soa.goto("/projects");
-    await soa.getByRole("button", { name: "Import from Excel" }).click();
+    await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
     await expect(soa.getByText("Drag the .xlsx file here, or click to choose it")).toBeVisible();
     // The zone is the label of the file input; its text changes to the file name once a file was dropped.
     const zone = soa.locator('label[for="import-file"]');

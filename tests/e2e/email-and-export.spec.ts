@@ -76,7 +76,7 @@ test("the projects can be exported in the import template, and that file imports
   const soa = await asRole(browser, "SOA");
   await soa.goto("/projects");
   await expect(async () => {
-    await soa.getByRole("button", { name: "Import from Excel" }).click();
+    await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
     await expect(soa.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
 
