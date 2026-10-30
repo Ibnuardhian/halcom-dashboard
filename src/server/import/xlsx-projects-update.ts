@@ -3,7 +3,6 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { COMMERCIAL_FIELDS, type CommercialChange } from "@/domain/projects/commercial";
 import { fieldLabel } from "@/domain/projects/fields";
-import { effectiveIndustry } from "@/domain/customers/industry";
 import { checkImportRow, checkMapping, rowToRaw, type ColumnMapping, type ImportRow, type RawImportRow } from "@/domain/projects/import";
 import { importScope } from "@/domain/projects/import-scope";
 import { principalNamesOf } from "@/domain/projects/master-data";
@@ -263,7 +262,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
       }
     }
     // The industry is the customer's (it wins over the project's own), chosen from the list; the cell naming the current one is no change.
-    const currentIndustry = effectiveIndustry(project.customer?.industry, project.industry);
+    const currentIndustry = project.customer?.industry?.trim() || null;
     if (row.industry && nameKey(row.industry) !== nameKey(currentIndustry ?? "")) {
       const listed = listedIndustries.get(nameKey(row.industry));
       const customerKey = applied.endUser ? `new:${nameKey(applied.endUser.name)}` : (project.customerId ?? `project:${project.id}`);

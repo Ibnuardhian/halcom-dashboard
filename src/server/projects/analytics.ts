@@ -1,5 +1,4 @@
 import { PROPOSE_OR_BEYOND, pipelineConversion } from "@/domain/projects/growth";
-import { effectiveIndustry } from "@/domain/customers/industry";
 import { customerLocation, type LocatedProject } from "@/domain/customers/location";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
@@ -178,7 +177,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     if (brands.length === 0) add(principals, UNSET, UNSET, estimated, weighted, FILTER_NONE, project.id);
     for (const brand of brands) add(principals, brand.id, brand.name, estimated, weighted, brand.id, project.id);
     add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, estimated, weighted, project.solutionCategory ? undefined : FILTER_NONE, project.id);
-    const projectIndustry = effectiveIndustry(project.customer?.industry, project.industry);
+    const projectIndustry = project.customer?.industry?.trim() || null;
     const industry = projectIndustry ?? UNSET;
     add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(projectIndustry) ?? FILTER_NONE, project.id);
     if (project.customerId) {

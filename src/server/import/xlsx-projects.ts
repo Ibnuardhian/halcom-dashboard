@@ -280,7 +280,6 @@ export async function commitProjectImport(
               customerId,
               principalId: ids[0] ?? null,
               solutionCategoryId,
-              industry: row.industry,
               location: row.location,
               currentAction: row.currentAction,
               nextAction: row.nextAction,
@@ -289,6 +288,11 @@ export async function commitProjectImport(
             select: { id: true },
           });
           if (ids.length > 0) await tx.projectPrincipal.createMany({ data: ids.map((principalId, position) => ({ projectId: project.id, principalId, position })) });
+          // The industry is the customer's: a customer with none takes the sheet's, when it is on the list.
+          if (row.industry) {
+            const listed = await tx.industry.findUnique({ where: { nameKey: nameKey(row.industry) } });
+            if (listed) await tx.customer.updateMany({ where: { id: customerId, industry: null }, data: { industry: listed.name } });
+          }
           const feed = [
             { kind: "CURRENT" as const, body: row.currentAction },
             { kind: "NEXT" as const, body: row.nextAction },

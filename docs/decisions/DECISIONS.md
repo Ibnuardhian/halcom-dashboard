@@ -776,3 +776,12 @@ The Export/Import window was for Admin and Superadmin (update) and Admin and SOA
 ## D-051: PIC Workload leaves out projects with no SOA PIC (2026-10-30)
 
 Not every project involves SOA, so "Not set" in the SOA PIC Workload chart counted projects that never needed a PIC and hid the real workload. `bySoaPic` now counts only open projects that have an SOA PIC; the card text says projects without one are not shown. Every other chart, and the Projects list filter for "Technical PIC: Not set", are unchanged.
+
+## D-052: The industry is the customer's alone (2026-10-30)
+
+Industry was kept on two levels: the customer (chosen from the list) and a free text on the project that came from the sales export, used when the customer had none. Seventy of 71 projects carried the text while only 1 of 42 customers had an industry, so the customer pages and the dashboards disagreed. The industry is now the customer's only.
+
+- **One source.** Charts (Value by industry), the Projects filter, the project page and every export read the customer's industry. The project's own text is no longer read or written; its column stays (nothing deleted) as a record.
+- **Backfill** (migration `20261104100000_customer_industry_from_projects`, applied on Neon): a customer with no industry takes its projects' industry when all its projects name the same one and it is on the list, written in the list's spelling. 29 customers were filled (30 of 42 now have one). Customers whose projects disagree (9), or whose single name is not on the list ("Telecommunications", "Healthcare": the list holds "IT & Telecommunications" and "Healthcare (Kesehatan)"), or with none (1), are left for a person to choose from the customer window.
+- **Excel.** The update sets the customer's industry (D-050). The add-projects import no longer writes a project industry: a customer that has none takes the sheet's industry when it is on the list; otherwise it is ignored.
+- **Removed** `effectiveIndustry` (customer first, then project) and its test.
