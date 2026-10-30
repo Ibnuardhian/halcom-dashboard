@@ -7,7 +7,7 @@ import { FILTER_EXTERNAL, projectsHref, type DrillFilters } from "@/domain/proje
 import { buildFunnel } from "@/domain/projects/funnel";
 import { pipelineConversion } from "@/domain/projects/growth";
 import { PROGRESS_NAMES, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
-import { PROJECTS_PATH } from "@/features/navigation/links";
+import { CUSTOMERS_PATH, PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatCompact } from "@/features/projects/format";
 import type { PipelineAnalytics, Slice } from "@/server/projects/analytics";
 import { StatTile } from "./stat-tile";
@@ -81,6 +81,21 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
           </ChartCard>
           <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
             <DonutChart items={countItems(analytics.bySolution, by("solution"))} />
+          </ChartCard>
+          <ChartCard title="Customers by location" description="Customer per lokasi, diambil dari lokasi project terbanyaknya.">
+            <BarList
+              items={analytics.byCustomerLocation.map((s) => ({
+                key: s.key,
+                label: s.label,
+                value: s.count,
+                display: String(s.count),
+                note: s.value > 0 ? formatCompact(s.value) : undefined,
+                neutral: isNeutral(s),
+                href: s.drill && s.drill.length > 0 ? `${CUSTOMERS_PATH}?${s.drill.map((key) => `location=${encodeURIComponent(key)}`).join("&")}` : null,
+              }))}
+              color={3}
+              emptyText="Belum ada lokasi yang diisi."
+            />
           </ChartCard>
           <ChartCard title="Value by industry" description="Estimated value per industri customer.">
             <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />

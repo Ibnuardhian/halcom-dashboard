@@ -11,7 +11,7 @@ import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { CustomerDialog } from "@/features/customers/customer-dialog";
 import { can } from "@/domain/access/permissions";
-import { listCustomers, listIndustrySuggestions } from "@/server/customers/queries";
+import { listCustomers, listIndustrySuggestions, LOCATION_NONE } from "@/server/customers/queries";
 import { listCustomerOptions } from "@/server/requests/queries";
 
 
@@ -27,7 +27,10 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
   const viewer = await requirePermission("customers.view");
   const query = await searchParams;
   const search = (typeof query.q === "string" ? query.q : "").slice(0, 100);
-  const [customers, suggestions] = await Promise.all([listCustomers(getDb(), viewer, search), listIndustrySuggestions(getDb(), viewer)]);
+  // The Overview chart "Customers by location" links here with one or more locations (trimmed, lower-case) or "none".
+  const wanted = query.location === undefined ? [] : Array.isArray(query.location) ? query.location : [query.location];
+  const locations = [...new Set(wanted.map((value) => value.trim().toLowerCase().slice(0, 120)).filter((value) => value !== ""))];
+  const [customers, suggestions] = await Promise.all([listCustomers(getDb(), viewer, search, locations), listIndustrySuggestions(getDb(), viewer)]);
   const canEdit = can(viewer.role, "customers.edit");
   const canRename = can(viewer.role, "customers.rename");
   // Merging may point at any customer, not only the ones the search shows.
@@ -40,6 +43,9 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
         summary="Perusahaan end-user dari proyek Anda. Klik customer untuk memilih industrinya."
       />
       <form role="search" className="mb-4 flex gap-2">
+        {locations.map((value) => (
+          <input key={value} type="hidden" name="location" value={value} />
+        ))}
         <Input name="q" defaultValue={search} placeholder="Cari customer" aria-label="Search customers" maxLength={100} className="max-w-md" />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
           Search
@@ -48,6 +54,14 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
           New project
         </Link>
       </form>
+      {locations.length > 0 ? (
+        <p className="mb-3 text-sm text-muted-foreground">
+          Lokasi: {locations.map((value) => (value === LOCATION_NONE ? "Not set" : value)).join(", ")} ·{" "}
+          <Link href="/customers" className="underline underline-offset-4">
+            Clear filters
+          </Link>
+        </p>
+      ) : null}
       {customers.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
           {search ? "Tidak ada customer yang cocok." : "Belum ada customer. Buat proyek dan end-user company-nya akan muncul di sini."}
@@ -58,6 +72,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
             <TableRow>
               <TableHead>Customer</TableHead>
               <TableHead>Industry</TableHead>
+              <TableHead className="hidden md:table-cell">Location</TableHead>
               <TableHead className="text-right">Projects</TableHead>
               <TableHead className="text-right">Open</TableHead>
               <TableHead className="hidden md:table-cell">Latest project</TableHead>
@@ -76,6 +91,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
                   />
                 </TableCell>
                 <TableCell>{customer.industry ?? <span className="text-muted-foreground">Not set</span>}</TableCell>
+                <TableCell className="hidden md:table-cell">{customer.location ?? <span className="text-muted-foreground">Not set</span>}</TableCell>
                 <TableCell className="text-right tabular-nums">{customer.projects}</TableCell>
                 <TableCell className="text-right tabular-nums">{customer.openProjects}</TableCell>
                 <TableCell className="hidden whitespace-nowrap md:table-cell">{customer.lastProjectAt ? formatDay(customer.lastProjectAt) : "–"}</TableCell>

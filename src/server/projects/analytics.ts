@@ -1,5 +1,6 @@
 import { PROPOSE_OR_BEYOND, pipelineConversion } from "@/domain/projects/growth";
 import { effectiveIndustry } from "@/domain/customers/industry";
+import { customerLocation, type LocatedProject } from "@/domain/customers/location";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -51,6 +52,8 @@ export type PipelineAnalytics = {
   bySalesPerson: Slice[];
   /** Open projects per SOA PIC (the technical PIC), most first. Projects with no SOA PIC are left out: not every project involves SOA. */
   bySoaPic: Slice[];
+  /** Customers (not projects) by location. A customer counts once, under the location most of its projects name; `value` is the estimated value of its projects. */
+  byCustomerLocation: Slice[];
   /** Pipeline Conversion of each Sales PIC, highest first, so people can be compared. Someone with no open project is left out. */
   conversionBySalesPerson: ConversionRow[];
 };
@@ -140,6 +143,9 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       targetMargin: true,
       targetMarginValue: true,
       industry: true,
+      location: true,
+      createdAt: true,
+      customerId: true,
       customer: { select: { industry: true } },
       principal: { select: { id: true, name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
@@ -156,6 +162,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const industries = new Map<string, Slice>();
   const salespeople = new Map<string, Slice>();
   const soaPics = new Map<string, Slice>();
+  const customers = new Map<string, { projects: LocatedProject[]; estimated: number; weighted: number }>();
   const conversion = new Map<string, { label: string; open: number; quoted: number; drill: string }>();
   const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, openQuoted: 0, wonCount: 0, wonValue: 0 };
 
@@ -174,6 +181,13 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     const projectIndustry = effectiveIndustry(project.customer?.industry, project.industry);
     const industry = projectIndustry ?? UNSET;
     add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(projectIndustry) ?? FILTER_NONE, project.id);
+    if (project.customerId) {
+      const customer = customers.get(project.customerId) ?? { projects: [], estimated: 0, weighted: 0 };
+      customer.projects.push({ location: project.location, createdAt: project.createdAt });
+      customer.estimated += estimated ?? 0;
+      customer.weighted += weighted ?? 0;
+      customers.set(project.customerId, customer);
+    }
     // A project from another source has no internal Sales PIC; its numbers stay in the totals under one "external" row.
     add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted, project.salesOwner ? undefined : FILTER_EXTERNAL, project.id);
 
@@ -201,6 +215,13 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     }
   }
 
+  // A customer counts once, under the location most of its projects name; customers with no location anywhere are "Not set".
+  const customerLocations = new Map<string, Slice>();
+  for (const [customerId, customer] of customers) {
+    const place = customerLocation(customer.projects);
+    add(customerLocations, place?.key ?? UNSET, place?.label ?? UNSET, customer.estimated, customer.weighted, place?.key ?? FILTER_NONE, customerId);
+  }
+
   return {
     totals,
     byProgress: [...progresses.values()],
@@ -211,6 +232,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     byIndustry: topSlices(industries.values()),
     bySalesPerson: topSlices(salespeople.values()),
     bySoaPic: topSlices(soaPics.values()),
+    byCustomerLocation: topSlices(customerLocations.values(), MAX_SLICES, "count"),
     conversionBySalesPerson: [...conversion.entries()]
       .map(([key, person]) => ({ key, label: person.label, open: person.open, quoted: person.quoted, percent: pipelineConversion(person.open, person.quoted).percent ?? 0, drill: person.drill }))
       .sort((a, b) => b.percent - a.percent || b.open - a.open || a.label.localeCompare(b.label)),
