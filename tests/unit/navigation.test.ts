@@ -35,30 +35,30 @@ describe("navLinksFor", () => {
   it("shows Sales their pipeline, projects, request center and targets", () => {
     expect(labelsFor("SALES")).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/sales", "Sales Pipeline"],
+      ["/dashboard/sales", "Sales pipeline"],
       ["/projects", "Projects"],
       ["/customers", "Customers"],
-      ["/targets", "Sales Targets"],
-      ["/requests", "Request Center"],
+      ["/targets", "Sales targets"],
+      ["/requests", "Request center"],
     ]);
   });
 
   it("shows SOA its technical dashboard, projects, BOQ tickets, handoff, reports and master data", () => {
     expect(labelsFor("SOA")).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/soa", "Technical Dashboard"],
+      ["/dashboard/soa", "Technical dashboard"],
       ["/projects", "Projects"],
-      ["/requests/boq", "BOQ Tickets"],
-      ["/handoffs", "Purchasing Handoff"],
-      ["/reports/technical", "Technical Reports"],
-      ["/admin/master-data", "Principal & Solution Master Data"],
+      ["/requests/boq", "BOQ tickets"],
+      ["/handoffs", "Purchasing handoff"],
+      ["/reports/technical", "Technical reports"],
+      ["/admin/master-data", "Principal & solution master data"],
     ]);
   });
 
   it("shows Purchasing a focused menu: its dashboard, RFQ requests and PO requests; no overview, projects, BOQ or all-requests entry", () => {
     expect(labelsFor("PURCHASING")).toEqual([
-      ["/dashboard/purchasing", "Purchasing Dashboard"],
-      ["/requests/rfq", "RFQ Requests"],
+      ["/dashboard/purchasing", "Purchasing dashboard"],
+      ["/requests/rfq", "RFQ requests"],
       ["/requests/po", "PO requests"],
     ]);
   });
@@ -66,17 +66,17 @@ describe("navLinksFor", () => {
   it("shows Finance its dashboard, projects and the financial crosscheck, and nothing it could change", () => {
     expect(labelsFor("FINANCE")).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/finance", "Finance Dashboard"],
+      ["/dashboard/finance", "Finance dashboard"],
       ["/projects", "Projects"],
       ["/requests", "All requests"],
       ["/requests/boq", "BOQ requests"],
       ["/requests/rfq", "RFQ requests"],
       ["/requests/po", "PO requests"],
-      ["/finance/crosscheck", "Financial Crosscheck"],
+      ["/finance/crosscheck", "Financial crosscheck"],
     ]);
   });
 
-  it("offers New request in the menu to admins only; Sales start requests from the Sales Pipeline page", () => {
+  it("offers New request in the menu to admins only; Sales start requests from the Sales pipeline page", () => {
     for (const role of ROLES) {
       expect(hrefsFor(role).includes("/requests/new")).toBe(["SUPERADMIN", "ADMIN"].includes(role));
     }
@@ -87,11 +87,11 @@ describe("navLinksFor", () => {
 
     expect(links.slice(0, 3).map((l) => [l.href, l.label])).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/admin", "Admin Dashboard"],
+      ["/dashboard/admin", "Admin dashboard"],
       ["/dashboard/sales", "Sales dashboard"],
     ]);
     const labels = links.map((l) => l.label);
-    for (const label of ["Users and Roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master Data", "Audit Logs"]) expect(labels).toContain(label);
+    for (const label of ["Users and roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master data", "Audit logs"]) expect(labels).toContain(label);
     const hrefs = links.map((l) => l.href);
     expect(hrefs).not.toContain("/dashboard/superadmin");
     expect(hrefs).not.toContain("/admin/backups");
@@ -104,9 +104,9 @@ describe("navLinksFor", () => {
     for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings/soa", "/admin/settings/purchasing", "/admin/master-data", "/admin/pics"]) {
       expect(hrefs).toContain(expected);
     }
-    // Admin and Superadmin share one Admin Dashboard (D-032): the menu offers it once, under the user's own address.
+    // Admin and Superadmin share one Admin dashboard (D-032): the menu offers it once, under the user's own address.
     expect(hrefs).not.toContain("/dashboard/admin");
-    expect(navLinksFor("SUPERADMIN").filter((l) => l.label === "Admin Dashboard")).toHaveLength(1);
+    expect(navLinksFor("SUPERADMIN").filter((l) => l.label === "Admin dashboard")).toHaveLength(1);
   });
 
   it("offers a shared dashboard once even when a role is given both addresses", () => {

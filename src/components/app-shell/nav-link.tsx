@@ -19,6 +19,10 @@ import {
   FileBarChart,
   ScrollText,
   ShoppingCart,
+  Library,
+  Scale,
+  Timer,
+  UserRoundCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -43,6 +47,10 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   reports: FileBarChart,
   permissions: KeyRound,
   customers: Building2,
+  sla: Timer,
+  masterdata: Library,
+  pics: UserRoundCheck,
+  crosscheck: Scale,
 };
 
 /** These two are parents of other menu entries, so only an exact match marks them active. */

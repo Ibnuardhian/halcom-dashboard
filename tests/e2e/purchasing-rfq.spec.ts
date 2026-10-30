@@ -58,7 +58,7 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
   await expect(page.getByText("Quote forty PoE switches").first()).toBeVisible();
   await signOut(page);
 
-  // The Sales PIC was told, and the RFQ is in their Request Center (requests are counted by the project's owner).
+  // The Sales PIC was told, and the RFQ is in their Request center (requests are counted by the project's owner).
   await signIn(page, "SALES");
   await page.goto("/notifications");
   await expect(page.getByText(`New RFQ request ${code}`)).toBeVisible();

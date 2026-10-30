@@ -28,7 +28,7 @@ async function Handoffs() {
   return (
     <>
       <DashboardHeader
-        title="Purchasing Handoff"
+        title="Purchasing handoff"
         summary="BOQ yang sudah selesai dan tindak lanjutnya. Seseorang harus memutuskan apakah BOQ dilanjutkan ke Purchasing sebagai RFQ."
       />
       <Card className="mb-6">

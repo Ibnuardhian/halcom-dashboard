@@ -31,7 +31,7 @@ async function open(page: Page) {
   await expect(page.getByRole("heading", { name: "Pipeline Growth" })).toBeVisible();
 }
 
-test.describe("Sales Pipeline: KPI cards and Pipeline Growth", () => {
+test.describe("Sales pipeline: KPI cards and Pipeline Growth", () => {
   test("shows Pipeline conversion instead of Weighted pipeline, and the three groups with their colours", async ({ page }) => {
     await open(page);
     const tiles = page.getByRole("region", { name: "Pipeline numbers" });

@@ -14,5 +14,5 @@ export default function RequestsPage({ searchParams }: PageProps<"/requests">) {
 
 async function Requests({ searchParams }: Pick<PageProps<"/requests">, "searchParams">) {
   const viewer = await requirePermission("requests.view");
-  return <RequestList viewer={viewer} basePath={REQUESTS_PATH} params={listParamsFrom(await searchParams)} title={viewer.role === "SALES" ? "Request Center" : undefined} />;
+  return <RequestList viewer={viewer} basePath={REQUESTS_PATH} params={listParamsFrom(await searchParams)} title={viewer.role === "SALES" ? "Request center" : undefined} />;
 }

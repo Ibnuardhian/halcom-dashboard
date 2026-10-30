@@ -18,5 +18,5 @@ async function RequestsByType({ params, searchParams }: Pick<PageProps<"/request
   const type = typeFromSlug((await params).type);
   if (!type) notFound();
   const viewer = await requirePermission("requests.view");
-  return <RequestList viewer={viewer} basePath={`${REQUESTS_PATH}/${type.toLowerCase()}`} type={type} params={listParamsFrom(await searchParams)} title={viewer.role === "SOA" && type === "BOQ" ? "BOQ Tickets" : undefined} />;
+  return <RequestList viewer={viewer} basePath={`${REQUESTS_PATH}/${type.toLowerCase()}`} type={type} params={listParamsFrom(await searchParams)} title={viewer.role === "SOA" && type === "BOQ" ? "BOQ tickets" : undefined} />;
 }

@@ -85,7 +85,7 @@ export function CustomerDialog({
             </NativeSelect>
             <p className="text-xs text-muted-foreground">
               {canEdit
-                ? "Pilih dari daftar industri. Grafik, filter, dan export memakainya untuk semua project customer ini. Daftarnya diubah Admin atau Superadmin di Master Data."
+                ? "Pilih dari daftar industri. Grafik, filter, dan export memakainya untuk semua project customer ini. Daftarnya diubah Admin atau Superadmin di Master data."
                 : "Anda dapat membaca industri tetapi tidak dapat mengubahnya."}
             </p>
           </div>

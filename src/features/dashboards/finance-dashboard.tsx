@@ -29,7 +29,7 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
 
   return (
     <>
-      <DashboardHeader title="Finance Dashboard" summary="Pencocokan nilai proyek dengan referensi quotation dan purchase order-nya, hanya untuk dibaca." />
+      <DashboardHeader title="Finance dashboard" summary="Pencocokan nilai proyek dengan referensi quotation dan purchase order-nya, hanya untuk dibaca." />
       <PipelineTiles analytics={analytics} />
 
       <section aria-label="Quotation and PO references" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -81,7 +81,7 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
       <p className="mb-6 text-xs text-muted-foreground">
         Won value {formatCompact(analytics.totals.wonValue)} across {analytics.totals.wonCount} project{analytics.totals.wonCount === 1 ? "" : "s"}.{" "}
         <Link href={CROSSCHECK_PATH} className={buttonVariants({ variant: "link", size: "sm" })}>
-          Financial Crosscheck
+          Financial crosscheck
         </Link>
       </p>
     </>

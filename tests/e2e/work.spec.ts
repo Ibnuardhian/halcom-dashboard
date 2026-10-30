@@ -100,7 +100,7 @@ test.describe("projects and requests", () => {
   test("Sales fill one form for the project and its BOQ, and land on the request with the email text", async ({ page }) => {
     await signIn(page, "SALES");
     await page.goto("/dashboard/sales");
-    await expect(page.getByRole("heading", { level: 1, name: "Sales Pipeline" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Sales pipeline" })).toBeVisible();
     await page.getByRole("link", { name: /New project & request/ }).click();
     await expect(page).toHaveURL(/\/projects\/new$/);
 
@@ -887,11 +887,11 @@ test.describe("responsive layout", () => {
     await expect(nav.getByRole("heading", { name: "Work" })).toBeVisible();
     await expect(nav.getByRole("link")).toHaveText([
       "Overview",
-      "Sales Pipeline",
+      "Sales pipeline",
       "Projects",
       "Customers",
-      "Sales Targets",
-      "Request Center",
+      "Sales targets",
+      "Request center",
     ]);
     await expect(page).toHaveTitle("Halcom Dashboard");
 

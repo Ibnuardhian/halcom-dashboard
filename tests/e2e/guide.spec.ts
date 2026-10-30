@@ -177,33 +177,33 @@ test.describe("role-by-role steps", () => {
     await page.keyboard.press("ArrowRight");
     await expect(page.getByRole("tab", { name: /^SOA/ })).toHaveAttribute("aria-selected", "true");
     await expect(panel).toContainText("Terima dan triase BOQ");
-    // Sales may not open Purchasing Handoff, so the SOA step offers no link to it.
-    await expect(panel.getByRole("link", { name: "Purchasing Handoff" })).toHaveCount(0);
+    // Sales may not open Purchasing handoff, so the SOA step offers no link to it.
+    await expect(panel.getByRole("link", { name: "Purchasing handoff" })).toHaveCount(0);
   });
 
-  test("an SOA account gets the Purchasing Handoff link, and Finance gets the crosscheck link", async ({ page }) => {
+  test("an SOA account gets the Purchasing handoff link, and Finance gets the crosscheck link", async ({ page }) => {
     await openGuide(page, "SOA");
     await page.getByRole("tab", { name: /^SOA/ }).click();
-    await expect(page.getByRole("tabpanel").getByRole("link", { name: "Purchasing Handoff" })).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByRole("link", { name: "Purchasing handoff" })).toBeVisible();
 
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
     await openGuide(page, "FINANCE");
-    await expect(page.getByRole("tabpanel").getByRole("link", { name: "Financial Crosscheck" })).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByRole("link", { name: "Financial crosscheck" })).toBeVisible();
   });
 
   test("the administrators' instructions are shown only to people who hold those roles", async ({ page }) => {
     await openGuide(page, "SALES");
     await page.getByRole("tab", { name: /^Admin/ }).click();
     await expect(page.getByRole("tabpanel")).toContainText("hanya ditampilkan kepada yang memegang peran tersebut");
-    await expect(page.getByRole("tabpanel")).not.toContainText("Buka Users and Roles");
+    await expect(page.getByRole("tabpanel")).not.toContainText("Buka Users and roles");
     expect(await page.content()).not.toContain("Buka Permissions untuk memberi atau mencabut");
 
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
     await openGuide(page, "ADMIN");
     await page.getByRole("tab", { name: /^Admin/ }).click();
-    await expect(page.getByRole("tabpanel")).toContainText("Buka Users and Roles");
+    await expect(page.getByRole("tabpanel")).toContainText("Buka Users and roles");
     await page.getByRole("tab", { name: /^Superadmin/ }).click();
     await expect(page.getByRole("tabpanel")).toContainText("hanya ditampilkan kepada yang memegang peran tersebut");
   });

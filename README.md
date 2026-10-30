@@ -1,6 +1,6 @@
 # Halcom Dashboard
 
-*Project Request & Fulfillment Tracker.* Internal web application for project requests, ticketing and SLA
+*BOQ, RFQ, and PO request tracker.* Internal web application for project requests, ticketing and SLA
 monitoring: Sales → SOA (BOQ) → Purchasing (RFQ/PO), with read-only visibility for Finance.
 
 - Product requirements: [PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md](PROJECT_BRIEF_TICKETING_PROJECT_TRACKER.md)

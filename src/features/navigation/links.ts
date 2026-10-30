@@ -29,7 +29,11 @@ export type NavIcon =
   | "handoff"
   | "reports"
   | "permissions"
-  | "customers";
+  | "customers"
+  | "sla"
+  | "masterdata"
+  | "pics"
+  | "crosscheck";
 
 export type NavLinkItem = { href: string; label: string; group: NavGroup; icon: NavIcon };
 
@@ -67,40 +71,40 @@ export const CUSTOMERS_PATH = "/customers";
 
 const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PROJECTS_PATH, label: "Projects", group: "work", icon: "projects", permission: "projects.view", hiddenFor: ["PURCHASING"] },
-  // A project (and its first request) is created with the button on the Projects page; Sales also have one on their dashboard, SOA on BOQ Tickets.
+  // A project (and its first request) is created with the button on the Projects page; Sales also have one on their dashboard, SOA on BOQ tickets.
   { href: `${PROJECTS_PATH}/new`, label: "New project", group: "work", icon: "new", permission: "projects.create.external", hiddenFor: ["SALES", "SOA"] },
   { href: CUSTOMERS_PATH, label: "Customers", group: "work", icon: "customers", permission: "customers.view" },
-  { href: SALES_TARGETS_PATH, label: "Sales Targets", group: "work", icon: "targets", permission: "targets.edit" },
-  // Sales know the list of every request as the Request Center; SOA and Purchasing work from their own list instead.
-  { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SOA", "PURCHASING"], labels: { SALES: "Request Center" } },
-  { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES", "PURCHASING"], labels: { SOA: "BOQ Tickets" } },
+  { href: SALES_TARGETS_PATH, label: "Sales targets", group: "work", icon: "targets", permission: "targets.edit" },
+  // Sales know the list of every request as the Request center; SOA and Purchasing work from their own list instead.
+  { href: REQUESTS_PATH, label: "All requests", group: "work", icon: "requests", permission: "requests.view", hiddenFor: ["SOA", "PURCHASING"], labels: { SALES: "Request center" } },
+  { href: `${REQUESTS_PATH}/boq`, label: "BOQ requests", group: "work", icon: "boq", permission: "requests.view", hiddenFor: ["SALES", "PURCHASING"], labels: { SOA: "BOQ tickets" } },
   // Purchasing works RFQ and PO requests (confirmed 2026-10-18); BOQ requests are not theirs. Its menu is focused: its dashboard and these two lists.
-  { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"], labels: { PURCHASING: "RFQ Requests" } },
+  { href: `${REQUESTS_PATH}/rfq`, label: "RFQ requests", group: "work", icon: "rfq", permission: "requests.view", hiddenFor: ["SALES", "SOA"], labels: { PURCHASING: "RFQ requests" } },
   { href: `${REQUESTS_PATH}/po`, label: "PO requests", group: "work", icon: "po", permission: "requests.view", hiddenFor: ["SALES", "SOA"] },
   { href: NEW_REQUEST_PATH, label: "New request", group: "work", icon: "new", permission: "requests.create", hiddenFor: ["SALES"] },
-  { href: HANDOFFS_PATH, label: "Purchasing Handoff", group: "work", icon: "handoff", permission: "handoffs.view" },
-  { href: TECHNICAL_REPORTS_PATH, label: "Technical Reports", group: "work", icon: "reports", permission: "reports.technical.view" },
-  { href: CROSSCHECK_PATH, label: "Financial Crosscheck", group: "work", icon: "reports", permission: "finance.crosscheck.view" },
-  { href: USERS_PATH, label: "Users and Roles", group: "administration", icon: "users", permission: "users.view" },
+  { href: HANDOFFS_PATH, label: "Purchasing handoff", group: "work", icon: "handoff", permission: "handoffs.view" },
+  { href: TECHNICAL_REPORTS_PATH, label: "Technical reports", group: "work", icon: "reports", permission: "reports.technical.view" },
+  { href: CROSSCHECK_PATH, label: "Financial crosscheck", group: "work", icon: "crosscheck", permission: "finance.crosscheck.view" },
+  { href: USERS_PATH, label: "Users and roles", group: "administration", icon: "users", permission: "users.view" },
   { href: PERMISSIONS_PATH, label: "Permissions", group: "administration", icon: "permissions", permission: "permissions.view" },
-  { href: `${SETTINGS_PATH}/soa`, label: "SLA SOA", group: "administration", icon: "system", permission: "settings.view" },
-  { href: `${SETTINGS_PATH}/purchasing`, label: "SLA Purchasing", group: "administration", icon: "system", permission: "settings.view" },
-  { href: MASTER_DATA_PATH, label: "Master Data", group: "administration", icon: "system", permission: "masterdata.manage", labels: { SOA: "Principal & Solution Master Data" } },
-  { href: PICS_PATH, label: "PICs", group: "administration", icon: "users", permission: "pics.manage" },
-  { href: AUDIT_PATH, label: "Audit Logs", group: "administration", icon: "audit", permission: "audit.view" },
+  { href: `${SETTINGS_PATH}/soa`, label: "SLA SOA", group: "administration", icon: "sla", permission: "settings.view" },
+  { href: `${SETTINGS_PATH}/purchasing`, label: "SLA Purchasing", group: "administration", icon: "sla", permission: "settings.view" },
+  { href: MASTER_DATA_PATH, label: "Master data", group: "administration", icon: "masterdata", permission: "masterdata.manage", labels: { SOA: "Principal & solution master data" } },
+  { href: PICS_PATH, label: "PICs", group: "administration", icon: "pics", permission: "pics.manage" },
+  { href: AUDIT_PATH, label: "Audit logs", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
   { href: SYSTEM_PATH, label: "System", group: "administration", icon: "system", permission: "system.monitor" },
 ];
 
 /** What a role calls its own dashboard. */
 const OWN_DASHBOARD_LABELS: Partial<Record<Role, string>> = {
-  SALES: "Sales Pipeline",
-  SOA: "Technical Dashboard",
-  PURCHASING: "Purchasing Dashboard",
-  FINANCE: "Finance Dashboard",
-  MANAGEMENT: "Management Dashboard",
-  ADMIN: "Admin Dashboard",
-  SUPERADMIN: "Admin Dashboard",
+  SALES: "Sales pipeline",
+  SOA: "Technical dashboard",
+  PURCHASING: "Purchasing dashboard",
+  FINANCE: "Finance dashboard",
+  MANAGEMENT: "Management dashboard",
+  ADMIN: "Admin dashboard",
+  SUPERADMIN: "Admin dashboard",
 };
 
 /**

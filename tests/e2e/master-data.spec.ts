@@ -186,12 +186,12 @@ test.describe("SOA technical sections", () => {
 });
 
 test.describe("Purchasing sees RFQ and PO requests only", () => {
-  test("the menu offers the Purchasing Dashboard, RFQ requests and PO requests, nothing else", async ({ page }) => {
+  test("the menu offers the Purchasing dashboard, RFQ requests and PO requests, nothing else", async ({ page }) => {
     await signIn(page, "PURCHASING");
     const nav = page.getByRole("navigation", { name: "Main" });
 
-    await expect(nav.getByRole("link")).toHaveText(["Purchasing Dashboard", "RFQ Requests", "PO requests"]);
-    await expect(page.getByRole("heading", { level: 1, name: "Purchasing Dashboard" })).toBeVisible();
+    await expect(nav.getByRole("link")).toHaveText(["Purchasing dashboard", "RFQ requests", "PO requests"]);
+    await expect(page.getByRole("heading", { level: 1, name: "Purchasing dashboard" })).toBeVisible();
   });
 
   test("the RFQ list shows project, End User, requester, Principal/Solution, details, PIC, status and SLA, and can be searched and sorted", async ({ page, browser }) => {
@@ -212,7 +212,7 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     }).toPass({ timeout: 45_000 });
 
     const purchasing = await inNewContext(browser, "PURCHASING");
-    await purchasing.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "RFQ Requests" }).click();
+    await purchasing.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "RFQ requests" }).click();
     await expect(purchasing).toHaveURL(/\/requests\/rfq$/);
     // Purchasing open the RFQ list as the board, where statuses are changed; the table is one click away.
     await expect(purchasing.getByRole("group", { name: "Request board" })).toBeVisible();

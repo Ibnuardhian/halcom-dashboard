@@ -13,8 +13,8 @@ export const PERMISSION_CATEGORIES = [
   { id: "permission-management", title: "Permission Management", description: "Seeing and changing what each role may do." },
   { id: "project-management", title: "Project Management", description: "Registering, editing, importing, reassigning and deleting projects." },
   { id: "request-workflow", title: "Request, BOQ, RFQ & Handoffs", description: "Raising and working BOQ, RFQ and PO requests, and handing BOQs to Purchasing." },
-  { id: "master-data", title: "Master Data, Principals, Customers & PICs", description: "The lists projects and requests draw from, and the people tickets are assigned to." },
-  { id: "sales-pipeline", title: "Sales Pipeline & Targets", description: "A salesperson's own targets." },
+  { id: "master-data", title: "Master data, Principals, Customers & PICs", description: "The lists projects and requests draw from, and the people tickets are assigned to." },
+  { id: "sales-pipeline", title: "Sales pipeline & Targets", description: "A salesperson's own targets." },
   { id: "finance", title: "Finance & Crosscheck", description: "Reading project values against quotation and PO references." },
   { id: "reports", title: "Reports & Analytics", description: "Operational reports and their exports." },
   { id: "audit-system", title: "Audit, System & Configuration", description: "The audit trail, system health, backups, SLA policy and the theme." },
@@ -77,7 +77,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "requests.work.boq": { category: "request-workflow", label: "Work BOQ requests", description: "Change the status of BOQ requests and hand them to a PIC (SOA)." },
   "requests.work.purchasing": { category: "request-workflow", label: "Work RFQ & PO requests", description: "Change the status of RFQ and PO requests and hand them to a PIC (Purchasing)." },
   "requests.handover": { category: "request-workflow", label: "Continue the request flow", description: "Decide the step after a completed BOQ or RFQ (hand a BOQ to Purchasing as an RFQ, continue an RFQ to a PO) on any project, not only one's own." },
-  "handoffs.view": { category: "request-workflow", label: "View Purchasing handoffs", description: "Open the Purchasing Handoff page." },
+  "handoffs.view": { category: "request-workflow", label: "View Purchasing handoffs", description: "Open the Purchasing handoff page." },
 
   "masterdata.manage": { category: "master-data", label: "Manage master data", description: "Maintain principals, solution categories and customers, and classify projects with them." },
   "sections.manage": { category: "master-data", label: "Manage technical sections and SOA phases", description: "Add sections to the Technical tab of a project and phases SOA can pick, rename them or switch them off." },
@@ -87,13 +87,13 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "industries.manage": { category: "master-data", label: "Edit the list of industries", description: "Add, rename and delete the industries a customer can be given (Admin and Superadmin by default)." },
   "customers.edit": { category: "master-data", label: "Edit customer details", description: "Fill in a customer's industry on the Customers page; charts, filters and exports use it for all of the customer's projects." },
 
-  "targets.edit": { category: "sales-pipeline", label: "Sales targets", description: "Open the Sales Targets page and set one's own gross-profit targets." },
+  "targets.edit": { category: "sales-pipeline", label: "Sales targets", description: "Open the Sales targets page and set one's own gross-profit targets." },
 
-  "finance.crosscheck.view": { category: "finance", label: "Financial Crosscheck", description: "Open the Financial Crosscheck page and download its CSV." },
+  "finance.crosscheck.view": { category: "finance", label: "Financial crosscheck", description: "Open the Financial crosscheck page and download its CSV." },
 
-  "reports.technical.view": { category: "reports", label: "Technical Reports", description: "Open the Technical Reports page and download its export." },
+  "reports.technical.view": { category: "reports", label: "Technical reports", description: "Open the Technical reports page and download its export." },
 
-  "audit.view": { category: "audit-system", label: "View audit log", description: "Open the Audit Logs page and see recent administrative activity." },
+  "audit.view": { category: "audit-system", label: "View audit log", description: "Open the Audit logs page and see recent administrative activity." },
   "system.monitor": { category: "audit-system", label: "System health", description: "Open the System page (database and runtime health)." },
   "system.backup": { category: "audit-system", label: "Backups", description: "Create and list database backups." },
   "theme.switch": { category: "audit-system", label: "Theme switcher", description: "Show the theme switcher in the header (a display preference only)." },

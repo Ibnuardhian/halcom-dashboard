@@ -4,12 +4,12 @@ import { expectNotFound, expectOnDashboard, signIn, signInAs, submitLogin } from
 import { seedEmailFor } from "../../prisma/seed-users";
 
 const OWN_DASHBOARD_HEADING: Record<Role, string> = {
-  SUPERADMIN: "Admin Dashboard",
-  ADMIN: "Admin Dashboard",
-  SALES: "Sales Pipeline",
-  SOA: "Technical Dashboard",
-  PURCHASING: "Purchasing Dashboard",
-  FINANCE: "Finance Dashboard",
+  SUPERADMIN: "Admin dashboard",
+  ADMIN: "Admin dashboard",
+  SALES: "Sales pipeline",
+  SOA: "Technical dashboard",
+  PURCHASING: "Purchasing dashboard",
+  FINANCE: "Finance dashboard",
   MANAGEMENT: "Management dashboard",
 };
 
@@ -44,7 +44,7 @@ test.describe("sign in", () => {
 
   test("signing out ends the session", async ({ page }) => {
     await signIn(page, "SOA");
-    await expectOnDashboard(page, "/dashboard/soa", "Technical Dashboard");
+    await expectOnDashboard(page, "/dashboard/soa", "Technical dashboard");
 
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
@@ -65,7 +65,7 @@ test.describe("access control", () => {
 
   test("an operational role cannot open another role's dashboard or the user list", async ({ page }) => {
     await signIn(page, "SALES");
-    await expectOnDashboard(page, "/dashboard/sales", "Sales Pipeline");
+    await expectOnDashboard(page, "/dashboard/sales", "Sales pipeline");
 
     await expectNotFound(page, "/dashboard/finance", "Proyek yang perlu dicek");
     await expectNotFound(page, "/dashboard/admin", "Recent administrative activity");
@@ -79,13 +79,13 @@ test.describe("access control", () => {
 
     await expect(nav.getByRole("link")).toHaveText([
       "Overview",
-      "Finance Dashboard",
+      "Finance dashboard",
       "Projects",
       "All requests",
       "BOQ requests",
       "RFQ requests",
       "PO requests",
-      "Financial Crosscheck",
+      "Financial crosscheck",
     ]);
   });
 
@@ -158,7 +158,7 @@ test.describe("user management", () => {
       await expect(otherPage.getByText("Password changed.")).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
     await otherPage.goto("/dashboard/purchasing");
-    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing Dashboard");
+    await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing dashboard");
     await other.close();
 
     await page.goto("/dashboard/admin");

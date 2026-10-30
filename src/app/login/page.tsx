@@ -82,8 +82,8 @@ function SignInCard({ accounts, remembered, chosen }: { accounts: Awaited<Return
                   </form>
                   <form action={forgetRememberedAccountAction}>
                     <input type="hidden" name="credentialId" value={account.credentialId} />
-                    <Button type="submit" variant="ghost" size="sm" aria-label={`Forget ${account.email} on this browser`}>
-                      Forget
+                    <Button type="submit" variant="ghost" size="sm" aria-label={`Forget account ${account.email} on this browser`}>
+                      Forget account
                     </Button>
                   </form>
                 </li>
@@ -101,7 +101,7 @@ function SignInCard({ accounts, remembered, chosen }: { accounts: Awaited<Return
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>Switch account</h2>
+              <h2>Recent accounts</h2>
             </CardTitle>
             <CardDescription>Akun lain yang pernah digunakan di browser ini. Pilih salah satu untuk mengisi emailnya; kata sandinya tetap harus dimasukkan.</CardDescription>
           </CardHeader>
@@ -121,8 +121,8 @@ function SignInCard({ accounts, remembered, chosen }: { accounts: Awaited<Return
                   </a>
                   <form action={forgetRecentAccountAction}>
                     <input type="hidden" name="email" value={account.email} />
-                    <Button type="submit" variant="ghost" size="sm" aria-label={`Remove ${account.email} from this list`}>
-                      Remove
+                    <Button type="submit" variant="ghost" size="sm" aria-label={`Remove from list ${account.email}`}>
+                      Remove from list
                     </Button>
                   </form>
                 </li>

@@ -33,7 +33,7 @@ test.describe("persistent login and switching accounts", () => {
     const restarted = await browser.newContext({ storageState: state });
     const again = await restarted.newPage();
     await again.goto("/dashboard/sales");
-    await expectOnDashboard(again, "/dashboard/sales", "Sales Pipeline");
+    await expectOnDashboard(again, "/dashboard/sales", "Sales pipeline");
     await restarted.close();
   });
 
@@ -41,7 +41,7 @@ test.describe("persistent login and switching accounts", () => {
     await signIn(page, "SOA");
     await page.goto("/projects");
     await page.goto("/requests/boq");
-    await expect(page.getByRole("heading", { level: 1, name: "BOQ Tickets" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "BOQ tickets" })).toBeVisible();
 
     const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
     expect(stored.toLowerCase()).not.toMatch(/password|token|session=|e2e-seed/);
@@ -51,7 +51,7 @@ test.describe("persistent login and switching accounts", () => {
 
   test("Switch Account ends the session, asks for the next account's password, and shows nothing of the previous user", async ({ page, context }) => {
     await signIn(page, "SALES");
-    await expectOnDashboard(page, "/dashboard/sales", "Sales Pipeline");
+    await expectOnDashboard(page, "/dashboard/sales", "Sales pipeline");
     const oldCookie = (await sessionCookie(page))!;
 
     await page.getByRole("button", { name: "Profile menu" }).click();
@@ -88,7 +88,7 @@ test.describe("persistent login and switching accounts", () => {
 
     // Signing in as another user shows that user's identity and role, and none of the previous user's data.
     await signInAs(page, seedEmailFor("FINANCE"), SEED_PASSWORD);
-    await expectOnDashboard(page, "/dashboard/finance", "Finance Dashboard");
+    await expectOnDashboard(page, "/dashboard/finance", "Finance dashboard");
     await page.getByRole("button", { name: "Profile menu" }).click();
     await expect(page.locator("#profile-menu").getByText("Finance", { exact: true }).first()).toBeVisible();
     // Nothing of the previous user's dashboard is left in the page, not even hidden in the browser's page cache...
@@ -97,7 +97,7 @@ test.describe("persistent login and switching accounts", () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/dashboard\/finance$/);
     expect(await page.content()).not.toContain("Your requests by status");
-    await expect(nav(page).getByRole("link", { name: "Sales Pipeline" })).toHaveCount(0);
+    await expect(nav(page).getByRole("link", { name: "Sales pipeline" })).toHaveCount(0);
     await expectNotFound(page, "/dashboard/sales", "Request counts");
     await expectNotFound(page, "/targets", "My 2026 targets");
   });
@@ -156,7 +156,7 @@ test.describe("persistent login and switching accounts", () => {
     await expect(page.getByRole("button", { name: /Continue as Finance/ })).toBeVisible();
 
     await expect(async () => {
-      await page.getByRole("button", { name: `Forget ${seedEmailFor("FINANCE")} on this browser` }).click();
+      await page.getByRole("button", { name: `Forget account ${seedEmailFor("FINANCE")} on this browser` }).click();
       await expect(page.getByRole("button", { name: /Continue as/ })).toHaveCount(0, { timeout: 4000 });
     }).toPass({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: new RegExp(seedEmailFor("FINANCE")) })).toBeVisible();
@@ -207,7 +207,7 @@ test.describe("persistent login and switching accounts", () => {
 
     await expectNotFound(page, "/dashboard/soa?role=SOA", "Awaiting handoff");
     await expectNotFound(page, "/handoffs", "Ready for handoff");
-    await expectNotFound(page, "/finance/crosscheck?role=FINANCE", "Financial Crosscheck");
+    await expectNotFound(page, "/finance/crosscheck?role=FINANCE", "Financial crosscheck");
     await expectNotFound(page, "/admin/permissions", "Expand all");
     await expectNotFound(page, "/targets", "Gross profit target");
   });
@@ -215,10 +215,10 @@ test.describe("persistent login and switching accounts", () => {
 
 test.describe("each role sees its own modules", () => {
   const MODULES = {
-    SALES: ["Overview", "Sales Pipeline", "Projects", "Customers", "Sales Targets", "Request Center"],
-    SOA: ["Overview", "Technical Dashboard", "Projects", "BOQ Tickets", "Purchasing Handoff", "Technical Reports", "Principal & Solution Master Data"],
-    PURCHASING: ["Purchasing Dashboard", "RFQ Requests", "PO requests"],
-    FINANCE: ["Overview", "Finance Dashboard", "Projects", "All requests", "BOQ requests", "RFQ requests", "PO requests", "Financial Crosscheck"],
+    SALES: ["Overview", "Sales pipeline", "Projects", "Customers", "Sales targets", "Request center"],
+    SOA: ["Overview", "Technical dashboard", "Projects", "BOQ tickets", "Purchasing handoff", "Technical reports", "Principal & solution master data"],
+    PURCHASING: ["Purchasing dashboard", "RFQ requests", "PO requests"],
+    FINANCE: ["Overview", "Finance dashboard", "Projects", "All requests", "BOQ requests", "RFQ requests", "PO requests", "Financial crosscheck"],
   } as const;
 
   for (const [role, labels] of Object.entries(MODULES)) {
@@ -230,7 +230,7 @@ test.describe("each role sees its own modules", () => {
 
   test("an admin sees the administration modules", async ({ page }) => {
     await signIn(page, "ADMIN");
-    for (const name of ["Users and Roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master Data", "Audit Logs"]) {
+    for (const name of ["Users and roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master data", "Audit logs"]) {
       await expect(nav(page).getByRole("link", { name })).toBeVisible();
     }
     await expect(nav(page).getByRole("link", { name: "Backups" })).toHaveCount(0);
@@ -262,7 +262,7 @@ test.describe("dashboards use the stored requests", () => {
       await expect(page.getByRole("heading", { name: `${noun} by status` })).toBeVisible();
       await expect(page.getByRole("heading", { name: `${noun} per PIC` })).toBeVisible();
       if (role === "SOA") {
-        // Projects lead on the Technical Dashboard; the BOQ requests sit below them.
+        // Projects lead on the Technical dashboard; the BOQ requests sit below them.
         await expect(page.getByRole("region", { name: "Open projects" }).getByText("Open projects", { exact: true })).toBeVisible();
         for (const title of ["PIC Workload", "Projects by principal", "Value by principal", "Solution mix", "Value by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
         const order = await page.getByText(/^(PIC Workload|BOQ by status)$/).allTextContents();
@@ -285,7 +285,7 @@ test.describe("dashboards use the stored requests", () => {
     const soa = await asRole(browser, "SOA");
 
     await soa.goto("/dashboard/soa");
-    await expect(soa.getByRole("heading", { level: 1, name: "Technical Dashboard" })).toBeVisible();
+    await expect(soa.getByRole("heading", { level: 1, name: "Technical dashboard" })).toBeVisible();
     const tile = soa.getByRole("link", { name: /^Open BOQ requests/ });
     const before = Number((await tile.innerText()).match(/\n(\d+)\n/)?.[1] ?? "0");
 
@@ -306,7 +306,7 @@ test.describe("dashboards use the stored requests", () => {
 
     await tile.click();
     await expect(soa).toHaveURL(/\/requests\/boq\?status=open$/);
-    await expect(soa.getByRole("heading", { level: 1, name: "BOQ Tickets" })).toBeVisible();
+    await expect(soa.getByRole("heading", { level: 1, name: "BOQ tickets" })).toBeVisible();
     // SOA open their ticket list as the board, where statuses are changed; the table is one click away.
     await expect(soa.getByRole("group", { name: "Request board" })).toBeVisible();
     await soa.getByRole("navigation", { name: "View" }).getByRole("link", { name: "List" }).click();
@@ -323,16 +323,16 @@ test.describe("dashboards use the stored requests", () => {
   test("Purchasing's dashboard and Finance's dashboard open and show their own numbers", async ({ browser }) => {
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto("/dashboard/purchasing");
-    await expect(purchasing.getByRole("heading", { level: 1, name: "Purchasing Dashboard" })).toBeVisible();
+    await expect(purchasing.getByRole("heading", { level: 1, name: "Purchasing dashboard" })).toBeVisible();
     await expect(purchasing.getByRole("link", { name: /^Open RFQ & PO requests/ })).toBeVisible();
     await expect(purchasing.getByText("SLA compliance")).toBeVisible();
     await expect(purchasing.getByRole("heading", { name: "Workload by assignee" })).toBeVisible();
 
     const finance = await asRole(browser, "FINANCE");
     await finance.goto("/dashboard/finance");
-    await expect(finance.getByRole("heading", { level: 1, name: "Finance Dashboard" })).toBeVisible();
-    await finance.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Financial Crosscheck" }).click();
-    await expect(finance.getByRole("heading", { level: 1, name: "Financial Crosscheck" })).toBeVisible();
+    await expect(finance.getByRole("heading", { level: 1, name: "Finance dashboard" })).toBeVisible();
+    await finance.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Financial crosscheck" }).click();
+    await expect(finance.getByRole("heading", { level: 1, name: "Financial crosscheck" })).toBeVisible();
     // Read-only: nothing on the page changes a project or a request.
     await expect(finance.getByRole("button", { name: /Save|Delete|Approve|Verify/ })).toHaveCount(0);
     await expect(finance.getByRole("link", { name: "Download CSV" })).toBeVisible();
@@ -364,8 +364,8 @@ test.describe("dashboards use the stored requests", () => {
       await section.locator("summary").click();
       await expect(section).toHaveAttribute("open", "");
     }
-    await sales.getByRole("link", { name: "Sales Targets" }).first().click();
-    await expect(sales.getByRole("heading", { level: 1, name: "Sales Targets" })).toBeVisible();
+    await sales.getByRole("link", { name: "Sales targets" }).first().click();
+    await expect(sales.getByRole("heading", { level: 1, name: "Sales targets" })).toBeVisible();
     await expect(sales.getByRole("heading", { name: /^My \d{4} targets$/ })).toBeVisible();
   });
 });
@@ -429,7 +429,7 @@ test.describe("a project from another source (Other)", () => {
     const company = `PT Eksternal ${stamp}`;
     const source = `PT Mitra Penjualan ${stamp}`; // unique per run, so the search below finds exactly this project
 
-    // SOA raise a BOQ together with its project: BOQ Tickets and the old request form lead to the one New project form.
+    // SOA raise a BOQ together with its project: BOQ tickets and the old request form lead to the one New project form.
     await soa.goto("/requests/boq");
     await soa.getByRole("link", { name: "New project", exact: true }).click();
     await expect(soa).toHaveURL(/\/projects\/new\?type=BOQ$/);

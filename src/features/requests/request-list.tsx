@@ -68,7 +68,7 @@ export async function RequestList({
   basePath: string;
   type?: RequestType;
   params?: ListParams;
-  /** Overrides the page title (for example "BOQ Tickets"). */
+  /** Overrides the page title (for example "BOQ tickets"). */
   title?: string;
 }) {
   const filter = parseStatusFilter(params.status);

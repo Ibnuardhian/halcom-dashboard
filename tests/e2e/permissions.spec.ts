@@ -24,18 +24,18 @@ async function openEditor(page: Page): Promise<void> {
 test.describe.configure({ mode: "serial" });
 
 test.describe("admin dashboard", () => {
-  test("admin and superadmin share one Admin Dashboard; the superadmin-only tools appear only for the one who holds them", async ({ browser }) => {
+  test("admin and superadmin share one Admin dashboard; the superadmin-only tools appear only for the one who holds them", async ({ browser }) => {
     const admin = await asRole(browser, "ADMIN");
     const superadmin = await asRole(browser, "SUPERADMIN");
 
     await admin.goto("/dashboard/admin");
     await superadmin.goto("/dashboard/superadmin");
     for (const page of [admin, superadmin]) {
-      await expect(page.getByRole("heading", { level: 1, name: "Admin Dashboard" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Admin dashboard" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Accounts" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Recent administrative activity" })).toBeVisible();
       // One entry in the menu, whichever address the role has.
-      await expect(nav(page).getByRole("link", { name: /Admin Dashboard/i })).toHaveCount(1);
+      await expect(nav(page).getByRole("link", { name: /Admin dashboard/i })).toHaveCount(1);
     }
     const tools = (page: Page) => page.getByRole("list", { name: "Administration tools" });
     await expect(tools(superadmin).getByRole("link", { name: "System health" })).toBeVisible();

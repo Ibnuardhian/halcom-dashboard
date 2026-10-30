@@ -38,7 +38,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
   return (
     <>
       <DashboardHeader
-        title="Financial Crosscheck"
+        title="Financial crosscheck"
         summary="Nilai, referensi quotation (RFQ), dan PO tiap proyek, dengan bagian yang tidak sesuai progress. Hanya untuk dibaca."
       />
       <nav aria-label="Filter by flag" className="mb-3 flex flex-wrap gap-1.5">

@@ -14,7 +14,7 @@ const NO_CHANGES = "Mengubah proyek atau request apa pun";
 export const ROLE_GUIDES: Record<Role, RoleGuide> = {
   SALES: {
     summary: "Membuat proyek, mengelola pipeline, meminta BOQ ke SOA atau RFQ ke Purchasing, memutuskan kelanjutan request yang sudah selesai, dan memantau progres.",
-    reads: [EVERY_PROJECT, "Customers, Sales Pipeline, Request Center, dan Sales Targets"],
+    reads: [EVERY_PROJECT, "Customers, Sales pipeline, Request center, dan Sales targets"],
     edits: [
       "Field komersial proyek milik Anda sendiri (dan proyek dari sumber lain)",
       "Proyek baru serta request BOQ, RFQ, dan PO",
@@ -27,7 +27,7 @@ export const ROLE_GUIDES: Record<Role, RoleGuide> = {
   },
   SOA: {
     summary: "Menerima request BOQ, mengelola kebutuhan teknis dan assessment, menyiapkan dan menyelesaikan BOQ, lalu menyerahkannya ke Purchasing.",
-    reads: [EVERY_PROJECT, "BOQ Tickets, Purchasing Handoff, dan Technical Reports", "Nilai komersial, hanya baca"],
+    reads: [EVERY_PROJECT, "BOQ tickets, Purchasing handoff, dan Technical reports", "Nilai komersial, hanya baca"],
     edits: [
       "Field teknis dan klasifikasi proyek, dengan change log",
       "Update Current action dan Next action",
@@ -40,19 +40,19 @@ export const ROLE_GUIDES: Record<Role, RoleGuide> = {
   },
   PURCHASING: {
     summary: "Menerima request RFQ, mengajukan RFQ untuk proyek yang sudah ada, menjaga progres quotation tetap terbaru, dan memproses PO.",
-    reads: [EVERY_PROJECT, "Purchasing Dashboard, RFQ Requests, dan PO requests"],
+    reads: [EVERY_PROJECT, "Purchasing dashboard, RFQ requests, dan PO requests"],
     edits: ["Status RFQ dan PO", "PIC sebuah RFQ atau PO", "Request RFQ baru untuk proyek yang sudah ada (diberitahukan ke Sales PIC dan SOA PIC proyek)"],
     cannot: ["Membuat proyek", "Mengajukan request BOQ atau PO", "Mengedit field proyek", "Mengubah status BOQ", "Memutuskan kelanjutan RFQ yang sudah selesai"],
   },
   FINANCE: {
     summary: "Meninjau nilai proyek serta referensi quotation dan PO untuk pencocokan. Hanya baca.",
-    reads: [EVERY_PROJECT, "Finance Dashboard dan Financial Crosscheck, dengan unduhan CSV"],
+    reads: [EVERY_PROJECT, "Finance dashboard dan Financial crosscheck, dengan unduhan CSV"],
     edits: [],
     cannot: [NO_CHANGES],
   },
   MANAGEMENT: {
     summary: "Memantau progres lewat dashboard dan laporan. Hanya baca.",
-    reads: [EVERY_PROJECT, "Overview, Management dashboard, Technical Reports, dan Financial Crosscheck"],
+    reads: [EVERY_PROJECT, "Overview, Management dashboard, Technical reports, dan Financial crosscheck"],
     edits: [],
     cannot: [NO_CHANGES],
   },

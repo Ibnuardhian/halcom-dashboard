@@ -241,7 +241,7 @@ describe("Progress, Status and Quote released", () => {
 });
 
 describe("pipeline analytics", () => {
-  it("sums the open pipeline of one salesperson, with margin and weighted values, and ranks the Sales Pipeline list", async () => {
+  it("sums the open pipeline of one salesperson, with margin and weighted values, and ranks the Sales pipeline list", async () => {
     const sales = await actorOf("SALES");
     const a = await makeProject(sales, { estimatedValue: 1_000 });
     const b = await makeProject(sales, { estimatedValue: 4_000 });

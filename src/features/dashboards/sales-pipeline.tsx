@@ -28,7 +28,7 @@ const NEEDS_MARGIN_SHOWN = 12;
  * The one place a salesperson works from. Every number is the signed-in salesperson's own (an administrator sees all). Sales
  * performance comes first (pipeline value, weighted value, margin, won, the project charts and table); the BOQ, RFQ and PO requests on
  * their projects come below, in two sections that open and close.
- * Targets have their own page (Sales Targets) and are not repeated here.
+ * Targets have their own page (Sales targets) and are not repeated here.
  */
 export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; view: "table" | "charts" }) {
   const db = getDb();
@@ -50,7 +50,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
 
   return (
     <>
-      <DashboardHeader title="Sales Pipeline" summary="Proyek, target margin, dan request BOQ, RFQ serta PO Anda dalam satu tempat." />
+      <DashboardHeader title="Sales pipeline" summary="Proyek, target margin, dan request BOQ, RFQ serta PO Anda dalam satu tempat." />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>

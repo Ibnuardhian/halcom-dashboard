@@ -18,14 +18,14 @@ import { StatTile } from "./stat-tile";
 
 const COPY = {
   SOA: {
-    title: "Technical Dashboard",
+    title: "Technical dashboard",
     summary: "Proyek dan request BOQ yang dikerjakan SOA: proyek terbuka, beban PIC, dan sebaran principal, solusi serta industri; di bawahnya request BOQ: berapa yang selesai, apa yang masih terbuka, apa yang terlambat, siapa yang menanggung beban kerja, dan di mana request menunggu.",
     noun: "BOQ",
     base: `${REQUESTS_PATH}/boq?`,
     emptyText: "Belum ada request BOQ yang diajukan, jadi belum ada yang bisa diukur.",
   },
   PURCHASING: {
-    title: "Purchasing Dashboard",
+    title: "Purchasing dashboard",
     summary: "Request RFQ dan PO yang dikerjakan Purchasing: berapa yang selesai, apa yang masih terbuka, apa yang terlambat, siapa yang menanggung beban kerja, dan seberapa cepat quotation kembali.",
     noun: "RFQ & PO",
     // One list of both types: the numbers on this page count RFQ and PO together.

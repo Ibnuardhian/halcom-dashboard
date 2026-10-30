@@ -2,4 +2,4 @@
 export const APP_NAME = "Halcom Dashboard";
 
 /** What the application does, shown under the name where there is room. */
-export const APP_TAGLINE = "Project Request & Fulfillment Tracker";
+export const APP_TAGLINE = "BOQ, RFQ, and PO request tracker";

@@ -15,7 +15,7 @@ import { formatDay } from "./format";
 import { StatTile } from "./stat-tile";
 
 /**
- * One Admin Dashboard for Admin and Superadmin: they showed the same numbers, so they now share one page (D-032). It is served at
+ * One Admin dashboard for Admin and Superadmin: they showed the same numbers, so they now share one page (D-032). It is served at
  * /dashboard/admin and /dashboard/superadmin, each guarded by its own permission. What differs between the two roles is not here but in
  * the permissions: the tools below appear only for a viewer who holds the permission, and the pages behind them check it again.
  */
@@ -43,7 +43,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
 
   return (
     <>
-      <DashboardHeader title="Admin Dashboard" summary="Akun, pengaturan, dan aktivitas administratif terbaru. Admin mengelola pengguna operasional; hanya superadmin yang dapat mengelola akun admin dan sistem." />
+      <DashboardHeader title="Admin dashboard" summary="Akun, pengaturan, dan aktivitas administratif terbaru. Admin mengelola pengguna operasional; hanya superadmin yang dapat mengelola akun admin dan sistem." />
       <section aria-label="Administration" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Active accounts" value={stats.active} href={USERS_PATH} note={`${stats.total - stats.active} nonaktif`} />
         <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={SETTINGS_PATH} note="Hari kerja untuk menjawab sebuah request" />

@@ -50,7 +50,7 @@ async function Notifications() {
               <Card className={isRevisionNotification(row.kind) ? (row.readAt === null ? "border-destructive bg-destructive/10" : "border-destructive/40") : row.readAt === null ? "border-primary/50 bg-accent/40" : undefined}>
                 <CardContent className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    {isRevisionNotification(row.kind) ? <span className="mb-1 inline-block rounded bg-destructive px-1.5 py-px text-[11px] font-semibold tracking-wide text-white uppercase">Revision</span> : null}
+                    {isRevisionNotification(row.kind) ? <span className="mb-1 inline-block rounded bg-destructive px-1.5 py-0.5 text-xs font-semibold text-background">Revision</span> : null}
                     <Link href={row.href} className={isRevisionNotification(row.kind) ? "block font-medium text-destructive underline-offset-4 hover:underline" : "font-medium text-primary underline-offset-4 hover:underline"}>
                       {row.title}
                     </Link>

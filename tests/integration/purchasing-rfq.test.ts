@@ -51,7 +51,7 @@ describe("Purchasing raises an RFQ for an existing project", () => {
     expect(await aboutRequest(purchasing.id, result.value.code)).toHaveLength(0);
   });
 
-  it("shows the RFQ on the Sales PIC's own dashboard figures and Request Center, and not on another salesperson's", async () => {
+  it("shows the RFQ on the Sales PIC's own dashboard figures and Request center, and not on another salesperson's", async () => {
     const { sales, purchasing, projectId } = await setup();
     const stranger = await actorOf("SALES");
     const before = await getWorkStats(db, sales, sales.id);

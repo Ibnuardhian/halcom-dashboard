@@ -113,7 +113,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
 }
 
 /**
- * The project side of the Technical Dashboard: open projects per SOA PIC, then how all projects split by principal, solution and
+ * The project side of the Technical dashboard: open projects per SOA PIC, then how all projects split by principal, solution and
  * industry (the same charts and drill-downs as the Overview, without the sales-only ones).
  */
 export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }) {

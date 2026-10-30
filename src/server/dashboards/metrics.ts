@@ -66,7 +66,7 @@ export async function getTeamDashboard(db: PrismaClient, viewer: Viewer, team: "
   return { team, metrics, summary: summariseStatuses(requests, pics), awaitingHandoff: team === "SOA" ? await countAwaitingHandoff(db) : null };
 }
 
-/** BOQ requests per month for the last six months: received, completed, SLA and turnaround. For SOA's Technical Reports. */
+/** BOQ requests per month for the last six months: received, completed, SLA and turnaround. For SOA's Technical reports. */
 export async function getTechnicalReport(db: PrismaClient, viewer: Viewer, now: Date = new Date()): Promise<MonthlyRow[]> {
   if (!can(viewer.role, "reports.technical.view")) throw new Error("Forbidden: missing permission for this query.");
   const [requests, settings] = await Promise.all([load(db, { type: "BOQ" }), getTeamSettings(db)]);
