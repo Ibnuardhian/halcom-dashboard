@@ -742,3 +742,7 @@ The master data page had grown long (every list, every rename and delete form in
 - **Lists.** Principal, Solution and Industri are tables with a search box and pages of ten. A row shows the name, how many projects use it (customers, for an industry) as a badge or "Belum dipakai", and one **Edit** button.
 - **Edit window.** Rename (with a note that it changes everywhere the name is used) and delete in one window; Hapus is off, with the reason, while the name is in use. Same services and rules as before; the window stays open after a rename so its message can be read.
 - **Not changed.** Technical sections and SOA phases keep their own row forms inside their tabs.
+
+## D-048: Charts that count projects rank by count (2026-10-30)
+
+The Solution mix is a count of projects, but the slices were chosen by estimated value, so "Component" (the most projects, 21, with little money) fell into "Other". `topSlices` now takes a ranking: the Solution mix and Projects by principal (`byPrincipalCount`) rank by number of projects; Value by principal and Value by industry keep ranking by value. At most seven names show, the rest fold into "Other", and every slice still opens the Projects list.

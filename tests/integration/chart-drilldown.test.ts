@@ -121,7 +121,8 @@ describe("the chart address", () => {
       reached: "NEGOTIATE",
       principal: [id, "none"],
       solution: [],
-      industry: ["bank", "oil, gas"],
+      owner: ["external"],
+      soaPic: [],
       owner: ["external"],
     });
     expect(readDrillFilters({ progress: "BOGUS", status: "ON_TRACK", reached: "NOPE", principal: ["x'; drop", id], solution: "none", owner: ["nobody"] })).toEqual({
@@ -130,6 +131,7 @@ describe("the chart address", () => {
       solution: ["none"],
       industry: [],
       owner: [],
+      soaPic: [],
     });
     expect(projectsHref("/projects", {})).toBe("/projects");
     expect(projectsHref("/projects", { status: "ON_HOLD" }, { mine: true })).toBe("/projects?status=ON_HOLD&mine=1");
