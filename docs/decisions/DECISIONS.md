@@ -772,3 +772,7 @@ The Export/Import window was for Admin and Superadmin (update) and Admin and SOA
 - **Tests.** Integration: scope of the columns, SOA refused a commercial change, Sales own rows only and refused a technical column, industry on the customer. E2E: Sales updates its own project from a sheet; SOA is refused a commercial column; the SOA and Sales export headers.
 
 **D-050 addendum, Technical PIC column (2026-10-30).** The sheet gained **Technical PIC (SOA)**, in the technical part (SOA, Admin, Superadmin). The cell holds the name of an active person of the SOA PIC list (any letter case); the cell naming the current PIC is no change; a name not on the list refuses the row; Sales are refused a change. Each change is logged as Technical PIC (SOA). This lets SOA set the Technical PIC, which was Superadmin only (`projects.reassign`) on the project page; the page itself is unchanged. The create import ignores the column.
+
+## D-051: PIC Workload leaves out projects with no SOA PIC (2026-10-30)
+
+Not every project involves SOA, so "Not set" in the SOA PIC Workload chart counted projects that never needed a PIC and hid the real workload. `bySoaPic` now counts only open projects that have an SOA PIC; the card text says projects without one are not shown. Every other chart, and the Projects list filter for "Technical PIC: Not set", are unchanged.

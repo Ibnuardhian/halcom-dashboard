@@ -49,7 +49,7 @@ export type PipelineAnalytics = {
   bySolution: Slice[];
   byIndustry: Slice[];
   bySalesPerson: Slice[];
-  /** Open projects per SOA PIC (the technical PIC), most first; "Not set" holds the open projects nobody has taken yet. */
+  /** Open projects per SOA PIC (the technical PIC), most first. Projects with no SOA PIC are left out: not every project involves SOA. */
   bySoaPic: Slice[];
   /** Pipeline Conversion of each Sales PIC, highest first, so people can be compared. Someone with no open project is left out. */
   conversionBySalesPerson: ConversionRow[];
@@ -179,7 +179,8 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
 
     if (isOpenProject(project.progress, project.trackStatus)) {
       totals.open += 1;
-      add(soaPics, project.soaPic?.id ?? UNSET, project.soaPic?.name ?? UNSET, estimated, weighted, project.soaPic ? undefined : FILTER_NONE, project.id);
+      // A project with no SOA PIC is not counted: not every project involves SOA.
+      if (project.soaPic) add(soaPics, project.soaPic.id, project.soaPic.name, estimated, weighted, undefined, project.id);
       totals.openValue += estimated ?? 0;
       totals.openWeighted += weighted ?? 0;
       const atPropose = PROPOSE_OR_BEYOND.includes(project.progress);
