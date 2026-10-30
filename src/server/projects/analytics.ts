@@ -43,6 +43,9 @@ export type PipelineAnalytics = {
   byProgress: Slice[];
   byStatus: Slice[];
   byPrincipal: Slice[];
+  /** The same principals ranked by how many projects they have, for the chart that counts projects. */
+  byPrincipalCount: Slice[];
+  /** Ranked by how many projects (the Solution mix counts projects). */
   bySolution: Slice[];
   byIndustry: Slice[];
   bySalesPerson: Slice[];
@@ -79,11 +82,16 @@ function add(map: Map<string, Slice>, key: string, label: string, estimated: num
   map.set(key, slice);
 }
 
-/** Largest first by value, then by count; everything past `limit` is folded into one "Other" slice, "Not set" last. */
-export function topSlices(slices: Iterable<Slice>, limit: number = MAX_SLICES): Slice[] {
+/**
+ * Largest first, then everything past `limit` is folded into one "Other" slice, "Not set" last. A chart of money ranks by value (then count);
+ * a chart of how many projects ranks by count (then value), so the name with the most projects is never the one folded away.
+ */
+export function topSlices(slices: Iterable<Slice>, limit: number = MAX_SLICES, rank: "value" | "count" = "value"): Slice[] {
   const all = [...slices];
   const unset = all.find((slice) => slice.label === UNSET);
-  const named = all.filter((slice) => slice !== unset).sort((a, b) => b.value - a.value || b.count - a.count || a.label.localeCompare(b.label));
+  const named = all
+    .filter((slice) => slice !== unset)
+    .sort((a, b) => (rank === "count" ? b.count - a.count || b.value - a.value : b.value - a.value || b.count - a.count) || a.label.localeCompare(b.label));
   const kept = named.slice(0, limit);
   const rest = named.slice(limit);
   if (rest.length > 0) {
@@ -197,7 +205,8 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     byProgress: [...progresses.values()],
     byStatus: [...statuses.values()].filter((slice) => slice.count > 0),
     byPrincipal: topSlices(principals.values()),
-    bySolution: topSlices(solutions.values()),
+    byPrincipalCount: topSlices(principals.values(), MAX_SLICES, "count"),
+    bySolution: topSlices(solutions.values(), MAX_SLICES, "count"),
     byIndustry: topSlices(industries.values()),
     bySalesPerson: topSlices(salespeople.values()),
     bySoaPic: topSlices(soaPics.values()),

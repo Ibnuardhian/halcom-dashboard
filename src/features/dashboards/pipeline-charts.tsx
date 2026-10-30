@@ -74,7 +74,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
       ) : (
         <>
           <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
-            <DonutChart items={countItems(analytics.byPrincipal, principal)} />
+            <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
           </ChartCard>
           <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
             <BarList items={valueItems(analytics.byPrincipal, (s) => s.value, principal)} />
@@ -130,7 +130,7 @@ export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }
         />
       </ChartCard>
       <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
-        <DonutChart items={countItems(analytics.byPrincipal, principal)} />
+        <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
       </ChartCard>
       <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
         <BarList items={valueItems(analytics.byPrincipal, (s) => s.value, principal)} />

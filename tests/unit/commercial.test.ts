@@ -168,3 +168,13 @@ describe("canSeeEmail", () => {
     for (const role of ["PURCHASING", "FINANCE", "MANAGEMENT"] as const) expect(canSeeEmail(role, "RFQ", false)).toBe(false);
   });
 });
+
+describe("topSlices ranked by count", () => {
+  const slice = (label: string, value: number, count = 1): Slice => ({ key: label, label, value, count, weighted: 0 });
+
+  it("keeps the name with the most projects even when it has little money, which a value ranking would fold into Other", () => {
+    const slices = [slice("Component", 0, 21), slice("A", 500, 1), slice("B", 400, 1), slice("C", 300, 1)];
+    expect(topSlices(slices, 2).map((s) => s.label)).toEqual(["A", "B", "Other (2)"]);
+    expect(topSlices(slices, 2, "count").map((s) => s.label)).toEqual(["Component", "A", "Other (2)"]);
+  });
+});
