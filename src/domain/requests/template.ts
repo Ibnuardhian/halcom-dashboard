@@ -7,23 +7,23 @@ import { DEFAULT_SLA, type SlaRange } from "./sla";
  */
 export const TEMPLATE_VARIABLES = [
   { name: "request_id", label: "Request ID", example: "RFQ-S-260001" },
-  { name: "request_type", label: "Request type", example: "RFQ (Request for Quotation)" },
-  { name: "type_tag", label: "Subject tag of the type", example: "[HITRFQ]" },
-  { name: "team", label: "Receiving team", example: "Purchasing team" },
-  { name: "ask", label: "What the team is asked to do", example: "Please provide a quotation / item pricing …" },
-  { name: "next_action", label: "Expected next action", example: "Review the specification and return the quotation …" },
+  { name: "request_type", label: "Jenis request", example: "RFQ (Request for Quotation)" },
+  { name: "type_tag", label: "Tag subjek untuk jenis request", example: "[HITRFQ]" },
+  { name: "team", label: "Tim penerima", example: "Purchasing team" },
+  { name: "ask", label: "Yang diminta dari tim", example: "Please provide a quotation / item pricing …" },
+  { name: "next_action", label: "Tindakan berikutnya yang diharapkan", example: "Review the specification and return the quotation …" },
   { name: "project_id", label: "Project ID", example: "HIT-PROJ-004" },
-  { name: "end_user", label: "End-user company", example: "PT ABC" },
-  { name: "project_name", label: "Project name", example: "CCTV AI" },
-  { name: "summary", label: "Request summary", example: "Pricing for 40 cameras" },
-  { name: "details", label: "Request details", example: "Model list attached in the project folder." },
-  { name: "requested_by", label: "Requested by (name)", example: "Ibnu Ardhian" },
-  { name: "requester_team", label: "Requester's team", example: "Sales" },
-  { name: "needed_by", label: "Needed by", example: "5 Nov 2026" },
-  { name: "sla_days", label: "SLA in working days, as set for the team", example: "2-3" },
-  { name: "due_date", label: "Reply by (the SLA deadline)", example: "22 Oct 2026" },
-  { name: "source_request", label: "BOQ this was handed over from (line is left out when empty)", example: "BOQ-S-260001 (completed)" },
-  { name: "link", label: "Link to the request", example: "http://localhost:3000/request/RFQ-S-260001" },
+  { name: "end_user", label: "Perusahaan end user", example: "PT ABC" },
+  { name: "project_name", label: "Nama project", example: "CCTV AI" },
+  { name: "summary", label: "Ringkasan request", example: "Pricing for 40 cameras" },
+  { name: "details", label: "Detail request", example: "Model list attached in the project folder." },
+  { name: "requested_by", label: "Diminta oleh (nama)", example: "Ibnu Ardhian" },
+  { name: "requester_team", label: "Tim peminta", example: "Sales" },
+  { name: "needed_by", label: "Dibutuhkan pada", example: "5 Nov 2026" },
+  { name: "sla_days", label: "SLA dalam hari kerja, sesuai pengaturan tim", example: "2-3" },
+  { name: "due_date", label: "Balas sebelum (batas SLA)", example: "22 Oct 2026" },
+  { name: "source_request", label: "BOQ asal serah terima (baris dilewati bila kosong)", example: "BOQ-S-260001 (completed)" },
+  { name: "link", label: "Tautan ke request", example: "http://localhost:3000/request/RFQ-S-260001" },
 ] as const;
 
 export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number]["name"];
@@ -46,13 +46,13 @@ export function variablesIn(template: string): string[] {
  */
 export function validateTemplate(subject: string, body: string): string[] {
   const problems: string[] = [];
-  if (subject.trim() === "") problems.push("The subject is required.");
-  if (body.trim() === "") problems.push("The text is required.");
-  if (subject.length > SUBJECT_MAX_LENGTH) problems.push(`The subject can be at most ${SUBJECT_MAX_LENGTH} characters.`);
-  if (body.length > BODY_MAX_LENGTH) problems.push(`The text can be at most ${BODY_MAX_LENGTH} characters.`);
+  if (subject.trim() === "") problems.push("Subjek wajib diisi.");
+  if (body.trim() === "") problems.push("Isi email wajib diisi.");
+  if (subject.length > SUBJECT_MAX_LENGTH) problems.push(`Subjek paling banyak ${SUBJECT_MAX_LENGTH} karakter.`);
+  if (body.length > BODY_MAX_LENGTH) problems.push(`Isi email paling banyak ${BODY_MAX_LENGTH} karakter.`);
   const unknown = [...variablesIn(subject), ...variablesIn(body)].filter((name) => !KNOWN.has(name));
-  if (unknown.length > 0) problems.push(`Unknown variable${unknown.length === 1 ? "" : "s"}: ${[...new Set(unknown)].map((name) => `{{${name}}}`).join(", ")}.`);
-  if (!variablesIn(subject).includes("request_id")) problems.push("The subject must contain {{request_id}}, so that a reply carries the Request ID.");
+  if (unknown.length > 0) problems.push(`Variabel tidak dikenal: ${[...new Set(unknown)].map((name) => `{{${name}}}`).join(", ")}.`);
+  if (!variablesIn(subject).includes("request_id")) problems.push("Subjek wajib memuat {{request_id}}, supaya balasan membawa Request ID.");
   return problems;
 }
 

@@ -20,10 +20,13 @@ export async function saveTeamSettingAction(_previous: FormState, formData: Form
     sla: text("sla"),
     emailSubject: text("emailSubject"),
     emailBody: text("emailBody"),
+    emailTo: text("emailTo"),
+    emailCc: text("emailCc"),
     ...(restoreDefaults ? { restoreDefaults: true } : {}),
   });
   if (!result.ok) return { ok: false, message: result.message };
-  revalidatePath(SETTINGS_PATH);
-  if (!result.changed) return { ok: true, message: "Nothing changed." };
-  return { ok: true, message: restoreDefaults ? "The default template is back, and the SLA is saved." : "Saved. New emails and SLA dates use these settings." };
+  revalidatePath(`${SETTINGS_PATH}/soa`);
+  revalidatePath(`${SETTINGS_PATH}/purchasing`);
+  if (!result.changed) return { ok: true, message: "Tidak ada yang berubah." };
+  return { ok: true, message: restoreDefaults ? "Template bawaan dikembalikan, dan SLA disimpan." : "Tersimpan. Email dan tanggal SLA berikutnya memakai pengaturan ini." };
 }

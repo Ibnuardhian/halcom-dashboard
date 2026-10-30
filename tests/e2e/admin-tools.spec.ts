@@ -195,45 +195,45 @@ test.describe("importing projects from Excel, paging the table and drilling down
     // The import is a modal on the Projects page, not a page of its own.
     await expect(async () => {
       await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
-      await expect(soa.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+      await expect(soa.getByRole("dialog", { name: "Impor project" })).toBeVisible({ timeout: 3000 });
     }).toPass({ timeout: 30_000 });
     await expect(soa).toHaveURL(/\/projects$/);
 
     // The template: a workbook with one column per field and the required ones marked.
-    const [download] = await Promise.all([soa.waitForEvent("download"), soa.getByRole("link", { name: "Download template" }).click()]);
+    const [download] = await Promise.all([soa.waitForEvent("download"), soa.getByRole("link", { name: "Unduh template" }).click()]);
     expect(download.suggestedFilename()).toBe("halcom-projects-import-template.xlsx");
     const sheet = strFromU8(unzipSync(new Uint8Array(readFileSync((await download.path())!)))["xl/worksheets/sheet1.xml"]!);
     for (const header of ["End user *", "Project name *", "Sales PIC", "Estimated PO value", "Principals"]) expect(sheet).toContain(header);
-    await soa.getByText("What each column holds").click();
+    await soa.getByText("Isi setiap kolom").click();
     await expect(soa.getByRole("cell", { name: "External sales name" })).toBeVisible();
 
     // 1. Choose the file. A choice made before the page is interactive does nothing, so it is repeated.
     await expect(async () => {
-      await soa.getByLabel("Excel workbook (.xlsx)").setInputFiles({ name: `e2e-${id}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
-      await expect(soa.getByRole("heading", { name: "2. Match the columns" })).toBeVisible({ timeout: 4000 });
+      await soa.getByLabel("Workbook Excel (.xlsx)").setInputFiles({ name: `e2e-${id}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
+      await expect(soa.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
     }).toPass({ timeout: 45_000 });
-    await expect(soa.getByText(/32 rows of data, 8 columns/)).toBeVisible();
+    await expect(soa.getByText(/32 baris data, 8 kolom/)).toBeVisible();
     // The columns were matched by name.
     await expect(soa.getByLabel("End user *")).toHaveValue("0");
     await expect(soa.getByLabel("Sales PIC")).toHaveValue("2");
     // A required field cannot be left without a column.
     await soa.getByLabel("Project name *").selectOption("");
-    await expect(soa.getByRole("button", { name: "Check the sheet" })).toBeDisabled();
+    await expect(soa.getByRole("button", { name: "Periksa sheet" })).toBeDisabled();
     await soa.getByLabel("Project name *").selectOption("1");
 
     // 2. Check: 30 ready, 1 duplicate, 1 problem, and nothing written yet.
-    await soa.getByRole("button", { name: "Check the sheet" }).click();
-    await expect(soa.getByText(/32 rows in .Pipeline.: 30 ready, 1 duplicate/)).toBeVisible();
-    await expect(soa.getByRole("cell", { name: "Duplicate (skipped)" })).toBeVisible();
+    await soa.getByRole("button", { name: "Periksa sheet" }).click();
+    await expect(soa.getByText(/32 baris di .Pipeline.: 30 siap, 1 duplikat/)).toBeVisible();
+    await expect(soa.getByRole("cell", { name: "Duplikat (dilewati)" })).toBeVisible();
     await expect(soa.getByRole("cell", { name: /Progress "maybe"/ })).toBeVisible();
-    await expect(soa.getByText(`principals: E2E Brand ${id}, E2E Second ${id}`)).toBeVisible();
+    await expect(soa.getByText(`principal: E2E Brand ${id}, E2E Second ${id}`)).toBeVisible();
     // All or nothing is the default, and it refuses while a row has a problem.
-    await expect(soa.getByRole("button", { name: /^Import 30 projects/ })).toBeDisabled();
-    await soa.getByLabel("Import the valid rows and skip the rows with problems").check();
-    await soa.getByRole("button", { name: "Import 30 projects" }).click();
-    await expect(soa.getByRole("heading", { name: "Import finished" })).toBeVisible({ timeout: 60_000 });
-    await expect(soa.getByText(/30 projects created, 1 duplicate skipped, 1 row with problems skipped/)).toBeVisible();
-    await soa.getByRole("button", { name: "Close and show the projects" }).click();
+    await expect(soa.getByRole("button", { name: /^Impor 30 project/ })).toBeDisabled();
+    await soa.getByLabel("Impor baris yang valid dan lewati baris yang bermasalah").check();
+    await soa.getByRole("button", { name: "Impor 30 project" }).click();
+    await expect(soa.getByRole("heading", { name: "Impor selesai" })).toBeVisible({ timeout: 60_000 });
+    await expect(soa.getByText(/30 project dibuat, 1 duplikat dilewati, 1 baris bermasalah dilewati/)).toBeVisible();
+    await soa.getByRole("button", { name: "Tutup dan tampilkan project" }).click();
     await expect(soa.getByRole("dialog")).toHaveCount(0);
 
     // Paging: 25 by default, 50, 100 and All, with the filter kept.
@@ -318,7 +318,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     const soa = await asRole(browser, "SOA");
     await soa.goto("/projects");
     await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
-    await expect(soa.getByText("Drag the .xlsx file here, or click to choose it")).toBeVisible();
+    await expect(soa.getByText("Seret berkas .xlsx ke sini, atau klik untuk memilihnya")).toBeVisible();
     // The zone is the label of the file input; its text changes to the file name once a file was dropped.
     const zone = soa.locator('label[for="import-file"]');
 
@@ -339,10 +339,10 @@ test.describe("importing projects from Excel, paging the table and drilling down
     }).toPass({ timeout: 30_000 });
     await expect(async () => {
       await drop("dropped.xlsx", [...workbook], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      await expect(soa.getByRole("heading", { name: "2. Match the columns" })).toBeVisible({ timeout: 12_000 });
+      await expect(soa.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 12_000 });
     }).toPass({ timeout: 30_000 });
-    await expect(soa.getByText(/dropped.xlsx: sheet .Pipeline., 1 row of data/)).toBeVisible();
-    await soa.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(soa.getByText(/dropped.xlsx: sheet .Pipeline., 1 baris data/)).toBeVisible();
+    await soa.getByRole("button", { name: "Tutup", exact: true }).click();
     await soa.context().close();
   });
 

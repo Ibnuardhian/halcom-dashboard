@@ -96,7 +96,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "system.monitor": { category: "audit-system", label: "System health", description: "Open the System page (database and runtime health)." },
   "system.backup": { category: "audit-system", label: "Backups", description: "Create and list database backups." },
   "theme.switch": { category: "audit-system", label: "Theme switcher", description: "Show the theme switcher in the header (a display preference only)." },
-  "settings.view": { category: "audit-system", label: "View SLA policies", description: "Open the SLA Policies page." },
+  "settings.view": { category: "audit-system", label: "View SLA policies", description: "Buka modul SLA SOA dan SLA Purchasing." },
   "settings.manage": { category: "audit-system", label: "Manage SLA policies", description: "Change the SLA range and the email templates of SOA and Purchasing." },
 };
 

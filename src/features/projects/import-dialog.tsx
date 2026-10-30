@@ -39,11 +39,11 @@ export function ImportDialog({ canUpdate = false }: { canUpdate?: boolean }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 id={titleId} className="text-base font-semibold">
-                Import projects
+                Impor project
               </h2>
-              <p className="text-sm text-muted-foreground">Add many projects from an Excel sheet. Every row is checked before anything is written; importing adds new projects (a Project ID that exists is skipped){canUpdate ? ", and updating changes the projects found by Project ID" : ""}.</p>
+              <p className="text-sm text-muted-foreground">Tambahkan banyak project dari sheet Excel. Setiap baris diperiksa sebelum ada yang ditulis; impor menambah project baru (Project ID yang sudah ada dilewati){canUpdate ? ", dan pembaruan mengubah project yang ditemukan lewat Project ID" : ""}.</p>
             </div>
-            <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => dialog.current?.close()}>
+            <Button type="button" variant="ghost" size="icon" aria-label="Tutup" onClick={() => dialog.current?.close()}>
               <X aria-hidden />
             </Button>
           </div>

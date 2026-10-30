@@ -69,3 +69,17 @@ describe("saveTeamSetting", () => {
     await expect(db.teamSetting.upsert({ where: { role: "SOA" }, create: { role: "SOA", ...data }, update: { slaDays: 8 } })).rejects.toThrow(/team_settings_sla_range_chk/);
   });
 });
+
+describe("the team's To and Cc", () => {
+  it("are saved normalised, never repeat a To address in Cc, refuse an invalid address, and empty means the server settings apply", async () => {
+    const root = await makeUser("SUPERADMIN");
+
+    expect(await saveTeamSetting(db, actor(root), { ...valid, emailTo: " Soa@Halcom.example ; ops@halcom.example, soa@halcom.example", emailCc: "ops@halcom.example, boss@halcom.example" })).toEqual({ ok: true, changed: true });
+    expect(await getTeamSetting(db, "SOA")).toMatchObject({ emailTo: "Soa@Halcom.example, ops@halcom.example", emailCc: "boss@halcom.example" });
+    expect(await saveTeamSetting(db, actor(root), { ...valid, emailTo: "Soa@Halcom.example, ops@halcom.example", emailCc: "boss@halcom.example" })).toEqual({ ok: true, changed: false });
+    expect(await saveTeamSetting(db, actor(root), { ...valid, emailTo: "not an address", emailCc: "" })).toMatchObject({ ok: false, code: "INVALID_INPUT", message: expect.stringContaining("not an address") });
+
+    expect(await saveTeamSetting(db, actor(root), valid)).toEqual({ ok: true, changed: true });
+    expect(await getTeamSetting(db, "SOA")).toMatchObject({ emailTo: "", emailCc: "" });
+  });
+});

@@ -230,7 +230,7 @@ test.describe("each role sees its own modules", () => {
 
   test("an admin sees the administration modules", async ({ page }) => {
     await signIn(page, "ADMIN");
-    for (const name of ["Users and Roles", "Permissions", "SLA Policies", "Master Data", "Audit Logs"]) {
+    for (const name of ["Users and Roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master Data", "Audit Logs"]) {
       await expect(nav(page).getByRole("link", { name })).toBeVisible();
     }
     await expect(nav(page).getByRole("link", { name: "Backups" })).toHaveCount(0);
@@ -244,10 +244,10 @@ test.describe("each role sees its own modules", () => {
     const finance = page.getByRole("row", { name: /finance\.crosscheck\.view/ });
     await expect(finance).toBeVisible();
 
-    await page.goto("/admin/settings");
-    await expect(page.getByRole("heading", { level: 1, name: "SLA Policies" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Save / })).toHaveCount(0);
-    await expect(page.getByText("only a superadmin changes them")).toBeVisible();
+    await page.goto("/admin/settings/purchasing");
+    await expect(page.getByRole("heading", { level: 1, name: "SLA Purchasing" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Simpan / })).toHaveCount(0);
+    await expect(page.getByText("hanya Superadmin yang mengubahnya")).toBeVisible();
   });
 });
 

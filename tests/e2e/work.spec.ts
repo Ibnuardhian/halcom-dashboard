@@ -354,19 +354,19 @@ test.describe("projects and requests", () => {
 
   test("only the superadmin sees the team settings, and a template without the Request ID is refused", async ({ page, browser }) => {
     await signIn(page, "SALES");
-    await expectNotFound(page, "/admin/settings", "Email subject");
+    await expectNotFound(page, "/admin/settings/soa", "Subjek email");
 
     const root = await asRole(browser, "SUPERADMIN");
-    await root.goto("/admin/settings");
-    await expect(root.getByRole("heading", { level: 1, name: "SLA Policies" })).toBeVisible();
-    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Save SOA settings" }) });
-    await expect(form.getByLabel(/^SLA of the SOA team/)).toHaveValue("2-3"); // the default range
+    await root.goto("/admin/settings/soa");
+    await expect(root.getByRole("heading", { level: 1, name: "SLA SOA" })).toBeVisible();
+    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan pengaturan SOA" }) });
+    await expect(form.getByLabel(/^SLA tim SOA/)).toHaveValue("2-3"); // the default range
     await expect(async () => {
-      await form.getByLabel("Email subject").fill("A subject without the id");
-      await form.getByRole("button", { name: "Save SOA settings" }).click();
+      await form.getByLabel("Subjek email").fill("A subject without the id");
+      await form.getByRole("button", { name: "Simpan pengaturan SOA" }).click();
       await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
     }).toPass();
-    await expect(root.getByText("Preview with sample data").first()).toBeVisible();
+    await expect(root.getByText("Pratinjau dengan data contoh").first()).toBeVisible();
     await root.context().close();
   });
 

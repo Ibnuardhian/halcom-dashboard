@@ -582,6 +582,9 @@ model TeamSetting {
   slaDays     Int      @map("sla_days")
   emailSubject String  @map("email_subject")
   emailBody   String   @map("email_body")
+  // Comma-separated addresses; empty falls back to the EMAIL_TO_HIT* / EMAIL_CC_HIT* settings of the server.
+  emailTo     String   @default("") @map("email_to")
+  emailCc     String   @default("") @map("email_cc")
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedById String?  @map("updated_by_id") @db.Uuid
 

@@ -23,7 +23,7 @@ function permissionFor(href: string): Permission {
   if (href === "/admin/audit") return "audit.view";
   if (href === "/admin/backups") return "system.backup";
   if (href === "/admin/system") return "system.monitor";
-  if (href === "/admin/settings") return "settings.view";
+  if (href.startsWith("/admin/settings")) return "settings.view";
   if (href === "/admin/master-data") return "masterdata.manage";
   if (href === "/admin/pics") return "pics.manage";
   throw new Error(`No permission mapped for ${href}`);
@@ -91,7 +91,7 @@ describe("navLinksFor", () => {
       ["/dashboard/sales", "Sales dashboard"],
     ]);
     const labels = links.map((l) => l.label);
-    for (const label of ["Users and Roles", "Permissions", "SLA Policies", "Master Data", "Audit Logs"]) expect(labels).toContain(label);
+    for (const label of ["Users and Roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master Data", "Audit Logs"]) expect(labels).toContain(label);
     const hrefs = links.map((l) => l.href);
     expect(hrefs).not.toContain("/dashboard/superadmin");
     expect(hrefs).not.toContain("/admin/backups");
@@ -101,7 +101,7 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings", "/admin/master-data", "/admin/pics"]) {
+    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings/soa", "/admin/settings/purchasing", "/admin/master-data", "/admin/pics"]) {
       expect(hrefs).toContain(expected);
     }
     // Admin and Superadmin share one Admin Dashboard (D-032): the menu offers it once, under the user's own address.
@@ -122,9 +122,9 @@ describe("navLinksFor", () => {
     }
   });
 
-  it("offers Backups and System to superadmin only, and SLA Policies to admins and superadmin", () => {
+  it("offers Backups and System to superadmin only, and the SLA modules to admins and superadmin", () => {
     for (const role of ROLES) {
-      expect(hrefsFor(role).includes("/admin/settings")).toBe(role === "SUPERADMIN" || role === "ADMIN");
+      expect(hrefsFor(role).includes("/admin/settings/soa") && hrefsFor(role).includes("/admin/settings/purchasing")).toBe(role === "SUPERADMIN" || role === "ADMIN");
       expect(hrefsFor(role).includes("/admin/backups")).toBe(role === "SUPERADMIN");
       expect(hrefsFor(role).includes("/admin/system")).toBe(role === "SUPERADMIN");
     }

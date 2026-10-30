@@ -79,10 +79,10 @@ test("the projects can be exported in the import template, and that file imports
   await soa.goto("/projects");
   await expect(async () => {
     await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
-    await expect(soa.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+    await expect(soa.getByRole("dialog", { name: "Impor project" })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
 
-  const [download] = await Promise.all([soa.waitForEvent("download"), soa.getByRole("link", { name: "Export projects in this format" }).click()]);
+  const [download] = await Promise.all([soa.waitForEvent("download"), soa.getByRole("link", { name: "Export project dalam format ini" }).click()]);
   expect(download.suggestedFilename()).toMatch(/^halcom-projects-import-format-\d{4}-\d{2}-\d{2}\.xlsx$/);
   // The wizard reads the extension, and a download is kept under a bare id: save it under its own name.
   const path = `/tmp/${download.suggestedFilename()}`;
@@ -96,11 +96,11 @@ test("the projects can be exported in the import template, and that file imports
 
   // Imported back as it is, nothing is new: every row is a duplicate.
   await expect(async () => {
-    await soa.getByLabel("Excel workbook (.xlsx)").setInputFiles(path);
-    await expect(soa.getByRole("heading", { name: "2. Match the columns" })).toBeVisible({ timeout: 4000 });
+    await soa.getByLabel("Workbook Excel (.xlsx)").setInputFiles(path);
+    await expect(soa.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
-  await soa.getByRole("button", { name: "Check the sheet" }).click();
-  await expect(soa.getByText(/rows in .Projects.: 0 ready, \d+ duplicate/)).toBeVisible({ timeout: 60_000 });
+  await soa.getByRole("button", { name: "Periksa sheet" }).click();
+  await expect(soa.getByText(/baris di .Projects.: 0 siap, \d+ duplikat/)).toBeVisible({ timeout: 60_000 });
   await soa.context().close();
 
   // The export dialog on the Overview offers the same file.
@@ -136,24 +136,24 @@ test("an admin updates existing projects from a sheet: end user, Sales PIC and p
   await admin.goto("/projects");
   await expect(async () => {
     await admin.getByRole("button", { name: "Export/Import (xlsx)" }).click();
-    await expect(admin.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+    await expect(admin.getByRole("dialog", { name: "Impor project" })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
-  await admin.getByLabel(/^Update existing projects/).check();
+  await admin.getByLabel(/^Perbarui project yang sudah ada/).check();
   await expect(async () => {
-    await admin.getByLabel("Excel workbook (.xlsx)").setInputFiles({ name: `bulk-${stamp}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
-    await expect(admin.getByRole("heading", { name: "2. Match the columns" })).toBeVisible({ timeout: 4000 });
+    await admin.getByLabel("Workbook Excel (.xlsx)").setInputFiles({ name: `bulk-${stamp}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
+    await expect(admin.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
-  await admin.getByRole("button", { name: "Check the sheet" }).click();
-  await expect(admin.getByText(/Nothing is written until you update/)).toContainText(/1\s+to update,\s+0\s+unchanged/, { timeout: 30_000 });
+  await admin.getByRole("button", { name: "Periksa sheet" }).click();
+  await expect(admin.getByText(/Tidak ada yang ditulis sebelum Anda memperbarui/)).toContainText(/1\s+akan diperbarui,\s+0\s+tidak berubah/, { timeout: 30_000 });
   await expect(admin.getByText(`End user: Bulk Old ${stamp} → Bulk New ${stamp}`)).toBeVisible();
   await expect(admin.getByText(`Principal: – → Bulk HPE ${stamp}; Bulk Aruba ${stamp}`)).toBeVisible();
 
   // New names are created only after the spelling is confirmed.
-  const update = admin.getByRole("button", { name: "Update 1 project" });
+  const update = admin.getByRole("button", { name: "Perbarui 1 project" });
   await expect(update).toBeDisabled();
-  await admin.getByLabel("The spelling is right, create them").check();
+  await admin.getByLabel("Ejaannya benar, buat nama-nama ini").check();
   await update.click();
-  await expect(admin.getByRole("heading", { name: "Update finished" })).toBeVisible({ timeout: 60_000 });
+  await expect(admin.getByRole("heading", { name: "Pembaruan selesai" })).toBeVisible({ timeout: 60_000 });
   await admin.context().close();
 
   const check = await asRole(browser, "SOA");

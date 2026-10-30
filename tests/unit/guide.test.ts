@@ -19,7 +19,7 @@ function pageFileFor(href: string): string | null {
       dir = `${dir}/${segment}`;
       continue;
     }
-    const dynamic = ["[role]", "[code]", "[type]"].find((name) => existsSync(`${dir}/${name}`));
+    const dynamic = ["[role]", "[code]", "[type]", "[team]"].find((name) => existsSync(`${dir}/${name}`));
     if (!dynamic) return null;
     dir = `${dir}/${dynamic}`;
   }

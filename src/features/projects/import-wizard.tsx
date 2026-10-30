@@ -15,13 +15,13 @@ import { commitImportAction, commitUpdateAction, inspectSheetAction, previewImpo
 
 type Inspected = Extract<InspectResult, { ok: true }>;
 
-const STATUS_TEXT = { ready: "Will be imported", duplicate: "Duplicate (skipped)", error: "Problem" } as const;
+const STATUS_TEXT = { ready: "Akan diimpor", duplicate: "Duplikat (dilewati)", error: "Bermasalah" } as const;
 
 /** "A: Customer": the column letter, so the person can find it in Excel, and its header. */
 function columnLabel(index: number, header: string): string {
   let letters = "";
   for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) letters = String.fromCharCode(65 + ((n - 1) % 26)) + letters;
-  return `${letters}: ${header || "(no header)"}`;
+  return `${letters}: ${header || "(tanpa judul kolom)"}`;
 }
 
 /**
@@ -151,23 +151,23 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            <h2>Update finished</h2>
+            <h2>Pembaruan selesai</h2>
           </CardTitle>
           <CardDescription>
-            {file?.name}: {updateResult.updated} project{updateResult.updated === 1 ? "" : "s"} updated, {updateResult.unchanged} unchanged, {updateResult.skipped} skipped.
+            {file?.name}: {updateResult.updated} project diperbarui, {updateResult.unchanged} tidak berubah, {updateResult.skipped} dilewati.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p role="status" className="text-sm">
             Updated: {updateResult.codes.slice(0, 20).join(", ")}
-            {updateResult.codes.length > 20 ? ` and ${updateResult.codes.length - 20} more` : ""}. Every change is in the project&apos;s Change log.
+            {updateResult.codes.length > 20 ? ` dan ${updateResult.codes.length - 20} lainnya` : ""}. Setiap perubahan tercatat di Change log project.
           </p>
           <div className="flex gap-2">
             <Button type="button" onClick={onClose}>
-              Close and show the projects
+              Tutup dan tampilkan project
             </Button>
             <Button type="button" variant="outline" onClick={reset}>
-              Update another file
+              Perbarui dengan berkas lain
             </Button>
           </div>
         </CardContent>
@@ -180,25 +180,24 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            <h2>Import finished</h2>
+            <h2>Impor selesai</h2>
           </CardTitle>
           <CardDescription>
-            {file?.name}: {result.created} project{result.created === 1 ? "" : "s"} created, {result.skippedDuplicates} duplicate{result.skippedDuplicates === 1 ? "" : "s"} skipped, {result.skippedInvalid} row
-            {result.skippedInvalid === 1 ? "" : "s"} with problems skipped.
+            {file?.name}: {result.created} project dibuat, {result.skippedDuplicates} duplikat dilewati, {result.skippedInvalid} baris bermasalah dilewati.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p role="status" className="text-sm">
             Created: {result.codes.slice(0, 20).join(", ")}
-            {result.codes.length > 20 ? ` and ${result.codes.length - 20} more` : ""}.
+            {result.codes.length > 20 ? ` dan ${result.codes.length - 20} lainnya` : ""}.
           </p>
           <SummaryTable summary={result.summary} />
           <div className="flex gap-2">
             <Button type="button" onClick={onClose}>
-              Close and show the projects
+              Tutup dan tampilkan project
             </Button>
             <Button type="button" variant="outline" onClick={reset}>
-              Import another file
+              Impor berkas lain
             </Button>
           </div>
         </CardContent>
@@ -211,54 +210,54 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            <h2>1. Download the template and attach your file</h2>
+            <h2>1. Unduh template dan lampirkan berkas Anda</h2>
           </CardTitle>
           <CardDescription>
-            Fill the template (one project per row, the first row holds the column names), then drop the file below. An .xlsx workbook, up to 5 MB and 5,000 rows; the first sheet is read.
+            Isi template (satu project per baris, baris pertama berisi nama kolom), lalu letakkan berkas di bawah. Berkas .xlsx, maksimal 5 MB dan 5.000 baris; sheet pertama yang dibaca.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {canUpdate ? (
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium">What do you want to do?</legend>
+              <legend className="mb-1 text-sm font-medium">Apa yang ingin Anda lakukan?</legend>
               <label className="flex items-start gap-2 text-sm">
                 <input type="radio" name="import-intent" checked={intent === "create"} onChange={() => setIntent("create")} className="mt-1" />
-                <span>Import new projects (a Project ID that exists is skipped)</span>
+                <span>Impor project baru (Project ID yang sudah ada dilewati)</span>
               </label>
               <label className="flex items-start gap-2 text-sm">
                 <input type="radio" name="import-intent" checked={intent === "update"} onChange={() => setIntent("update")} className="mt-1" />
-                <span>Update existing projects: edit an export of the projects, then upload it. Rows are matched by Project ID; an empty cell changes nothing.</span>
+                <span>Perbarui project yang sudah ada: edit hasil export project, lalu unggah. Baris dicocokkan lewat Project ID; sel kosong tidak mengubah apa pun.</span>
               </label>
             </fieldset>
           ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <a href="/export/projects-template" download className={buttonVariants({ variant: "outline" })}>
               <Download aria-hidden data-icon="inline-start" />
-              Download template
+              Unduh template
             </a>
             <a href="/export/projects?format=import" download className={buttonVariants({ variant: "outline" })}>
               <Download aria-hidden data-icon="inline-start" />
-              Export projects in this format
+              Export project dalam format ini
             </a>
-            <span className="text-xs text-muted-foreground">Columns marked * must be filled; the others are optional.</span>
+            <span className="text-xs text-muted-foreground">Kolom bertanda * wajib diisi; yang lain boleh kosong.</span>
           </div>
           <details>
-            <summary className="cursor-pointer text-sm font-medium">What each column holds</summary>
+            <summary className="cursor-pointer text-sm font-medium">Isi setiap kolom</summary>
             <div className="mt-2 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Column</TableHead>
-                    <TableHead>Required</TableHead>
-                    <TableHead>What to write</TableHead>
+                    <TableHead>Kolom</TableHead>
+                    <TableHead>Wajib</TableHead>
+                    <TableHead>Yang ditulis</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {IMPORT_FIELDS.map((field) => (
                     <TableRow key={field.key}>
                       <TableCell className="font-medium whitespace-nowrap">{field.label}</TableCell>
-                      <TableCell>{field.required ? "Yes" : "No"}</TableCell>
-                      <TableCell className="text-muted-foreground">{field.hint ?? "Plain text."}</TableCell>
+                      <TableCell>{field.required ? "Ya" : "Tidak"}</TableCell>
+                      <TableCell className="text-muted-foreground">{field.hint ?? "Teks biasa."}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -284,13 +283,13 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
             )}
           >
             <FileSpreadsheet aria-hidden className="size-8 text-muted-foreground" />
-            <span className="text-sm font-medium">{file ? file.name : "Drag the .xlsx file here, or click to choose it"}</span>
-            <span className="text-xs text-muted-foreground">{pending && !inspected ? "Reading the file…" : "Excel workbook (.xlsx)"}</span>
+            <span className="text-sm font-medium">{file ? file.name : "Seret berkas .xlsx ke sini, atau klik untuk memilihnya"}</span>
+            <span className="text-xs text-muted-foreground">{pending && !inspected ? "Membaca berkas…" : "Workbook Excel (.xlsx)"}</span>
             <input
               id="import-file"
               ref={fileInput}
               type="file"
-              aria-label="Excel workbook (.xlsx)"
+              aria-label="Workbook Excel (.xlsx)"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               disabled={pending}
               className="sr-only"
@@ -302,7 +301,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
           </label>
           {inspected ? (
             <p role="status" className="text-sm text-muted-foreground">
-              {inspected.fileName}: sheet “{inspected.sheetName}”, {inspected.rowCount} row{inspected.rowCount === 1 ? "" : "s"} of data, {inspected.headers.length} column{inspected.headers.length === 1 ? "" : "s"}.
+              {inspected.fileName}: sheet “{inspected.sheetName}”, {inspected.rowCount} baris data, {inspected.headers.length} kolom.
             </p>
           ) : null}
         </CardContent>
@@ -318,9 +317,9 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>2. Match the columns</h2>
+              <h2>2. Cocokkan kolom</h2>
             </CardTitle>
-            <CardDescription>Each field takes one column of your sheet. The matches below are suggestions from the column names; change any of them. Fields marked * are required.</CardDescription>
+            <CardDescription>Setiap field memakai satu kolom dari sheet Anda. Pencocokan di bawah adalah saran dari nama kolom; ubah bila perlu. Field bertanda * wajib.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -331,7 +330,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
                     {field.required ? " *" : ""}
                   </Label>
                   <NativeSelect id={`map-${field.key}`} value={mapping[field.key] === null ? "" : String(mapping[field.key])} onChange={(event) => changeMapping(field.key, event.target.value)}>
-                    <option value="">{field.required ? "Choose a column" : "Not in my sheet"}</option>
+                    <option value="">{field.required ? "Pilih kolom" : "Tidak ada di sheet saya"}</option>
                     {inspected.headers.map((header, index) => (
                       <option key={index} value={index}>
                         {columnLabel(index, header)}
@@ -344,11 +343,11 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
             </div>
             {usedTwice ? (
               <p role="alert" className="text-sm text-destructive">
-                One column is chosen for two fields. Each column can be used once.
+                Satu kolom dipilih untuk dua field. Setiap kolom hanya boleh dipakai sekali.
               </p>
             ) : null}
             <details>
-              <summary className="cursor-pointer text-sm font-medium">The first rows of your sheet</summary>
+              <summary className="cursor-pointer text-sm font-medium">Beberapa baris pertama sheet Anda</summary>
               <div className="mt-2 overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -374,9 +373,9 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
             </details>
             <div className="flex flex-wrap items-center gap-3">
               <Button type="button" disabled={pending || missingRequired.length > 0 || usedTwice} onClick={intent === "update" ? checkUpdate : check}>
-                {pending ? "Checking…" : "Check the sheet"}
+                {pending ? "Memeriksa…" : "Periksa sheet"}
               </Button>
-              {missingRequired.length > 0 ? <span className="text-sm text-muted-foreground">Choose a column for {missingRequired.map((field) => field.label).join(" and ")}.</span> : null}
+              {missingRequired.length > 0 ? <span className="text-sm text-muted-foreground">Pilih kolom untuk {missingRequired.map((field) => field.label).join(" and ")}.</span> : null}
             </div>
           </CardContent>
         </Card>
@@ -386,41 +385,40 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>3. Check and import</h2>
+              <h2>3. Periksa dan impor</h2>
             </CardTitle>
             <CardDescription>
-              {summary.totalRows} row{summary.totalRows === 1 ? "" : "s"} in “{summary.sheetName}”: <strong>{summary.ready}</strong> ready, <strong>{summary.duplicates}</strong> duplicate{summary.duplicates === 1 ? "" : "s"} (skipped, never
-              updated), <strong>{summary.errors}</strong> with problems. Nothing is written until you import.
+              {summary.totalRows} baris di “{summary.sheetName}”: <strong>{summary.ready}</strong> siap, <strong>{summary.duplicates}</strong> duplikat (dilewati, tidak pernah diperbarui), <strong>{summary.errors}</strong> bermasalah. Tidak ada yang ditulis sebelum Anda mengimpor.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {summary.newPrincipals.length > 0 || summary.newSolutions.length > 0 ? (
               <p className="text-sm">
-                The import will add{summary.newPrincipals.length > 0 ? <> principals: {summary.newPrincipals.join(", ")}</> : null}
+                Impor akan menambah{summary.newPrincipals.length > 0 ? <> principal: {summary.newPrincipals.join(", ")}</> : null}
                 {summary.newPrincipals.length > 0 && summary.newSolutions.length > 0 ? "; " : null}
-                {summary.newSolutions.length > 0 ? <> solutions: {summary.newSolutions.join(", ")}</> : null}.
+                {summary.newSolutions.length > 0 ? <> solution: {summary.newSolutions.join(", ")}</> : null}.
               </p>
             ) : null}
             <SummaryTable summary={summary} />
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium">If some rows have problems</legend>
+              <legend className="mb-1 text-sm font-medium">Jika ada baris yang bermasalah</legend>
               <label className="flex items-start gap-2 text-sm">
                 <input type="radio" name="import-mode" checked={mode === "atomic"} onChange={() => setMode("atomic")} className="mt-1" />
-                <span>Import nothing until every row is fixed (all or nothing)</span>
+                <span>Jangan impor apa pun sampai semua baris diperbaiki (semua atau tidak sama sekali)</span>
               </label>
               <label className="flex items-start gap-2 text-sm">
                 <input type="radio" name="import-mode" checked={mode === "skip-invalid"} onChange={() => setMode("skip-invalid")} className="mt-1" />
-                <span>Import the valid rows and skip the rows with problems</span>
+                <span>Impor baris yang valid dan lewati baris yang bermasalah</span>
               </label>
             </fieldset>
             <div className="flex flex-wrap items-center gap-3">
               <Button type="button" disabled={pending || summary.ready === 0 || (mode === "atomic" && summary.errors > 0)} onClick={runImport}>
-                {pending ? "Importing…" : `Import ${summary.ready} project${summary.ready === 1 ? "" : "s"}`}
+                {pending ? "Mengimpor…" : `Impor ${summary.ready} project`}
               </Button>
               <Button type="button" variant="outline" disabled={pending} onClick={check}>
-                Check again
+                Periksa ulang
               </Button>
-              {mode === "atomic" && summary.errors > 0 ? <span className="text-sm text-muted-foreground">Fix the rows with problems in Excel and choose the file again, or choose to skip them.</span> : null}
+              {mode === "atomic" && summary.errors > 0 ? <span className="text-sm text-muted-foreground">Perbaiki baris yang bermasalah di Excel lalu pilih berkas lagi, atau pilih untuk melewatinya.</span> : null}
             </div>
           </CardContent>
         </Card>
@@ -430,39 +428,39 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>3. Check and update</h2>
+              <h2>3. Periksa dan perbarui</h2>
             </CardTitle>
             <CardDescription>
-              {updateSummary.totalRows} row{updateSummary.totalRows === 1 ? "" : "s"} in “{updateSummary.sheetName}”: <strong>{updateSummary.toUpdate}</strong> to update, <strong>{updateSummary.unchanged}</strong> unchanged,{" "}
-              <strong>{updateSummary.skipped}</strong> skipped (no matching Project ID), <strong>{updateSummary.errors}</strong> with problems. Nothing is written until you update.
+              {updateSummary.totalRows} baris di “{updateSummary.sheetName}”: <strong>{updateSummary.toUpdate}</strong> akan diperbarui, <strong>{updateSummary.unchanged}</strong> tidak berubah,{" "}
+              <strong>{updateSummary.skipped}</strong> dilewati (Project ID tidak cocok), <strong>{updateSummary.errors}</strong> bermasalah. Tidak ada yang ditulis sebelum Anda memperbarui.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {updateSummary.newCustomers.length + updateSummary.newPrincipals.length + updateSummary.newSolutions.length > 0 ? (
               <div role="alert" className="flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/5 px-3 py-2 text-sm">
                 <p>
-                  These names do not exist yet and will be <strong>created</strong>. Check the spelling: a typo makes a new customer or principal.
+                  Nama berikut belum ada dan akan <strong>dibuat</strong>. Periksa ejaannya: salah ketik akan membuat customer atau principal baru.
                 </p>
                 <ul className="list-disc pl-5">
-                  {updateSummary.newCustomers.length > 0 ? <li>Customers: {updateSummary.newCustomers.join(", ")}</li> : null}
+                  {updateSummary.newCustomers.length > 0 ? <li>Customer: {updateSummary.newCustomers.join(", ")}</li> : null}
                   {updateSummary.newPrincipals.length > 0 ? <li>Principals: {updateSummary.newPrincipals.join(", ")}</li> : null}
                   {updateSummary.newSolutions.length > 0 ? <li>Solutions: {updateSummary.newSolutions.join(", ")}</li> : null}
                 </ul>
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={confirmNew} onChange={(event) => setConfirmNew(event.target.checked)} />
-                  The spelling is right, create them
+                  Ejaannya benar, buat nama-nama ini
                 </label>
               </div>
             ) : null}
             <UpdateTable summary={updateSummary} />
             <div className="flex flex-wrap items-center gap-3">
               <Button type="button" disabled={pending || updateSummary.toUpdate === 0 || updateSummary.errors > 0 || (updateSummary.newCustomers.length + updateSummary.newPrincipals.length + updateSummary.newSolutions.length > 0 && !confirmNew)} onClick={runUpdate}>
-                {pending ? "Updating…" : `Update ${updateSummary.toUpdate} project${updateSummary.toUpdate === 1 ? "" : "s"}`}
+                {pending ? "Memperbarui…" : `Perbarui ${updateSummary.toUpdate} project`}
               </Button>
               <Button type="button" variant="outline" disabled={pending} onClick={checkUpdate}>
-                Check again
+                Periksa ulang
               </Button>
-              {updateSummary.errors > 0 ? <span className="text-sm text-muted-foreground">All or nothing: fix the rows with problems in Excel and choose the file again.</span> : null}
+              {updateSummary.errors > 0 ? <span className="text-sm text-muted-foreground">Semua atau tidak sama sekali: perbaiki baris yang bermasalah di Excel, lalu pilih berkas lagi.</span> : null}
             </div>
           </CardContent>
         </Card>
@@ -478,11 +476,11 @@ function SummaryTable({ summary }: { summary: ImportSummary }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Sheet row</TableHead>
-            <TableHead>Result</TableHead>
+            <TableHead>Baris sheet</TableHead>
+            <TableHead>Hasil</TableHead>
             <TableHead>End user</TableHead>
             <TableHead>Project</TableHead>
-            <TableHead>Details</TableHead>
+            <TableHead>Rincian</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -507,12 +505,12 @@ function SummaryTable({ summary }: { summary: ImportSummary }) {
           ))}
         </TableBody>
       </Table>
-      {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Only the first rows with problems are listed; the counts above cover every row.</p> : null}
+      {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Hanya baris bermasalah yang pertama ditampilkan; jumlah di atas mencakup semua baris.</p> : null}
     </div>
   );
 }
 
-const UPDATE_STATUS_TEXT = { update: "Will be updated", unchanged: "No change", skipped: "Skipped", error: "Problem" } as const;
+const UPDATE_STATUS_TEXT = { update: "Akan diperbarui", unchanged: "Tidak berubah", skipped: "Dilewati", error: "Bermasalah" } as const;
 
 function UpdateTable({ summary }: { summary: UpdateSummary }) {
   if (summary.rows.length === 0) return null;
@@ -521,10 +519,10 @@ function UpdateTable({ summary }: { summary: UpdateSummary }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Sheet row</TableHead>
-            <TableHead>Result</TableHead>
+            <TableHead>Baris sheet</TableHead>
+            <TableHead>Hasil</TableHead>
             <TableHead>Project</TableHead>
-            <TableHead>What changes</TableHead>
+            <TableHead>Yang berubah</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -556,7 +554,7 @@ function UpdateTable({ summary }: { summary: UpdateSummary }) {
           ))}
         </TableBody>
       </Table>
-      {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Only the first rows are listed; the counts above cover every row.</p> : null}
+      {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Hanya baris pertama yang ditampilkan; jumlah di atas mencakup semua baris.</p> : null}
     </div>
   );
 }

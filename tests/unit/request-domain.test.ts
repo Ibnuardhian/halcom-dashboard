@@ -3,6 +3,7 @@ import { CODE_PREFIX_PATTERN, codeScope, formatCode, nameLetters, pickCodePrefix
 import { canContinueFlow } from "@/domain/requests/access";
 import { flowSteps } from "@/domain/requests/flow";
 import { formatDateText, parseRecipients, resolveRecipients, singleLine, templateValues } from "@/domain/requests/email";
+import { buildRequestEmail } from "@/server/requests/email";
 import { addWorkingDays, formatSlaRange, isValidSlaRange, parseSlaRange, slaOf, waitingMs } from "@/domain/requests/sla";
 import { DEFAULT_TEMPLATES, renderBody, renderSubject, validateTemplate, variablesIn } from "@/domain/requests/template";
 import {
@@ -231,10 +232,10 @@ describe("email templates", () => {
   });
 
   it("refuses a subject without the Request ID, unknown variables, and empty or too long text", () => {
-    expect(validateTemplate("Request for you", "Hello {{request_id}}")).toEqual(["The subject must contain {{request_id}}, so that a reply carries the Request ID."]);
-    expect(validateTemplate("[{{request_id}}]", "Hi {{customer}} and {{ nope }}")).toEqual(["Unknown variables: {{customer}}, {{nope}}."]);
+    expect(validateTemplate("Request for you", "Hello {{request_id}}")).toEqual(["Subjek wajib memuat {{request_id}}, supaya balasan membawa Request ID."]);
+    expect(validateTemplate("[{{request_id}}]", "Hi {{customer}} and {{ nope }}")).toEqual(["Variabel tidak dikenal: {{customer}}, {{nope}}."]);
     expect(validateTemplate("", "").length).toBe(3);
-    expect(validateTemplate("{{request_id}}", "x".repeat(4001))).toEqual(["The text can be at most 4000 characters."]);
+    expect(validateTemplate("{{request_id}}", "x".repeat(4001))).toEqual(["Isi email paling banyak 4000 karakter."]);
   });
 
   it("fills variables with or without spaces, keeps unknown text, and leaves out a line whose variable is empty", () => {
@@ -369,5 +370,17 @@ describe("email recipients", () => {
     const result = resolveRecipients("BOQ", { EMAIL_TO_HITBOQ: "soa@x.id", EMAIL_CC_HITBOQ: "oops" });
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toContain("oops");
+  });
+});
+
+describe("the recipients saved for a team", () => {
+  const source = { code: "BOQ-S-260001", type: "BOQ" as const, title: "t", description: "", requiredBy: null, project: { code: "HIT-PROJ-001", endUserCompany: "PT A", name: "P" }, requester: { name: "Sales", role: "SALES" as const }, source: null };
+  const template = { subject: "[{{request_id}}]", body: "x", sla: { minDays: 2, maxDays: 3 }, dueAt: new Date("2026-10-30T00:00:00Z") };
+
+  it("replace the server settings when a To is saved, and the server settings still apply when it is empty", () => {
+    const env = { EMAIL_TO_HITBOQ: "server@halcom.example", EMAIL_CC_HITBOQ: "servercc@halcom.example" };
+    expect(buildRequestEmail(source, { ...template, to: "a@halcom.example, b@halcom.example", cc: "b@halcom.example, c@halcom.example" }, env).recipients).toEqual({ ok: true, to: ["a@halcom.example", "b@halcom.example"], cc: ["c@halcom.example"] });
+    expect(buildRequestEmail(source, { ...template, to: "", cc: "c@halcom.example" }, env).recipients).toEqual({ ok: true, to: ["server@halcom.example"], cc: ["servercc@halcom.example"] });
+    expect(buildRequestEmail(source, template, {}).recipients).toMatchObject({ ok: false });
   });
 });

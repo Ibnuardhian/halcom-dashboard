@@ -1,5 +1,5 @@
 import { ROLE_LABELS, type Role } from "@/domain/access/roles";
-import { resolveRecipients, templateValues, type RecipientsResult } from "@/domain/requests/email";
+import { parseRecipients, resolveRecipients, templateValues, type RecipientsResult } from "@/domain/requests/email";
 import { formatSlaRange, type SlaRange } from "@/domain/requests/sla";
 import { renderBody, renderSubject } from "@/domain/requests/template";
 import type { RequestType } from "@/domain/requests/types";
@@ -39,7 +39,7 @@ export type RequestEmail = {
 };
 
 /** The receiving team's template and SLA, and the date a reply is due; they fill the template's variables. */
-export type EmailTemplateSource = { subject: string; body: string; sla: SlaRange; dueAt: Date };
+export type EmailTemplateSource = { subject: string; body: string; sla: SlaRange; dueAt: Date; /** The team's saved To and Cc (empty: the server settings apply). */ to?: string; cc?: string };
 
 /**
  * The To, Cc, subject and body for a request, for the copy-and-paste panel. The subject and text come from the template
@@ -66,9 +66,17 @@ export function buildRequestEmail(request: EmailSource, template: EmailTemplateS
     dueDate: new Date(template.dueAt.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10),
   });
   return {
-    recipients: resolveRecipients(request.type, env),
+    recipients: teamRecipients(template) ?? resolveRecipients(request.type, env),
     subject: renderSubject(template.subject, values),
     body: renderBody(template.body, values),
     linkConfigured: base !== null,
   };
+}
+
+/** The To and Cc saved for the team in the SLA module; null while none is saved, so the server's EMAIL_TO_HIT* settings apply. */
+function teamRecipients(template: EmailTemplateSource): RecipientsResult | null {
+  const to = parseRecipients(template.to);
+  if (to.addresses.length === 0) return null;
+  const toKeys = new Set(to.addresses.map((address) => address.toLowerCase()));
+  return { ok: true, to: to.addresses, cc: parseRecipients(template.cc).addresses.filter((address) => !toKeys.has(address.toLowerCase())) };
 }
