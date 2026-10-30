@@ -121,9 +121,9 @@ describe("the chart address", () => {
       reached: "NEGOTIATE",
       principal: [id, "none"],
       solution: [],
+      industry: ["bank", "oil, gas"],
       owner: ["external"],
       soaPic: [],
-      owner: ["external"],
     });
     expect(readDrillFilters({ progress: "BOGUS", status: "ON_TRACK", reached: "NOPE", principal: ["x'; drop", id], solution: "none", owner: ["nobody"] })).toEqual({
       status: "ON_TRACK",
