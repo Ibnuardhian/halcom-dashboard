@@ -28,6 +28,7 @@ Dial: ENERGY 1 / RHYTHM 1 / MOTION 1
 | Background | Plain; the sign-in pages have a faint blue tint at the top | The tint is the accent color at low strength and ties the two pages outside the shell to the brand. It is the only gradient. |
 | Charts | Bars and donuts rank largest first, with "Not set" and "Other" last. Funnel and stage columns keep pipeline order | Ranking answers "who or what has the most". Stages are a sequence, so their order is the information. |
 | Language | Labels, titles and buttons in English; sentences, hints, empty states and placeholders in Indonesian | The team names its screens in English (BOQ, RFQ, PO, SLA) and reads explanations in Indonesian. |
+| Placeholder text | One color everywhere: the text color at 50% (the Tailwind default) | Example text must look different from typed text. Input, textarea and the search boxes used two different greys before. |
 | Copy | Short, positive, no claims the page cannot check | A page that says "your data is safe" must be able to know that. |
 
 ## Not used, on purpose
