@@ -30,7 +30,7 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
             <strong>Diredupkan</strong>: peran lain. Tetap terlihat agar Anda tahu dari mana pekerjaan datang dan ke mana perginya.
           </span>
         </p>
-        <p className="text-xs text-muted-foreground">Warna tidak pernah menunjukkan status. Status sebuah request tertulis di halamannya sendiri.</p>
+        <p className="text-xs text-muted-foreground">Status request tertulis di halamannya, bukan lewat warna.</p>
       </div>
 
       <div className="flex flex-col gap-2">

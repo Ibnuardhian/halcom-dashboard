@@ -38,7 +38,7 @@ export function SourceForm({ projectId, projectCode, values, salesPeople }: { pr
               </option>
             ))}
           </NativeSelect>
-          <p className="text-xs text-muted-foreground">The project becomes Internal Sales and the external details below are cleared. The change log keeps what they said.</p>
+          <p className="text-xs text-muted-foreground">Project menjadi Internal Sales dan data external di bawah dikosongkan. Change log tetap menyimpan isinya.</p>
         </div>
       ) : (
         <>

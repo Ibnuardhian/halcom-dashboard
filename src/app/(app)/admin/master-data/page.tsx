@@ -46,7 +46,7 @@ async function MasterData() {
       label: `${MASTER_KIND_LABELS[kind]} (${records.length})`,
       content: (
         <>
-          <Intro title={`${MASTER_KIND_LABELS[kind]}s`}>Dibuat dari bagian Technical sebuah project. Nama bersifat unik tanpa membedakan huruf besar kecil dan spasi; mengubah nama tidak memutus project yang memakainya.</Intro>
+          <Intro title={`${MASTER_KIND_LABELS[kind]}s`}>Dibuat dari bagian Technical project. Nama bersifat unik tanpa membedakan huruf besar kecil dan spasi; mengubah nama tidak memutus project yang memakainya.</Intro>
           <MasterList kind={kind} label={MASTER_KIND_LABELS[kind]} items={records.map((record) => ({ id: record.id, name: record.name, count: record.projectCount }))} />
         </>
       ),
@@ -103,7 +103,7 @@ async function MasterData() {
             content: (
               <>
                 <Intro title="SOA phases">
-                  Pilihan SOA phase pada project. Assessment, Sizing, dan POC sudah ada; phase baru (misalnya Pre Assessment) muncul sebagai pilihan bagi SOA. Project yang sudah memakai sebuah phase tetap menyimpannya.
+                  Pilihan SOA phase pada project. Assessment, Sizing, dan POC sudah ada; phase baru (misalnya Pre Assessment) muncul sebagai pilihan bagi SOA. Project yang sudah memakai phase tetap menyimpannya.
                 </Intro>
                 <div className="flex flex-col gap-4">
                   <NewPhaseForm />

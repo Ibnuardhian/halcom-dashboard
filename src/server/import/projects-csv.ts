@@ -103,7 +103,7 @@ export function parseProjectsCsv(csv: string): ProjectsCsvResult {
   try {
     table = parseCsv(csv);
   } catch (error) {
-    return { rows: [], problems: [error instanceof Error ? error.message : "CSV tidak dapat dibaca."] };
+    return { rows: [], problems: [error instanceof Error ? error.message : "CSV tidak bisa dibaca."] };
   }
   const header = table[0] ?? [];
   const missing = REQUIRED_COLUMNS.filter((column) => !header.includes(column));

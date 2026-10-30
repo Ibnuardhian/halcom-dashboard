@@ -404,7 +404,7 @@ test.describe("a project from another source (Other)", () => {
     await sales.goto("/dashboard/sales");
     await expect(sales.getByText(company).first()).toBeVisible();
     await sales.goto("/notifications");
-    await expect(sales.getByText(/was registered for you/).first()).toBeVisible();
+    await expect(sales.getByText(/didaftarkan untuk Anda/).first()).toBeVisible();
     await soa.context().close();
     await sales.context().close();
   });

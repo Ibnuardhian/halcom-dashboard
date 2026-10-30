@@ -28,7 +28,7 @@ export function MarginInput({ id, defaultMode = "amount", defaultValue = "", hin
       <MoneyInput key={mode} id={id} name="marginInput" grouped={mode === "amount"} defaultValue={mode === defaultMode ? defaultValue : ""} />
       {hint ? (
         <span className="text-xs text-muted-foreground">
-          {mode === "amount" ? "The margin in money, for example 150000000. Used as it is." : "Percentage of the sale, for example 12.5. Worked out from the value."}
+          {mode === "amount" ? "Margin dalam rupiah, misalnya 150000000. Dipakai apa adanya." : "Persentase dari nilai, misalnya 12.5. Nominalnya dihitung dari nilai."}
         </span>
       ) : null}
     </div>

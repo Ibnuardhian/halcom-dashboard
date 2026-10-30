@@ -39,7 +39,7 @@ async function Users() {
               <h2>Create user</h2>
             </CardTitle>
             <CardDescription>
-              Bagikan kata sandi awal lewat saluran aman. Peran yang dapat Anda berikan: {roles.map((r) => ROLE_LABELS[r]).join(", ")}.
+              Bagikan kata sandi awal lewat saluran aman. Peran yang bisa Anda berikan: {roles.map((r) => ROLE_LABELS[r]).join(", ")}.
             </CardDescription>
           </CardHeader>
           <CardContent>

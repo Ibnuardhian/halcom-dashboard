@@ -33,7 +33,7 @@ async function createRfq(page: Page, projectCode: string, title: string, details
 async function saveClassification(page: Page): Promise<void> {
   await expect(async () => {
     await page.getByRole("button", { name: "Save classification" }).click();
-    await expect(page.getByText(/Saved and logged|Nothing changed/)).toBeVisible({ timeout: 4000 });
+    await expect(page.getByText(/Disimpan dan dicatat|Tidak ada perubahan/)).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 30_000 });
 }
 

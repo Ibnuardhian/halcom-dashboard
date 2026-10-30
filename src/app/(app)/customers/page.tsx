@@ -50,7 +50,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
       </form>
       {customers.length === 0 ? (
         <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {search ? "Tidak ada customer yang cocok." : "Belum ada customer. Buat sebuah proyek dan end-user company-nya akan muncul di sini."}
+          {search ? "Tidak ada customer yang cocok." : "Belum ada customer. Buat proyek dan end-user company-nya akan muncul di sini."}
         </p>
       ) : (
         <Table>

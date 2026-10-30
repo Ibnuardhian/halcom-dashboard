@@ -226,7 +226,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         description={
           mayEditCommercial
             ? "Opportunity date, progress, status, nilai, target margin, quote release, dan target closing. Setiap perubahan dicatat di change log di bawah."
-            : "Dimiliki Sales PIC proyek ini. Anda dapat membacanya tetapi tidak dapat mengubahnya."
+            : "Dimiliki Sales PIC proyek ini. Anda bisa membacanya tetapi tidak bisa mengubahnya."
         }
       >
         {mayEditCommercial ? (
@@ -258,7 +258,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         description={
           mayEditTechnical
             ? "Detail teknis dan progres BOQ. Setiap perubahan dicatat di change log di bawah."
-            : "Dimiliki SOA. Anda dapat membacanya tetapi tidak dapat mengubahnya."
+            : "Dimiliki SOA. Anda bisa membacanya tetapi tidak bisa mengubahnya."
         }
       >
         {mayEditTechnical ? (

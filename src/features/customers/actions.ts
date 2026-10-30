@@ -22,7 +22,7 @@ export async function saveCustomerIndustryAction(_previous: FormState, formData:
   revalidatePath("/projects");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/sales");
-  return { ok: true, message: result.changed ? (result.industry ? `Industry saved: ${result.industry}.` : "Industry cleared.") : "Nothing changed." };
+  return { ok: true, message: result.changed ? (result.industry ? `Industry saved: ${result.industry}.` : "Industry cleared.") : "Tidak ada perubahan." };
 }
 
 function refresh() {

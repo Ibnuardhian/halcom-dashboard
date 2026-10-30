@@ -33,8 +33,8 @@ export async function updateProjectDetailsAction(_previous: FormState, formData:
   const code = formData.get("projectCode");
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
-  if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
-  return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
+  if (result.changed.length === 0) return { ok: true, message: "Tidak ada perubahan." };
+  return { ok: true, message: `Disimpan dan dicatat: ${result.changed.map(fieldLabel).join(", ")}.` };
 }
 
 /** Adds a current-action or next-action entry to a project's feed (SOA and admins). */
@@ -49,7 +49,7 @@ export async function postProjectUpdateAction(_previous: FormState, formData: Fo
 
   const code = formData.get("projectCode");
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
-  return { ok: true, message: "Update posted." };
+  return { ok: true, message: "Update tersimpan." };
 }
 
 /** Saves Sales' commercial fields (value, target margin, target closing) of one project. */
@@ -68,8 +68,8 @@ export async function updateCommercialDetailsAction(_previous: FormState, formDa
   const code = formData.get("projectCode");
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
-  if (result.changed.length === 0) return { ok: true, message: "Nothing changed." };
-  return { ok: true, message: `Saved and logged: ${result.changed.map(fieldLabel).join(", ")}.` };
+  if (result.changed.length === 0) return { ok: true, message: "Tidak ada perubahan." };
+  return { ok: true, message: `Disimpan dan dicatat: ${result.changed.map(fieldLabel).join(", ")}.` };
 }
 
 /** Saves where a project came from (its external source details, or a handover to an internal Sales PIC). */
@@ -93,7 +93,7 @@ export async function updateProjectSourceAction(_previous: FormState, formData: 
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   revalidatePath("/dashboard", "layout");
-  return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : "Saved and logged." };
+  return { ok: true, message: result.changed.length === 0 ? "Tidak ada perubahan." : "Saved and logged." };
 }
 
 /** Deletes (hides) a project; superadmin only. On success the person goes back to the project list. */
@@ -124,7 +124,7 @@ export async function reassignProjectAction(_previous: FormState, formData: Form
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   revalidatePath("/dashboard", "layout");
-  return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : "The project was moved. Its history is unchanged." };
+  return { ok: true, message: result.changed.length === 0 ? "Tidak ada perubahan." : "Project dipindahkan. Riwayatnya tetap." };
 }
 
 /**
@@ -138,7 +138,7 @@ export async function removeTechnicalSectionAction(projectId: string, projectCod
   const result = await updateProjectDetails(getDb(), { id: user.id, role: user.role }, { projectId, values: { [known]: "" } });
   if (!result.ok) return { ok: false, message: result.message };
   void projectCode;
-  return { ok: true, message: `${fieldLabel(known)} removed. The change log keeps what it said; it shows after the page is reloaded.` };
+  return { ok: true, message: `${fieldLabel(known)} dihapus. Change log tetap menyimpan isinya dan tampil setelah halaman dimuat ulang.` };
 }
 
 /** Superadmin, Admin and SOA correct a project's name; the old and the new name go to the change log. */

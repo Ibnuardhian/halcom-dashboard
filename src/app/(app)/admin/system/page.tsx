@@ -89,7 +89,7 @@ async function System() {
             <CardTitle className="text-base">
               <h2>Other database connections</h2>
             </CardTitle>
-            <CardDescription>Sessions on this database, not counting this page&apos;s own connection.</CardDescription>
+            <CardDescription>Sesi di database ini, tidak termasuk koneksi halaman ini.</CardDescription>
           </CardHeader>
           <CardContent>
             {database.connections.length === 0 ? (

@@ -52,7 +52,7 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
             <h2>Request details</h2>
           </CardTitle>
           <CardDescription>
-            {raisesRfqOnly ? "A project is created by Sales or SOA; pick one that exists. " : "After saving you get the email text (To, Cc, subject and body) to copy into Outlook. "}
+            {raisesRfqOnly ? "Project dibuat oleh Sales atau SOA; pilih yang sudah ada. " : "Setelah disimpan, teks email (To, Cc, subjek, isi) tersedia untuk disalin ke Outlook. "}
             {projects.length === 0 ? (
               raisesRfqOnly ? (
                 "There is no active project yet. Ask Sales or SOA to register it first."

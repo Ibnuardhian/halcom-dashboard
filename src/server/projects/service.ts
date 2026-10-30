@@ -64,7 +64,7 @@ export async function updateProjectDetails(db: PrismaClient, claimedActor: Actor
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid."));
+    return fail("INVALID_INPUT", issue?.code === "unrecognized_keys" ? "Field itu tidak bisa diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid."));
   }
   if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId, values } = parsed.data;
@@ -195,7 +195,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
   const parsed = commercialSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid.") };
+    return { ok: false, code: "INVALID_INPUT", message: issue?.code === "unrecognized_keys" ? "Field itu tidak bisa diubah di sini." : (issue?.message ?? "Data yang dikirim tidak valid.") };
   }
   if (!can(claimedActor.role, "projects.edit.commercial")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { projectId, values } = parsed.data;
@@ -231,7 +231,7 @@ export async function updateCommercialDetails(db: PrismaClient, claimedActor: Ac
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." } satisfies CommercialResult;
     // Sales work on their own projects; the other roles that hold this permission (admins) support any project.
     if (actor.role === "SALES" && !salesActsOn(project, actor.id)) {
-      return { ok: false, code: "FORBIDDEN", message: "Anda hanya dapat mengubah detail komersial proyek milik Anda sendiri." } satisfies CommercialResult;
+      return { ok: false, code: "FORBIDDEN", message: "Anda hanya bisa mengubah detail komersial proyek milik Anda sendiri." } satisfies CommercialResult;
     }
 
     const changes = planCommercialChanges(project, submitted);

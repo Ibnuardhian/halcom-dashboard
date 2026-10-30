@@ -24,7 +24,7 @@ const ERROR_MESSAGES = {
   NOT_FOUND: "Data tidak ditemukan.",
   INVALID_INPUT: "Data yang dikirim tidak valid.",
   INVALID_STATE: "Ini tidak bisa dilakukan pada status saat ini.",
-  PROJECT_NOT_ACTIVE: "Request hanya dapat ditambahkan ke proyek yang berstatus On Track.",
+  PROJECT_NOT_ACTIVE: "Request hanya bisa ditambahkan ke proyek yang berstatus On Track.",
 } as const;
 
 export type WorkErrorCode = keyof typeof ERROR_MESSAGES;
@@ -207,7 +207,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
       });
       await audit(tx, actor.id, "project", "project.created", project.id, null, { code, endUserCompany, name, sourceType, ...externalSource, ...(assignedOwner ? { salesOwnerId: assignedOwner.id } : {}) });
       if (assignedOwner) {
-        await notify(tx, { actorId: actor.id, recipientIds: [assignedOwner.id], kind: "project.assigned", title: `${code} was registered for you`, body: `${endUserCompany}: ${name}`, href: `/projects/${code}` });
+        await notify(tx, { actorId: actor.id, recipientIds: [assignedOwner.id], kind: "project.assigned", title: `${code} didaftarkan untuk Anda`, body: `${endUserCompany}: ${name}`, href: `/projects/${code}` });
       }
       let requestCode: string | null = null;
       if (request) {
@@ -290,7 +290,7 @@ export async function handOverToPurchasing(
       if (!source || source.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
       if (!canContinueFlow(actor.role, source.type, salesActsOn(source.project, actor.id))) return fail("FORBIDDEN");
       if (!canHandOver(source.type, source.status)) {
-        return fail("INVALID_STATE", "Hanya BOQ atau RFQ yang sudah selesai yang dapat dilanjutkan ke langkah berikutnya.");
+        return fail("INVALID_STATE", "Hanya BOQ atau RFQ yang sudah selesai yang bisa dilanjutkan ke langkah berikutnya.");
       }
       if (targetType !== nextRequestType(source.type)) {
         return fail("INVALID_STATE", "Alurnya BOQ, lalu RFQ, lalu PO: BOQ dilanjutkan sebagai RFQ, dan RFQ sebagai PO.");
@@ -331,7 +331,7 @@ export async function handOverToPurchasing(
         actorId: actor.id,
         recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[targetType])), source.requesterId, source.project.salesOwnerId],
         kind: "request.handed_over",
-        title: `${source.code} was handed over as ${targetType} ${code}`,
+        title: `${source.code} diteruskan sebagai ${targetType} ${code}`,
         body: source.title,
         href: `/request/${code}`,
       });
@@ -466,8 +466,8 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
     });
     if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (actor.role === "SALES" && !salesActsOn(request.project, actor.id)) return fail("FORBIDDEN");
-    if (request.type !== "BOQ") return fail("INVALID_STATE", "Revisi hanya dapat diminta untuk BOQ.");
-    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Hanya BOQ yang sudah selesai yang dapat dikembalikan untuk direvisi.");
+    if (request.type !== "BOQ") return fail("INVALID_STATE", "Revisi hanya bisa diminta untuk BOQ.");
+    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Hanya BOQ yang sudah selesai yang bisa dikembalikan untuk direvisi.");
 
     const now = new Date();
     // The first completion stays (a revision does not make the SLA late), exactly as when SOA moves the card to Revision.
@@ -548,7 +548,7 @@ export async function setRequestDates(db: PrismaClient, claimedActor: Actor, inp
 
     const before = { code: request.code, createdAt: request.createdAt.toISOString(), completedAt: request.completedAt?.toISOString() ?? null, requesterId: request.requesterId, raisedByPicId: request.raisedByPicId };
     const after = { code: nextCode, createdAt: nextCreated.toISOString(), completedAt: nextCompleted?.toISOString() ?? null, requesterId: nextRequester, raisedByPicId: nextRaisedByPicId };
-    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt && before.requesterId === after.requesterId && before.raisedByPicId === after.raisedByPicId) return fail("INVALID_INPUT", "Tidak ada yang berubah.");
+    if (before.createdAt === after.createdAt && before.completedAt === after.completedAt && before.requesterId === after.requesterId && before.raisedByPicId === after.raisedByPicId) return fail("INVALID_INPUT", "Tidak ada perubahan.");
     await tx.request.update({ where: { id: request.id }, data: { code: nextCode, createdAt: nextCreated, completedAt: nextCompleted, requesterId: nextRequester, raisedByPicId: nextRaisedByPicId } });
     // Notifications name the code in their text and link; the old link would lead nowhere.
     if (nextCode !== request.code) {

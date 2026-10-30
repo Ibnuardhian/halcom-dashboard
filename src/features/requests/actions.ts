@@ -94,7 +94,7 @@ export async function handOverAction(_previous: FormState, formData: FormData): 
     if (!stopped.ok) return { ok: false, message: stopped.message };
     revalidatePath(`/request/${stopped.value.code}`);
     revalidatePath(REQUESTS_PATH);
-    return { ok: true, message: "Recorded: this request does not continue to the next step. You can still continue later." };
+    return { ok: true, message: "Tersimpan: request ini tidak dilanjutkan. Anda masih bisa melanjutkannya nanti." };
   }
   const result = await handOverToPurchasing(getDb(), actor, {
     sourceId: text(formData, "sourceId"),
@@ -122,7 +122,7 @@ export async function setPhaseAction(_previous: FormState, formData: FormData): 
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(`/projects/${result.value.code}`);
   revalidatePath(PROJECTS_PATH);
-  return { ok: true, message: "Phase saved." };
+  return { ok: true, message: "Phase tersimpan." };
 }
 
 /** Sales send a completed BOQ back to SOA for a revision. The service checks who may, that the BOQ is completed, and that a reason came. */
@@ -140,7 +140,7 @@ export async function setRequestDatesAction(_previous: FormState, formData: Form
   revalidatePath(PROJECTS_PATH);
   // The code changed with the requester: the old address is gone, so the person is taken to the new one.
   if (result.value.code !== text(formData, "code")) redirect(`/request/${result.value.code}`);
-  return { ok: true, message: `The dates of ${result.value.code} were saved.` };
+  return { ok: true, message: `Tanggal ${result.value.code} tersimpan.` };
 }
 
 export async function requestRevisionAction(_previous: FormState, formData: FormData): Promise<FormState> {

@@ -88,7 +88,7 @@ export function canHandOver(type: RequestType, status: RequestStatus): boolean {
 }
 
 /** A PO follows an RFQ: it can only be raised on a project that has a completed RFQ. A BOQ and an RFQ have no such condition. */
-export const PO_NEEDS_RFQ = "A PO needs a completed RFQ on the project first. Raise the RFQ, and when it is completed, continue it to a PO.";
+export const PO_NEEDS_RFQ = "PO butuh RFQ yang sudah selesai di project ini. Ajukan RFQ dulu, lalu lanjutkan ke PO setelah RFQ selesai.";
 
 /** The step that follows in the flow, or null after a PO. */
 export function nextRequestType(type: RequestType): RequestType | null {

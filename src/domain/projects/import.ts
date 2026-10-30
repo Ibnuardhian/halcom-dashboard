@@ -100,7 +100,7 @@ export function checkMapping(input: unknown, columnCount: number): { ok: true; m
   const mapping = Object.fromEntries(IMPORT_FIELD_KEYS.map((key) => [key, null])) as ColumnMapping;
   const used = new Set<number>();
   for (const key of Object.keys(record)) {
-    if (!(IMPORT_FIELD_KEYS as readonly string[]).includes(key)) return { ok: false, message: `"${key}" bukan field yang dapat diimpor.` };
+    if (!(IMPORT_FIELD_KEYS as readonly string[]).includes(key)) return { ok: false, message: `"${key}" bukan field yang bisa diimpor.` };
   }
   for (const key of IMPORT_FIELD_KEYS) {
     const value = record[key];

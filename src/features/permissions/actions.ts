@@ -20,7 +20,7 @@ export async function savePermissionsAction(_previous: FormState, formData: Form
   const changes = rendered.map((cell) => {
     return { ...parseCellKey(cell), granted: ticked.has(cell) };
   });
-  if (changes.length === 0) return { ok: false, message: "Nothing to save." };
+  if (changes.length === 0) return { ok: false, message: "Belum ada perubahan untuk disimpan." };
 
   const result = await savePermissionChanges(getDb(), { id: user.id, role: user.role }, { changes });
   if (!result.ok) return { ok: false, message: result.message };

@@ -121,7 +121,7 @@ const SUPERADMIN_ONLY: ReadonlySet<Permission> = new Set(PERMISSION_GUARDS.super
 /** Why a role/permission pair cannot be changed in the permission editor, or null when it can. */
 export function permissionChangeBlock(role: Role, permission: Permission, granted: boolean): string | null {
   if (role === "SUPERADMIN" && LOCKED_FOR_SUPERADMIN.has(permission)) {
-    return granted ? null : "Superadmin always keeps this permission: it is how permissions and accounts are managed.";
+    return granted ? null : "Superadmin selalu memegang hak akses ini; lewat inilah hak akses dan akun dikelola.";
   }
   if (role !== "SUPERADMIN" && SUPERADMIN_ONLY.has(permission) && granted) return "Only a superadmin can hold this permission.";
   return null;

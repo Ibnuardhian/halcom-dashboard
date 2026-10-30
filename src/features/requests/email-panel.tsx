@@ -100,7 +100,7 @@ export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigu
             The text is too long for a MailTo link, so the draft has the recipients and subject only. Copy the text below into it.
           </p>
         ) : null}
-        {!to ? <p className="text-xs text-muted-foreground">The draft has no recipient because none is configured.</p> : null}
+        {!to ? <p className="text-xs text-muted-foreground">Draf tanpa penerima karena belum diatur.</p> : null}
       </div>
       {hint ? <p className="rounded-md border border-accent-foreground/20 bg-accent px-3 py-2 text-sm text-accent-foreground">{hint}</p> : null}
       {recipientsError ? (

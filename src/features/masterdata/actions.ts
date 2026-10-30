@@ -39,7 +39,7 @@ export async function setProjectMasterDataAction(_previous: FormState, formData:
   const code = text(formData, "projectCode");
   if (/^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
-  return { ok: true, message: result.value.changed.length === 0 ? "Nothing changed." : "Saved and logged." };
+  return { ok: true, message: result.value.changed.length === 0 ? "Tidak ada perubahan." : "Saved and logged." };
 }
 
 /** Renames a Principal or Solution on the master data page. */
@@ -49,7 +49,7 @@ export async function renameMasterRecordAction(_previous: FormState, formData: F
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(MASTER_DATA_PATH);
   revalidatePath(PROJECTS_PATH);
-  return { ok: true, message: "Renamed." };
+  return { ok: true, message: "Nama diubah." };
 }
 
 /** Deletes an unused Principal or Solution. */
@@ -58,5 +58,5 @@ export async function deleteMasterRecordAction(_previous: FormState, formData: F
   const result = await deleteMasterRecord(getDb(), { id: user.id, role: user.role }, { kind: kindOf(text(formData, "kind")), id: text(formData, "id") });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(MASTER_DATA_PATH);
-  return { ok: true, message: "Deleted." };
+  return { ok: true, message: "Dihapus." };
 }

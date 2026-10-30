@@ -111,11 +111,11 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     row: 0,
     action: "Daftarkan opportunity sebagai proyek. Anda menjadi Sales PIC-nya. Project ID (HIT-PROJ-001, HIT-PROJ-002, dan seterusnya) diberikan saat Anda menyimpan.",
     input: "End-user company dan Project name (wajib). Opsional: Target closing, Progress, Status, Estimated PO value, Description.",
-    output: "Proyek dengan Project ID-nya. Semua peran dapat membacanya.",
+    output: "Proyek dengan Project ID-nya. Semua peran bisa membacanya.",
     recipient: "Anda sendiri: ajukan request BOQ atau RFQ berikutnya, atau pilih langsung di form yang sama.",
     guide: {
       where: "Projects → New project",
-      prerequisites: ["Anda masuk dengan akun Sales (Admin atau Superadmin juga dapat melakukannya atas nama Sales)."],
+      prerequisites: ["Anda masuk dengan akun Sales (Admin atau Superadmin juga bisa melakukannya atas nama Sales)."],
       steps: [
         "Buka Projects lalu pilih New project.",
         "Isi End-user company dan Project name. Tambahkan Target closing, Estimated PO value, dan Description jika sudah diketahui.",
@@ -188,7 +188,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     next: "Purchasing",
     col: 5,
     row: 1,
-    action: "Minta quotation atau harga langsung ke Purchasing. BOQ boleh dilewati: alur dapat dimulai dengan RFQ.",
+    action: "Minta quotation atau harga langsung ke Purchasing. BOQ boleh dilewati: alur bisa dimulai dengan RFQ.",
     input: "Proyek, ringkasan satu baris (wajib), detail, dan tanggal Needed by (opsional).",
     output: "Request RFQ berstatus Submitted, notifikasi di aplikasi untuk tim Purchasing, dan teks email untuk disalin ke Outlook.",
     recipient: "Purchasing",
@@ -241,8 +241,8 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     row: 0,
     action: "Jaga sisi komersial proyek tetap terbaru dan pantau di halaman Sales pipeline dan Sales targets.",
     input: "Opportunity date, Progress, Status, Estimated PO value, Target margin, Quote released, Target closing, Final value, dan Won date seiring perkembangan deal.",
-    output: "Angka pipeline yang terbaru dan change log untuk setiap perubahan. Semua peran dapat membaca proyek; Finance membaca nilai dan referensinya.",
-    recipient: "Semua orang yang dapat membaca proyek",
+    output: "Angka pipeline yang terbaru dan change log untuk setiap perubahan. Semua peran bisa membaca proyek; Finance membaca nilai dan referensinya.",
+    recipient: "Semua orang yang bisa membaca proyek",
     guide: {
       where: "Project → Commercial; Sales pipeline; Sales targets",
       prerequisites: ["Anda Sales PIC proyek ini (atau proyeknya dari sumber lain), atau Anda Admin."],
@@ -254,7 +254,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Cek bagian Requests untuk melihat posisi BOQ, RFQ, dan PO.",
       ],
       editable: ["Opportunity date", "Progress", "Status", "Estimated PO value", "Target margin", "Quote released", "Target closing", "Final value", "Won date"],
-      handoff: "Tidak ada yang diserahkan. Detail proyek tetap dapat dibaca semua peran; hanya Sales PIC yang mengedit field komersial.",
+      handoff: "Tidak ada serah terima. Semua peran bisa membaca detail proyek; hanya Sales PIC yang mengedit field komersial.",
       links: [
         { label: "Sales pipeline", href: "/dashboard/sales", anyOf: ["dashboard.sales.view"] },
         { label: "Sales targets", href: "/targets", anyOf: ["dashboard.sales.view"] },
@@ -278,7 +278,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     recipient: "BOQ tickets milik SOA sendiri",
     guide: {
       where: "Projects → New project",
-      prerequisites: ["Anda masuk dengan akun SOA (Admin atau Superadmin juga dapat melakukannya)."],
+      prerequisites: ["Anda masuk dengan akun SOA (Admin atau Superadmin juga bisa melakukannya)."],
       steps: [
         "Buka Projects lalu pilih New project.",
         "Pilih Project source: Internal Sales (lalu pilih salesperson) atau Other (lalu isi nama sales).",
@@ -425,7 +425,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "RFQ muncul di daftar RFQ Anda; Sales PIC melihatnya di Request center dan di dashboard-nya.",
       ],
       editable: ["Project", "Summary", "Details", "Needed by"],
-      handoff: "Sales PIC dan SOA PIC diberi tahu di aplikasi. Purchasing tidak mengirim email request: Sales PIC dapat menyalinnya dari request.",
+      handoff: "Sales PIC dan SOA PIC diberi tahu di aplikasi. Purchasing tidak mengirim email request: Sales PIC bisa menyalinnya dari request.",
       links: [{ label: "RFQ requests", href: "/requests/rfq", anyOf: ["requests.view"] }, { label: "New request", href: "/requests/new", anyOf: ["requests.create.rfq", "requests.create"] }],
     },
   },
@@ -472,9 +472,9 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Buka RFQ board.",
         "Seret kartu ke In progress selama dikerjakan, dan ke Completed saat quotation selesai.",
         "Ganti PIC di halaman request jika pekerjaan berpindah ke orang lain.",
-        "Untuk menghentikan request, seret ke Cancelled dan isi alasannya. RFQ yang sudah selesai dapat dibuka kembali ke In progress, juga dengan alasan.",
+        "Untuk menghentikan request, seret ke Cancelled dan isi alasannya. RFQ yang sudah selesai bisa dibuka kembali ke In progress, juga dengan alasan.",
       ],
-      editable: ["Request status (with a reason for Cancelled and for reopening)", "PIC"],
+      editable: ["Status request (dengan alasan untuk Cancelled dan pembukaan kembali)", "PIC"],
       handoff: "Sales yang memutuskan apakah RFQ yang selesai dilanjutkan ke PO. Purchasing tidak membuat PO sendiri.",
       links: [{ label: "RFQ requests", href: "/requests/rfq", anyOf: ["requests.view"] }],
     },
@@ -496,9 +496,9 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       steps: [
         "Buka PO requests dan buka request baru tersebut.",
         "Tetapkan PIC di kartu PIC lalu pilih Save PIC.",
-        "Di PO board, seret kartu ke In progress, lalu ke Completed. PO yang sudah selesai dapat dibuka kembali ke In progress dengan alasan.",
+        "Di PO board, seret kartu ke In progress, lalu ke Completed. PO yang sudah selesai bisa dibuka kembali ke In progress dengan alasan.",
       ],
-      editable: ["PIC", "Request status (with a reason for Cancelled and for reopening)"],
+      editable: ["PIC", "Status request (dengan alasan untuk Cancelled dan pembukaan kembali)"],
       handoff: "PO adalah langkah terakhir alur ini. Sales dan Finance membaca hasilnya.",
       links: [{ label: "PO requests", href: "/requests/po", anyOf: ["requests.view"] }],
     },
@@ -514,7 +514,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     col: 9,
     action:
       "Bandingkan nilai setiap proyek dengan referensi quotation (RFQ) dan PO-nya serta dengan progress-nya. Flag: Closed Won tanpa final value, tanpa referensi PO, atau tanpa referensi quotation, dan PO selesai pada proyek yang belum Closed Won.",
-    input: "Tidak ada yang perlu diisi. Opsional: filter berdasarkan flag, pencarian, dan unduh daftar sebagai CSV.",
+    input: "Tanpa isian. Opsional: filter berdasarkan flag, pencarian, dan unduh daftar sebagai CSV.",
     output: "Daftar proyek beserta flag-nya, hanya untuk dibaca.",
     recipient: "Tidak ada: Finance membaca dan melapor lewat jalurnya sendiri",
     guide: {
@@ -523,11 +523,11 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       steps: [
         "Buka Financial crosscheck.",
         "Pilih flag untuk melihat proyek yang perlu dicek saja, atau cari proyek tertentu.",
-        "Buka proyek untuk membaca nilainya, Requests-nya, dan riwayat di balik sebuah referensi.",
+        "Buka proyek untuk membaca nilainya, Requests-nya, dan riwayat di balik referensi.",
         "Unduh CSV jika daftar ini dibutuhkan di tempat lain.",
       ],
       editable: [READ_ONLY],
-      handoff: "Finance tidak dapat mengubah proyek atau request. Selisih diperbaiki oleh Sales (field komersial) atau Purchasing (request).",
+      handoff: "Finance tidak bisa mengubah proyek atau request. Selisih diperbaiki oleh Sales (field komersial) atau Purchasing (request).",
       links: [
         { label: "Financial crosscheck", href: "/finance/crosscheck", anyOf: ["finance.crosscheck.view"] },
         { label: "Finance dashboard", href: "/dashboard/finance", anyOf: ["dashboard.finance.view"] },
@@ -545,7 +545,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     next: "Tanpa handoff (hanya baca)",
     col: 9,
     action: "Baca dashboard dan laporan. Peran ini tidak mengubah apa pun.",
-    input: "Tidak ada yang perlu diisi.",
+    input: "Tanpa isian.",
     output: "Overview, Management dashboard, Technical reports, dan Financial crosscheck.",
     recipient: "Tidak ada",
     guide: {
@@ -578,7 +578,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     col: 2,
     action: "Buat dan kelola akun operasional, pelihara daftar SOA PIC dan Purchasing PIC, serta master data (principal dan solution) yang dipilih di form proyek.",
     input: "Nama, peran, dan status pengguna operasional dan PIC; data master.",
-    output: "Akun yang dapat masuk, dan PIC yang menjadi tujuan tiket. Admin juga dapat membaca audit log, permission matrix, dan SLA policies.",
+    output: "Akun yang bisa masuk, dan PIC yang menjadi tujuan tiket. Admin juga bisa membaca audit log, permission matrix, dan SLA policies.",
     recipient: "SOA dan Purchasing, yang memilih PIC dari daftar ini",
     guide: {
       where: "Users and roles, PICs, Master data, Audit logs",
@@ -590,7 +590,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Buka Audit logs untuk melihat siapa mengubah apa.",
       ],
       editable: ["Operational users", "PICs", "Master data"],
-      handoff: "Admin hanya dapat mengelola peran operasional. Akun Admin dan Superadmin dikelola oleh Superadmin.",
+      handoff: "Admin hanya bisa mengelola peran operasional. Akun Admin dan Superadmin dikelola oleh Superadmin.",
       links: [
         { label: "Users and roles", href: "/admin/users", anyOf: ["users.view"] },
         { label: "PICs", href: "/admin/pics", anyOf: ["pics.manage"] },

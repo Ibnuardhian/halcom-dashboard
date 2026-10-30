@@ -63,7 +63,7 @@ async function TechnicalReport() {
           ))}
         </TableBody>
       </Table>
-      <p className="mt-3 text-xs text-muted-foreground">Compliance counts the BOQs completed in the month: those that met the SLA deadline over all of them. Waiting time for Sales is not counted against SOA.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Kepatuhan SLA: BOQ yang selesai bulan itu dan memenuhi batas waktu, dibagi semua BOQ yang selesai. Waktu menunggu Sales tidak dihitung untuk SOA.</p>
     </>
   );
 }

@@ -71,15 +71,15 @@ export function PipelineGrowthChart({ initial }: { initial: PipelineGrowth }) {
     try {
       const response = await fetch(`/api/pipeline-growth?granularity=${next}`, { signal: abort.signal, cache: "no-store", credentials: "same-origin" });
       if (response.status === 401) throw new Error("Sesi Anda sudah berakhir. Masuk lagi untuk melihat chart ini.");
-      if (!response.ok) throw new Error("Chart tidak dapat dimuat.");
+      if (!response.ok) throw new Error("Chart tidak bisa dimuat.");
       const body: unknown = await response.json();
-      if (!isGrowth(body)) throw new Error("Chart tidak dapat dibaca.");
+      if (!isGrowth(body)) throw new Error("Chart tidak bisa dibaca.");
       if (ticket !== latest.current) return; // a newer choice was made while this one was on its way
       setData(body);
       setPhase({ kind: "ready" });
     } catch (error) {
       if (ticket !== latest.current || (error instanceof DOMException && error.name === "AbortError")) return;
-      setPhase({ kind: "error", message: error instanceof Error ? error.message : "Chart tidak dapat dimuat." });
+      setPhase({ kind: "error", message: error instanceof Error ? error.message : "Chart tidak bisa dimuat." });
     }
   }, []);
 

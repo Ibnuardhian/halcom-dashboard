@@ -164,7 +164,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
     if (!project) return skip(`Project ID ${label.code} tidak ditemukan, jadi bukan update.`);
     if (seenCodes.has(label.code)) return fail([`Project ID ${label.code} sudah dipakai di baris ${seenCodes.get(label.code)} berkas ini.`]);
     seenCodes.set(label.code, sheetRow);
-    if (ownOnly && !salesActsOn(project, actor.id)) return fail(["Project ini bukan milik Anda, jadi tidak dapat diperbarui. Hapus barisnya dari berkas."]);
+    if (ownOnly && !salesActsOn(project, actor.id)) return fail(["Project ini bukan milik Anda, jadi tidak bisa diperbarui. Hapus barisnya dari berkas."]);
     // An import row must name its Sales PIC and source; an update row may leave them empty (nothing changes), so the stored values
     // stand in for the empty cells while the row is read and checked.
     const checkedRow = checkImportRow({
@@ -180,10 +180,10 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
     // A project changed after the export would have its newer edits overwritten by an older sheet.
     if (text(raw.lastUpdated) !== "") {
       const exportedAt = new Date(text(raw.lastUpdated));
-      if (Number.isNaN(exportedAt.getTime())) problems.push(`Last updated "${raw.lastUpdated}" tidak dapat dibaca. Pakai kolom dari hasil export.`);
+      if (Number.isNaN(exportedAt.getTime())) problems.push(`Last updated "${raw.lastUpdated}" tidak bisa dibaca. Pakai kolom dari hasil export.`);
       else if (exportedAt.getTime() !== project.updatedAt.getTime()) problems.push(`Proyek berubah sejak diexport (terakhir diubah ${project.updatedAt.toISOString()}). Export ulang, lalu edit lagi.`);
     }
-    if (text(raw.source) !== "" && row.sourceType !== project.sourceType) problems.push("Project source tidak dapat diubah lewat update. Ubah di halaman proyek.");
+    if (text(raw.source) !== "" && row.sourceType !== project.sourceType) problems.push("Project source tidak bisa diubah lewat update. Ubah di halaman proyek.");
 
     const changes: UpdateChange[] = [];
     const applied: Applied = {};

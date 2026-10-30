@@ -134,7 +134,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
       </Field>
       {scope.commercial ? (
         <>
-          <Field id="project-progress" label="Progress" hint="Setiap tahap mewakili sebuah win probability, dipakai untuk weighted pipeline.">
+          <Field id="project-progress" label="Progress" hint="Setiap tahap mewakili win probability, dipakai untuk weighted pipeline.">
             <NativeSelect id="project-progress" name="progress" defaultValue="QUALIFY">
               {PROJECT_PROGRESSES.map((option) => (
                 <option key={option} value={option}>
@@ -321,7 +321,7 @@ export function RequestForm({
               <span className="block text-xs text-muted-foreground">RFQ ini masuk ke Purchasing dan ditampilkan ke PIC-PIC ini; muncul juga di Sales dashboard milik Sales PIC.</span>
             </p>
           ) : (
-            <p className="text-muted-foreground">Pilih sebuah proyek untuk melihat Sales PIC dan SOA PIC-nya.</p>
+            <p className="text-muted-foreground">Pilih proyek untuk melihat Sales PIC dan SOA PIC-nya.</p>
           )}
         </div>
       ) : null}

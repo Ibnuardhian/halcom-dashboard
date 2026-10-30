@@ -32,7 +32,7 @@ export function pickCodePrefix(email: string, taken: ReadonlySet<string>): strin
   for (let n = 2; n <= 9; n += 1) if (!taken.has(`${stem}${n}`)) return `${stem}${n}`;
   const first = letters.slice(0, 1);
   for (let n = 10; n <= 99; n += 1) if (!taken.has(`${first}${n}`)) return `${first}${n}`;
-  throw new Error("No free code prefix is left for this e-mail address.");
+  throw new Error("Tidak ada prefix kode tersisa untuk alamat email ini.");
 }
 
 /** Two-digit year in the business time zone, so a request created at 23:30 on 31 Dec is not dated the next year. */

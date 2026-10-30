@@ -55,7 +55,7 @@ export function parseCommercialValue(field: CommercialField, raw: string | null 
       return parseAmount(label, text);
     case "percent": {
       const normal = text.replace(",", ".");
-      if (!/^\d{1,3}(\.\d{1,2})?$/.test(normal) || Number(normal) > 100) return { ok: false, message: `${label} must be from 0 to 100 (up to two decimals).` };
+      if (!/^\d{1,3}(\.\d{1,2})?$/.test(normal) || Number(normal) > 100) return { ok: false, message: `${label} harus antara 0 dan 100 (maksimal dua desimal).` };
       return { ok: true, value: Number(normal) };
     }
     case "date": {

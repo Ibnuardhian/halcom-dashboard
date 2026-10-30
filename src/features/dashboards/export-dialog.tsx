@@ -38,7 +38,7 @@ export function ExportDialog() {
               <h2 id="export-title" className="text-base font-semibold">
                 Export projects
               </h2>
-              <p className="text-sm text-muted-foreground">Tick the columns you want, then download an Excel file (.xlsx), or a CSV. Every project is included.</p>
+              <p className="text-sm text-muted-foreground">Pilih kolom, lalu unduh sebagai Excel (.xlsx) atau CSV. Semua project ikut diekspor.</p>
             </div>
             <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => dialog.current?.close()}>
               <X aria-hidden />

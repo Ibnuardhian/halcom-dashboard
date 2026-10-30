@@ -26,7 +26,7 @@ export async function deleteProject(db: PrismaClient, claimedActor: Actor, input
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({ where: { id: projectId }, include: { requests: { select: { status: true } } } });
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
-    if (confirmCode !== project.code) return { ok: false, code: "INVALID_INPUT", message: `Type ${project.code} to confirm the deletion.` };
+    if (confirmCode !== project.code) return { ok: false, code: "INVALID_INPUT", message: `Ketik ${project.code} untuk mengonfirmasi penghapusan.` };
 
     await tx.project.update({ where: { id: project.id }, data: { deletedAt: new Date(), deletedById: actor.id } });
     await tx.auditEvent.create({

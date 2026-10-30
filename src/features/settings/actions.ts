@@ -27,6 +27,6 @@ export async function saveTeamSettingAction(_previous: FormState, formData: Form
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(`${SETTINGS_PATH}/soa`);
   revalidatePath(`${SETTINGS_PATH}/purchasing`);
-  if (!result.changed) return { ok: true, message: "Tidak ada yang berubah." };
+  if (!result.changed) return { ok: true, message: "Tidak ada perubahan." };
   return { ok: true, message: restoreDefaults ? "Template bawaan dikembalikan, dan SLA disimpan." : "Tersimpan. Email dan tanggal SLA berikutnya memakai pengaturan ini." };
 }
