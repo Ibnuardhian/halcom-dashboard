@@ -129,7 +129,7 @@ export function permissionChangeBlock(role: Role, permission: Permission, grante
 
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
-const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "requests.create", "requests.email", "requests.revise"];
+const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "projects.bulk-update", "requests.create", "requests.email", "requests.revise"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;
@@ -186,6 +186,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.assign-sales",
     // SOA imports project lists (an Excel sheet) for the salespeople they name.
     "projects.import",
+    "projects.bulk-update",
     "projects.edit.source",
     "requests.create.external",
     "projects.edit.technical",

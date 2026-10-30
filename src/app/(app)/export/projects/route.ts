@@ -1,5 +1,6 @@
 import { chooseColumns } from "@/domain/projects/export";
-import { importRowOf, templateHeaders } from "@/domain/projects/import";
+import { IMPORT_FIELD_KEYS, importRowOf, templateHeaders } from "@/domain/projects/import";
+import { importScope, scopedFieldKeys } from "@/domain/projects/import-scope";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { toCsv } from "@/server/export/csv";
@@ -16,9 +17,11 @@ export async function GET(request: Request): Promise<Response> {
   // The import template filled with the projects: the same columns, so the file can be edited and imported again.
   if (params.get("format") === "import") {
     const db = getDb();
-    const projects = await listProjectsForExport(db, viewer);
-    await db.auditEvent.create({ data: { actorId: viewer.id, action: "export.projects", entityType: "export", entityId: "projects", after: { template: "import", rows: projects.length, format: "xlsx" } } });
-    return new Response(Buffer.from(toXlsx("Projects", templateHeaders(), projects.map(importRowOf))), {
+    // Only the columns the role may fill in, and for a salesperson only the projects they may update.
+    const keys = scopedFieldKeys(importScope(viewer.role), IMPORT_FIELD_KEYS);
+    const projects = await listProjectsForExport(db, viewer, viewer.role === "SALES" ? viewer.id : undefined);
+    await db.auditEvent.create({ data: { actorId: viewer.id, action: "export.projects", entityType: "export", entityId: "projects", after: { template: "import", rows: projects.length, format: "xlsx", columns: keys.length } } });
+    return new Response(Buffer.from(toXlsx("Projects", templateHeaders(keys), projects.map((project) => importRowOf(project, keys)))), {
       headers: {
         "content-type": XLSX_CONTENT_TYPE,
         "content-disposition": `attachment; filename="halcom-projects-import-format-${new Date().toISOString().slice(0, 10)}.xlsx"`,

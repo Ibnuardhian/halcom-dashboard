@@ -11,7 +11,7 @@ import { ImportWizard } from "./import-wizard";
  * the upload, so they share the dialog; only the template in step 1 differs. The wizard is mounted only while the dialog is open,
  * so closing it starts the next job from scratch, and the list is refreshed so the written projects show at once.
  */
-export function ImportDialog({ canUpdate = false }: { canUpdate?: boolean }) {
+export function ImportDialog({ canCreate = true, canUpdate = false }: { canCreate?: boolean; canUpdate?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const router = useRouter();
@@ -55,7 +55,7 @@ export function ImportDialog({ canUpdate = false }: { canUpdate?: boolean }) {
               <X aria-hidden />
             </Button>
           </div>
-          {open ? <ImportWizard canUpdate={canUpdate} onClose={() => dialog.current?.close()} /> : null}
+          {open ? <ImportWizard canCreate={canCreate} canUpdate={canUpdate} onClose={() => dialog.current?.close()} /> : null}
         </div>
       </dialog>
     </>

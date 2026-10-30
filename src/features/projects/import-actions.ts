@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { suggestMapping, type ColumnMapping } from "@/domain/projects/import";
 import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
+import { notFound } from "next/navigation";
+import { can } from "@/domain/access/permissions";
 import { getDb } from "@/lib/db";
-import { requirePermission } from "@/server/auth/current-user";
+import { requirePermission, requireUser } from "@/server/auth/current-user";
 import { commitProjectImport, previewProjectImport, type CommitMode, type CommitResult, type PreviewResult } from "@/server/import/xlsx-projects";
 import { readXlsx, XLSX_LIMITS } from "@/server/import/xlsx-reader";
 import { commitProjectUpdate, previewProjectUpdate, type UpdateCommitResult, type UpdatePreviewResult } from "@/server/import/xlsx-projects-update";
@@ -35,7 +37,9 @@ function mappingOf(formData: FormData): unknown {
 
 /** Step 1: reads the sheet's headers and a few rows, and suggests which column holds which field. */
 export async function inspectSheetAction(formData: FormData): Promise<InspectResult> {
-  await requirePermission("projects.import");
+  // The sheet is only read here; whoever may add or update projects reads it.
+  const user = await requireUser();
+  if (!can(user.role, "projects.import") && !can(user.role, "projects.bulk-update")) notFound();
   const file = await fileOf(formData);
   if (!file.ok) return file;
   const read = readXlsx(file.bytes);

@@ -328,8 +328,8 @@ export function projectIdentity(endUser: string, name: string): string {
 }
 
 /** The first row of the downloadable template: one column per field, a required one marked with * (the column matcher ignores the mark). */
-export function templateHeaders(): string[] {
-  return IMPORT_FIELDS.map((field) => (field.required ? `${field.label} *` : field.label));
+export function templateHeaders(keys: readonly ImportFieldKey[] = IMPORT_FIELD_KEYS): string[] {
+  return IMPORT_FIELDS.filter((field) => keys.includes(field.key)).map((field) => (field.required ? `${field.label} *` : field.label));
 }
 
 const dayOf = (date: Date | null): string | null => (date ? date.toISOString().slice(0, 10) : null);
@@ -338,7 +338,7 @@ const dayOf = (date: Date | null): string | null => (date ? date.toISOString().s
  * One exported project as a row of the import template: the same columns in the same order as `templateHeaders()`, written the way the
  * import reads them, so the file can be imported again as it is (a Project ID that exists is then a duplicate and is skipped).
  */
-export function importRowOf(project: ExportProject): (string | number | null)[] {
+export function importRowOf(project: ExportProject, keys: readonly ImportFieldKey[] = IMPORT_FIELD_KEYS): (string | number | null)[] {
   const cells: Record<ImportFieldKey, string | number | null> = {
     endUser: project.accountName,
     name: project.projectTitle,
@@ -363,5 +363,5 @@ export function importRowOf(project: ExportProject): (string | number | null)[] 
     nextAction: project.nextAction,
     lastUpdated: project.lastUpdated.toISOString(),
   };
-  return IMPORT_FIELD_KEYS.map((key) => cells[key]);
+  return IMPORT_FIELD_KEYS.filter((key) => keys.includes(key)).map((key) => cells[key]);
 }

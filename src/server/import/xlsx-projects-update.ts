@@ -3,10 +3,12 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { COMMERCIAL_FIELDS, type CommercialChange } from "@/domain/projects/commercial";
 import { fieldLabel } from "@/domain/projects/fields";
+import { effectiveIndustry } from "@/domain/customers/industry";
 import { checkImportRow, checkMapping, rowToRaw, type ColumnMapping, type ImportRow, type RawImportRow } from "@/domain/projects/import";
+import { importScope } from "@/domain/projects/import-scope";
 import { principalNamesOf } from "@/domain/projects/master-data";
 import { cleanName, nameKey } from "@/domain/projects/pipeline";
-import { SOURCE_LABELS } from "@/domain/projects/source";
+import { salesActsOn, SOURCE_LABELS } from "@/domain/projects/source";
 import { notify } from "@/server/notifications/service";
 import { setActor } from "@/server/projects/actor-context";
 import { planCommercialChanges, writeCommercialChanges, type CommercialSubmission } from "@/server/projects/commercial-plan";
@@ -62,7 +64,8 @@ type Applied = {
   salesOwner?: { id: string; label: string };
   principals?: string[];
   solution?: string;
-  industry?: string;
+  /** The customer's industry (the list's spelling), or the project's own when it has no customer. */
+  industry?: { customerId: string | null; name: string };
   location?: string;
 };
 
@@ -89,7 +92,7 @@ type Prepared = {
 const text = (value: string | null | undefined) => (value ?? "").trim();
 
 /** Reads the file and plans every row against the stored projects. Writes nothing. */
-async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mappingInput: unknown): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
+async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Array, mappingInput: unknown): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
   const read = readXlsx(bytes);
   if (!read.ok) return { ok: false, code: "INVALID_FILE", message: read.message };
   const checked = checkMapping(mappingInput, read.sheet.headers.length);
@@ -99,7 +102,7 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
 
   const raws = read.sheet.rows.map((cells) => rowToRaw(cells, mapping));
   const codes = [...new Set(raws.map((raw) => raw.code.trim().toUpperCase()).filter((code) => code !== ""))];
-  const [projects, salespeople, customers, principals, solutions] = await Promise.all([
+  const [projects, salespeople, customers, principals, solutions, industries] = await Promise.all([
     db.project.findMany({
       where: { code: { in: codes }, deletedAt: null },
       include: {
@@ -107,12 +110,14 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
         principal: { select: { name: true } },
         principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
         solutionCategory: { select: { name: true } },
+        customer: { select: { id: true, industry: true } },
       },
     }),
     db.user.findMany({ where: { role: "SALES", isActive: true }, select: { id: true, name: true, email: true } }),
     db.customer.findMany({ select: { nameKey: true } }),
     db.principal.findMany({ select: { nameKey: true } }),
     db.solutionCategory.findMany({ select: { nameKey: true } }),
+    db.industry.findMany({ select: { name: true, nameKey: true } }),
   ]);
   const byCode = new Map(projects.map((project) => [project.code, project]));
   const byEmail = new Map(salespeople.map((person) => [person.email.toLowerCase(), person]));
@@ -122,6 +127,12 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
   const knownPrincipals = new Set(principals.map((row) => row.nameKey));
   const knownSolutions = new Set(solutions.map((row) => row.nameKey));
   const mayCreateMaster = can(actor.role, "masterdata.manage");
+  const scope = importScope(actor.role);
+  // A salesperson updates the projects they act on; a role that may also edit the source (SOA, Admin) updates any.
+  const ownOnly = scope.commercial && !scope.owner;
+  const listedIndustries = new Map(industries.map((industry) => [industry.nameKey, industry.name]));
+  // One customer takes one industry per file: its rows must agree.
+  const industryOfCustomer = new Map<string, string>();
 
   const reports: UpdateRowReport[] = [];
   const planned: Planned[] = [];
@@ -149,6 +160,7 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
     if (!project) return skip(`Project ID ${label.code} tidak ditemukan, jadi bukan update.`);
     if (seenCodes.has(label.code)) return fail([`Project ID ${label.code} sudah dipakai di baris ${seenCodes.get(label.code)} berkas ini.`]);
     seenCodes.set(label.code, sheetRow);
+    if (ownOnly && !salesActsOn(project, actor.id)) return fail(["Project ini bukan milik Anda, jadi tidak dapat diperbarui. Hapus barisnya dari berkas."]);
     // An import row must name its Sales PIC and source; an update row may leave them empty (nothing changes), so the stored values
     // stand in for the empty cells while the row is read and checked.
     const checkedRow = checkImportRow({
@@ -237,15 +249,33 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
       changes.push({ label: fieldLabel("solution"), from: project.solutionCategory?.name ?? null, to: row.solution });
       if (!knownSolutions.has(nameKey(row.solution))) newSolutions.set(nameKey(row.solution), row.solution);
     }
-    if (row.industry && row.industry !== (project.industry ?? null)) {
-      applied.industry = row.industry;
-      changes.push({ label: "Industry", from: project.industry, to: row.industry });
+    // The industry is the customer's (it wins over the project's own), chosen from the list; the cell naming the current one is no change.
+    const currentIndustry = effectiveIndustry(project.customer?.industry, project.industry);
+    if (row.industry && nameKey(row.industry) !== nameKey(currentIndustry ?? "")) {
+      const listed = listedIndustries.get(nameKey(row.industry));
+      const customerKey = applied.endUser ? `new:${nameKey(applied.endUser.name)}` : (project.customerId ?? `project:${project.id}`);
+      if (!listed) problems.push(`Industri "${row.industry}" tidak ada di daftar. Pakai nama persis dari daftar, atau minta Admin menambahkannya di Master Data.`);
+      else if (industryOfCustomer.has(customerKey) && industryOfCustomer.get(customerKey) !== listed) problems.push(`Customer ${endUser} diberi dua industri berbeda di berkas ini.`);
+      else {
+        industryOfCustomer.set(customerKey, listed);
+        applied.industry = { customerId: applied.endUser ? null : project.customerId, name: listed };
+        changes.push({ label: "Industry", from: currentIndustry, to: listed });
+      }
     }
     if (row.location && row.location !== (project.location ?? null)) {
       applied.location = row.location;
       changes.push({ label: "Location", from: project.location, to: row.location });
     }
 
+    // A column outside the role's part of the sheet may be present (added by hand) but never changes anything: it is refused by name.
+    const outside: [boolean, string][] = [
+      [!scope.identity && Boolean(applied.endUser || applied.name !== undefined || applied.description !== undefined), "End user, Project name atau Description"],
+      [!scope.owner && Boolean(applied.salesOwner), "Sales PIC"],
+      [!scope.commercial && commercialChanges.length > 0, "kolom commercial (Progress sampai Target closing)"],
+      [!scope.technical && Boolean(applied.principals || applied.solution), "Principals atau Solution"],
+      [!scope.place && Boolean(applied.industry || applied.location !== undefined), "Industry atau Location"],
+    ];
+    for (const [denied, name] of outside) if (denied) problems.push(`Peran Anda tidak boleh mengubah ${name}. Kosongkan atau kembalikan sel itu ke isi semula.`);
     if (!mayCreateMaster && (applied.principals?.some((name) => !knownPrincipals.has(nameKey(name))) || (applied.solution && !knownSolutions.has(nameKey(applied.solution))))) {
       problems.push("Principal atau solution baru hanya boleh dibuat oleh yang berhak mengelola master data.");
     }
@@ -373,9 +403,15 @@ export async function commitProjectUpdate(db: PrismaClient, claimedActor: Actor,
             data.solutionCategoryId = await ensureSolutionCategory(tx, applied.solution);
             log.push({ field: "solution", from: plan.report.changes.find((change) => change.label === fieldLabel("solution"))?.from ?? null, to: applied.solution });
           }
-          if (applied.industry !== undefined) {
-            data.industry = applied.industry;
-            log.push({ field: "industry", from: project.industry, to: applied.industry });
+          if (applied.industry) {
+            // The customer carries the industry (the new customer, when the end user changes in the same row); a project without one keeps its own.
+            const customerId = applied.industry.customerId ?? (data.customerId as string | null | undefined) ?? null;
+            const before = plan.report.changes.find((change) => change.label === "Industry")?.from ?? null;
+            if (customerId) {
+              await tx.customer.update({ where: { id: customerId }, data: { industry: applied.industry.name } });
+              await tx.auditEvent.create({ data: { actorId: actor.id, action: "customer.industry_set", entityType: "customer", entityId: customerId, before: { industry: before }, after: { industry: applied.industry.name, file: fileName } } });
+            } else data.industry = applied.industry.name;
+            log.push({ field: "industry", from: before, to: applied.industry.name });
           }
           if (applied.location !== undefined) {
             data.location = applied.location;

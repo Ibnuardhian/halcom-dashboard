@@ -10,11 +10,14 @@ import { isOpen } from "@/domain/requests/status";
 
 type Viewer = { id: string; role: Role };
 
-/** Every project with the values the export can show, newest project number first. */
-export async function listProjectsForExport(db: PrismaClient, viewer: Viewer): Promise<ExportProject[]> {
+/**
+ * Every project with the values the export can show, newest project number first. `onlyActingFor` keeps the projects that salesperson
+ * acts on (their own and the Other ones), which is all a salesperson may update.
+ */
+export async function listProjectsForExport(db: PrismaClient, viewer: Viewer, onlyActingFor?: string): Promise<ExportProject[]> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
   const rows = await db.project.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...(onlyActingFor ? { OR: [{ sourceType: "OTHER" as const }, { salesOwnerId: onlyActingFor }] } : {}) },
     include: {
       salesOwner: { select: { name: true } },
       customer: { select: { industry: true } },

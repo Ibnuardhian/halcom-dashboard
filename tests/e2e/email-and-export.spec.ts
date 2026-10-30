@@ -90,7 +90,9 @@ test("the projects can be exported in the import template, and that file imports
   await download.saveAs(path);
   const sheet = strFromU8(unzipSync(new Uint8Array(readFileSync(path)))["xl/worksheets/sheet1.xml"]!);
   // The template's own header row, then one row per project.
-  for (const header of ["End user *", "Project name *", "Project ID", "Sales PIC", "Progress", "Principals", "Next action"]) expect(sheet).toContain(header);
+  for (const header of ["End user *", "Project name *", "Project ID", "Sales PIC", "Principals", "Industry", "Next action"]) expect(sheet).toContain(header);
+  // SOA gets its own part of the sheet: the commercial columns, money included, are not in it.
+  for (const header of ["Progress", "Estimated PO value", "Target margin"]) expect(sheet).not.toContain(header);
   expect(sheet).toContain(code);
   expect(sheet).toContain(name);
   expect(sheet).toContain("E2E Export Co");
@@ -112,6 +114,11 @@ test("the projects can be exported in the import template, and that file imports
   await sales.getByRole("button", { name: "Export data" }).click();
   const [file] = await Promise.all([sales.waitForEvent("download"), sales.getByRole("button", { name: "Export in import format (.xlsx)" }).click()]);
   expect(file.suggestedFilename()).toContain("import-format");
+  // Sales get the commercial part, and only the projects they act on.
+  await file.saveAs("/tmp/sales-import-format.xlsx");
+  const salesSheet = strFromU8(unzipSync(new Uint8Array(readFileSync("/tmp/sales-import-format.xlsx")))["xl/worksheets/sheet1.xml"]!);
+  for (const header of ["Progress", "Estimated PO value", "Industry"]) expect(salesSheet).toContain(header);
+  expect(salesSheet).not.toContain("Principals");
   await sales.context().close();
 });
 
@@ -164,4 +171,52 @@ test("an admin updates existing projects from a sheet: end user, Sales PIC and p
   await expect(check.getByText(`Bulk New ${stamp}`).first()).toBeVisible();
   await expect(check.getByText(`Bulk Aruba ${stamp}`).first()).toBeVisible();
   await check.context().close();
+});
+
+test("a salesperson updates the commercial part of their own project from a sheet, and SOA is refused a commercial column", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const stamp = Date.now();
+  const seller = await asRole(browser, "SALES");
+  await seller.goto("/projects/new");
+  await expect(async () => {
+    await seller.getByLabel("End-user company").fill(`Scope Co ${stamp}`);
+    await seller.getByLabel("Project name").fill(`Scope job ${stamp}`);
+    await seller.getByRole("button", { name: "Create project" }).click();
+    await expect(seller).toHaveURL(/\/projects\/HIT-PROJ-\d{3,}$/, { timeout: 15_000 });
+  }).toPass({ timeout: 45_000 });
+  const code = seller.url().split("/").pop()!;
+
+  // Sales has no way to add projects here: the dialog only updates, and offers their own projects.
+  await seller.goto("/projects");
+  await expect(async () => {
+    await seller.getByRole("button", { name: "Import projects" }).click();
+    await expect(seller.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await expect(seller.getByRole("link", { name: "Unduh data project Anda" })).toBeVisible();
+  const xlsx = (headers: string[], values: Record<string, string>) => Buffer.from(toXlsx("Projects", headers, [headers.map((header) => values[header.replace(/ \*$/, "")] ?? null)]));
+  const upload = async (page: Page, workbook: Buffer) => {
+    await expect(async () => {
+      await page.getByLabel("Workbook Excel (.xlsx)").setInputFiles({ name: `scope-${stamp}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
+      await expect(page.getByRole("heading", { name: "Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
+    }).toPass({ timeout: 45_000 });
+    await page.getByRole("button", { name: "Periksa sheet" }).click();
+  };
+  const salesHeaders = ["End user *", "Project name *", "Project ID", "Progress", "Estimated PO value"];
+  await upload(seller, xlsx(salesHeaders, { "End user": `Scope Co ${stamp}`, "Project name": `Scope job ${stamp}`, "Project ID": code, Progress: "Propose", "Estimated PO value": "12000" }));
+  await expect(seller.getByText(/Data ditulis setelah Anda memperbarui/)).toContainText(/1\s+akan diperbarui/, { timeout: 30_000 });
+  await seller.getByRole("button", { name: "Perbarui 1 project" }).click();
+  await expect(seller.getByRole("heading", { name: "Pembaruan selesai" })).toBeVisible({ timeout: 60_000 });
+  await seller.context().close();
+
+  // The same cell in a sheet from SOA is refused, and the reason names the column.
+  const soa = await asRole(browser, "SOA");
+  await soa.goto("/projects");
+  await expect(async () => {
+    await soa.getByRole("button", { name: "Import projects" }).click();
+    await expect(soa.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  await soa.getByLabel("Berkas ini untuk").selectOption("update");
+  await upload(soa, xlsx(salesHeaders, { "End user": `Scope Co ${stamp}`, "Project name": `Scope job ${stamp}`, "Project ID": code, "Estimated PO value": "99000" }));
+  await expect(soa.getByText(/Peran Anda tidak boleh mengubah kolom commercial/)).toBeVisible({ timeout: 30_000 });
+  await soa.context().close();
 });

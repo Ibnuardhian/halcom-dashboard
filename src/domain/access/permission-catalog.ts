@@ -64,7 +64,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "projects.edit.commercial": { category: "project-management", label: "Edit commercial fields", description: "Change value, margin, probability and other commercial fields of a project." },
   "projects.delete": { category: "project-management", label: "Delete projects", description: "Delete a project (it is hidden, its history stays)." },
   "projects.reassign": { category: "project-management", label: "Reassign project PICs", description: "Move a project to another Sales, Technical (SOA) or Purchasing PIC." },
-  "projects.bulk-update": { category: "project-management", label: "Bulk update projects", description: "Update existing projects from an exported Excel sheet (matched by Project ID): end user, Sales PIC, principals, commercial and other fields, each with a change log." },
+  "projects.bulk-update": { category: "project-management", label: "Bulk update projects", description: "Update existing projects from an exported Excel sheet (matched by Project ID), each with a change log. Each role gets only its part of the sheet: Sales the commercial columns of the projects they act on, SOA the principals, solution and Sales PIC, Admin and Superadmin all of it." },
   "projects.post-update": { category: "project-management", label: "Post project updates", description: "Add Current action and Next action updates to a project." },
 
   "requests.view": { category: "request-workflow", label: "View requests", description: "See the request lists, request pages and their history." },

@@ -31,7 +31,7 @@ export type ImportFlow = "create" | "update";
  * Importing projects from an Excel sheet in three steps: choose the file, match its columns to the fields, check the rows and write.
  * The file is sent again with every step and checked again on the server; this component only holds what the person chose.
  */
-export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => void; canUpdate?: boolean }) {
+export function ImportWizard({ onClose, canCreate = true, canUpdate = false }: { onClose?: () => void; canCreate?: boolean; canUpdate?: boolean }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -40,7 +40,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [mode, setMode] = useState<CommitMode>("atomic");
   // Which template was downloaded decides it; the select in step 3 changes it. Only people who may bulk update are offered the second.
-  const [flow, setFlow] = useState<ImportFlow>("create");
+  const [flow, setFlow] = useState<ImportFlow>(canCreate ? "create" : "update");
   const [updateSummary, setUpdateSummary] = useState<UpdateSummary | null>(null);
   const [updateResult, setUpdateResult] = useState<Extract<UpdateCommitResult, { ok: true }> | null>(null);
   const [confirmNew, setConfirmNew] = useState(false);
@@ -221,7 +221,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
       <ol className="flex flex-col divide-y rounded-xl ring-1 ring-foreground/10">
         <Step number={1} title="Unduh template">
           <p className="text-sm text-muted-foreground">Pakai template dari sini agar kolomnya sesuai. Pilih file yang cocok dengan pekerjaan Anda.</p>
-          <TemplateMenu flow={flow} canUpdate={canUpdate} onChoose={changeFlow} />
+          <TemplateMenu flow={flow} canCreate={canCreate} canUpdate={canUpdate} onChoose={changeFlow} />
         </Step>
         <Step number={2} title="Lengkapi data">
           <p className="text-sm text-muted-foreground">
@@ -264,7 +264,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
           </details>
         </Step>
         <Step number={3} title="Unggah berkas">
-          {canUpdate ? (
+          {canUpdate && canCreate ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <Label htmlFor="import-flow">Berkas ini untuk</Label>
               <NativeSelect id="import-flow" value={flow} onChange={(event) => changeFlow(event.target.value as ImportFlow)} className="w-auto">
@@ -591,18 +591,18 @@ function Step({ number, title, children }: { number: number; title: string; chil
  * sheet update them. Picking one downloads it and sets what the upload in step 3 does. A native details element keeps it keyboard
  * and screen-reader friendly without a menu library.
  */
-function TemplateMenu({ flow, canUpdate, onChoose }: { flow: ImportFlow; canUpdate: boolean; onChoose: (flow: ImportFlow) => void }) {
+function TemplateMenu({ flow, canCreate, canUpdate, onChoose }: { flow: ImportFlow; canCreate: boolean; canUpdate: boolean; onChoose: (flow: ImportFlow) => void }) {
   const menu = useRef<HTMLDetailsElement>(null);
   const choose = (next: ImportFlow) => {
     onChoose(next);
     if (menu.current) menu.current.open = false;
   };
   const item = "flex flex-col rounded-md px-3 py-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
-  if (!canUpdate) {
+  if (!canUpdate || !canCreate) {
     return (
-      <a href="/export/projects-template" download className={cn(buttonVariants({ variant: "outline" }), "self-start")}>
+      <a href={canCreate ? "/export/projects-template" : "/export/projects?format=import"} download className={cn(buttonVariants({ variant: "outline" }), "self-start")}>
         <Download aria-hidden data-icon="inline-start" />
-        Unduh template project baru
+        {canCreate ? "Unduh template project baru" : "Unduh data project Anda"}
       </a>
     );
   }
@@ -620,7 +620,7 @@ function TemplateMenu({ flow, canUpdate, onChoose }: { flow: ImportFlow; canUpda
         </a>
         <a href="/export/projects?format=import" download onClick={() => choose("update")} className={item} aria-current={flow === "update" ? "true" : undefined}>
           <span className="font-medium">Data project saat ini</span>
-          <span className="text-xs text-muted-foreground">Semua project, untuk diedit dan diperbarui.</span>
+          <span className="text-xs text-muted-foreground">Kolom bagian peran Anda, untuk diedit dan diperbarui.</span>
         </a>
       </div>
     </details>
