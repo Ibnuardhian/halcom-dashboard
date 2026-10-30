@@ -59,13 +59,15 @@ test("an admin edits the list of industries, and Sales then find the new one in 
 
   await signIn(page, "ADMIN");
   await page.goto("/admin/master-data");
+  await page.getByRole("tab", { name: /^Industri/ }).click();
   await expect(page.getByRole("heading", { name: "Industri customer" })).toBeVisible();
   await expect(async () => {
     await page.getByLabel("Nama industri", { exact: true }).fill(name);
     await page.getByRole("button", { name: "Tambah industri" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Industri ditambahkan." })).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
-  await expect(page.getByLabel(`Nama industri ${name}`)).toBeVisible();
+  await page.getByLabel("Cari Industri").fill(name);
+  await expect(page.getByRole("row", { name: new RegExp(name) })).toContainText("Belum dipakai");
 
   // Sales choose it from the list.
   const other = await browser.newContext();
@@ -88,13 +90,21 @@ test("an admin edits the list of industries, and Sales then find the new one in 
     await expect(dialog).toBeHidden({ timeout: 6000 });
   }).toPass({ timeout: 45_000 });
 
-  // Renaming moves the customer with it; it cannot be deleted while it is in use.
-  await page.getByLabel(`Nama industri ${name}`).fill(renamed);
-  await page.getByRole("row").or(page.locator("li")).filter({ has: page.getByLabel(`Nama industri ${name}`) }).getByRole("button", { name: "Simpan" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "ikut berubah" })).toBeVisible();
+  // Renaming (in the Edit window) moves the customer with it; the name cannot be deleted while it is in use.
+  await page.reload();
+  await page.getByRole("tab", { name: /^Industri/ }).click();
+  await page.getByLabel("Cari Industri").fill(name);
+  await expect(page.getByRole("row", { name: new RegExp(name) })).toContainText("1 customer");
+  await expect(async () => {
+    await page.getByRole("button", { name: `Edit ${name}` }).click();
+    await expect(page.getByRole("dialog", { name: `Edit ${name}` })).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30_000 });
+  const edit = page.locator("dialog[open]");
+  await expect(edit.getByRole("button", { name: `Hapus ${name}` })).toBeDisabled();
+  await edit.getByLabel("Nama", { exact: true }).fill(renamed);
+  await edit.getByRole("button", { name: "Simpan" }).click();
+  await expect(edit.getByRole("status").filter({ hasText: "ikut berubah" })).toBeVisible({ timeout: 8000 });
   await sales.goto(`/customers?q=${encodeURIComponent(company)}`);
   await expect(sales.getByRole("row", { name: new RegExp(company) })).toContainText(renamed);
-  await page.getByRole("button", { name: `Hapus industri ${renamed}` }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "masih dipakai" })).toBeVisible();
   await other.close();
 });

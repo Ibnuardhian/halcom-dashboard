@@ -108,14 +108,23 @@ test.describe("SOA master data: Principal and Solution", () => {
     await saveClassification(soa);
 
     await soa.goto("/admin/master-data");
-    const row = soa.getByRole("list", { name: "Solution list" }).getByRole("listitem").filter({ has: soa.getByLabel(`Name of Surveillance ${id}`) });
+    await soa.getByRole("tab", { name: /^Solution/ }).click();
+    await soa.getByLabel("Cari Solution").fill(`Surveillance ${id}`);
+    const row = soa.getByRole("row", { name: new RegExp(`Surveillance ${id}`) });
     await expect(row).toContainText("1 project");
-    await expect(row.getByRole("button", { name: /^Delete/ })).toBeDisabled(); // in use
+    // One Edit button opens a window; the name is in use, so Hapus is off there.
     await expect(async () => {
-      await row.getByLabel(`Name of Surveillance ${id}`).fill(`Video Surveillance ${id}`);
-      await row.getByRole("button", { name: "Rename" }).click();
-      await expect(soa.getByLabel(`Name of Video Surveillance ${id}`)).toBeVisible({ timeout: 3000 });
+      await row.getByRole("button", { name: `Edit Surveillance ${id}` }).click();
+      await expect(soa.getByRole("dialog", { name: `Edit Surveillance ${id}` })).toBeVisible({ timeout: 2000 });
     }).toPass({ timeout: 30_000 });
+    const dialog = soa.locator("dialog[open]"); // its title follows the name once renamed
+    await expect(dialog.getByRole("button", { name: /^Hapus/ })).toBeDisabled(); // in use
+    await dialog.getByLabel("Nama", { exact: true }).fill(`Video Surveillance ${id}`);
+    await dialog.getByRole("button", { name: "Simpan" }).click();
+    await expect(dialog.getByRole("status")).toBeVisible({ timeout: 8000 });
+    await dialog.getByRole("button", { name: "Tutup" }).click();
+    await soa.getByLabel("Cari Solution").fill(`Video Surveillance ${id}`);
+    await expect(soa.getByRole("row", { name: new RegExp(`Video Surveillance ${id}`) })).toContainText("1 project");
 
     await soa.goto(`/projects/${code}`);
     await expect(soa.getByRole("combobox", { name: "Solution" })).toHaveValue(`Video Surveillance ${id}`);

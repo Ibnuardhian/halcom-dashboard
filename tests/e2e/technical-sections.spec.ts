@@ -35,17 +35,19 @@ test("an Admin adds a technical section and an SOA phase, and SOA fills the sect
   // The Admin adds a section and a phase.
   await signIn(page, "ADMIN");
   await page.goto("/admin/master-data");
+  await page.getByRole("tab", { name: /^Technical sections/ }).click();
   await expect(async () => {
     await page.getByLabel("Nama bagian", { exact: true }).fill(section);
     await page.getByRole("button", { name: "Tambah bagian" }).click();
     await expect(page.getByText("Bagian ditambahkan.")).toBeVisible({ timeout: 8000 });
   }).toPass({ timeout: 60_000 });
+  await expect(page.getByLabel(`Nama bagian ${section}`)).toBeVisible();
+  await page.getByRole("tab", { name: /^SOA phases/ }).click();
   await expect(async () => {
     await page.getByLabel("Nama phase", { exact: true }).fill(phase);
     await page.getByRole("button", { name: "Tambah phase" }).click();
     await expect(page.getByText("Phase ditambahkan.")).toBeVisible({ timeout: 8000 });
   }).toPass({ timeout: 60_000 });
-  await expect(page.getByLabel(`Nama bagian ${section}`)).toBeVisible();
   await signOut(page);
 
   // SOA fills the section on the project's Technical tab, and finds the phase on the project.

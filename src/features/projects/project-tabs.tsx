@@ -10,7 +10,7 @@ type Tab = { id: string; label: string; content: React.ReactNode };
  * when another tab is opened. A tab changes only on a click or an arrow key. An address that points into a panel (`#commercial`,
  * `#request-CODE`) opens that panel and scrolls to the target; the page itself opens on `defaultTab`.
  */
-export function ProjectTabs({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: string }) {
+export function ProjectTabs({ tabs, defaultTab, label = "Detail project" }: { tabs: Tab[]; defaultTab: string; label?: string }) {
   const [active, setActive] = useState(defaultTab);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function ProjectTabs({ tabs, defaultTab }: { tabs: Tab[]; defaultTab: str
 
   return (
     <div className="mb-6">
-      <div role="tablist" aria-label="Detail project" className="mb-4 flex gap-1 overflow-x-auto border-b">
+      <div role="tablist" aria-label={label} className="mb-4 flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab, index) => (
           <button
             key={tab.id}

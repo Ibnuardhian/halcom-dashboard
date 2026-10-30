@@ -734,3 +734,11 @@ The industry was free text, so one industry came in several spellings. It is now
 - **Who edits it.** Permission `industries.manage`, default Admin and Superadmin (it can be changed in the permission editor). It is on the Master Data page, "Industri customer": add, rename, delete. A name that exists (ignoring case and spacing) is refused; renaming moves every customer and project that carries the name; deleting is refused while a customer or project still uses it. All audited.
 - **Who chooses.** Whoever may edit customers picks from the dropdown. `setCustomerIndustry` refuses a name that is not on the list and writes the list's spelling; a customer already on a name that left the list keeps it (saving the same value changes nothing). The customer keeps the name as text, so charts, filters and exports are unchanged.
 - **Not covered.** The Excel import and bulk update still take any industry text for a project; they do not check it against the list.
+
+## D-047: Master data page as tabs, with searchable paged tables and one Edit window per name (2026-10-30)
+
+The master data page had grown long (every list, every rename and delete form in the open). It is now tabs: Principal, Solution, Industri, Technical sections and SOA phases (the last three where the permission allows), each with a count.
+
+- **Lists.** Principal, Solution and Industri are tables with a search box and pages of ten. A row shows the name, how many projects use it (customers, for an industry) as a badge or "Belum dipakai", and one **Edit** button.
+- **Edit window.** Rename (with a note that it changes everywhere the name is used) and delete in one window; Hapus is off, with the reason, while the name is in use. Same services and rules as before; the window stays open after a rename so its message can be read.
+- **Not changed.** Technical sections and SOA phases keep their own row forms inside their tabs.
