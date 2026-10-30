@@ -34,3 +34,10 @@ describe("SOA PIC drill-down", () => {
     expect(readDrillFilters({ soapic: [FILTER_NONE, "not-an-id", PIC_A] }).soaPic).toEqual([FILTER_NONE, PIC_A]);
   });
 });
+
+describe("location drill-down", () => {
+  it("round-trips lower-cased and trimmed through the Projects list address", () => {
+    expect(projectsHref("/projects", { location: ["jakarta", FILTER_NONE] })).toBe("/projects?location=jakarta&location=none");
+    expect(readDrillFilters({ location: ["  Jakarta ", "", "padang"] }).location).toEqual(["jakarta", "padang"]);
+  });
+});

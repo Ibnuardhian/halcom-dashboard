@@ -83,6 +83,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     solutionKeys: drill.solution,
     ownerKeys: drill.owner,
     soaPicKeys: drill.soaPic,
+    locationKeys: drill.location,
     industryKeys: drill.industry,
   };
   // Names for the chart filters, so the page says what it is showing.
@@ -99,6 +100,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     drill.solution?.length ? `solution: ${describe(drill.solution, solutionNames, "Not set")}` : null,
     drill.industry?.length ? `industry: ${drill.industry.map((key) => (key === FILTER_NONE ? "Not set" : key)).join(", ")}` : null,
     drill.owner?.length ? `Sales PIC: ${describe(drill.owner, ownerNames, "Not set", "Other (no internal Sales PIC)")}` : null,
+    drill.location?.length ? `location: ${drill.location.map((key) => (key === FILTER_NONE ? "Not set" : key)).join(", ")}` : null,
     drill.soaPic?.length ? `Technical PIC (SOA): ${describe(drill.soaPic, soaPicNames, "Not set")}` : null,
   ].filter((text): text is string => text !== null);
   // Rows per page: 25, 50, 100 or all. Anything else falls back to the default; the page number is clamped by the query.
@@ -122,6 +124,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     if (drill.reached) params.set("reached", drill.reached);
     for (const name of ["solution", "industry", "owner"] as const) for (const value of drill[name] ?? []) params.append(name, value);
     for (const value of drill.soaPic ?? []) params.append("soapic", value);
+    for (const value of drill.location ?? []) params.append("location", value);
     if (show) params.set("show", show);
     if (sourceType) params.set("source", sourceType);
     if (mine) params.set("mine", "1");
@@ -152,6 +155,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           {drill.reached ? <input type="hidden" name="reached" value={drill.reached} /> : null}
           {otherPrincipals.map((key) => <input key={`principal-${key}`} type="hidden" name="principal" value={key} />)}
           {(["solution", "industry", "owner"] as const).flatMap((name) => (drill[name] ?? []).map((value) => <input key={`${name}-${value}`} type="hidden" name={name} value={value} />))}
+          {(drill.location ?? []).map((value) => <input key={`location-${value}`} type="hidden" name="location" value={value} />)}
           {(drill.soaPic ?? []).map((value) => <input key={`soapic-${value}`} type="hidden" name="soapic" value={value} />)}
           {pageSize !== DEFAULT_PROJECT_PAGE_SIZE ? <input type="hidden" name="per" value={String(pageSize)} /> : null}
           <Input name="q" defaultValue={search} placeholder="Cari project" title="Cari berdasarkan kode, customer, project, PIC, principal, atau external source" aria-label="Search projects" maxLength={100} />

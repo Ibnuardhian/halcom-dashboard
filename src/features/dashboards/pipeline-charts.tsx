@@ -12,6 +12,10 @@ import { formatAmount, formatCompact } from "@/features/projects/format";
 import type { PipelineAnalytics, Slice } from "@/server/projects/analytics";
 import { StatTile } from "./stat-tile";
 
+/** Count bars for a ranking by project number; the money of the slice is the note. */
+const countBars = (slices: Slice[], href?: SliceHref): BarItem[] =>
+  slices.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s), href: href?.(s) ?? null }));
+
 const isNeutral = (slice: Slice) => slice.key === "other" || slice.label === "Not set";
 
 /** Where a slice leads: the Projects list filtered to the projects it counts. A slice with no filter value is not a link. */
@@ -57,7 +61,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
   const own = scope === "mine";
   // Every bar and slice opens the Projects list filtered to exactly the projects it counts; a salesperson's charts keep to their own.
   const to = (filters: DrillFilters) => projectsHref(PROJECTS_PATH, filters, { mine: own });
-  const by = (name: "principal" | "solution" | "industry" | "owner"): SliceHref => (slice) => (slice.drill && slice.drill.length > 0 ? to({ [name]: slice.drill }) : null);
+  const by = (name: "principal" | "solution" | "industry" | "owner" | "location"): SliceHref => (slice) => (slice.drill && slice.drill.length > 0 ? to({ [name]: slice.drill }) : null);
   const principal = by("principal");
   return (
     <section aria-label="Pipeline charts" className="mb-6 grid gap-4 lg:grid-cols-2">
@@ -81,6 +85,9 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
           </ChartCard>
           <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
             <DonutChart items={countItems(analytics.bySolution, by("solution"))} />
+          </ChartCard>
+          <ChartCard title="Projects by location" description="Project per lokasi end user.">
+            <BarList items={countBars(analytics.byLocation, by("location"))} color={3} emptyText="Belum ada lokasi yang diisi." />
           </ChartCard>
           <ChartCard title="Value by industry" description="Estimated value per industri customer.">
             <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />

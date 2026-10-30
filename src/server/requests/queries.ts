@@ -82,6 +82,7 @@ export type ProjectFilter = {
   ownerKeys?: readonly string[];
   soaPicKeys?: readonly string[];
   industryKeys?: readonly string[];
+  locationKeys?: readonly string[];
 };
 
 function showWhere(show: ProjectShow | undefined) {
@@ -143,6 +144,7 @@ const PROJECT_SORT_KEY_SELECT = {
   estimatedValue: true,
   targetDate: true,
   industry: true,
+  location: true,
   salesOwner: { select: { name: true } },
   soaPic: { select: { name: true } },
   customer: { select: { industry: true } },
@@ -334,9 +336,11 @@ export async function searchProjects(
   const keys = await db.project.findMany({ where: projectWhere(filter), select: PROJECT_SORT_KEY_SELECT });
   // The Industry chart groups free text (trimmed, lower-case), so that filter is applied here the same way instead of in SQL.
   const industries = filter.industryKeys?.length ? new Set(filter.industryKeys) : null;
+  const locations = filter.locationKeys?.length ? new Set(filter.locationKeys) : null;
   const ordered = keys
     .filter((key) => filter.show !== "weighted" || (weightedValue(numberOrNull(key.estimatedValue), key.progress) ?? 0) > 0)
     .filter((key) => !industries || industries.has(industryKey(effectiveIndustry(key.customer?.industry, key.industry)) ?? FILTER_NONE))
+    .filter((key) => !locations || locations.has(industryKey(key.location) ?? FILTER_NONE))
     .sort(paging.sort ? byProjectSort(paging.sort, paging.dir ?? "asc") : byCodeDescending);
   const total = ordered.length;
   const pageCount = pageSize === "all" ? 1 : Math.max(Math.ceil(total / pageSize), 1);

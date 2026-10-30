@@ -26,6 +26,8 @@ export type DrillFilters = {
   owner?: readonly string[];
   /** The SOA PIC (technical PIC) of the project; ids, or "none" for projects without one. */
   soaPic?: readonly string[];
+  /** The project location as the location chart groups it (trimmed, lower-case), or "none". */
+  location?: readonly string[];
 };
 
 /** The progress values of the projects that reached a funnel step; null for an unknown step. */
@@ -61,6 +63,7 @@ export function readDrillFilters(query: Record<string, string | string[] | undef
     industry,
     owner: ids("owner", [FILTER_NONE, FILTER_EXTERNAL]),
     soaPic: ids("soapic", [FILTER_NONE]),
+    location: [...new Set(many(query["location"]).map((value) => value.trim().toLowerCase().slice(0, 120)).filter((value) => value !== ""))],
   };
 }
 
@@ -74,6 +77,7 @@ export function projectsHref(basePath: string, filters: DrillFilters, options: {
     for (const value of filters[name] ?? []) params.append(name, value);
   }
   for (const value of filters.soaPic ?? []) params.append("soapic", value);
+  for (const value of filters.location ?? []) params.append("location", value);
   if (options.mine) params.set("mine", "1");
   const text = params.toString();
   return text ? `${basePath}?${text}` : basePath;
