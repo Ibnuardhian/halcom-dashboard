@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,7 +208,12 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
             ) : null}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            {can(viewer.role, "projects.import") ? <ImportDialog canUpdate={can(viewer.role, "projects.bulk-update")} /> : null}
+            {can(viewer.role, "projects.import") ? <ImportDialog flow="create" /> : null}
+            {can(viewer.role, "projects.import") && can(viewer.role, "projects.bulk-update") ? <ImportDialog flow="update" /> : null}
+            <a href="/export/projects?format=import" download className={buttonVariants({ variant: "outline" })}>
+              <Download aria-hidden data-icon="inline-start" />
+              Export (.xlsx)
+            </a>
             {can(viewer.role, "projects.create") || can(viewer.role, "projects.create.external") ? (
               <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>
                 New project

@@ -77,12 +77,8 @@ test("the projects can be exported in the import template, and that file imports
 
   const soa = await asRole(browser, "SOA");
   await soa.goto("/projects");
-  await expect(async () => {
-    await soa.getByRole("button", { name: "Export/Import (xlsx)" }).click();
-    await expect(soa.getByRole("dialog", { name: "Impor project" })).toBeVisible({ timeout: 3000 });
-  }).toPass({ timeout: 30_000 });
-
-  const [download] = await Promise.all([soa.waitForEvent("download"), soa.getByRole("link", { name: "Export project dalam format ini" }).click()]);
+  // The export is its own button on the toolbar; the update dialog offers the same file for editing.
+  const [download] = await Promise.all([soa.waitForEvent("download"), soa.getByRole("link", { name: "Export (.xlsx)" }).click()]);
   expect(download.suggestedFilename()).toMatch(/^halcom-projects-import-format-\d{4}-\d{2}-\d{2}\.xlsx$/);
   // The wizard reads the extension, and a download is kept under a bare id: save it under its own name.
   const path = `/tmp/${download.suggestedFilename()}`;
@@ -95,6 +91,10 @@ test("the projects can be exported in the import template, and that file imports
   expect(sheet).toContain("E2E Export Co");
 
   // Imported back as it is, nothing is new: every row is a duplicate.
+  await expect(async () => {
+    await soa.getByRole("button", { name: "Import projects" }).click();
+    await expect(soa.getByRole("dialog", { name: "Import new projects" })).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
   await expect(async () => {
     await soa.getByLabel("Workbook Excel (.xlsx)").setInputFiles(path);
     await expect(soa.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
@@ -135,10 +135,9 @@ test("an admin updates existing projects from a sheet: end user, Sales PIC and p
   const admin = await asRole(browser, "ADMIN");
   await admin.goto("/projects");
   await expect(async () => {
-    await admin.getByRole("button", { name: "Export/Import (xlsx)" }).click();
-    await expect(admin.getByRole("dialog", { name: "Impor project" })).toBeVisible({ timeout: 3000 });
+    await admin.getByRole("button", { name: "Update projects" }).click();
+    await expect(admin.getByRole("dialog", { name: "Update existing projects" })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
-  await admin.getByLabel(/^Perbarui project yang sudah ada/).check();
   await expect(async () => {
     await admin.getByLabel("Workbook Excel (.xlsx)").setInputFiles({ name: `bulk-${stamp}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
     await expect(admin.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 4000 });

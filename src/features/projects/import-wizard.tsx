@@ -24,11 +24,14 @@ function columnLabel(index: number, header: string): string {
   return `${letters}: ${header || "(tanpa judul kolom)"}`;
 }
 
+/** What the wizard does: add new projects, or change existing ones found by Project ID. Each has its own dialog, so the two never share a screen. */
+export type ImportFlow = "create" | "update";
+
 /**
- * Importing projects from an Excel sheet in three steps: choose the file, match its columns to the fields, check the rows and import.
+ * Importing projects from an Excel sheet in three steps: choose the file, match its columns to the fields, check the rows and write.
  * The file is sent again with every step and checked again on the server; this component only holds what the person chose.
  */
-export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => void; canUpdate?: boolean }) {
+export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: ImportFlow }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -36,8 +39,6 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [mode, setMode] = useState<CommitMode>("atomic");
-  // "update" changes existing projects found by Project ID; only offered to those who may bulk update.
-  const [intent, setIntent] = useState<"create" | "update">("create");
   const [updateSummary, setUpdateSummary] = useState<UpdateSummary | null>(null);
   const [updateResult, setUpdateResult] = useState<Extract<UpdateCommitResult, { ok: true }> | null>(null);
   const [confirmNew, setConfirmNew] = useState(false);
@@ -143,7 +144,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
   };
 
   // Updating finds each project by its Project ID, so that column is required too.
-  const missingRequired = mapping ? IMPORT_FIELDS.filter((field) => (field.required || (intent === "update" && field.key === "code")) && mapping[field.key] === null) : [];
+  const missingRequired = mapping ? IMPORT_FIELDS.filter((field) => (field.required || (flow === "update" && field.key === "code")) && mapping[field.key] === null) : [];
   const usedTwice = mapping ? Object.values(mapping).filter((value): value is number => value !== null).some((value, _, all) => all.indexOf(value) !== all.lastIndexOf(value)) : false;
 
   if (updateResult) {
@@ -159,7 +160,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p role="status" className="text-sm">
-            Updated: {updateResult.codes.slice(0, 20).join(", ")}
+            Diperbarui: {updateResult.codes.slice(0, 20).join(", ")}
             {updateResult.codes.length > 20 ? ` dan ${updateResult.codes.length - 20} lainnya` : ""}. Setiap perubahan tercatat di Change log project.
           </p>
           <div className="flex gap-2">
@@ -188,7 +189,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p role="status" className="text-sm">
-            Created: {result.codes.slice(0, 20).join(", ")}
+            Dibuat: {result.codes.slice(0, 20).join(", ")}
             {result.codes.length > 20 ? ` dan ${result.codes.length - 20} lainnya` : ""}.
           </p>
           <SummaryTable summary={result.summary} />
@@ -210,60 +211,56 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            <h2>1. Unduh template dan lampirkan berkas Anda</h2>
+            <h2>1. Pilih berkas</h2>
           </CardTitle>
           <CardDescription>
-            Isi template (satu project per baris, baris pertama berisi nama kolom), lalu letakkan berkas di bawah. Berkas .xlsx, maksimal 5 MB dan 5.000 baris; sheet pertama yang dibaca.
+            {flow === "create"
+              ? "Satu project per baris, baris pertama berisi nama kolom. Berkas .xlsx, maksimal 5 MB dan 5.000 baris; sheet pertama yang dibaca."
+              : "Unduh data project, ubah selnya di Excel, lalu unggah kembali. Baris dicocokkan lewat Project ID dan sel kosong dibiarkan apa adanya. Berkas .xlsx, maksimal 5 MB dan 5.000 baris."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {canUpdate ? (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-sm font-medium">Apa yang ingin Anda lakukan?</legend>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="radio" name="import-intent" checked={intent === "create"} onChange={() => setIntent("create")} className="mt-1" />
-                <span>Impor project baru (Project ID yang sudah ada dilewati)</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="radio" name="import-intent" checked={intent === "update"} onChange={() => setIntent("update")} className="mt-1" />
-                <span>Perbarui project yang sudah ada: edit hasil export project, lalu unggah. Baris dicocokkan lewat Project ID; sel kosong tidak mengubah apa pun.</span>
-              </label>
-            </fieldset>
-          ) : null}
           <div className="flex flex-wrap items-center gap-3">
-            <a href="/export/projects-template" download className={buttonVariants({ variant: "outline" })}>
-              <Download aria-hidden data-icon="inline-start" />
-              Unduh template
-            </a>
-            <a href="/export/projects?format=import" download className={buttonVariants({ variant: "outline" })}>
-              <Download aria-hidden data-icon="inline-start" />
-              Export project dalam format ini
-            </a>
-            <span className="text-xs text-muted-foreground">Kolom bertanda * wajib diisi; yang lain boleh kosong.</span>
+            {flow === "create" ? (
+              <>
+                <a href="/export/projects-template" download className={buttonVariants({ variant: "outline" })}>
+                  <Download aria-hidden data-icon="inline-start" />
+                  Unduh template
+                </a>
+                <span className="text-xs text-muted-foreground">Kolom bertanda * wajib diisi; yang lain boleh kosong.</span>
+              </>
+            ) : (
+              <a href="/export/projects?format=import" download className={buttonVariants({ variant: "outline" })}>
+                <Download aria-hidden data-icon="inline-start" />
+                Unduh data project untuk diedit
+              </a>
+            )}
           </div>
-          <details>
-            <summary className="cursor-pointer text-sm font-medium">Isi setiap kolom</summary>
-            <div className="mt-2 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Kolom</TableHead>
-                    <TableHead>Wajib</TableHead>
-                    <TableHead>Yang ditulis</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {IMPORT_FIELDS.map((field) => (
-                    <TableRow key={field.key}>
-                      <TableCell className="font-medium whitespace-nowrap">{field.label}</TableCell>
-                      <TableCell>{field.required ? "Ya" : "Tidak"}</TableCell>
-                      <TableCell className="text-muted-foreground">{field.hint ?? "Teks biasa."}</TableCell>
+          {flow === "create" ? (
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">Isi setiap kolom</summary>
+              <div className="mt-2 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Kolom</TableHead>
+                      <TableHead>Wajib</TableHead>
+                      <TableHead>Yang ditulis</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </details>
+                  </TableHeader>
+                  <TableBody>
+                    {IMPORT_FIELDS.map((field) => (
+                      <TableRow key={field.key}>
+                        <TableCell className="font-medium whitespace-nowrap">{field.label}</TableCell>
+                        <TableCell>{field.required ? "Ya" : "Tidak"}</TableCell>
+                        <TableCell className="text-muted-foreground">{field.hint ?? "Teks biasa."}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </details>
+          ) : null}
           <label
             htmlFor="import-file"
             onDragOver={(event) => {
@@ -372,16 +369,16 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
               </div>
             </details>
             <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" disabled={pending || missingRequired.length > 0 || usedTwice} onClick={intent === "update" ? checkUpdate : check}>
+              <Button type="button" disabled={pending || missingRequired.length > 0 || usedTwice} onClick={flow === "update" ? checkUpdate : check}>
                 {pending ? "Memeriksa…" : "Periksa sheet"}
               </Button>
-              {missingRequired.length > 0 ? <span className="text-sm text-muted-foreground">Pilih kolom untuk {missingRequired.map((field) => field.label).join(" and ")}.</span> : null}
+              {missingRequired.length > 0 ? <span className="text-sm text-muted-foreground">Pilih kolom untuk {missingRequired.map((field) => field.label).join(", ")}.</span> : null}
             </div>
           </CardContent>
         </Card>
       ) : null}
 
-      {intent === "create" && summary ? (
+      {flow === "create" && summary ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -424,7 +421,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
         </Card>
       ) : null}
 
-      {intent === "update" && updateSummary ? (
+      {flow === "update" && updateSummary ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
