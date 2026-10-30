@@ -11,6 +11,8 @@ import { can } from "@/domain/access/permissions";
 import { NewPhaseForm, NewSectionForm, PhaseRow, SectionRow } from "@/features/sections/section-forms";
 import { listSections } from "@/server/sections/service";
 import { listSoaPhases } from "@/server/requests/queries";
+import { IndustryRow, NewIndustryForm } from "@/features/customers/industry-admin";
+import { listIndustries } from "@/server/customers/industries";
 
 export default function MasterDataPage() {
   return (
@@ -24,6 +26,8 @@ async function MasterData() {
   const viewer = await requirePermission("masterdata.manage");
   const manageSections = can(viewer.role, "sections.manage");
   const [sections, phases] = manageSections ? await Promise.all([listSections(getDb(), viewer, { includeInactive: true }), listSoaPhases(getDb(), viewer)]) : [[], []];
+  const manageIndustries = can(viewer.role, "industries.manage");
+  const industries = manageIndustries ? await listIndustries(getDb(), viewer) : [];
   const lists = await Promise.all(MASTER_KINDS.map(async (kind) => ({ kind, records: await listMasterRecords(getDb(), viewer, kind) })));
 
   return (
@@ -59,6 +63,32 @@ async function MasterData() {
           </Card>
         ))}
       </div>
+      {manageIndustries ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>Industri customer</h2>
+            </CardTitle>
+            <CardDescription>
+              Daftar pilihan industri di halaman Customers. Mengubah nama ikut mengubah customer yang memakainya; industri hanya bisa dihapus bila tidak ada customer atau project yang memakainya.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <NewIndustryForm />
+            {industries.length === 0 ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                Belum ada industri.
+              </p>
+            ) : (
+              <ul aria-label="Daftar industri" className="divide-y">
+                {industries.map((industry) => (
+                  <IndustryRow key={industry.id} industry={industry} />
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
       {manageSections ? (
         <div className="mt-6 grid gap-6 xl:grid-cols-2">
           <Card>
@@ -91,7 +121,7 @@ async function MasterData() {
                 <h2>SOA phases</h2>
               </CardTitle>
               <CardDescription>
-                Pilihan SOA phase pada request BOQ. Assessment, Sizing, dan POC sudah ada; phase baru (misalnya Pre Assessment) muncul sebagai pilihan bagi SOA. Request yang sudah memakai sebuah phase tetap menyimpannya.
+                Pilihan SOA phase pada project. Assessment, Sizing, dan POC sudah ada; phase baru (misalnya Pre Assessment) muncul sebagai pilihan bagi SOA. Project yang sudah memakai sebuah phase tetap menyimpannya.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">

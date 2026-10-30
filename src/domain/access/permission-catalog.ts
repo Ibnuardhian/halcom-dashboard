@@ -84,6 +84,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "pics.manage": { category: "master-data", label: "Manage PICs", description: "Add, rename and deactivate the PICs SOA and Purchasing tickets are assigned to." },
   "customers.view": { category: "master-data", label: "View customers", description: "Open the Customers page." },
   "customers.rename": { category: "master-data", label: "Rename and merge customers", description: "Correct a customer name that was typed wrongly, or merge two names of the same company (PNP and Politeknik Negeri Padang) into one." },
+  "industries.manage": { category: "master-data", label: "Edit the list of industries", description: "Add, rename and delete the industries a customer can be given (Admin and Superadmin by default)." },
   "customers.edit": { category: "master-data", label: "Edit customer details", description: "Fill in a customer's industry on the Customers page; charts, filters and exports use it for all of the customer's projects." },
 
   "targets.edit": { category: "sales-pipeline", label: "Sales targets", description: "Open the Sales Targets page and set one's own gross-profit targets." },

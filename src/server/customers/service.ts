@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { normaliseIndustry } from "@/domain/customers/industry";
+import { nameKey } from "@/domain/projects/pipeline";
 
 type Actor = { id: string; role: Role };
 
@@ -27,9 +28,19 @@ export async function setCustomerIndustry(db: PrismaClient, claimedActor: Actor,
     if (!actor?.isActive || !can(actor.role, "customers.edit")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." } satisfies SetIndustryResult;
     const customer = await tx.customer.findUnique({ where: { id: parsed.data.customerId }, select: { id: true, name: true, industry: true } });
     if (!customer) return { ok: false, code: "NOT_FOUND", message: "Customer tidak ditemukan." } satisfies SetIndustryResult;
-    if (customer.industry === industry.value) return { ok: true, changed: false, industry: industry.value } satisfies SetIndustryResult;
+    // The industry must be one of the list (a Superadmin edits it); its spelling is the list's. A customer already on a name that is
+    // not in the list may keep it.
+    let value = industry.value;
+    if (value !== null) {
+      const listed = await tx.industry.findUnique({ where: { nameKey: nameKey(value) } });
+      if (listed) value = listed.name;
+      else if (customer.industry === null || nameKey(customer.industry) !== nameKey(value)) {
+        return { ok: false, code: "INVALID_INPUT", message: "Pilih industri dari daftar. Admin atau Superadmin dapat menambah industri baru." } satisfies SetIndustryResult;
+      }
+    }
+    if (customer.industry === value) return { ok: true, changed: false, industry: value } satisfies SetIndustryResult;
 
-    await tx.customer.update({ where: { id: customer.id }, data: { industry: industry.value } });
+    await tx.customer.update({ where: { id: customer.id }, data: { industry: value } });
     await tx.auditEvent.create({
       data: {
         actorId: actor.id,
@@ -37,9 +48,9 @@ export async function setCustomerIndustry(db: PrismaClient, claimedActor: Actor,
         entityType: "customer",
         entityId: customer.id,
         before: { name: customer.name, industry: customer.industry } as Prisma.InputJsonValue,
-        after: { name: customer.name, industry: industry.value } as Prisma.InputJsonValue,
+        after: { name: customer.name, industry: value } as Prisma.InputJsonValue,
       },
     });
-    return { ok: true, changed: true, industry: industry.value } satisfies SetIndustryResult;
+    return { ok: true, changed: true, industry: value } satisfies SetIndustryResult;
   });
 }

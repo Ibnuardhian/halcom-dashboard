@@ -14,7 +14,6 @@ import { can } from "@/domain/access/permissions";
 import { listCustomers, listIndustrySuggestions } from "@/server/customers/queries";
 import { listCustomerOptions } from "@/server/requests/queries";
 
-const INDUSTRY_LIST_ID = "industry-suggestions";
 
 export default function CustomersPage({ searchParams }: PageProps<"/customers">) {
   return (
@@ -38,13 +37,8 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
     <>
       <DashboardHeader
         title="Customers"
-        summary="Perusahaan end-user dari proyek-proyek Anda. Customer baru ditambahkan otomatis saat proyek dibuat dengan nama end-user company baru; nama yang sama dianggap satu customer. Klik sebuah customer untuk mengisi industrinya."
+        summary="Perusahaan end-user dari proyek-proyek Anda. Customer baru ditambahkan otomatis saat proyek dibuat dengan nama end-user company baru; nama yang sama dianggap satu customer. Klik sebuah customer untuk memilih industrinya dari daftar; Admin atau Superadmin mengubah daftarnya di Master Data."
       />
-      <datalist id={INDUSTRY_LIST_ID}>
-        {suggestions.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
       <form role="search" className="mb-4 flex gap-2">
         <Input name="q" defaultValue={search} placeholder="Cari customer" aria-label="Search customers" maxLength={100} className="max-w-md" />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
@@ -75,7 +69,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
                 <TableCell>
                   <CustomerDialog
                     customer={{ id: customer.id, name: customer.name, industry: customer.industry, projects: customer.projects }}
-                    listId={INDUSTRY_LIST_ID}
+                    industries={suggestions}
                     canEdit={canEdit}
                     projectsHref={`${PROJECTS_PATH}?q=${encodeURIComponent(customer.name)}`}
                     others={canRename ? allCustomers.filter((other) => other.id !== customer.id) : undefined}

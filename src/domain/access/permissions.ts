@@ -50,6 +50,7 @@ export type Permission =
   | "requests.edit-dates"
   | "customers.rename"
   | "users.change-email"
+  | "industries.manage"
   | "requests.email"
   | "requests.work.boq"
   | "requests.work.purchasing"
@@ -99,6 +100,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "requests.edit-dates",
   "customers.rename",
   "users.change-email",
+  "industries.manage",
   "requests.email",
   "requests.work.boq",
   "requests.work.purchasing",
@@ -164,6 +166,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.post-update",
     "masterdata.manage",
     "sections.manage",
+    "industries.manage",
     // Admin keeps the list of PICs (the operational assignees of SOA and Purchasing tickets).
     "pics.manage",
     "requests.work.boq",

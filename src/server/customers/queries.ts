@@ -30,17 +30,9 @@ export async function listCustomers(db: PrismaClient, viewer: { id: string; role
   }));
 }
 
-/** The industries already in use (customers first, then what projects carried from the export), so the form can suggest them and spelling stays the same. */
+/** The industries a customer can be given: the list a Superadmin edits, A to Z. */
 export async function listIndustrySuggestions(db: PrismaClient, viewer: { id: string; role: Role }): Promise<string[]> {
   if (!can(viewer.role, "customers.view")) throw new Error("Forbidden: missing permission for this query.");
-  const [fromCustomers, fromProjects] = await Promise.all([
-    db.customer.findMany({ where: { industry: { not: null } }, distinct: ["industry"], select: { industry: true }, take: 200 }),
-    db.project.findMany({ where: { industry: { not: null }, deletedAt: null }, distinct: ["industry"], select: { industry: true }, take: 200 }),
-  ]);
-  const seen = new Map<string, string>();
-  for (const row of [...fromCustomers, ...fromProjects]) {
-    const value = row.industry?.trim();
-    if (value && !seen.has(value.toLowerCase())) seen.set(value.toLowerCase(), value);
-  }
-  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+  const rows = await db.industry.findMany({ select: { name: true } });
+  return rows.map((row) => row.name).sort((a, b) => a.localeCompare(b));
 }

@@ -674,3 +674,13 @@ model SoaPhaseOption {
 
   @@map("soa_phases")
 }
+
+/// The industries a customer can be given; a Superadmin edits the list. The customer keeps the name as text.
+model Industry {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  nameKey   String   @unique @map("name_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("industries")
+}

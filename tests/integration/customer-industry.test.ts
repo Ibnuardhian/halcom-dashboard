@@ -14,6 +14,11 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+/** An industry is given from the list, so a test puts the names it uses on the list first. */
+async function listed(...names: string[]) {
+  for (const name of names) await db.industry.upsert({ where: { nameKey: name.toLowerCase() }, create: { name, nameKey: name.toLowerCase() }, update: {} });
+}
+
 async function actorOf(role: Role) {
   const user = await makeUser(role);
   return { id: user.id, role: user.role };
@@ -28,6 +33,7 @@ async function customerWithProject(sales: { id: string; role: Role }, tag: strin
 
 describe("setCustomerIndustry", () => {
   it("sets, changes and clears the industry, trims it, and audits each real change", async () => {
+    await listed("Banking", "Education");
     const sales = await actorOf("SALES");
     const { customerId } = await customerWithProject(sales, randomBytes(3).toString("hex"));
 
@@ -43,6 +49,7 @@ describe("setCustomerIndustry", () => {
   });
 
   it("is allowed for Admin and Superadmin and refused for the other roles, bad input and an unknown customer", async () => {
+    await listed("Retail");
     const sales = await actorOf("SALES");
     const { customerId } = await customerWithProject(sales, randomBytes(3).toString("hex"));
 
@@ -62,6 +69,7 @@ describe("setCustomerIndustry", () => {
     const tag = randomBytes(3).toString("hex");
     const { customerId, projectId } = await customerWithProject(sales, tag);
     const industry = `Industry ${tag}`;
+    await listed(industry);
     // The project carries free text from the export; the customer's industry wins once it is filled in.
     await db.project.update({ where: { id: projectId }, data: { industry: `Old text ${tag}` } });
 
@@ -74,5 +82,26 @@ describe("setCustomerIndustry", () => {
     const labels = analytics.byIndustry.map((slice) => slice.label);
     expect(labels).toContain(industry);
     expect(labels).not.toContain(`Old text ${tag}`);
+  });
+});
+
+describe("the list of industries", () => {
+  it("is what a customer is given: a name that is not on it is refused, the list's spelling wins, and a name a customer already has may stay", async () => {
+    const sales = await actorOf("SALES");
+    const { customerId } = await customerWithProject(sales, randomBytes(3).toString("hex"));
+
+    expect(await setCustomerIndustry(db, sales, { customerId, industry: "Not on the list" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await setCustomerIndustry(db, sales, { customerId, industry: "  manufacturing " })).toEqual({ ok: true, changed: true, industry: "Manufacturing" }); // a default
+    // The customer already holds a name that left the list: saving the same name changes nothing, anything else must be on the list.
+    await db.customer.update({ where: { id: customerId }, data: { industry: "Legacy text" } });
+    expect(await setCustomerIndustry(db, sales, { customerId, industry: "Legacy text" })).toEqual({ ok: true, changed: false, industry: "Legacy text" });
+    expect(await setCustomerIndustry(db, sales, { customerId, industry: "Other legacy" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+  });
+
+  it("starts with the ten default industries", async () => {
+    const names = (await db.industry.findMany()).map((row) => row.name);
+    for (const name of ["Public Sector & Government", "Manufacturing", "Retail & E-Commerce", "Healthcare (Kesehatan)", "Telecommunications", "Financial Services", "Logistics & Transportation", "Education", "Hospitality & Tourism", "Oil & Gas"]) {
+      expect(names).toContain(name);
+    }
   });
 });

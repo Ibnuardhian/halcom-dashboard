@@ -4,9 +4,8 @@ import { useActionState, useEffect, useId, useRef } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
-import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
-import { INDUSTRY_MAX_LENGTH } from "@/domain/customers/industry";
 import { saveCustomerIndustryAction } from "./actions";
 import { CustomerAdmin } from "./customer-admin";
 
@@ -17,14 +16,14 @@ import { CustomerAdmin } from "./customer-admin";
  */
 export function CustomerDialog({
   customer,
-  listId,
+  industries,
   canEdit,
   projectsHref,
   others,
 }: {
   customer: { id: string; name: string; industry: string | null; projects: number };
-  /** The id of a `<datalist>` on the page that holds the industries already in use. */
-  listId: string;
+  /** The industries a customer can be given (the list a Superadmin edits). */
+  industries: string[];
   canEdit: boolean;
   projectsHref: string;
   /** The other customers a Superadmin can merge this one into; absent for everyone else (who then see no rename or merge). */
@@ -74,20 +73,20 @@ export function CustomerDialog({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${id}-industry`}>Industry</Label>
-            <Input
-              id={`${id}-industry`}
-              name="industry"
-              list={listId}
-              defaultValue={customer.industry ?? ""}
-              maxLength={INDUSTRY_MAX_LENGTH}
-              placeholder="contoh: Banking, Manufacturing, Education"
-              readOnly={!canEdit}
-              autoComplete="off"
-            />
+            <NativeSelect id={`${id}-industry`} name="industry" key={customer.industry ?? ""} defaultValue={customer.industry ?? ""} disabled={!canEdit}>
+              <option value="">Belum diisi</option>
+              {/* A name the customer already has stays selectable even if it is no longer in the list, so saving does not wipe it. */}
+              {customer.industry && !industries.includes(customer.industry) ? <option value={customer.industry}>{customer.industry}</option> : null}
+              {industries.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </NativeSelect>
             <p className="text-xs text-muted-foreground">
               {canEdit
-                ? "Pick a suggestion to keep the spelling the same, or type a new one. Charts, filters and exports use it for every project of this customer. Leave it empty to clear."
-                : "You can read the industry but not change it."}
+                ? "Pilih dari daftar industri. Grafik, filter, dan export memakainya untuk semua project customer ini. Daftarnya diubah Admin atau Superadmin di Master Data."
+                : "Anda dapat membaca industri tetapi tidak dapat mengubahnya."}
             </p>
           </div>
           <FormStatus state={state} />
