@@ -4,7 +4,7 @@ import * as React from "react"
 import { cn } from "cn"
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" })
-const isBlank = (text: string) => text === "" || /^[—–-]+$/.test(text)
+const isBlank = (text: string) => text === "" || /^[–-]+$/.test(text)
 
 /** The header cells a click can sort: plain text, no link or button of their own (those lists are sorted by the server). */
 function sortableHeads(table: HTMLTableElement): HTMLTableCellElement[] {

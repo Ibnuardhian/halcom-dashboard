@@ -58,7 +58,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
       </nav>
       <form role="search" className="mb-3 flex gap-2">
         {flag ? <input type="hidden" name="flag" value={flag} /> : null}
-        <Input name="q" defaultValue={search} placeholder="Cari project, end user, source, atau request ID" aria-label="Search the crosscheck" maxLength={100} className="max-w-md" />
+        <Input name="q" defaultValue={search} placeholder="Cari project" title="Cari berdasarkan project, end user, source, atau request ID" aria-label="Search the crosscheck" maxLength={100} className="max-w-md" />
         <button type="submit" className={buttonVariants({ variant: "outline" })}>
           Search
         </button>
@@ -95,7 +95,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
               <TableRow key={row.code}>
                 <TableCell className="max-w-56">
                   <Link href={`${PROJECTS_PATH}/${row.code}`} className="block truncate text-primary underline-offset-4 hover:underline">
-                    {row.endUserCompany} – {row.name}
+                    {row.endUserCompany}, {row.name}
                   </Link>
                   <span className="font-mono text-[11px] text-muted-foreground">{row.code}</span>
                 </TableCell>

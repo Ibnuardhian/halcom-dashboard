@@ -162,7 +162,7 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
                         </div>
                         <p className={cn("mt-1 line-clamp-2 font-medium", card.status === "CANCELLED" && "text-muted-foreground line-through")}>{card.title}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {card.endUserCompany} – {card.projectName}
+                          {card.endUserCompany}, {card.projectName}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                           <SlaBadge sla={card.sla} />

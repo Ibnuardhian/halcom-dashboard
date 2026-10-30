@@ -60,7 +60,7 @@ async function Backups() {
               <h2>Existing backups</h2>
             </CardTitle>
             <CardDescription>
-              Folder in the container: <code>{state.dir}</code> (the host folder is set by BACKUP_HOST_DIR). No retention is applied yet.
+              Folder cadangan: <code>{state.dir}</code>. Berkas lama belum dihapus otomatis.
             </CardDescription>
           </CardHeader>
           <CardContent>

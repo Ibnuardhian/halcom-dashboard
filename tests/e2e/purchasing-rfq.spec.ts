@@ -69,7 +69,7 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
 test("Purchasing cannot raise a BOQ or a PO, or a project", async ({ page }) => {
   await signIn(page, "PURCHASING");
   await page.goto("/requests/new");
-  await expect(page.getByLabel("Request type").locator("option")).toHaveText(["RFQ – RFQ request"]);
+  await expect(page.getByLabel("Request type").locator("option")).toHaveText(["RFQ: RFQ request"]);
   await page.goto("/projects/new");
   await expect(page.getByText("This page could not be found.")).toBeVisible();
 });

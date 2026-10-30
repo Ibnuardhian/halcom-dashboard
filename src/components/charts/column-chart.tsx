@@ -13,7 +13,7 @@ const LINK = "rounded-md outline-none transition-colors hover:bg-accent/60 focus
  */
 export function ColumnChart({ items, color = 0, height = 160 }: { items: ColumnItem[]; color?: number; height?: number }) {
   const max = Math.max(0, ...items.map((item) => item.value));
-  if (items.length === 0 || max === 0) return <ChartEmpty>No values entered yet.</ChartEmpty>;
+  if (items.length === 0 || max === 0) return <ChartEmpty>Belum ada nilai yang diisi.</ChartEmpty>;
   return (
     <div className="overflow-x-auto pb-2" role="region" aria-label="Scroll sideways to see every step" tabIndex={0}>
     <ul className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(4.75rem, 1fr))` }}>

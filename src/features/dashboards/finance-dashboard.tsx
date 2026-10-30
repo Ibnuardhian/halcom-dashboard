@@ -62,7 +62,7 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
               {flagged.slice(0, SHOWN).map((row) => (
                 <li key={row.code} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm">
                   <Link href={`${PROJECTS_PATH}/${row.code}`} className="min-w-0 truncate text-primary underline-offset-4 hover:underline">
-                    <span className="font-mono text-xs">{row.code}</span> · {row.endUserCompany} – {row.name}
+                    <span className="font-mono text-xs">{row.code}</span> · {row.endUserCompany}, {row.name}
                   </Link>
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-xs text-muted-foreground tabular-nums">{formatAmount(row.finalValue ?? row.estimatedValue)}</span>

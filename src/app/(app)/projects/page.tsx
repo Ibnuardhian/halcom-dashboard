@@ -149,7 +149,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           {otherPrincipals.map((key) => <input key={`principal-${key}`} type="hidden" name="principal" value={key} />)}
           {(["solution", "industry", "owner"] as const).flatMap((name) => (drill[name] ?? []).map((value) => <input key={`${name}-${value}`} type="hidden" name={name} value={value} />))}
           {pageSize !== DEFAULT_PROJECT_PAGE_SIZE ? <input type="hidden" name="per" value={String(pageSize)} /> : null}
-          <Input name="q" defaultValue={search} placeholder="Cari kode, customer, project, PIC, principal, atau external source" aria-label="Search projects" maxLength={100} />
+          <Input name="q" defaultValue={search} placeholder="Cari project" title="Cari berdasarkan kode, customer, project, PIC, principal, atau external source" aria-label="Search projects" maxLength={100} />
           <NativeSelect name="progress" defaultValue={progress ?? ""} aria-label="Progress">
             <option value="">All progress</option>
             {PROJECT_PROGRESSES.map((p) => (

@@ -63,7 +63,7 @@ async function Handoffs() {
                     </TableCell>
                     <TableCell className="max-w-56 truncate">
                       <Link href={`${PROJECTS_PATH}/${row.projectCode}`} className="hover:underline">
-                        {row.endUserCompany} – {row.projectName}
+                        {row.endUserCompany}, {row.projectName}
                       </Link>
                     </TableCell>
                     <TableCell className="hidden max-w-64 truncate md:table-cell">{row.title}</TableCell>
@@ -115,7 +115,7 @@ async function Handoffs() {
                       </Link>
                     </TableCell>
                     <TableCell className="max-w-56 truncate">
-                      {row.endUserCompany} – {row.projectName}
+                      {row.endUserCompany}, {row.projectName}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={row.status} />

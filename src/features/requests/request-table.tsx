@@ -74,7 +74,7 @@ export function RequestTable({
             </TableCell>
             <TableCell className="max-w-56">
               <Link href={`/projects/${row.projectCode}`} className="block truncate hover:underline">
-                {row.endUserCompany} – {row.projectName}
+                {row.endUserCompany}, {row.projectName}
               </Link>
             </TableCell>
             {detailed ? <TableCell className="hidden md:table-cell">{row.requesterName}</TableCell> : null}

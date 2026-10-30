@@ -102,7 +102,7 @@ export function ProjectFieldsForm({
             </div>
           );
         })}
-        {optional && visible.length === 0 ? <p className="text-sm text-muted-foreground sm:col-span-2">No technical details yet. Add the ones that apply.</p> : null}
+        {optional && visible.length === 0 ? <p className="text-sm text-muted-foreground sm:col-span-2">Belum ada detail teknis. Isi yang berlaku.</p> : null}
         {optional && hidden.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
             <span className="text-xs text-muted-foreground">Add:</span>

@@ -13,7 +13,7 @@ const GRID = "grid grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-2 text
  */
 export function FunnelChart({ items }: { items: FunnelItem[] }) {
   const max = Math.max(0, ...items.map((item) => item.count));
-  if (items.length === 0 || max === 0) return <ChartEmpty>No projects yet.</ChartEmpty>;
+  if (items.length === 0 || max === 0) return <ChartEmpty>Belum ada project.</ChartEmpty>;
   return (
     <ol className="flex flex-col gap-1.5">
       {items.map((item, index) => {

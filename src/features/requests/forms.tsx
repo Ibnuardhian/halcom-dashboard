@@ -174,7 +174,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
               className="cursor-pointer rounded-md border px-3 py-1.5 text-sm font-medium has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
             >
               <input type="radio" name="requestType" value={option} checked={type === option} onChange={() => setType(option)} className="sr-only" />
-              {option === "" ? "Belum ada request" : `${option} – ${REQUEST_TYPE_LABELS[option]}`}
+              {option === "" ? "Belum ada request" : `${option}: ${REQUEST_TYPE_LABELS[option]}`}
             </label>
           ))}
         </div>
@@ -307,7 +307,7 @@ export function RequestForm({
           </option>
           {visible.map((project) => (
             <option key={project.id} value={project.id}>
-              {project.code} · {project.endUserCompany} – {project.name}
+              {project.code} · {project.endUserCompany}, {project.name}
             </option>
           ))}
         </NativeSelect>
@@ -329,7 +329,7 @@ export function RequestForm({
         <NativeSelect id="request-type" name="type" required value={type} onChange={(event) => setType(event.target.value as RequestType)}>
           {types.map((option) => (
             <option key={option} value={option}>
-              {option} – {REQUEST_TYPE_LABELS[option]}
+              {option}: {REQUEST_TYPE_LABELS[option]}
             </option>
           ))}
         </NativeSelect>

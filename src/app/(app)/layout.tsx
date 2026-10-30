@@ -21,7 +21,7 @@ export const instant = false;
 // time, so the authenticated shell streams in behind this Suspense boundary.
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+    <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Memuat halaman…</p>}>
       <AuthenticatedShell>{children}</AuthenticatedShell>
     </Suspense>
   );

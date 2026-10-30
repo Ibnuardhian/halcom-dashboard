@@ -114,7 +114,7 @@ async function insertRequest(tx: Tx, actor: StoredActor, projectId: string, requ
     recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[request.type])), ...alsoTold],
     kind: "request.created",
     title: `New ${request.type} request ${code}`,
-    body: `${project?.endUserCompany} – ${project?.name}: ${request.title}`,
+    body: `${project?.endUserCompany}, ${project?.name}: ${request.title}`,
     href: `/request/${code}`,
   });
   return { id: created.id, code };
@@ -481,7 +481,7 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
       recipientIds: [...(await usersWithRole(tx, OWNING_ROLE.BOQ)), request.project.technicalPicId],
       kind: REVISION_REQUESTED_KIND,
       title: `${request.code}: revision requested`,
-      body: `${request.project.endUserCompany} – ${request.project.name}: ${reason}`,
+      body: `${request.project.endUserCompany}, ${request.project.name}: ${reason}`,
       href: `/request/${request.code}`,
     });
     return succeed({ code: request.code });

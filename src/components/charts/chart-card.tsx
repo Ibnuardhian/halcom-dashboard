@@ -15,7 +15,7 @@ export function ChartCard({ title, description, children, className }: { title: 
   );
 }
 
-export function ChartEmpty({ children = "No data yet." }: { children?: React.ReactNode }) {
+export function ChartEmpty({ children = "Belum ada data." }: { children?: React.ReactNode }) {
   return (
     <p role="status" className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
       {children}

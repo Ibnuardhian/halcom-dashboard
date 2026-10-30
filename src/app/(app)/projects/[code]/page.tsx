@@ -148,7 +148,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
 
   return (
     <>
-      <DashboardHeader title={`${project.endUserCompany} – ${project.name}`} summary={`Project ${project.code}`} />
+      <DashboardHeader title={`${project.endUserCompany}, ${project.name}`} summary={`Project ${project.code}`} />
       {focus && details.some((r) => r.code === focus) ? <ScrollToRequest code={focus} /> : null}
 
       <Section id="overview" title="Overview">

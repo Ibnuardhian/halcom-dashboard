@@ -21,7 +21,7 @@ export default function PasswordChangePage() {
           <BrandLogo className="h-12" priority />
           <h1 className="sr-only">{APP_NAME}</h1>
         </div>
-        <Suspense fallback={<p className="text-center text-sm text-muted-foreground">Loading…</p>}>
+        <Suspense fallback={<p className="text-center text-sm text-muted-foreground">Memuat halaman…</p>}>
           <ChoosePassword />
         </Suspense>
       </div>

@@ -15,7 +15,7 @@ export function BarList({
   color = 0,
   allowEmpty = false,
   scaleMax,
-  emptyText = "No values entered yet.",
+  emptyText = "Belum ada nilai yang diisi.",
 }: {
   items: BarItem[];
   color?: number;

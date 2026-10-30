@@ -219,8 +219,8 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
           <CardContent>
             {request.flowStoppedAt ? (
               <p className="mb-3 text-sm">
-                <span className="font-medium">Not continuing</span> – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatDay(request.flowStoppedAt)}
-                {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
+                <span className="font-medium">Tidak dilanjutkan</span>: diputuskan oleh {request.flowStoppedBy?.name ?? "seseorang"} pada {formatDay(request.flowStoppedAt)}
+                {request.flowStoppedNote ? `. Catatan: ${request.flowStoppedNote}` : "."}
               </p>
             ) : null}
             <NextStepForm sourceId={request.id} nextType={next} hasDecision={request.flowStoppedAt !== null} />
@@ -228,15 +228,15 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
         </Card>
       ) : request.flowStoppedAt ? (
         <p className="text-sm text-muted-foreground">
-          Not continuing to {next ?? "the next step"} – decided by {request.flowStoppedBy?.name ?? "someone"} on {formatDay(request.flowStoppedAt)}
-          {request.flowStoppedNote ? `: ${request.flowStoppedNote}` : "."}
+          Tidak dilanjutkan ke {next ?? "langkah berikutnya"}: diputuskan oleh {request.flowStoppedBy?.name ?? "seseorang"} pada {formatDay(request.flowStoppedAt)}
+          {request.flowStoppedNote ? `. Catatan: ${request.flowStoppedNote}` : "."}
         </p>
       ) : null}
 
       {assignments.length > 0 ? (
         <details className="group rounded-xl ring-1 ring-foreground/10">
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold select-none marker:content-none">
-            PIC history <span className="font-normal text-muted-foreground">({assignments.length}) – append-only</span>
+            PIC history <span className="font-normal text-muted-foreground">({assignments.length}), hanya bertambah</span>
           </summary>
           <div className="px-4 pb-4">
             <Table>
@@ -265,7 +265,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
 
       <details className="group rounded-xl ring-1 ring-foreground/10">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold select-none marker:content-none">
-          Status history <span className="font-normal text-muted-foreground">({request.statusHistory.length}) – append-only</span>
+          Status history <span className="font-normal text-muted-foreground">({request.statusHistory.length}), hanya bertambah</span>
         </summary>
         <div className="px-4 pb-4">
           <Table>

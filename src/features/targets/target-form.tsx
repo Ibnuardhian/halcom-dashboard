@@ -32,7 +32,7 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Amounts in IDR; dots are added as you type. Leave a box empty for no target. Every save is written to the audit log.</p>
+      <p className="text-xs text-muted-foreground">Jumlah dalam IDR; titik ditambahkan saat Anda mengetik. Kosongkan kolom jika tidak ada target. Setiap penyimpanan masuk ke audit log.</p>
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>

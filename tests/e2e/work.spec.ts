@@ -110,7 +110,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByLabel("Target margin (amount)")).toBeVisible(); // an amount is the default
     await page.getByRole("radio", { name: "Percent" }).check();
     await page.getByLabel("Target margin (%)").fill("12,5");
-    await page.getByText(/^BOQ – /).click();
+    await page.getByText(/^BOQ: /).click();
     await page.getByLabel("Request summary").fill("BOQ from the combined form");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
@@ -141,7 +141,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByRole("button", { name: "Clear Target closing" })).toHaveCount(0);
 
     // The request's own date has the same button.
-    await page.getByText(/^BOQ – /).click();
+    await page.getByText(/^BOQ: /).click();
     const needed = page.getByLabel("Needed by", { exact: true });
     await needed.fill("30/11/2026");
     await page.getByRole("button", { name: "Clear Needed by" }).click();
@@ -228,7 +228,7 @@ test.describe("projects and requests", () => {
     await page.goto("/projects/new");
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill("RFQ routing demo");
-    await page.getByText(/^RFQ – /).click();
+    await page.getByText(/^RFQ: /).click();
     await expect(page.getByText("Masuk ke Purchasing.", { exact: true })).toBeVisible();
     await page.getByLabel("Request summary").fill("Price for 10 servers");
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
@@ -393,7 +393,7 @@ test.describe("projects and requests", () => {
 
     await root.reload();
     await expect(root.locator("#overview").getByText("Technical PIC (SOA)", { exact: true }).locator("..")).not.toContainText("–");
-    await expect(root.getByRole("heading", { name: "Move me – ", exact: false }).or(root.getByText("Move me").first())).toBeVisible();
+    await expect(root.getByRole("heading", { name: "Move me, ", exact: false }).or(root.getByText("Move me").first())).toBeVisible();
     await root.context().close();
   });
 
@@ -670,7 +670,7 @@ test.describe("projects and requests", () => {
 
     // They change their mind: continue to the RFQ anyway.
     await page.goto(`/request/${boq}`);
-    await expect(page.getByText("Not continuing – decided by")).toBeVisible();
+    await expect(page.getByText("Tidak dilanjutkan: diputuskan oleh")).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
       await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });

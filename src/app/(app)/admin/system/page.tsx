@@ -35,7 +35,7 @@ async function System() {
     <>
       <DashboardHeader
         title="System"
-        summary={`Application and database health at ${formatDay(snapshot.generatedAt)}. Reload the page to refresh; history is not recorded yet.`}
+        summary={`Kondisi aplikasi dan database pada ${formatDay(snapshot.generatedAt)}. Muat ulang halaman untuk memperbarui.`}
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

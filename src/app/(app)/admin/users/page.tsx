@@ -78,7 +78,7 @@ async function Users() {
                     {editable ? (
                       <UserEditDialog user={{ id: user.id, name: user.name, email: user.email, role: user.role, isActive: user.isActive }} roles={roles} canChangeEmail={can(viewer.role, "users.change-email")} />
                     ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
+                      <span className="sr-only">Tidak ada aksi</span>
                     )}
                   </TableCell>
                 ) : null}
