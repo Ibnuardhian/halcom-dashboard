@@ -140,7 +140,7 @@ export function TargetTracking({
             <CardTitle className="text-base">
               <h2>My {summary.year} targets</h2>
             </CardTitle>
-            <CardDescription>Enter what you aim to reach in each quarter. The table above shows how far you are.</CardDescription>
+            <CardDescription>Isi target tiap kuartal. Tabel di atas menunjukkan capaian Anda.</CardDescription>
           </CardHeader>
           <CardContent>
             <TargetForm year={summary.year} values={own} formKey={`${summary.year}-${JSON.stringify(own)}`} />

@@ -36,7 +36,7 @@ async function Pics() {
                   <h2>{PIC_TEAM_LABELS[team]} PICs</h2>
                 </CardTitle>
                 <CardDescription>
-                  {own.filter((pic) => pic.isActive).length} aktif dari {own.length}. PIC dinonaktifkan agar request dan riwayat penugasannya tetap memuat namanya.
+                  {own.filter((pic) => pic.isActive).length} aktif dari {own.length}. PIC dinonaktifkan, bukan dihapus, agar riwayatnya tetap memuat namanya.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">

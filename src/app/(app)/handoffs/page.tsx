@@ -36,7 +36,7 @@ async function Handoffs() {
           <CardTitle className="text-base">
             <h2>Ready for handoff</h2>
           </CardTitle>
-          <CardDescription>Completed BOQs that were neither continued nor marked “do not continue”, oldest first. Open one to decide.</CardDescription>
+          <CardDescription>BOQ selesai yang belum diputuskan, terlama di atas. Buka satu untuk memutuskan.</CardDescription>
         </CardHeader>
         <CardContent>
           {boqs.length === 0 ? (

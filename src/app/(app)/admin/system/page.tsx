@@ -123,7 +123,7 @@ async function System() {
             <CardTitle className="text-base">
               <h2>Largest tables</h2>
             </CardTitle>
-            <CardDescription>Including indexes. Row counts are PostgreSQL estimates.</CardDescription>
+            <CardDescription>Termasuk index. Jumlah baris adalah perkiraan PostgreSQL.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>

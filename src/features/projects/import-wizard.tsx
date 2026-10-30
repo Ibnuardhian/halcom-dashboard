@@ -328,7 +328,7 @@ export function ImportWizard({ onClose, canCreate = true, canUpdate = false }: {
             <CardTitle className="text-base">
               <h2>Cocokkan kolom</h2>
             </CardTitle>
-            <CardDescription>Setiap field memakai satu kolom dari sheet Anda. Pencocokan di bawah adalah saran dari nama kolom; ubah bila perlu. Field bertanda * wajib.</CardDescription>
+            <CardDescription>Cocokkan tiap field dengan satu kolom sheet. Saran diambil dari nama kolom; ubah bila perlu. Tanda * berarti wajib.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

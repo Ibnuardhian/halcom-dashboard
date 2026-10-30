@@ -73,7 +73,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
         </ChartCard>
       ) : (
         <>
-          <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
+          <ChartCard title="Projects by principal" description="Project per principal. Project multi-principal dihitung di tiap principal.">
             <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
           </ChartCard>
           <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
@@ -122,14 +122,14 @@ export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }
   const principal = by("principal");
   return (
     <section aria-label="Project charts" className="mb-6 grid gap-4 lg:grid-cols-2">
-      <ChartCard title="PIC Workload" description="Hanya project yang masih open (belum Closed Won/Lost dan belum Done), per PIC SOA. Project yang sudah ditutup tidak dihitung. Project tanpa PIC SOA tidak ditampilkan.">
+      <ChartCard title="PIC Workload" description="Project open per PIC SOA. Project tanpa PIC SOA tidak ditampilkan.">
         <BarList
           items={analytics.bySoaPic.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s), href: s.drill && s.drill.length > 0 ? `${to({ soaPic: s.drill })}&show=open` : null }))}
           allowEmpty
           emptyText="Belum ada open project."
         />
       </ChartCard>
-      <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
+      <ChartCard title="Projects by principal" description="Project per principal. Project multi-principal dihitung di tiap principal.">
         <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
       </ChartCard>
       <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
