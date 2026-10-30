@@ -166,7 +166,7 @@ describe("each role updates only its part of the sheet", () => {
     const soa = labelsOf("SOA");
     expect(sales).toEqual(expect.arrayContaining(["Progress", "Estimated PO value", "Target margin (%)", "Industry", "Location"]));
     expect(sales).not.toEqual(expect.arrayContaining(["Principals"]));
-    expect(soa).toEqual(expect.arrayContaining(["Principals", "Solution", "Sales PIC", "Industry", "Location", "Project ID", "Last updated"]));
+    expect(soa).toEqual(expect.arrayContaining(["Principals", "Solution", "Technical PIC (SOA)", "Sales PIC", "Industry", "Location", "Project ID", "Last updated"]));
     for (const money of ["Progress", "Status", "Estimated PO value", "Target margin (amount)", "Target margin (%)", "Quote released", "Target closing"]) expect(soa).not.toContain(money);
     expect(labelsOf("ADMIN")).toEqual(templateHeaders().map((header) => header.replace(/ \*$/, "")));
   });
@@ -204,7 +204,7 @@ describe("each role updates only its part of the sheet", () => {
     const withBrand = toXlsx("Projects", [...headers, "Principals"], [[...row, `Sneaky ${tag}`]]);
     const result = await previewProjectUpdate(db, as(sales), { bytes: withBrand, mapping: suggestMapping([...headers, "Principals"]) });
     expect(result).toMatchObject({ ok: true, summary: { errors: 1, toUpdate: 0 } });
-    expect(JSON.stringify(result)).toContain("Principals atau Solution");
+    expect(JSON.stringify(result)).toContain("Principals, Solution atau Technical PIC");
   });
 
   it("sets the industry on the customer, from the list, for Sales and for SOA", async () => {
@@ -222,5 +222,32 @@ describe("each role updates only its part of the sheet", () => {
     // Sales may set it as well; naming the current industry again is no change.
     const again = await previewProjectUpdate(db, as(sales), await sheet("SALES", actor(sales), code, { Industry: listed.name }));
     expect(again).toMatchObject({ ok: true, summary: { toUpdate: 0, unchanged: 1 } });
+  });
+});
+
+describe("the Technical PIC column", () => {
+  it("is set by SOA from the SOA PIC list, logged, and refused for Sales", async () => {
+    const { soa, sales, tag, code, as, projectId } = await setup();
+    const pic = await db.pic.create({ data: { team: "SOA", name: `Tech ${tag}`, nameKey: `tech ${tag}` } });
+    const keys = scopedFieldKeys(importScope("SOA"), IMPORT_FIELD_KEYS);
+    const headers = templateHeaders(keys);
+    const project = (await listProjectsForExport(db, as(soa))).find((entry) => entry.code === code)!;
+    const row = (name: string) => importRowOf({ ...project, technicalPic: name }, keys);
+    const input = (name: string) => ({ bytes: toXlsx("Projects", headers, [row(name)]), mapping: suggestMapping(headers) });
+
+    expect(await previewProjectUpdate(db, as(soa), input(`Nobody ${tag}`))).toMatchObject({ ok: true, summary: { errors: 1 } });
+    expect(await commitProjectUpdate(db, as(soa), { ...input(pic.name.toUpperCase()), fileName: "pic.xlsx", confirmNew: false })).toMatchObject({ ok: true, updated: 1 });
+    await expect(db.project.findUniqueOrThrow({ where: { id: projectId } })).resolves.toMatchObject({ soaPicId: pic.id });
+    await expect(db.projectChange.findFirst({ where: { projectId, field: "technicalPic" } })).resolves.toMatchObject({ toValue: pic.name });
+
+    const salesKeys = scopedFieldKeys(importScope("SALES"), IMPORT_FIELD_KEYS);
+    expect(salesKeys).not.toContain("technicalPic");
+    const withPic = [...templateHeaders(salesKeys), "Technical PIC (SOA)"];
+    const fresh = (await listProjectsForExport(db, as(soa))).find((entry) => entry.code === code)!;
+    const other = await db.pic.create({ data: { team: "SOA", name: `Other ${tag}`, nameKey: `other ${tag}` } });
+    const refused = await previewProjectUpdate(db, as(sales), { bytes: toXlsx("Projects", withPic, [[...importRowOf(fresh, salesKeys), other.name]]), mapping: suggestMapping(withPic) });
+    // A different PIC from a Sales sheet is refused by name.
+    expect(refused).toMatchObject({ ok: true, summary: { errors: 1, toUpdate: 0 } });
+    expect(JSON.stringify(refused)).toContain("Technical PIC");
   });
 });

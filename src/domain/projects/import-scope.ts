@@ -30,7 +30,7 @@ const ALWAYS: readonly ImportFieldKey[] = ["endUser", "name", "code", "descripti
 const GROUPS: Record<Exclude<keyof ImportScope, "identity" | "place">, readonly ImportFieldKey[]> = {
   owner: ["salesPic", "source", "externalSourceName"],
   commercial: ["progress", "status", "estimatedValue", "targetMarginAmount", "targetMarginPercent", "quoteReleasedAt", "targetDate"],
-  technical: ["principals", "solution"],
+  technical: ["principals", "solution", "technicalPic"],
 };
 
 /** The columns a role's template and export carry, in the template's order. */
