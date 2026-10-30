@@ -43,12 +43,12 @@ async function Permissions() {
         title="Permissions"
         summary={
           editable
-            ? "What each role may do, as the server enforces it. Tick or clear a box and save to grant or revoke a permission. Every change is written to the audit log."
-            : "What each role may do, as the server enforces it. Only a superadmin can change these."
+            ? "Hak akses tiap peran, sesuai yang diterapkan server. Ubah kotak centang lalu simpan; setiap perubahan masuk audit log."
+            : "Hak akses tiap peran, sesuai yang diterapkan server. Hanya Superadmin yang dapat mengubahnya."
         }
       />
       <p className="mb-3 text-sm text-muted-foreground">
-        {ALL_PERMISSIONS.length} permissions in {permissionsByCategory().length} categories. {overrides.length === 0 ? "Every role has its built-in permissions." : `${overrides.length} permission${overrides.length === 1 ? " is" : "s are"} changed from the built-in defaults.`}
+        {ALL_PERMISSIONS.length} hak akses dalam {permissionsByCategory().length} kategori. {overrides.length === 0 ? "Semua peran memakai hak akses bawaan." : `${overrides.length} hak akses berbeda dari bawaan.`}
       </p>
       <PermissionMatrix
         categories={permissionsByCategory()}

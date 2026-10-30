@@ -106,7 +106,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
       {view === "charts" ? <PipelineCharts analytics={analytics} scope={scope} /> : null}
 
       {view === "table" ? (
-      <Card className="mb-8">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">
             <h2>{ownerId ? "My projects" : "Projects"}</h2>

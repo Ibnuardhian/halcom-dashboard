@@ -10,7 +10,7 @@ function Scorecard({ label, value, href, note }: { label: string; value: number;
   return (
     <Link href={href} className="group block rounded-xl ring-1 ring-foreground/10 transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
       <div className="flex flex-col gap-1 p-4">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <span className="text-3xl font-semibold tabular-nums text-primary">{value}</span>
         {note ? <span className="text-xs text-muted-foreground">{note}</span> : null}
       </div>
@@ -24,7 +24,7 @@ function Scorecard({ label, value, href, note }: { label: string; value: number;
  */
 export function WorkOverview({ stats }: { stats: WorkStats }) {
   return (
-    <section aria-label="Work overview" className="mb-8 flex flex-col gap-4">
+    <section aria-label="Work overview" className="mb-6 flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Scorecard label="Active projects" value={stats.projectsActive} href={PROJECTS_PATH} />
         {REQUEST_TYPES.map((type) => (

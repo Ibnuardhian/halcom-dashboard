@@ -27,7 +27,7 @@ async function Backups() {
     <>
       <DashboardHeader
         title="Backups"
-        summary="Hasil dump PostgreSQL yang disimpan ke folder di mesin host. Aplikasi hanya menambahkan berkas baru; tidak pernah menghapus atau memulihkan berkas yang ada."
+        summary="Cadangan PostgreSQL di folder host. Aplikasi hanya menambah berkas baru."
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <Card>

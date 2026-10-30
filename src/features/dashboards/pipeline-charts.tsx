@@ -60,7 +60,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
   const by = (name: "principal" | "solution" | "industry" | "owner"): SliceHref => (slice) => (slice.drill && slice.drill.length > 0 ? to({ [name]: slice.drill }) : null);
   const principal = by("principal");
   return (
-    <section aria-label="Pipeline charts" className="mb-8 grid gap-4 lg:grid-cols-2">
+    <section aria-label="Pipeline charts" className="mb-6 grid gap-4 lg:grid-cols-2">
       <ChartCard title="Sales funnel" description="Funnel Proyek & Estimasi Nilai (Tanpa Closed Lost)">
         <FunnelChart items={buildFunnel(analytics.byProgress).map((s) => ({ key: s.key, label: s.label, count: s.count, display: formatCompact(s.value), href: to({ reached: s.key }) }))} />
       </ChartCard>
@@ -121,10 +121,10 @@ export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }
   const by = (name: "principal" | "solution" | "industry"): SliceHref => (slice) => (slice.drill && slice.drill.length > 0 ? to({ [name]: slice.drill }) : null);
   const principal = by("principal");
   return (
-    <section aria-label="Project charts" className="mb-8 grid gap-4 lg:grid-cols-2">
+    <section aria-label="Project charts" className="mb-6 grid gap-4 lg:grid-cols-2">
       <ChartCard title="PIC Workload" description="Hanya project yang masih open (belum Closed Won/Lost dan belum Done), per PIC SOA. Project yang sudah ditutup tidak dihitung. Tanpa PIC tampil sebagai Not set.">
         <BarList
-          items={analytics.bySoaPic.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s) }))}
+          items={analytics.bySoaPic.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s), href: s.drill && s.drill.length > 0 ? `${to({ soaPic: s.drill })}&show=open` : null }))}
           allowEmpty
           emptyText="Belum ada open project."
         />

@@ -388,7 +388,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
               <h2>3. Periksa dan impor</h2>
             </CardTitle>
             <CardDescription>
-              {summary.totalRows} baris di “{summary.sheetName}”: <strong>{summary.ready}</strong> siap, <strong>{summary.duplicates}</strong> duplikat (dilewati, tidak pernah diperbarui), <strong>{summary.errors}</strong> bermasalah. Tidak ada yang ditulis sebelum Anda mengimpor.
+              {summary.totalRows} baris di “{summary.sheetName}”: <strong>{summary.ready}</strong> siap, <strong>{summary.duplicates}</strong> duplikat (dilewati), <strong>{summary.errors}</strong> bermasalah. Data ditulis setelah Anda mengimpor.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -432,7 +432,7 @@ export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => v
             </CardTitle>
             <CardDescription>
               {updateSummary.totalRows} baris di “{updateSummary.sheetName}”: <strong>{updateSummary.toUpdate}</strong> akan diperbarui, <strong>{updateSummary.unchanged}</strong> tidak berubah,{" "}
-              <strong>{updateSummary.skipped}</strong> dilewati (Project ID tidak cocok), <strong>{updateSummary.errors}</strong> bermasalah. Tidak ada yang ditulis sebelum Anda memperbarui.
+              <strong>{updateSummary.skipped}</strong> dilewati (Project ID tidak cocok), <strong>{updateSummary.errors}</strong> bermasalah. Data ditulis setelah Anda memperbarui.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">

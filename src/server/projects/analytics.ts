@@ -171,7 +171,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
 
     if (isOpenProject(project.progress, project.trackStatus)) {
       totals.open += 1;
-      add(soaPics, project.soaPic?.id ?? UNSET, project.soaPic?.name ?? UNSET, estimated, weighted, undefined, project.id);
+      add(soaPics, project.soaPic?.id ?? UNSET, project.soaPic?.name ?? UNSET, estimated, weighted, project.soaPic ? undefined : FILTER_NONE, project.id);
       totals.openValue += estimated ?? 0;
       totals.openWeighted += weighted ?? 0;
       const atPropose = PROPOSE_OR_BEYOND.includes(project.progress);

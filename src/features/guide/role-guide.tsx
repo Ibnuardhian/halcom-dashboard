@@ -133,7 +133,7 @@ export function RoleGuide({ sections, initialRole }: { sections: readonly RoleSe
 function Bullets({ title, items, empty }: { title: string; items: readonly string[]; empty?: string }) {
   return (
     <section className="rounded-xl border bg-card p-4">
-      <h4 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h4>
+      <h4 className="mb-2 text-xs font-semibold text-muted-foreground">{title}</h4>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty ?? "Nothing."}</p>
       ) : (
@@ -175,7 +175,7 @@ function StepCard({ step, index }: { step: StepView; index: number }) {
         </Item>
       </dl>
       <div className="mt-3 text-sm">
-        <h5 className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Steps</h5>
+        <h5 className="mb-1 text-xs font-semibold text-muted-foreground">Steps</h5>
         <ol className="list-decimal space-y-1 pl-5">
           {step.steps.map((line) => (
             <li key={line}>{line}</li>
@@ -183,12 +183,12 @@ function StepCard({ step, index }: { step: StepView; index: number }) {
         </ol>
       </div>
       <p className="mt-3 text-sm">
-        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Handoff: </span>
+        <span className="text-xs font-semibold text-muted-foreground">Handoff: </span>
         {step.handoff}
       </p>
       {step.links.length > 0 ? (
         <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Open</span>
+          <span className="text-xs font-semibold text-muted-foreground">Open</span>
           {step.links.map((link) => (
             <Link key={link.href} href={link.href} className="text-primary underline-offset-4 hover:underline">
               {link.label}
@@ -203,7 +203,7 @@ function StepCard({ step, index }: { step: StepView; index: number }) {
 function Item({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</dt>
+      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
       <dd>{children}</dd>
     </div>
   );

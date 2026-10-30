@@ -23,7 +23,7 @@ export async function RoleQueue({ viewer, dashboard }: { viewer: SessionUser; da
   const config = QUEUES()[dashboard];
   const rows = await listRequests(getDb(), viewer, config.filter);
   return (
-    <Card className="mb-8">
+    <Card className="mb-6">
       <CardHeader>
         <CardTitle className="text-base">
           <h2>{config.title}</h2>

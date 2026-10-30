@@ -25,7 +25,7 @@ async function TechnicalReport() {
     <>
       <DashboardHeader
         title="Technical Reports"
-        summary="Request BOQ per bulan kalender (waktu Jakarta): berapa yang masuk, berapa yang selesai, seberapa baik SLA terpenuhi, dan berapa lama waktu BOQ dari pengajuan sampai selesai."
+        summary="Request BOQ per bulan (waktu Jakarta): jumlah masuk, jumlah selesai, kepatuhan SLA, dan lama pengerjaan."
       />
       <div className="mb-4 flex justify-end">
         <a href="/export/technical-report" className={buttonVariants({ variant: "outline" })}>

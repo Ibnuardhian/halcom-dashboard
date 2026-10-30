@@ -29,7 +29,7 @@ async function Handoffs() {
     <>
       <DashboardHeader
         title="Purchasing Handoff"
-        summary="BOQ yang sudah selesai dan ke mana tindak lanjutnya. BOQ yang selesai tidak pernah mengesahkan pembelian dengan sendirinya: harus ada yang memutuskan apakah dilanjutkan ke Purchasing sebagai RFQ."
+        summary="BOQ yang sudah selesai dan tindak lanjutnya. Seseorang harus memutuskan apakah BOQ dilanjutkan ke Purchasing sebagai RFQ."
       />
       <Card className="mb-6">
         <CardHeader>

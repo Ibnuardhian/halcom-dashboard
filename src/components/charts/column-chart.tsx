@@ -16,35 +16,35 @@ export function ColumnChart({ items, color = 0, height = 160 }: { items: ColumnI
   if (items.length === 0 || max === 0) return <ChartEmpty>Belum ada nilai yang diisi.</ChartEmpty>;
   return (
     <div className="overflow-x-auto pb-2" role="region" aria-label="Scroll sideways to see every step" tabIndex={0}>
-    <ul className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(4.75rem, 1fr))` }}>
-      {items.map((item) => {
-        const column = (
-          <>
-            <span className="mb-1 text-[11px] leading-tight tabular-nums">{item.display}</span>
-            <div className="flex w-full items-end justify-center" style={{ height }} aria-hidden>
-              <div
-                className="w-full max-w-10 rounded-t-md"
-                style={{ height: item.value === 0 ? 2 : `${Math.max(2, (item.value / max) * 100)}%`, background: seriesColor(color) }}
-              />
-            </div>
-            <span className="mt-1.5 text-center text-[11px] leading-tight break-words text-muted-foreground">{item.label}</span>
-            {item.note ? <span className="text-[10px] leading-tight text-muted-foreground">{item.note}</span> : null}
-          </>
-        );
-        const summary = `${item.label}: ${item.display}${item.note ? ` (${item.note})` : ""}`;
-        return (
-          <li key={item.key} className="flex min-w-0" title={summary}>
-            {item.href ? (
-              <Link href={item.href} aria-label={`${summary}. Show the projects.`} className={`${FRAME} ${LINK}`}>
-                {column}
-              </Link>
-            ) : (
-              <div className={FRAME}>{column}</div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+      <ul className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(4.75rem, 1fr))` }}>
+        {items.map((item) => {
+          const column = (
+            <>
+              <span className="mb-1 text-[11px] leading-tight tabular-nums">{item.display}</span>
+              <div className="flex w-full items-end justify-center" style={{ height }} aria-hidden>
+                <div
+                  className="w-full max-w-10 rounded-t-md"
+                  style={{ height: item.value === 0 ? 2 : `${Math.max(2, (item.value / max) * 100)}%`, background: seriesColor(color) }}
+                />
+              </div>
+              <span className="mt-1.5 text-center text-[11px] leading-tight break-words text-muted-foreground">{item.label}</span>
+              {item.note ? <span className="text-[10px] leading-tight text-muted-foreground">{item.note}</span> : null}
+            </>
+          );
+          const summary = `${item.label}: ${item.display}${item.note ? ` (${item.note})` : ""}`;
+          return (
+            <li key={item.key} className="flex min-w-0" title={summary}>
+              {item.href ? (
+                <Link href={item.href} aria-label={`${summary}. Show the projects.`} className={`${FRAME} ${LINK}`}>
+                  {column}
+                </Link>
+              ) : (
+                <div className={FRAME}>{column}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

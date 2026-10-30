@@ -80,6 +80,7 @@ export type ProjectFilter = {
   principalKeys?: readonly string[];
   solutionKeys?: readonly string[];
   ownerKeys?: readonly string[];
+  soaPicKeys?: readonly string[];
   industryKeys?: readonly string[];
 };
 
@@ -212,6 +213,10 @@ function chartClauses(filter: ProjectFilter): Prisma.ProjectWhereInput[] {
   if (filter.ownerKeys?.length) {
     const ids = filter.ownerKeys.filter((key) => key !== FILTER_NONE && key !== FILTER_EXTERNAL);
     clauses.push({ OR: [...(ids.length > 0 ? [{ salesOwnerId: { in: ids } }] : []), ...(filter.ownerKeys.includes(FILTER_EXTERNAL) || filter.ownerKeys.includes(FILTER_NONE) ? [{ salesOwnerId: null }] : [])] });
+  }
+  if (filter.soaPicKeys?.length) {
+    const ids = filter.soaPicKeys.filter((key) => key !== FILTER_NONE);
+    clauses.push({ OR: [...(ids.length > 0 ? [{ soaPicId: { in: ids } }] : []), ...(filter.soaPicKeys.includes(FILTER_NONE) ? [{ soaPicId: null }] : [])] });
   }
   return clauses;
 }

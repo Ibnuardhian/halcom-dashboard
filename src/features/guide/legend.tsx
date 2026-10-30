@@ -15,7 +15,7 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
   return (
     <section aria-label="Legend" data-testid="guide-legend" className="grid gap-4 rounded-xl border bg-card p-4 text-sm md:grid-cols-2 lg:grid-cols-4">
       <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Colour = your role</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">Colour = your role</h3>
         <p className="flex items-start gap-2">
           <span aria-hidden className="mt-0.5 inline-flex h-5 w-8 shrink-0 items-center justify-center rounded border border-primary bg-primary/10 ring-2 ring-primary/40">
             <UserCheck className="size-3" />
@@ -34,7 +34,7 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Roles</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">Roles</h3>
         <ul className="flex flex-col gap-1">
           {GUIDE_LANES.map((role) => {
             const Icon = ROLE_ICONS[role];
@@ -51,7 +51,7 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Arrows</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">Arrows</h3>
         <ul className="flex flex-col gap-2">
           <Line label="Handoff: pekerjaan berpindah ke peran lain" strokeWidth={3} />
           <Line label="Berlanjut di peran yang sama" strokeWidth={1.75} />
@@ -60,7 +60,7 @@ export function GuideLegend({ activeRoles, ownRoles }: { activeRoles: readonly R
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Step types</h3>
+        <h3 className="text-xs font-semibold text-muted-foreground">Step types</h3>
         <ul className="flex flex-col gap-1">
           {KINDS.map((kind) => {
             const Icon = KIND_ICONS[kind];

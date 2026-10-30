@@ -390,7 +390,7 @@ function NodeButton({
       onBlur={onHide}
       onClick={onToggle}
     >
-      <span className="flex items-center justify-between gap-1 text-[11px] font-semibold tracking-wide uppercase">
+      <span className="flex items-center justify-between gap-1 text-[11px] font-semibold">
         <span className="inline-flex items-center gap-1">
           <RoleIcon aria-hidden className="size-3 shrink-0" />
           {ROLE_LABELS[node.role]}

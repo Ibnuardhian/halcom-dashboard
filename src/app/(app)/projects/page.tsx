@@ -82,12 +82,14 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     principalKeys: otherPrincipals,
     solutionKeys: drill.solution,
     ownerKeys: drill.owner,
+    soaPicKeys: drill.soaPic,
     industryKeys: drill.industry,
   };
   // Names for the chart filters, so the page says what it is showing.
-  const [solutionNames, ownerNames] = await Promise.all([
+  const [solutionNames, ownerNames, soaPicNames] = await Promise.all([
     drill.solution?.some((key) => key !== FILTER_NONE) ? getDb().solutionCategory.findMany({ where: { id: { in: drill.solution.filter((key) => key !== FILTER_NONE) } }, select: { id: true, name: true } }) : [],
     drill.owner?.some((key) => key !== FILTER_NONE && key !== FILTER_EXTERNAL) ? getDb().user.findMany({ where: { id: { in: drill.owner.filter((key) => key !== FILTER_NONE && key !== FILTER_EXTERNAL) } }, select: { id: true, name: true } }) : [],
+    drill.soaPic?.some((key) => key !== FILTER_NONE) ? getDb().pic.findMany({ where: { id: { in: drill.soaPic.filter((key) => key !== FILTER_NONE) } }, select: { id: true, name: true } }) : [],
   ]);
   const describe = (keys: readonly string[] | undefined, names: readonly { id: string; name: string }[], noneLabel: string, extraLabel?: string) =>
     (keys ?? []).map((key) => (key === FILTER_NONE ? noneLabel : key === FILTER_EXTERNAL ? (extraLabel ?? noneLabel) : (names.find((n) => n.id === key)?.name ?? "unknown"))).join(", ");
@@ -97,6 +99,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     drill.solution?.length ? `solution: ${describe(drill.solution, solutionNames, "Not set")}` : null,
     drill.industry?.length ? `industry: ${drill.industry.map((key) => (key === FILTER_NONE ? "Not set" : key)).join(", ")}` : null,
     drill.owner?.length ? `Sales PIC: ${describe(drill.owner, ownerNames, "Not set", "Other (no internal Sales PIC)")}` : null,
+    drill.soaPic?.length ? `Technical PIC (SOA): ${describe(drill.soaPic, soaPicNames, "Not set")}` : null,
   ].filter((text): text is string => text !== null);
   // Rows per page: 25, 50, 100 or all. Anything else falls back to the default; the page number is clamped by the query.
   const wantedSize = one(query.per);
@@ -118,6 +121,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     for (const key of otherPrincipals) params.append("principal", key);
     if (drill.reached) params.set("reached", drill.reached);
     for (const name of ["solution", "industry", "owner"] as const) for (const value of drill[name] ?? []) params.append(name, value);
+    for (const value of drill.soaPic ?? []) params.append("soapic", value);
     if (show) params.set("show", show);
     if (sourceType) params.set("source", sourceType);
     if (mine) params.set("mine", "1");
@@ -139,7 +143,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     <>
       <DashboardHeader
         title="Projects"
-        summary="Semua proyek dalam pipeline, terbaru di atas. Nilai berupa angka biasa (diasumsikan dalam Rupiah/IDR); weighted value dihitung dari estimated value dikali probability."
+        summary="Semua proyek di pipeline, terbaru di atas. Nilai dalam IDR; weighted value = estimated value × probability."
       />
       <div className="mb-4 flex flex-col gap-3">
         <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]">
@@ -148,6 +152,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           {drill.reached ? <input type="hidden" name="reached" value={drill.reached} /> : null}
           {otherPrincipals.map((key) => <input key={`principal-${key}`} type="hidden" name="principal" value={key} />)}
           {(["solution", "industry", "owner"] as const).flatMap((name) => (drill[name] ?? []).map((value) => <input key={`${name}-${value}`} type="hidden" name={name} value={value} />))}
+          {(drill.soaPic ?? []).map((value) => <input key={`soapic-${value}`} type="hidden" name="soapic" value={value} />)}
           {pageSize !== DEFAULT_PROJECT_PAGE_SIZE ? <input type="hidden" name="per" value={String(pageSize)} /> : null}
           <Input name="q" defaultValue={search} placeholder="Cari project" title="Cari berdasarkan kode, customer, project, PIC, principal, atau external source" aria-label="Search projects" maxLength={100} />
           <NativeSelect name="progress" defaultValue={progress ?? ""} aria-label="Progress">

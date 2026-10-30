@@ -42,7 +42,7 @@ export function NodeDetails({ node, headingId }: { node: ChartNode; headingId?: 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</dt>
+      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
       <dd>{children}</dd>
     </div>
   );

@@ -78,7 +78,7 @@ async function Guide() {
     <>
       <DashboardHeader
         title="User Guide"
-        summary={`Bagaimana proyek bergerak dari Sales ke SOA dan Purchasing, dan apa yang dilakukan setiap peran. Anda masuk sebagai ${ROLE_LABELS[user.role]}; langkah-langkah yang melibatkan Anda ditandai.`}
+        summary={`Alur proyek dari Sales ke SOA dan Purchasing, dan tugas tiap peran. Langkah milik ${ROLE_LABELS[user.role]} ditandai.`}
       />
 
       <Card className="mb-6">

@@ -122,7 +122,7 @@ async function MasterData() {
 
   return (
     <>
-      <DashboardHeader title="Master data" summary="Daftar yang dipakai untuk mengklasifikasikan project dan customer. Pilih tab, cari nama, lalu klik Edit untuk mengubah atau menghapus." />
+      <DashboardHeader title="Master data" summary="Daftar klasifikasi project dan customer. Pilih tab, cari nama, lalu klik Edit." />
       <ProjectTabs tabs={tabs} defaultTab="principal" label="Master data" />
     </>
   );

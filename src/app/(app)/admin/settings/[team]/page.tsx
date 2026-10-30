@@ -38,7 +38,7 @@ async function TeamSla({ params }: Pick<PageProps<"/admin/settings/[team]">, "pa
     <>
       <DashboardHeader
         title={team.title}
-        summary={`Batas waktu tim ${team.label} menjawab request (hari kerja) dan email yang dikirim Sales ke tim ini. ${team.note} Aplikasi tidak mengirim email: aplikasi mengisi template dan membuka draf.${mayEdit ? "" : " Anda hanya dapat membaca kebijakan ini; hanya Superadmin yang mengubahnya."}`}
+        summary={`Batas waktu jawaban tim ${team.label} dan template email dari Sales. ${team.note} Aplikasi mengisi template dan membuka draf di klien email Anda.${mayEdit ? "" : " Hanya Superadmin yang dapat mengubahnya."}`}
       />
 
       <Card className="mb-6">
@@ -88,15 +88,15 @@ async function TeamSla({ params }: Pick<PageProps<"/admin/settings/[team]">, "pa
           ) : (
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">SLA (hari kerja)</dt>
+                <dt className="text-xs font-medium text-muted-foreground">SLA (hari kerja)</dt>
                 <dd>{formatSlaRange(setting.sla)}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Kirim ke (To) / Tembusan (CC)</dt>
+                <dt className="text-xs font-medium text-muted-foreground">Kirim ke (To) / Tembusan (CC)</dt>
                 <dd className="font-mono text-xs break-words">{setting.emailTo || "Pengaturan server"} / {setting.emailCc || "–"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Subjek email</dt>
+                <dt className="text-xs font-medium text-muted-foreground">Subjek email</dt>
                 <dd className="font-mono text-xs break-words">{setting.emailSubject}</dd>
               </div>
             </dl>

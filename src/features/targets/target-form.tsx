@@ -16,8 +16,8 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
     <form key={formKey} action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="year" value={year} />
       <div className="grid gap-x-6 gap-y-4 sm:grid-cols-[6rem_minmax(0,24rem)] sm:items-end">
-        <span className="hidden text-xs font-semibold tracking-wide text-muted-foreground uppercase sm:block">Quarter</span>
-        <span className="hidden text-xs font-semibold tracking-wide text-muted-foreground uppercase sm:block">Gross profit target</span>
+        <span className="hidden text-xs font-semibold text-muted-foreground sm:block">Quarter</span>
+        <span className="hidden text-xs font-semibold text-muted-foreground sm:block">Gross profit target</span>
         {QUARTERS.map((q) => (
           <div key={q} className="contents">
             <div className="text-sm font-medium sm:pb-2">

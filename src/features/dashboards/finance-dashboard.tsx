@@ -40,7 +40,7 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
         ))}
       </section>
 
-      <Card className="mb-8">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">
             <h2>Projects to check</h2>
@@ -78,7 +78,7 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
           )}
         </CardContent>
       </Card>
-      <p className="mb-8 text-xs text-muted-foreground">
+      <p className="mb-6 text-xs text-muted-foreground">
         Won value {formatCompact(analytics.totals.wonValue)} across {analytics.totals.wonCount} project{analytics.totals.wonCount === 1 ? "" : "s"}.{" "}
         <Link href={CROSSCHECK_PATH} className={buttonVariants({ variant: "link", size: "sm" })}>
           Financial Crosscheck

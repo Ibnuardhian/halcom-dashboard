@@ -4,7 +4,7 @@ import Link from "next/link";
 export function StatTile({ label, value, note, href }: { label: string; value: string | number; note?: string; href?: string }) {
   const body = (
     <div className="flex flex-col gap-1 p-4">
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <span className="text-2xl font-semibold tabular-nums text-primary sm:text-3xl">{value}</span>
       {note ? <span className="text-xs text-muted-foreground">{note}</span> : null}
     </div>

@@ -37,7 +37,7 @@ async function Customers({ searchParams }: Pick<PageProps<"/customers">, "search
     <>
       <DashboardHeader
         title="Customers"
-        summary="Perusahaan end-user dari proyek-proyek Anda. Customer baru ditambahkan otomatis saat proyek dibuat dengan nama end-user company baru; nama yang sama dianggap satu customer. Klik sebuah customer untuk memilih industrinya dari daftar; Admin atau Superadmin mengubah daftarnya di Master Data."
+        summary="Perusahaan end-user dari proyek Anda. Klik customer untuk memilih industrinya."
       />
       <form role="search" className="mb-4 flex gap-2">
         <Input name="q" defaultValue={search} placeholder="Cari customer" aria-label="Search customers" maxLength={100} className="max-w-md" />

@@ -42,8 +42,8 @@ async function NewRequest({ searchParams }: Pick<PageProps<"/requests/new">, "se
         title="New request"
         summary={
           raisesRfqOnly
-            ? "Raise an RFQ (quotation / pricing) for an existing project. Narrow the projects by Sales PIC or SOA PIC if that helps: the RFQ comes to Purchasing, is told to the project's Sales PIC and SOA PIC, and shows on the Sales dashboard of its Sales PIC."
-            : "Ask SOA for a BOQ, or ask Purchasing for an RFQ (quotation / pricing). The flow is BOQ, RFQ, PO: a BOQ can be skipped, and a PO is raised once the RFQ of the project is completed. Every request belongs to a project."
+            ? "Ajukan RFQ (quotation/harga) untuk project yang ada. RFQ masuk ke Purchasing dan diberitahukan ke Sales PIC dan SOA PIC project."
+            : "Minta BOQ ke SOA atau RFQ ke Purchasing. Alurnya BOQ, RFQ, lalu PO; BOQ boleh dilewati, dan PO diajukan setelah RFQ project selesai."
         }
       />
       <Card>

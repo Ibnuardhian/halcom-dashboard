@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { rankRows } from "./rank";
 import { ChartEmpty, seriesColor } from "./chart-card";
 
 /** `href`, when given, makes the slice's legend row a link to the records behind it. */
@@ -6,14 +7,15 @@ export type DonutItem = { key: string; label: string; value: number; display?: s
 
 const RADIUS = 15.9155; // circumference 100, so a stroke length is a percentage
 const GAP = 0.8;
-const LINK = "rounded-md outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring";
+const ROW = "-mx-2 rounded-md px-2 py-1";
+const LINK = "outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * A donut for the composition of a whole (a few parts). The legend beside it is the data table: label, value and
- * share for every slice, so identity never depends on colour alone. Slices keep their order and colour.
+ * share for every slice, so identity never depends on colour alone. Slices run from the largest to the smallest ("Not set" and "Other" last) and keep that colour.
  */
 export function DonutChart({ items, unit = "projects", centre }: { items: DonutItem[]; unit?: string; centre?: string }) {
-  const parts = items.filter((item) => item.value > 0);
+  const parts = rankRows(items.filter((item) => item.value > 0));
   const total = parts.reduce((sum, item) => sum + item.value, 0);
   if (total === 0) return <ChartEmpty />;
   const starts = parts.map((_, index) => (parts.slice(0, index).reduce((sum, item) => sum + item.value, 0) / total) * 100);
@@ -40,7 +42,7 @@ export function DonutChart({ items, unit = "projects", centre }: { items: DonutI
           </text>
         </g>
       </svg>
-      <ul className="grid w-full min-w-0 gap-1 text-sm">
+      <ul className="grid w-full min-w-0 gap-0.5 text-sm">
         {parts.map((item, index) => {
           const row = (
             <>
@@ -53,11 +55,11 @@ export function DonutChart({ items, unit = "projects", centre }: { items: DonutI
           return (
             <li key={item.key}>
               {item.href ? (
-                <Link href={item.href} aria-label={`${item.label}: ${item.display ?? item.value}. Show the projects.`} className={`flex items-center gap-2 px-1 py-0.5 ${LINK}`}>
+                <Link href={item.href} aria-label={`${item.label}: ${item.display ?? item.value}. Show the projects.`} className={`flex items-center gap-2 ${ROW} ${LINK}`}>
                   {row}
                 </Link>
               ) : (
-                <div className="flex items-center gap-2 px-1 py-0.5">{row}</div>
+                <div className={`flex items-center gap-2 ${ROW}`}>{row}</div>
               )}
             </li>
           );

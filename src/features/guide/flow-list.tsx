@@ -25,7 +25,7 @@ export function FlowList({ nodes, activeRoles, ownRoles }: { nodes: readonly Cha
               <summary className="flex cursor-pointer flex-col gap-1 px-4 py-3 select-none">
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold">
                   <span className="tabular-nums">Step {index + 1}</span>
-                  <span className="inline-flex items-center gap-1 uppercase">
+                  <span className="inline-flex items-center gap-1">
                     <RoleIcon aria-hidden className="size-3.5" />
                     {ROLE_LABELS[node.role]}
                   </span>

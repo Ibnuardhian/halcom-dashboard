@@ -17,7 +17,7 @@ export const SHARED_DASHBOARD: DashboardDefinition = {
   widgets: [
     {
       title: "Project progress",
-      description: "Status milestone per proyek. Tidak pernah disimpulkan hanya dari jumlah tiket yang ditutup.",
+      description: "Status milestone per proyek, dihitung dari milestone yang tercapai.",
     },
     { title: "Incoming vs completed", description: "Tren request baru dan request yang selesai dari waktu ke waktu." },
     { title: "SLA state", description: "Jumlah yang on track, berisiko, dan terlambat. Menampilkan “belum diatur” sampai target SLA disetujui." },

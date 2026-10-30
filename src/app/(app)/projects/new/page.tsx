@@ -38,7 +38,7 @@ async function NewProject({ searchParams }: Pick<PageProps<"/projects/new">, "se
   const defaultType = typeof wanted === "string" && isRequestType(wanted.toUpperCase()) ? (wanted.toUpperCase() as RequestType) : "";
   return (
     <>
-      <DashboardHeader title="New project" summary="Isi data proyek, dan pada form yang sama pilih apakah proyek ini perlu request BOQ, RFQ, atau PO." />
+      <DashboardHeader title="New project" summary="Isi data proyek, lalu pilih request BOQ, RFQ, atau PO yang perlu diajukan." />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">

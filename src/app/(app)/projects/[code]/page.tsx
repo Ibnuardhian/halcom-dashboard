@@ -71,7 +71,7 @@ function Section({ id, title, description, children }: { id: string; title: stri
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{children}</h3>;
+  return <h3 className="mb-1 text-xs font-medium text-muted-foreground">{children}</h3>;
 }
 
 async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code]">, "params" | "searchParams">) {

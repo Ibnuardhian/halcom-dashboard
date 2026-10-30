@@ -26,7 +26,7 @@ async function Notifications() {
 
   return (
     <>
-      <DashboardHeader title="Notifications" summary="Request yang masuk ke tim Anda, dan perubahan yang dibuat divisi lain pada proyek yang Anda kerjakan." />
+      <DashboardHeader title="Notifications" summary="Request baru untuk tim Anda dan perubahan divisi lain pada proyek Anda." />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p role="status" className="text-sm text-muted-foreground">
           {unread === 0 ? "You are all caught up." : `${unread} unread`}

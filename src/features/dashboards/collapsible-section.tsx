@@ -17,7 +17,7 @@ export function CollapsibleSection({
   children: React.ReactNode;
 }) {
   return (
-    <details open={open} data-testid={`section-${id}`} className="group mb-8 rounded-xl ring-1 ring-foreground/10">
+    <details open={open} data-testid={`section-${id}`} className="group mb-6 rounded-xl ring-1 ring-foreground/10">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-base font-semibold select-none marker:content-none">
         <span aria-hidden="true" className="inline-block text-muted-foreground transition-transform group-open:rotate-90">
           ▸

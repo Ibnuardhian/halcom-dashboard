@@ -46,7 +46,7 @@ export function ExportDialog() {
           </div>
           {GROUPS.map((group) => (
             <fieldset key={group} className="flex flex-col gap-2">
-              <legend className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group}</legend>
+              <legend className="mb-1 text-xs font-semibold text-muted-foreground">{group}</legend>
               <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                 {EXPORT_COLUMNS.filter((column) => column.group === group).map((column) => (
                   <label key={column.key} className="flex items-center gap-2 text-sm">

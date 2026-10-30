@@ -33,7 +33,7 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
     <>
       <DashboardHeader
         title={request.code}
-        summary={`${REQUEST_TYPE_LABELS[request.type]} for ${request.project.endUserCompany}, ${request.project.name}`}
+        summary={`${REQUEST_TYPE_LABELS[request.type]} untuk ${request.project.endUserCompany}, ${request.project.name}`}
       />
       <RequestPanel request={request} viewer={viewer} />
     </>

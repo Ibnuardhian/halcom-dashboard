@@ -24,7 +24,7 @@ async function Pics() {
     <>
       <DashboardHeader
         title="PICs"
-        summary="Orang-orang yang menjadi tujuan tiket SOA dan Purchasing. PIC bukan akun login: setiap tim masuk dengan satu akun bersama, dan Workload by assignee menghitung jumlah request per PIC."
+        summary="Tujuan tiket SOA dan Purchasing. PIC bukan akun login; setiap tim memakai satu akun bersama."
       />
       <div className="grid gap-6 xl:grid-cols-2">
         {PIC_TEAMS.map((team) => {
@@ -36,7 +36,7 @@ async function Pics() {
                   <h2>{PIC_TEAM_LABELS[team]} PICs</h2>
                 </CardTitle>
                 <CardDescription>
-                  {own.filter((pic) => pic.isActive).length} active of {own.length}. A PIC is deactivated, never deleted: the requests it held and the assignment history keep its name.
+                  {own.filter((pic) => pic.isActive).length} aktif dari {own.length}. PIC dinonaktifkan agar request dan riwayat penugasannya tetap memuat namanya.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">

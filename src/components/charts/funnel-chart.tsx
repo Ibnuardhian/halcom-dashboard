@@ -5,7 +5,8 @@ import { ChartEmpty, seriesColor } from "./chart-card";
 export type FunnelItem = { key: string; label: string; count: number; display: string; href?: string | null };
 
 const LINK = "rounded-md outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring";
-const GRID = "grid grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-2 text-xs";
+// Same inner padding as the bar and donut rows, so linked and plain rows line up.
+const GRID = "-mx-2 grid grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1 text-xs";
 
 /**
  * A funnel: one centred bar per step, as wide as the number of projects that reached it. The count and the value sit in
@@ -15,7 +16,7 @@ export function FunnelChart({ items }: { items: FunnelItem[] }) {
   const max = Math.max(0, ...items.map((item) => item.count));
   if (items.length === 0 || max === 0) return <ChartEmpty>Belum ada project.</ChartEmpty>;
   return (
-    <ol className="flex flex-col gap-1.5">
+    <ol className="flex flex-col gap-0.5">
       {items.map((item, index) => {
         const row = (
           <>

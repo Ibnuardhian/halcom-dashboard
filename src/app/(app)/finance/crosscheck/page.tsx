@@ -39,7 +39,7 @@ async function Crosscheck({ searchParams }: Pick<PageProps<"/finance/crosscheck"
     <>
       <DashboardHeader
         title="Financial Crosscheck"
-        summary="Setiap proyek beserta nilainya, referensi quotation (RFQ) dan PO-nya, serta bagian yang tidak sesuai dengan progress-nya. Hanya untuk dibaca: tidak ada perubahan pada proyek atau request dari halaman ini."
+        summary="Nilai, referensi quotation (RFQ), dan PO tiap proyek, dengan bagian yang tidak sesuai progress. Hanya untuk dibaca."
       />
       <nav aria-label="Filter by flag" className="mb-3 flex flex-wrap gap-1.5">
         <Link href={CROSSCHECK_PATH} aria-current={!flag ? "true" : undefined} className={cn("rounded-full border px-3 py-1 text-xs font-medium hover:bg-muted", !flag && "border-primary bg-primary text-primary-foreground hover:bg-primary/90")}>

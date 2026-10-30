@@ -114,7 +114,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
           </CardHeader>
           <CardContent>
             {metrics.workload.length === 0 ? (
-              <p role="status" className="text-sm text-muted-foreground">No open requests.</p>
+              <p role="status" className="text-sm text-muted-foreground">Tidak ada request terbuka.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -129,7 +129,11 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
                     const person = row.assigneeId ?? "none";
                     return (
                       <TableRow key={person}>
-                        <TableCell className={row.assigneeId === null ? "text-muted-foreground" : undefined}>{row.name}</TableCell>
+                        <TableCell className={row.assigneeId === null ? "text-muted-foreground" : undefined}>
+                          <Link href={to(`assignee=${person}&status=open`)} className="underline-offset-4 hover:underline">
+                            {row.name}
+                          </Link>
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">
                           <Link href={to(`assignee=${person}&status=open`)} className="text-primary underline-offset-4 hover:underline">
                             {row.open}
@@ -162,7 +166,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
           </CardHeader>
           <CardContent>
             {metrics.bottlenecks.length === 0 ? (
-              <p role="status" className="text-sm text-muted-foreground">No open requests.</p>
+              <p role="status" className="text-sm text-muted-foreground">Tidak ada request terbuka.</p>
             ) : (
               <Table>
                 <TableHeader>

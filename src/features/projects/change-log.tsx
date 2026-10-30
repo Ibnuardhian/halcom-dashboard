@@ -29,11 +29,11 @@ export function ChangeLog({ changes }: { changes: ProjectChangeRow[] }) {
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <p>
-              <span className="mr-1 text-xs tracking-wide text-muted-foreground uppercase">From</span>
+              <span className="mr-1 text-xs text-muted-foreground">From</span>
               <Value value={change.fromValue} />
             </p>
             <p>
-              <span className="mr-1 text-xs tracking-wide text-muted-foreground uppercase">To</span>
+              <span className="mr-1 text-xs text-muted-foreground">To</span>
               <Value value={change.toValue} />
             </p>
           </div>

@@ -227,7 +227,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Pilih Continue to PO, atau Do not continue dan tulis alasannya di catatan.",
       ],
       editable: ["Note"],
-      handoff: "Melanjutkan akan membuat request PO untuk Purchasing. RFQ yang selesai tidak pernah mengesahkan pembelian dengan sendirinya.",
+      handoff: "Melanjutkan akan membuat request PO untuk Purchasing. Pembelian baru berjalan setelah seseorang memutuskan untuk melanjutkan RFQ.",
       links: [PROJECTS],
     },
   },
@@ -413,7 +413,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       "Ajukan RFQ sendiri untuk proyek yang sudah ada. Persempit daftar proyek berdasarkan Sales PIC atau SOA PIC; PIC proyek ditampilkan. RFQ masuk ke Purchasing dan juga diberitahukan ke Sales PIC dan SOA PIC proyek.",
     input: "Proyek, ringkasan satu baris (wajib), detail, dan tanggal Needed by (opsional). Opsional juga Sales PIC dan SOA PIC untuk mempersempit daftar proyek.",
     output:
-      "Request RFQ berstatus Submitted. Tim Purchasing, Sales PIC, dan SOA PIC proyek diberi tahu, dan RFQ tampil di Sales dashboard milik Sales PIC. Cara ini hanya untuk RFQ, tidak pernah untuk BOQ atau PO.",
+      "Request RFQ berstatus Submitted. Tim Purchasing, Sales PIC, dan SOA PIC proyek diberi tahu, dan RFQ tampil di Sales dashboard milik Sales PIC. Cara ini hanya berlaku untuk RFQ.",
     recipient: "Purchasing; Sales PIC dan SOA PIC proyek diberi tahu",
     guide: {
       where: "RFQ Requests → New RFQ request",
@@ -515,7 +515,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     action:
       "Bandingkan nilai setiap proyek dengan referensi quotation (RFQ) dan PO-nya serta dengan progress-nya. Flag: Closed Won tanpa final value, tanpa referensi PO, atau tanpa referensi quotation, dan PO selesai pada proyek yang belum Closed Won.",
     input: "Tidak ada yang perlu diisi. Opsional: filter berdasarkan flag, pencarian, dan unduh daftar sebagai CSV.",
-    output: "Daftar proyek beserta flag-nya, hanya untuk dibaca. Tidak ada yang mengubah proyek atau request dari halaman ini.",
+    output: "Daftar proyek beserta flag-nya, hanya untuk dibaca.",
     recipient: "Tidak ada: Finance membaca dan melapor lewat jalurnya sendiri",
     guide: {
       where: "Financial Crosscheck",

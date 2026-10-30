@@ -81,12 +81,12 @@ export function AppShell({ sections, user, accountHref, controls, notifications,
             <X aria-hidden />
           </Button>
         </div>
-        <p className="px-5 pb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{APP_TAGLINE}</p>
+        <p className="px-5 pb-2 text-xs font-semibold text-muted-foreground">{APP_TAGLINE}</p>
 
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4">
           {sections.map((section) => (
             <div key={section.group} className="mt-4 first:mt-0">
-              <h2 className="px-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{section.label}</h2>
+              <h2 className="px-3 pb-1 text-xs font-semibold text-muted-foreground">{section.label}</h2>
               <ul className="flex flex-col gap-0.5">
                 {section.links.map((link) => (
                   <li key={link.href}>

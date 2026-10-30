@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { ChartEmpty, seriesColor } from "./chart-card";
+import { rankRows } from "./rank";
 
 /** `href`, when given, makes the row a link to the records behind it. */
 export type BarItem = { key: string; label: string; value: number; display: string; note?: string; neutral?: boolean; href?: string | null };
 
-const LINK = "block rounded-md outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring";
+// Every row has the same inner padding, linked or not, so the labels line up and a hover highlight never touches the text.
+const ROW = "-mx-2 block rounded-md px-2 py-1";
+const LINK = `${ROW} outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring`;
 
 /**
- * Horizontal bars, one row per category, largest first as given. Every row carries its exact value as text, so
+ * Horizontal bars, one row per category, largest first. Every row carries its exact value as text, so
  * nothing depends on colour or on reading the bar length. One measure on one axis starting at zero.
  */
 export function BarList({
@@ -27,8 +30,8 @@ export function BarList({
   const max = scaleMax ?? Math.max(0, ...items.map((item) => item.value));
   if (items.length === 0 || (max === 0 && !allowEmpty)) return <ChartEmpty>{emptyText}</ChartEmpty>;
   return (
-    <ul className="flex flex-col gap-2.5">
-      {items.map((item) => {
+    <ul className="flex flex-col gap-1">
+      {rankRows(items).map((item) => {
         const row = (
           <>
             <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
@@ -51,7 +54,7 @@ export function BarList({
                 {row}
               </Link>
             ) : (
-              row
+              <div className={ROW}>{row}</div>
             )}
           </li>
         );

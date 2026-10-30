@@ -144,7 +144,7 @@ test("an admin updates existing projects from a sheet: end user, Sales PIC and p
     await expect(admin.getByRole("heading", { name: "2. Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
   await admin.getByRole("button", { name: "Periksa sheet" }).click();
-  await expect(admin.getByText(/Tidak ada yang ditulis sebelum Anda memperbarui/)).toContainText(/1\s+akan diperbarui,\s+0\s+tidak berubah/, { timeout: 30_000 });
+  await expect(admin.getByText(/Data ditulis setelah Anda memperbarui/)).toContainText(/1\s+akan diperbarui,\s+0\s+tidak berubah/, { timeout: 30_000 });
   await expect(admin.getByText(`End user: Bulk Old ${stamp} → Bulk New ${stamp}`)).toBeVisible();
   await expect(admin.getByText(`Principal: – → Bulk HPE ${stamp}; Bulk Aruba ${stamp}`)).toBeVisible();
 

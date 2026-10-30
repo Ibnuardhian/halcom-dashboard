@@ -92,7 +92,7 @@ export function TargetTracking({
 }) {
   const { notes } = summary;
   return (
-    <section aria-label="Target tracking" className="mb-8 flex flex-col gap-4">
+    <section aria-label="Target tracking" className="mb-6 flex flex-col gap-4">
       <nav aria-label="Year" className="inline-flex w-fit rounded-lg border p-0.5">
         {years.map((year) => (
           <Link
@@ -114,7 +114,7 @@ export function TargetTracking({
           ["Revenue forecast (weighted)", summary.total.revenue.forecast],
         ].map(([label, value]) => (
           <div key={label as string} className="rounded-xl p-4 ring-1 ring-foreground/10">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label as string}</span>
+            <span className="text-xs font-medium text-muted-foreground">{label as string}</span>
             <span className="mt-1 block text-2xl font-semibold text-primary tabular-nums">{value === null ? "Not set" : formatCompact(value as number)}</span>
           </div>
         ))}
