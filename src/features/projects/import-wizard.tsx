@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, Download, FileSpreadsheet } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -24,14 +24,14 @@ function columnLabel(index: number, header: string): string {
   return `${letters}: ${header || "(tanpa judul kolom)"}`;
 }
 
-/** What the wizard does: add new projects, or change existing ones found by Project ID. Each has its own dialog, so the two never share a screen. */
+/** What the uploaded file does: add new projects, or change existing ones found by Project ID. Both share the same three steps. */
 export type ImportFlow = "create" | "update";
 
 /**
  * Importing projects from an Excel sheet in three steps: choose the file, match its columns to the fields, check the rows and write.
  * The file is sent again with every step and checked again on the server; this component only holds what the person chose.
  */
-export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: ImportFlow }) {
+export function ImportWizard({ onClose, canUpdate = false }: { onClose?: () => void; canUpdate?: boolean }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -39,6 +39,8 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [mode, setMode] = useState<CommitMode>("atomic");
+  // Which template was downloaded decides it; the select in step 3 changes it. Only people who may bulk update are offered the second.
+  const [flow, setFlow] = useState<ImportFlow>("create");
   const [updateSummary, setUpdateSummary] = useState<UpdateSummary | null>(null);
   const [updateResult, setUpdateResult] = useState<Extract<UpdateCommitResult, { ok: true }> | null>(null);
   const [confirmNew, setConfirmNew] = useState(false);
@@ -137,6 +139,14 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
     });
   }
 
+  function changeFlow(next: ImportFlow) {
+    setFlow(next);
+    setSummary(null);
+    setUpdateSummary(null);
+    setConfirmNew(false);
+    setError(null);
+  }
+
   const changeMapping = (key: ImportFieldKey, value: string) => {
     setSummary(null);
     setUpdateSummary(null);
@@ -208,38 +218,29 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            <h2>1. Pilih berkas</h2>
-          </CardTitle>
-          <CardDescription>
+      <ol className="flex flex-col divide-y rounded-xl ring-1 ring-foreground/10">
+        <Step number={1} title="Unduh template">
+          <p className="text-sm text-muted-foreground">Pakai template dari sini agar kolomnya sesuai. Pilih file yang cocok dengan pekerjaan Anda.</p>
+          <TemplateMenu flow={flow} canUpdate={canUpdate} onChoose={changeFlow} />
+        </Step>
+        <Step number={2} title="Lengkapi data">
+          <p className="text-sm text-muted-foreground">
             {flow === "create"
-              ? "Satu project per baris, baris pertama berisi nama kolom. Berkas .xlsx, maksimal 5 MB dan 5.000 baris; sheet pertama yang dibaca."
-              : "Unduh data project, ubah selnya di Excel, lalu unggah kembali. Baris dicocokkan lewat Project ID dan sel kosong dibiarkan apa adanya. Berkas .xlsx, maksimal 5 MB dan 5.000 baris."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {flow === "create" ? (
-              <>
-                <a href="/export/projects-template" download className={buttonVariants({ variant: "outline" })}>
-                  <Download aria-hidden data-icon="inline-start" />
-                  Unduh template
-                </a>
-                <span className="text-xs text-muted-foreground">Kolom bertanda * wajib diisi; yang lain boleh kosong.</span>
-              </>
-            ) : (
-              <a href="/export/projects?format=import" download className={buttonVariants({ variant: "outline" })}>
-                <Download aria-hidden data-icon="inline-start" />
-                Unduh data project untuk diedit
-              </a>
-            )}
-          </div>
-          {flow === "create" ? (
-            <details>
-              <summary className="cursor-pointer text-sm font-medium">Isi setiap kolom</summary>
-              <div className="mt-2 overflow-x-auto">
+              ? "Satu project per baris. Jangan ubah baris pertama (nama kolom). Kolom bertanda * wajib diisi."
+              : "Ubah sel yang perlu diperbarui. Baris dicocokkan lewat Project ID dan sel kosong dibiarkan apa adanya. Jangan ubah baris pertama."}
+          </p>
+          <details className="group">
+            <summary className="inline-flex cursor-pointer list-none items-center rounded-lg border px-3 py-1.5 text-sm font-medium select-none marker:content-none hover:bg-accent/40">
+              <span className="group-open:hidden">Tampilkan ketentuan pengisian</span>
+              <span className="hidden group-open:inline">Sembunyikan ketentuan pengisian</span>
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              <ul className="list-disc pl-5 text-sm">
+                <li>Berkas .xlsx, maksimal 5 MB dan 5.000 baris. Hanya sheet pertama yang dibaca.</li>
+                <li>Tanggal ditulis YYYY-MM-DD atau DD/MM/YYYY.</li>
+                <li>Beberapa nilai dalam satu sel (misalnya principal) dipisahkan dengan ; atau baris baru.</li>
+              </ul>
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -259,7 +260,18 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
                   </TableBody>
                 </Table>
               </div>
-            </details>
+            </div>
+          </details>
+        </Step>
+        <Step number={3} title="Unggah berkas">
+          {canUpdate ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Label htmlFor="import-flow">Berkas ini untuk</Label>
+              <NativeSelect id="import-flow" value={flow} onChange={(event) => changeFlow(event.target.value as ImportFlow)} className="w-auto">
+                <option value="create">Menambah project baru</option>
+                <option value="update">Memperbarui project yang ada</option>
+              </NativeSelect>
+            </div>
           ) : null}
           <label
             htmlFor="import-file"
@@ -301,8 +313,8 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
               {inspected.fileName}: sheet “{inspected.sheetName}”, {inspected.rowCount} baris data, {inspected.headers.length} kolom.
             </p>
           ) : null}
-        </CardContent>
-      </Card>
+        </Step>
+      </ol>
 
       {error ? (
         <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -314,7 +326,7 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>2. Cocokkan kolom</h2>
+              <h2>Cocokkan kolom</h2>
             </CardTitle>
             <CardDescription>Setiap field memakai satu kolom dari sheet Anda. Pencocokan di bawah adalah saran dari nama kolom; ubah bila perlu. Field bertanda * wajib.</CardDescription>
           </CardHeader>
@@ -382,7 +394,7 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>3. Periksa dan impor</h2>
+              <h2>Periksa dan impor</h2>
             </CardTitle>
             <CardDescription>
               {summary.totalRows} baris di “{summary.sheetName}”: <strong>{summary.ready}</strong> siap, <strong>{summary.duplicates}</strong> duplikat (dilewati), <strong>{summary.errors}</strong> bermasalah. Data ditulis setelah Anda mengimpor.
@@ -425,7 +437,7 @@ export function ImportWizard({ onClose, flow }: { onClose?: () => void; flow: Im
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>3. Periksa dan perbarui</h2>
+              <h2>Periksa dan perbarui</h2>
             </CardTitle>
             <CardDescription>
               {updateSummary.totalRows} baris di “{updateSummary.sheetName}”: <strong>{updateSummary.toUpdate}</strong> akan diperbarui, <strong>{updateSummary.unchanged}</strong> tidak berubah,{" "}
@@ -553,5 +565,64 @@ function UpdateTable({ summary }: { summary: UpdateSummary }) {
       </Table>
       {summary.detailTruncated ? <p className="mt-2 text-xs text-muted-foreground">Hanya baris pertama yang ditampilkan; jumlah di atas mencakup semua baris.</p> : null}
     </div>
+  );
+}
+
+/** One numbered step of the dialog. The number is also in the heading text, so the order reads without the circle. */
+function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3 p-4">
+      <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+        {number}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <h2 className="text-base font-semibold">
+          <span className="sr-only">Langkah {number}: </span>
+          {title}
+        </h2>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * The template download is where the person says what the file is for: a blank template adds projects, the current projects as a
+ * sheet update them. Picking one downloads it and sets what the upload in step 3 does. A native details element keeps it keyboard
+ * and screen-reader friendly without a menu library.
+ */
+function TemplateMenu({ flow, canUpdate, onChoose }: { flow: ImportFlow; canUpdate: boolean; onChoose: (flow: ImportFlow) => void }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  const choose = (next: ImportFlow) => {
+    onChoose(next);
+    if (menu.current) menu.current.open = false;
+  };
+  const item = "flex flex-col rounded-md px-3 py-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  if (!canUpdate) {
+    return (
+      <a href="/export/projects-template" download className={cn(buttonVariants({ variant: "outline" }), "self-start")}>
+        <Download aria-hidden data-icon="inline-start" />
+        Unduh template project baru
+      </a>
+    );
+  }
+  return (
+    <details ref={menu} className="relative self-start">
+      <summary className={cn(buttonVariants({ variant: "outline" }), "list-none marker:content-none")}>
+        <Download aria-hidden data-icon="inline-start" />
+        Unduh template
+        <ChevronDown aria-hidden data-icon="inline-end" />
+      </summary>
+      <div className="absolute top-full left-0 z-20 mt-1 flex w-72 max-w-[calc(100vw-4rem)] flex-col gap-0.5 rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg">
+        <a href="/export/projects-template" download onClick={() => choose("create")} className={item} aria-current={flow === "create" ? "true" : undefined}>
+          <span className="font-medium">Template project baru</span>
+          <span className="text-xs text-muted-foreground">Hanya nama kolom, untuk menambah project.</span>
+        </a>
+        <a href="/export/projects?format=import" download onClick={() => choose("update")} className={item} aria-current={flow === "update" ? "true" : undefined}>
+          <span className="font-medium">Data project saat ini</span>
+          <span className="text-xs text-muted-foreground">Semua project, untuk diedit dan diperbarui.</span>
+        </a>
+      </div>
+    </details>
   );
 }

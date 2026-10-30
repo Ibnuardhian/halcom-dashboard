@@ -29,7 +29,7 @@ Dial: ENERGY 1 / RHYTHM 1 / MOTION 1
 | Charts | Bars and donuts rank largest first, with "Not set" and "Other" last. Funnel and stage columns keep pipeline order | Ranking answers "who or what has the most". Stages are a sequence, so their order is the information. |
 | Language | Labels, titles and buttons in English; sentences, hints, empty states and placeholders in Indonesian | The team names its screens in English (BOQ, RFQ, PO, SLA) and reads explanations in Indonesian. |
 | Placeholder text | One color everywhere: the text color at 50% (the Tailwind default) | Example text must look different from typed text. Input, textarea and the search boxes used two different greys before. |
-| Excel on Projects | Three separate controls: "Import projects" and "Update projects" each open their own dialog, and "Export (.xlsx)" downloads directly | Adding, changing and downloading are different jobs with different risks. One dialog asked the person to choose between them before they could read the first instruction. Update appears only for people who may bulk update. |
+| Excel on Projects | One "Import projects" button and one dialog with three numbered steps: download a template, fill it in, upload it. The template menu in step 1 offers a blank template (add projects) and the current projects (update them); step 3 has one upload | Adding and updating share the same upload, so they share the dialog. They differ only in the file the person starts from, so that is where the choice sits (the pattern of accounting-software import dialogs). Update appears only for people who may bulk update. |
 | Copy | Short, positive, no claims the page cannot check | A page that says "your data is safe" must be able to know that. |
 
 ## Not used, on purpose
