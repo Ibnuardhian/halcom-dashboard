@@ -23,7 +23,7 @@ const asActor = (user: { id: string; role: Parameters<typeof createProject>[1]["
 function listFor(href: string): ProjectFilter {
   const query = Object.fromEntries(new URLSearchParams(href.split("?")[1] ?? "").entries()) as Record<string, string | string[]>;
   const params = new URLSearchParams(href.split("?")[1] ?? "");
-  for (const name of ["principal", "solution", "industry", "owner", "location"]) if (params.getAll(name).length > 1) query[name] = params.getAll(name);
+  for (const name of ["principal", "solution", "industry", "owner"]) if (params.getAll(name).length > 1) query[name] = params.getAll(name);
   const drill = readDrillFilters(query);
   return {
     progress: drill.progress,
@@ -33,7 +33,6 @@ function listFor(href: string): ProjectFilter {
     solutionKeys: drill.solution,
     ownerKeys: drill.owner,
     industryKeys: drill.industry,
-    locationKeys: drill.location,
     ...(params.get("mine") === "1" ? { salesOwnerId: params.get("owner-id") ?? undefined } : {}),
   };
 }
@@ -53,16 +52,15 @@ describe("clicking a chart opens exactly the projects it counted", () => {
       const created = await createProject(db, asActor(sales), { endUserCompany: `Chart ${tag}`, name: `p${i}`, estimatedValue: String(1000 * (i + 1)), progress: progresses[i % progresses.length] });
       if (!created.ok) throw new Error(created.message);
       if (i < 9) await setProjectMasterData(db, asActor(soa), { projectId: created.value.id, principalIds: i === 0 ? [principals[0]!.id, principals[1]!.id] : [principals[i]!.id], ...(i % 2 === 0 ? { solutionId: solution.id } : {}) });
-      await db.project.update({ where: { id: created.value.id }, data: { industry: i % 3 === 0 ? `  Bank ${tag} ` : i % 3 === 1 ? `bank ${tag}` : null, location: i % 3 === 0 ? `  Jakarta ${tag} ` : i % 3 === 1 ? `jakarta ${tag}` : null } });
+      await db.project.update({ where: { id: created.value.id }, data: { industry: i % 3 === 0 ? `  Bank ${tag} ` : i % 3 === 1 ? `bank ${tag}` : null } });
     }
 
     const analytics = await getPipelineAnalytics(db, asActor(sales));
-    const dimensions: [keyof PipelineAnalytics & ("byPrincipal" | "bySolution" | "byIndustry" | "bySalesPerson" | "byLocation"), "principal" | "solution" | "industry" | "owner" | "location"][] = [
+    const dimensions: [keyof PipelineAnalytics & ("byPrincipal" | "bySolution" | "byIndustry" | "bySalesPerson"), "principal" | "solution" | "industry" | "owner"][] = [
       ["byPrincipal", "principal"],
       ["bySolution", "solution"],
       ["byIndustry", "industry"],
       ["bySalesPerson", "owner"],
-      ["byLocation", "location"],
     ];
     let checked = 0;
     for (const [list, name] of dimensions) {

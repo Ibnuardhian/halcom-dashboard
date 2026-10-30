@@ -51,8 +51,6 @@ export type PipelineAnalytics = {
   bySalesPerson: Slice[];
   /** Open projects per SOA PIC (the technical PIC), most first. Projects with no SOA PIC are left out: not every project involves SOA. */
   bySoaPic: Slice[];
-  /** Projects by the end user's location (the free-text location of the project), grouped without regard to case. */
-  byLocation: Slice[];
   /** Pipeline Conversion of each Sales PIC, highest first, so people can be compared. Someone with no open project is left out. */
   conversionBySalesPerson: ConversionRow[];
 };
@@ -142,7 +140,6 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       targetMargin: true,
       targetMarginValue: true,
       industry: true,
-      location: true,
       customer: { select: { industry: true } },
       principal: { select: { id: true, name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { id: true, name: true } } } },
@@ -159,7 +156,6 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const industries = new Map<string, Slice>();
   const salespeople = new Map<string, Slice>();
   const soaPics = new Map<string, Slice>();
-  const locations = new Map<string, Slice>();
   const conversion = new Map<string, { label: string; open: number; quoted: number; drill: string }>();
   const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, openQuoted: 0, wonCount: 0, wonValue: 0 };
 
@@ -178,8 +174,6 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     const projectIndustry = effectiveIndustry(project.customer?.industry, project.industry);
     const industry = projectIndustry ?? UNSET;
     add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(projectIndustry) ?? FILTER_NONE, project.id);
-    const location = project.location?.trim() || UNSET;
-    add(locations, location.toLowerCase(), location, estimated, weighted, industryKey(project.location) ?? FILTER_NONE, project.id);
     // A project from another source has no internal Sales PIC; its numbers stay in the totals under one "external" row.
     add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted, project.salesOwner ? undefined : FILTER_EXTERNAL, project.id);
 
@@ -215,7 +209,6 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
     byPrincipalCount: topSlices(principals.values(), MAX_SLICES, "count"),
     bySolution: topSlices(solutions.values(), MAX_SLICES, "count"),
     byIndustry: topSlices(industries.values()),
-    byLocation: topSlices(locations.values(), MAX_SLICES, "count"),
     bySalesPerson: topSlices(salespeople.values()),
     bySoaPic: topSlices(soaPics.values()),
     conversionBySalesPerson: [...conversion.entries()]

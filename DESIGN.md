@@ -30,7 +30,6 @@ Dial: ENERGY 1 / RHYTHM 1 / MOTION 1
 | Language | Labels, titles and buttons in English; sentences, hints, empty states and placeholders in Indonesian | The team names its screens in English (BOQ, RFQ, PO, SLA) and reads explanations in Indonesian. |
 | Placeholder text | One color everywhere: the text color at 50% (the Tailwind default) | Example text must look different from typed text. Input, textarea and the search boxes used two different greys before. |
 | Excel on Projects | One "Import projects" button and one dialog with three numbered steps: download a template, fill it in, upload it. The template menu in step 1 offers a blank template (add projects) and the current projects (update them); step 3 has one upload | Adding and updating share the same upload, so they share the dialog. They differ only in the file the person starts from, so that is where the choice sits (the pattern of accounting-software import dialogs). Update appears only for people who may bulk update. |
-| Location chart | A ranked bar list ("Projects by location"), not a map | The location is free text typed per project (a city, a site), with no coordinates. A map would need guessed positions, so it would show data the system does not hold. Bars rank by number of projects and each one opens the Projects list for that location. |
 | Copy | Short, positive, no claims the page cannot check | A page that says "your data is safe" must be able to know that. |
 
 ## Not used, on purpose
