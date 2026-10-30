@@ -122,7 +122,7 @@ export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }
   const principal = by("principal");
   return (
     <section aria-label="Project charts" className="mb-6 grid gap-4 lg:grid-cols-2">
-      <ChartCard title="PIC Workload" description="Project open per PIC SOA. Project tanpa PIC SOA tidak ditampilkan.">
+      <ChartCard title="PIC Workload" description="Open project per PIC SOA (hanya yang sudah punya PIC).">
         <BarList
           items={analytics.bySoaPic.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s), href: s.drill && s.drill.length > 0 ? `${to({ soaPic: s.drill })}&show=open` : null }))}
           allowEmpty
