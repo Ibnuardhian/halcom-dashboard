@@ -41,7 +41,6 @@ export async function createProjectAction(_previous: FormState, formData: FormDa
     request: requestType
       ? {
           type: requestType,
-          title: text(formData, "requestTitle"),
           description: text(formData, "requestDescription"),
           requiredBy: text(formData, "requestRequiredBy"),
         }
@@ -102,7 +101,8 @@ export async function handOverAction(_previous: FormState, formData: FormData): 
   });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(REQUESTS_PATH);
-  redirect(`/request/${result.value.code}`);
+  // `email=1` opens the email draft of the new request ([HITRFQ] / [HITPO]) as soon as the page loads.
+  redirect(`/request/${result.value.code}?email=1`);
 }
 
 /** SOA or Purchasing hands a request to one of their PICs (or takes it back with an empty choice). */

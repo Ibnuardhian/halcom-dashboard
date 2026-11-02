@@ -1,3 +1,4 @@
+import { can } from "@/domain/access/permissions";
 import { Suspense } from "react";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { ExportDialog } from "@/features/dashboards/export-dialog";
@@ -32,7 +33,7 @@ async function SharedDashboard() {
       <div className="mb-4 flex justify-end">
         <ExportDialog />
       </div>
-      <PipelineCharts analytics={analytics} />
+      <PipelineCharts analytics={analytics} customerLinks={can(viewer.role, "customers.view")} />
       <StaleProjects projects={stale.rows.slice(0, 5)} />
       <WorkOverview stats={stats} />
     </PlannedDashboard>

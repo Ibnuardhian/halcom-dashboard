@@ -182,12 +182,7 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
           <div className="grid gap-4 sm:grid-cols-2">
             <p className="text-xs text-muted-foreground sm:col-span-2">Masuk ke {OWNING_TEAM_LABELS[type]}.</p>
             <div className="sm:col-span-2">
-              <Field id="project-request-title" label="Request summary *" hint="Satu baris yang memberi tahu tim apa yang dibutuhkan.">
-                <Input id="project-request-title" name="requestTitle" required maxLength={150} />
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Field id="project-request-details" label="Request details" hint="Spesifikasi, kuantitas, merek, dan batasan yang sudah diketahui. Maksimal 4000 karakter.">
+              <Field id="project-request-details" label="Request details" hint="Apa yang dibutuhkan tim, dengan spesifikasi, kuantitas, merek, dan batasan yang sudah diketahui. Maksimal 4000 karakter.">
                 <Textarea id="project-request-details" name="requestDescription" maxLength={4000} className="min-h-28" />
               </Field>
             </div>
@@ -335,12 +330,7 @@ export function RequestForm({
         </NativeSelect>
       </Field>
       <div className="sm:col-span-2">
-        <Field id="request-title" label="Summary *" hint="Satu baris yang memberi tahu tim apa yang dibutuhkan.">
-          <Input id="request-title" name="title" required maxLength={150} />
-        </Field>
-      </div>
-      <div className="sm:col-span-2">
-        <Field id="request-description" label="Details" hint="Spesifikasi, kuantitas, merek, dan batasan yang sudah diketahui. Maksimal 4000 karakter.">
+        <Field id="request-description" label="Details" hint="Apa yang dibutuhkan tim, dengan spesifikasi, kuantitas, merek, dan batasan yang sudah diketahui. Maksimal 4000 karakter.">
           <Textarea id="request-description" name="description" maxLength={4000} className="min-h-32" />
         </Field>
       </div>

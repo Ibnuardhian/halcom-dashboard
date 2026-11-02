@@ -29,7 +29,7 @@ import { StatusBadge, TypeBadge } from "./status-badges";
  * (collapsed, at the end). It is the body of the request page and, for each request, of the project page, so a request is
  * handled in the context of its project. `inProject` leaves out the link back to the project.
  */
-export async function RequestPanel({ request, viewer, inProject = false }: { request: RequestDetail; viewer: { id: string; role: Role }; inProject?: boolean }) {
+export async function RequestPanel({ request, viewer, inProject = false, openEmail = false }: { request: RequestDetail; viewer: { id: string; role: Role }; inProject?: boolean; openEmail?: boolean }) {
   const mayWork = canWorkOn(viewer.role, request.type);
   const next = nextRequestType(request.type);
   const ownsProject = salesActsOn(request.project, viewer.id);
@@ -113,6 +113,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
               <EmailDialog
                 tag={SUBJECT_TAGS[request.type]}
+                autoOpen={openEmail}
                 to={email.recipients.ok ? email.recipients.to : null}
                 cc={email.recipients.ok ? email.recipients.cc : []}
                 recipientsError={email.recipients.ok ? null : email.recipients.error}

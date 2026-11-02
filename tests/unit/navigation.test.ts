@@ -43,10 +43,10 @@ describe("navLinksFor", () => {
     ]);
   });
 
-  it("shows SOA its technical dashboard, projects, BOQ tickets, handoff, reports and master data", () => {
+  it("shows SOA its SOA dashboard, projects, BOQ tickets, handoff, reports and master data", () => {
     expect(labelsFor("SOA")).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/soa", "Technical dashboard"],
+      ["/dashboard/soa", "SOA dashboard"],
       ["/projects", "Projects"],
       ["/requests/boq", "BOQ tickets"],
       ["/handoffs", "Purchasing handoff"],
@@ -91,7 +91,7 @@ describe("navLinksFor", () => {
       ["/dashboard/sales", "Sales dashboard"],
     ]);
     const labels = links.map((l) => l.label);
-    for (const label of ["Users and roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master data", "Audit logs"]) expect(labels).toContain(label);
+    for (const label of ["Users and roles", "Permissions", "Email", "SLA", "Master data", "Audit logs"]) expect(labels).toContain(label);
     const hrefs = links.map((l) => l.href);
     expect(hrefs).not.toContain("/dashboard/superadmin");
     expect(hrefs).not.toContain("/admin/backups");
@@ -101,7 +101,7 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings/soa", "/admin/settings/purchasing", "/admin/master-data", "/admin/pics"]) {
+    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings/email", "/admin/settings/sla", "/admin/master-data", "/admin/pics"]) {
       expect(hrefs).toContain(expected);
     }
     // Admin and Superadmin share one Admin dashboard (D-032): the menu offers it once, under the user's own address.
@@ -124,7 +124,7 @@ describe("navLinksFor", () => {
 
   it("offers Backups and System to superadmin only, and the SLA modules to admins and superadmin", () => {
     for (const role of ROLES) {
-      expect(hrefsFor(role).includes("/admin/settings/soa") && hrefsFor(role).includes("/admin/settings/purchasing")).toBe(role === "SUPERADMIN" || role === "ADMIN");
+      expect(hrefsFor(role).includes("/admin/settings/email") && hrefsFor(role).includes("/admin/settings/sla")).toBe(role === "SUPERADMIN" || role === "ADMIN");
       expect(hrefsFor(role).includes("/admin/backups")).toBe(role === "SUPERADMIN");
       expect(hrefsFor(role).includes("/admin/system")).toBe(role === "SUPERADMIN");
     }

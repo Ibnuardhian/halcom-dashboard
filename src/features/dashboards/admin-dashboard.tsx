@@ -21,8 +21,8 @@ import { StatTile } from "./stat-tile";
  */
 const TOOLS = [
   { href: PERMISSIONS_PATH, label: "Role permissions", permission: "permissions.view" },
-  { href: `${SETTINGS_PATH}/soa`, label: "SLA SOA", permission: "settings.view" },
-  { href: `${SETTINGS_PATH}/purchasing`, label: "SLA Purchasing", permission: "settings.view" },
+  { href: `${SETTINGS_PATH}/email`, label: "Email", permission: "settings.view" },
+  { href: `${SETTINGS_PATH}/sla`, label: "SLA", permission: "settings.view" },
   { href: SYSTEM_PATH, label: "System health", permission: "system.monitor" },
   { href: BACKUPS_PATH, label: "Backups", permission: "system.backup" },
 ] as const;
@@ -46,7 +46,7 @@ export async function AdminDashboard({ viewer }: { viewer: SessionUser }) {
       <DashboardHeader title="Admin dashboard" summary="Akun, pengaturan, dan aktivitas administratif terbaru. Admin mengelola pengguna operasional; hanya superadmin yang bisa mengelola akun admin dan sistem." />
       <section aria-label="Administration" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Active accounts" value={stats.active} href={USERS_PATH} note={`${stats.total - stats.active} nonaktif`} />
-        <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={SETTINGS_PATH} note="Hari kerja untuk menjawab request" />
+        <StatTile label="SLA: SOA / Purchasing" value={`${formatSlaRange(settings.SOA.sla)} / ${formatSlaRange(settings.PURCHASING.sla)}`} href={`${SETTINGS_PATH}/sla`} note="Hari kerja untuk menjawab request" />
         <StatTile label="Master data" value={principals + solutions + customers} href={MASTER_DATA_PATH} note={`${principals} principal, ${solutions} solution, ${customers} customer`} />
         <StatTile label="Changes in 7 days" value={changes} href={AUDIT_PATH} note="Audit event selain login" />
       </section>

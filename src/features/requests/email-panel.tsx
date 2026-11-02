@@ -1,9 +1,10 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Check, Copy, Mail } from "lucide-react";
+import { Check, Copy, Download, Mail } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { buildMailto } from "@/domain/requests/mailto";
+import { buildEml } from "@/domain/requests/eml";
+import { buildMailto, type MailtoInput } from "@/domain/requests/mailto";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,16 @@ function CopyButton({ text, label, disabled }: { text: string; label: string; di
       {state === "copied" ? "Copied" : state === "failed" ? "Select and copy" : "Copy"}
     </Button>
   );
+}
+
+/** Saves the draft as an .eml file; opening it in Outlook gives an unsent message with the whole text (a MailTo link cannot carry a long one). */
+function downloadDraft(draft: MailtoInput) {
+  const url = URL.createObjectURL(new Blob([buildEml(draft)], { type: "message/rfc822" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${draft.subject.replace(/[^\w.-]+/g, "_").slice(0, 80) || "draft"}.eml`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function CopyField({
@@ -91,13 +102,19 @@ export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigu
         review the draft and send it yourself.
       </p>
       <div className="flex flex-col items-start gap-2">
-        <a href={mailto.href} className={buttonVariants()} aria-label="Open this email in Outlook (MailTo)">
-          <Mail aria-hidden data-icon="inline-start" />
-          Open in Outlook (MailTo)
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a href={mailto.href} className={buttonVariants()} aria-label="Open this email in Outlook (MailTo)">
+            <Mail aria-hidden data-icon="inline-start" />
+            Open in Outlook (MailTo)
+          </a>
+          <Button type="button" variant="outline" onClick={() => downloadDraft({ to: to ?? [], cc, subject, body })}>
+            <Download aria-hidden data-icon="inline-start" />
+            Download Outlook draft (.eml)
+          </Button>
+        </div>
         {!mailto.bodyIncluded ? (
           <p role="status" className="text-xs text-muted-foreground">
-            The text is too long for a MailTo link, so the draft has the recipients and subject only. Copy the text below into it.
+            Teksnya terlalu panjang untuk tautan MailTo, jadi draf itu hanya berisi penerima dan subject. Unduh draf .eml (isinya lengkap, dibuka di Outlook), atau salin teks di bawah.
           </p>
         ) : null}
         {!to ? <p className="text-xs text-muted-foreground">Draf tanpa penerima karena belum diatur.</p> : null}

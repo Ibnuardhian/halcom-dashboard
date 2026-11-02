@@ -811,3 +811,29 @@ Sales enter the Estimated PO value with PPN and think of the margin and gross pr
 - **Stored data.** Nothing stored is rewritten: the entered value, percentage and amount stay as they were; only the figures derived from them change.
 - **Labels.** The project page says which basis each figure has ("Estimated PO value (incl. PPN)", "Estimated gross profit (excl. PPN)"). The Excel columns and the commercial form keep their names (the import matches columns by name).
 - **Not changed.** Sales targets and the Finance crosscheck compare values as entered; they do not know the basis, and the Final value is assumed to be on the same basis as the Estimated PO value.
+
+## D-056: Email draft opens after Continue, Outlook .eml draft, margin typed as an amount, Tab in the name picker (2026-11-02)
+
+- **Draft opens by itself.** "Continue to RFQ / PO" now leads to the new request with `?email=1`; the project page opens that request's email dialog ([HITRFQ] or [HITPO]) once, and the parameter is dropped from the address so a reload does not reopen it. Nothing is sent (D-017).
+- **Outlook draft.** The dialog gets "Download Outlook draft (.eml)": a file with `X-Unsent: 1`, To, Cc, subject (RFC 2047) and the whole text (base64, UTF-8). Outlook opens it as an unsent message. A MailTo link cannot carry more than about 1900 characters, so a long request text came without its body; the file has no such limit. The MailTo button stays.
+- **Target margin is an amount only.** The Percent choice is gone from the project forms; the box takes a number in rupiah and sends it as the fixed amount. A margin stored as a percentage is shown as the amount it comes to, so saving the form loses nothing. The percentage is still shown, computed from the value. The Excel import keeps its Target margin (%) column.
+- **Tab in the name picker.** In the salesperson picker, Tab takes the highlighted match for what was typed (as Enter does) and moves on; with nothing typed it leaves the choice alone.
+
+## D-057: One Email & SLA page for all teams (2026-11-02)
+
+The SLA, the To / Cc and the email template of SOA and Purchasing were two pages ("SLA SOA", "SLA Purchasing"). They are now one page, **Email & SLA** (`/admin/settings`, menu Administration): the variables once, then a section per team (`#soa`, `#purchasing`) with its SLA range, To, Cc, subject and text, and a preview. Same permissions (Admin reads, Superadmin saves); same storage and audit. The old addresses `/admin/settings/soa` and `/purchasing` redirect to their section. Where To is left empty the server variables `EMAIL_TO_HIT*` still apply.
+
+## D-058: Email and SLA are two separate pages (2026-11-02, replaces the one page of D-057)
+
+- **Email** (`/admin/settings/email`): per team (SOA, Purchasing) the To, Cc, subject and text of the email, with a preview. **SLA** (`/admin/settings/sla`): per team the SLA range. Two menu entries under Administration. Permissions and audit are as before (Admin reads, Superadmin saves).
+- **Saving is partial.** `saveTeamSetting` takes whichever parts the form sends and keeps the rest, so saving the SLA never touches the recipients or the template, and the other way round. An empty To / Cc sent on purpose still clears them. "Kembalikan template bawaan" now restores only the subject and text.
+- `/admin/settings` leads to Email; `/admin/settings/soa` and `/purchasing` lead to their section of the Email page.
+
+## D-059: No Summary on a request; it takes the project name (2026-11-02)
+
+The Summary box is gone from the request form and from "new project with a request". A request is titled with the name of its project (the service fills it in; a caller may still send a title, which the importers do). The text of what is needed goes in Details. In the Neon copy 37 of 44 requests already carried the project name as their title. Consequences: board cards, tables and notifications show the project name; the default email template no longer has a "Summary" block (saved templates are not changed, and `{{summary}}` still works in them); a second request on the same project is told apart by its code, type and Details. Details stays optional.
+
+## D-060: "SOA dashboard" everywhere; no dead links in Customers by location (2026-11-02)
+
+- The SOA role's menu entry and page title said "Technical dashboard" while a Superadmin saw "SOA dashboard" for the same page. Both are now "SOA dashboard".
+- On the Overview, the bars of "Customers by location" link to the Customers page. SOA, Purchasing, Finance and Management see that chart but may not open Customers (`customers.view`), so every bar (the folded "Other" one included) led them to an error page. The bars are now plain for those roles and links for the others (`customerLinks`). Whether those roles should be allowed to open Customers is a separate question.

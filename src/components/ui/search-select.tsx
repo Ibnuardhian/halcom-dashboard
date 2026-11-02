@@ -6,7 +6,7 @@ import { filterMasterOptions, type MasterOption } from "@/domain/projects/master
 import { cn } from "@/lib/utils";
 
 /**
- * A searchable drop-down over a fixed list of `{ id, name }` options: type to filter, pick with the mouse or the arrow keys and Enter.
+ * A searchable drop-down over a fixed list of `{ id, name }` options: type to filter, pick with the mouse, the arrow keys and Enter, or Tab (which takes the highlighted match).
  * The chosen id is submitted in a hidden field called `name`; nothing can be created here (see MasterDataSelect for that). With
  * `required`, the form cannot be submitted until an option is chosen.
  */
@@ -87,6 +87,10 @@ export function SearchSelect({
             event.preventDefault();
             const option = matches[active];
             if (open && option) choose(option);
+          } else if (event.key === "Tab") {
+            // Tab takes the highlighted match for what was typed and moves on (no preventDefault); with nothing typed it leaves the choice as it is.
+            const option = matches[active];
+            if (open && typed !== "" && option) choose(option);
           } else if (event.key === "Escape") {
             setOpen(false);
             setEditing(false);

@@ -37,12 +37,10 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
       {(Object.keys(COMMERCIAL_FIELDS) as CommercialField[]).map((field) => {
         const id = `${projectCode}-${field}`;
         const { kind } = COMMERCIAL_FIELDS[field];
-        // The two margin fields share one box: an amount (the default) or a percentage.
+        // The two margin fields share one box: the amount.
         if (field === "targetMarginValue") return null;
-        if (field === "targetMargin") {
-          const percentOnly = values.targetMargin !== "" && values.targetMarginValue === "";
-          return <MarginInput key={field} id={id} defaultMode={percentOnly ? "percent" : "amount"} defaultValue={percentOnly ? values.targetMargin : values.targetMarginValue} />;
-        }
+        // A margin stored as a percentage arrives here already converted to its amount, so saving never loses it.
+        if (field === "targetMargin") return <MarginInput key={field} id={id} defaultValue={values.targetMarginValue} />;
         return (
           <div key={field} className="flex flex-col gap-1.5">
             <Label htmlFor={id}>{COMMERCIAL_FIELDS[field].label}</Label>

@@ -55,7 +55,7 @@ describe("createProject with a first request", () => {
     const actor = { id: sales.id, role: "SALES" as const };
     const company = `PT ${randomBytes(3).toString("hex")}`;
 
-    await expect(createProject(db, actor, { endUserCompany: company, name: "X", request: { type: "BOQ", title: "  " } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    await expect(createProject(db, actor, { endUserCompany: company, name: "X", request: { type: "BOQ", description: "x".repeat(4001) } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(createProject(db, actor, { endUserCompany: company, name: "X", targetMargin: "150" })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(createProject(db, actor, { endUserCompany: company, name: "X", request: { type: "XYZ", title: "t" } })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
 

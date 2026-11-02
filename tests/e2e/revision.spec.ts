@@ -18,11 +18,10 @@ async function createProject(page: Page, name: string): Promise<string> {
   return page.url().split("/").pop()!;
 }
 
-async function createBoq(page: Page, projectCode: string, title: string): Promise<string> {
+async function createBoq(page: Page, projectCode: string): Promise<string> {
   await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: "New BOQ", exact: true }).click();
   await expect(async () => {
-    await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });
@@ -46,7 +45,7 @@ test("Sales send a completed BOQ back for a revision: it goes straight to Revisi
   test.setTimeout(300_000);
   await signIn(page, "SALES");
   const projectCode = await createProject(page, `Revision ${Date.now()}`);
-  const code = await createBoq(page, projectCode, "Forty cameras");
+  const code = await createBoq(page, projectCode);
 
   // Nothing to revise yet: the card appears only for a completed BOQ.
   await expect(page.getByRole("heading", { name: "Request a revision" })).toHaveCount(0);

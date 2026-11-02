@@ -25,13 +25,12 @@ async function createProject(page: Page, name: string): Promise<string> {
 }
 
 /** Opens the new-request form for a project and type (via the project page buttons) and submits it. */
-async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ" | "PO", title: string): Promise<string> {
+async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ" | "PO"): Promise<string> {
   await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: `New ${type}`, exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue(type);
   // A click before the page is interactive reloads the form instead of submitting it, so the whole step is retried.
   await expect(async () => {
-    await page.getByLabel("Summary").fill(title);
     await page.getByLabel("Details").fill("Forty cameras, 4K, PoE.");
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=(BOQ|RFQ|PO)-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
@@ -78,7 +77,7 @@ test.describe("projects and requests", () => {
     test.setTimeout(90_000); // the first test on a freshly started server also compiles every page it visits
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "CCTV AI");
-    const code = await createRequest(page, projectCode, "BOQ", "BOQ for 40 cameras");
+    const code = await createRequest(page, projectCode, "BOQ");
 
     expect(code).toMatch(/^BOQ-S[A-Z]*-\d{2}\d{4,}$/); // one letter of sales@example.invalid, more only if another person holds it
     await expect(page.locator(`li#request-${code} > details[open]`)).toBeVisible(); // the new request is open on its project page
@@ -107,11 +106,9 @@ test.describe("projects and requests", () => {
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill("One form demo");
     await page.getByLabel("Estimated PO value").fill("2.000.000.000");
-    await expect(page.getByLabel("Target margin (amount)")).toBeVisible(); // an amount is the default
-    await page.getByRole("radio", { name: "Percent" }).check();
-    await page.getByLabel("Target margin (%)").fill("12,5");
+    await expect(page.getByRole("radio", { name: "Percent" })).toHaveCount(0); // the margin is a number only
+    await page.getByLabel("Target margin (amount)").fill("250.000.000");
     await page.getByText(/^BOQ: /).click();
-    await page.getByLabel("Request summary").fill("BOQ from the combined form");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-S[A-Z]*-\d{2}\d{4,}/);
@@ -121,7 +118,7 @@ test.describe("projects and requests", () => {
 
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
-    await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
+    await expect(page.getByLabel("Target margin (amount)")).toHaveValue(/^250\.?000\.?000$/);
   });
 
   test("a date can be cleared with a button that shows only while it has a value", async ({ page }) => {
@@ -230,7 +227,6 @@ test.describe("projects and requests", () => {
     await page.getByLabel("Project name").fill("RFQ routing demo");
     await page.getByText(/^RFQ: /).click();
     await expect(page.getByText("Masuk ke Purchasing.", { exact: true })).toBeVisible();
-    await page.getByLabel("Request summary").fill("Price for 10 servers");
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-S[A-Z]*-\d{2}\d{4,}/);
@@ -249,7 +245,7 @@ test.describe("projects and requests", () => {
   test("the email panel has a MailTo button that carries To, Cc, subject and text", async ({ page }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "MailTo demo");
-    await createRequest(page, projectCode, "BOQ", "BOQ for MailTo");
+    await createRequest(page, projectCode, "BOQ");
 
     await page.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
     const href = await page.getByRole("link", { name: /Open this email in Outlook/ }).getAttribute("href");
@@ -265,7 +261,7 @@ test.describe("projects and requests", () => {
   test("a request notifies the owning team, and SOA's phase notifies Sales", async ({ page, browser }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Notify demo");
-    const boq = await createRequest(page, projectCode, "BOQ", "BOQ to notify about");
+    const boq = await createRequest(page, projectCode, "BOQ");
 
     const soa = await asRole(browser, "SOA");
     await soa.goto("/notifications");
@@ -294,8 +290,7 @@ test.describe("projects and requests", () => {
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
     await commercial.getByLabel("Final PO value").fill("400");
-    await commercial.getByRole("radio", { name: "Percent" }).check();
-    await commercial.getByLabel("Target margin (%)").fill("10");
+    await commercial.getByLabel("Target margin (amount)").fill("40"); // 10% of 400
     await commercial.getByLabel("Won date").fill(`${year}-02-10`);
     await page.getByRole("button", { name: "Save commercial details" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
@@ -354,16 +349,15 @@ test.describe("projects and requests", () => {
 
   test("only the superadmin sees the team settings, and a template without the Request ID is refused", async ({ page, browser }) => {
     await signIn(page, "SALES");
-    await expectNotFound(page, "/admin/settings/soa", "Subjek email");
+    await expectNotFound(page, "/admin/settings/email", "Subjek email");
 
     const root = await asRole(browser, "SUPERADMIN");
-    await root.goto("/admin/settings/soa");
-    await expect(root.getByRole("heading", { level: 1, name: "SLA SOA" })).toBeVisible();
-    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan pengaturan SOA" }) });
-    await expect(form.getByLabel(/^SLA tim SOA/)).toHaveValue("2-3"); // the default range
+    await root.goto("/admin/settings/email");
+    await expect(root.getByRole("heading", { level: 1, name: "Email" })).toBeVisible();
+    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan email SOA" }) });
     await expect(async () => {
       await form.getByLabel("Subjek email").fill("A subject without the id");
-      await form.getByRole("button", { name: "Simpan pengaturan SOA" }).click();
+      await form.getByRole("button", { name: "Simpan email SOA" }).click();
       await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
     }).toPass();
     await expect(root.getByText("Pratinjau dengan data contoh").first()).toBeVisible();
@@ -576,7 +570,7 @@ test.describe("projects and requests", () => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Access control");
 
-    const rfq = await createRequest(page, projectCode, "RFQ", "Quote 10 readers");
+    const rfq = await createRequest(page, projectCode, "RFQ");
     await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Access control"));
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("");
@@ -594,7 +588,7 @@ test.describe("projects and requests", () => {
     test.setTimeout(120_000); // four signed-in users and several cold page compiles
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Handover demo");
-    const boq = await createRequest(page, projectCode, "BOQ", "BOQ for handover");
+    const boq = await createRequest(page, projectCode, "BOQ");
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/projects/${projectCode}#technical`);
@@ -609,9 +603,12 @@ test.describe("projects and requests", () => {
 
     // The project page holds the BOQ and the RFQ; the RFQ is the open one, and its email text is what is checked.
     const rfqPanel = soa.locator(`li#request-${rfq}`);
-    await rfqPanel.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
-    const email = soa.getByRole("dialog");
+    const email = soa.getByRole("dialog"); // the email draft opens by itself after "Continue to RFQ"
     await expect(email.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
+    await expect(soa).not.toHaveURL(/email=1/); // dropped, so a reload does not open it again
+    const download = soa.waitForEvent("download");
+    await email.getByRole("button", { name: "Download Outlook draft (.eml)" }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.eml$/);
     await expect(email.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     expect(await email.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
     await expect(soa.getByText("Balas di dalam thread email [HITBOQ] asli")).toBeVisible();
@@ -645,7 +642,7 @@ test.describe("projects and requests", () => {
     test.setTimeout(180_000); // two signed-in users and several cold page compiles
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Flow demo");
-    const boq = await createRequest(page, projectCode, "BOQ", "BOQ for the flow");
+    const boq = await createRequest(page, projectCode, "BOQ");
 
     // SOA completes it on the board; there is no Waiting for Sales column any more.
     const soa = await asRole(browser, "SOA");
@@ -684,8 +681,8 @@ test.describe("projects and requests", () => {
     test.setTimeout(180_000);
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Revision demo");
-    const boq = await createRequest(page, projectCode, "BOQ", "BOQ to revise");
-    const rfq = await createRequest(page, projectCode, "RFQ", "RFQ without revision");
+    const boq = await createRequest(page, projectCode, "BOQ");
+    const rfq = await createRequest(page, projectCode, "RFQ");
 
     const soa = await asRole(browser, "SOA");
     // Revision exists only after Completed: a fresh card cannot be dropped on it, a completed one can.
@@ -715,7 +712,7 @@ test.describe("projects and requests", () => {
     test.setTimeout(120_000);
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Reason demo");
-    const boq = await createRequest(page, projectCode, "BOQ", "BOQ needing a reason");
+    const boq = await createRequest(page, projectCode, "BOQ");
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/requests/boq?view=board&q=${boq}`);
@@ -743,7 +740,7 @@ test.describe("projects and requests", () => {
   test("Finance sees the board but cannot drag a card", async ({ page, browser }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Read only board");
-    const boq = await createRequest(page, projectCode, "BOQ", "BOQ on a read-only board");
+    const boq = await createRequest(page, projectCode, "BOQ");
 
     const finance = await asRole(browser, "FINANCE");
     await finance.goto(`/requests/boq?view=board&q=${boq}`);
@@ -754,7 +751,7 @@ test.describe("projects and requests", () => {
   test("lists filter by type and status, and the overview counts link to them", async ({ page }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "List demo");
-    const rfq = await createRequest(page, projectCode, "RFQ", "Listed RFQ");
+    const rfq = await createRequest(page, projectCode, "RFQ");
 
     await page.goto("/requests/rfq");
     await expect(page.getByRole("link", { name: rfq })).toBeVisible();

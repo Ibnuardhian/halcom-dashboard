@@ -220,3 +220,28 @@ test("a salesperson updates the commercial part of their own project from a shee
   await expect(soa.getByText(/Peran Anda tidak boleh mengubah kolom commercial/)).toBeVisible({ timeout: 30_000 });
   await soa.context().close();
 });
+
+test("the email draft of a request opens by itself after Continue (?email=1) and downloads as an Outlook .eml draft", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signIn(page, "SALES");
+  await page.goto("/projects/new");
+  await expect(async () => {
+    await page.getByLabel("End-user company").fill("E2E Draft Co");
+    await page.getByLabel("Project name").fill(`Draft job ${Date.now()}`);
+    await page.getByText(/^BOQ: /).click();
+    await page.getByRole("button", { name: "Create project and BOQ request" }).click();
+    await expect(page).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
+  }).toPass({ timeout: 45_000 });
+  const code = new URL(page.url()).searchParams.get("request")!;
+  await expect(page.getByRole("dialog")).toHaveCount(0); // opened on its own only after a Continue
+
+  await page.goto(`/request/${code}?email=1`);
+  const email = page.getByRole("dialog");
+  await expect(email).toBeVisible({ timeout: 30_000 });
+  await expect(page).not.toHaveURL(/email=1/);
+  const download = page.waitForEvent("download");
+  await email.getByRole("button", { name: "Download Outlook draft (.eml)" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(/\.eml$/);
+  expect(readFileSync((await file.path())!, "utf8")).toContain("X-Unsent: 1");
+});

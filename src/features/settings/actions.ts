@@ -8,12 +8,12 @@ import { requireUser } from "@/server/auth/current-user";
 import { saveProjectColumns, saveTaxBasis } from "@/server/settings/app-settings";
 import { saveTeamSetting } from "@/server/settings/team-settings";
 
-/** Saves one team's SLA and email template (superadmin only; the service checks it again). */
+/** Saves one team's SLA, or its recipients and email template, whichever the form sends (superadmin only; the service checks it again). */
 export async function saveTeamSettingAction(_previous: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const text = (name: string) => {
     const value = formData.get(name);
-    return typeof value === "string" ? value : "";
+    return typeof value === "string" ? value : undefined;
   };
   const restoreDefaults = formData.get("restoreDefaults") === "1";
   const result = await saveTeamSetting(getDb(), { id: user.id, role: user.role }, {
@@ -26,10 +26,10 @@ export async function saveTeamSettingAction(_previous: FormState, formData: Form
     ...(restoreDefaults ? { restoreDefaults: true } : {}),
   });
   if (!result.ok) return { ok: false, message: result.message };
-  revalidatePath(`${SETTINGS_PATH}/soa`);
-  revalidatePath(`${SETTINGS_PATH}/purchasing`);
+  revalidatePath(`${SETTINGS_PATH}/email`);
+  revalidatePath(`${SETTINGS_PATH}/sla`);
   if (!result.changed) return { ok: true, message: "Tidak ada perubahan." };
-  return { ok: true, message: restoreDefaults ? "Template bawaan dikembalikan, dan SLA disimpan." : "Tersimpan. Email dan tanggal SLA berikutnya memakai pengaturan ini." };
+  return { ok: true, message: restoreDefaults ? "Template bawaan dikembalikan." : "Tersimpan. Email dan tanggal SLA berikutnya memakai pengaturan ini." };
 }
 
 /** Saves the columns the Projects table shows (superadmin only; the service checks it again). */

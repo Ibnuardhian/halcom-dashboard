@@ -216,7 +216,7 @@ test.describe("persistent login and switching accounts", () => {
 test.describe("each role sees its own modules", () => {
   const MODULES = {
     SALES: ["Overview", "Sales pipeline", "Projects", "Customers", "Sales targets", "Request center"],
-    SOA: ["Overview", "Technical dashboard", "Projects", "BOQ tickets", "Purchasing handoff", "Technical reports", "Principal & solution master data"],
+    SOA: ["Overview", "SOA dashboard", "Projects", "BOQ tickets", "Purchasing handoff", "Technical reports", "Principal & solution master data"],
     PURCHASING: ["Purchasing dashboard", "RFQ requests", "PO requests"],
     FINANCE: ["Overview", "Finance dashboard", "Projects", "All requests", "BOQ requests", "RFQ requests", "PO requests", "Financial crosscheck"],
   } as const;
@@ -230,7 +230,7 @@ test.describe("each role sees its own modules", () => {
 
   test("an admin sees the administration modules", async ({ page }) => {
     await signIn(page, "ADMIN");
-    for (const name of ["Users and roles", "Permissions", "SLA SOA", "SLA Purchasing", "Master data", "Audit logs"]) {
+    for (const name of ["Users and roles", "Permissions", "Email", "SLA", "Master data", "Audit logs"]) {
       await expect(nav(page).getByRole("link", { name })).toBeVisible();
     }
     await expect(nav(page).getByRole("link", { name: "Backups" })).toHaveCount(0);
@@ -244,8 +244,8 @@ test.describe("each role sees its own modules", () => {
     const finance = page.getByRole("row", { name: /finance\.crosscheck\.view/ });
     await expect(finance).toBeVisible();
 
-    await page.goto("/admin/settings/purchasing");
-    await expect(page.getByRole("heading", { level: 1, name: "SLA Purchasing" })).toBeVisible();
+    await page.goto("/admin/settings/email");
+    await expect(page.getByRole("heading", { level: 1, name: "Email" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Simpan / })).toHaveCount(0);
     await expect(page.getByText("hanya Superadmin yang mengubahnya")).toBeVisible();
   });
@@ -262,7 +262,7 @@ test.describe("dashboards use the stored requests", () => {
       await expect(page.getByRole("heading", { name: `${noun} by status` })).toBeVisible();
       await expect(page.getByRole("heading", { name: `${noun} per PIC` })).toBeVisible();
       if (role === "SOA") {
-        // Projects lead on the Technical dashboard; the BOQ requests sit below them.
+        // Projects lead on the SOA dashboard; the BOQ requests sit below them.
         await expect(page.getByRole("region", { name: "Open projects" }).getByText("Open projects", { exact: true })).toBeVisible();
         for (const title of ["PIC Workload", "Projects by principal", "Value by principal", "Solution mix", "Value by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
         const order = await page.getByText(/^(PIC Workload|BOQ by status)$/).allTextContents();
@@ -279,13 +279,13 @@ test.describe("dashboards use the stored requests", () => {
     await purchasing.context().close();
   });
 
-  test("SOA's technical dashboard counts a new BOQ and every number links to the filtered list", async ({ browser }) => {
+  test("SOA dashboard counts a new BOQ and every number links to the filtered list", async ({ browser }) => {
     test.setTimeout(120_000);
     const sales = await asRole(browser, "SALES");
     const soa = await asRole(browser, "SOA");
 
     await soa.goto("/dashboard/soa");
-    await expect(soa.getByRole("heading", { level: 1, name: "Technical dashboard" })).toBeVisible();
+    await expect(soa.getByRole("heading", { level: 1, name: "SOA dashboard" })).toBeVisible();
     const tile = soa.getByRole("link", { name: /^Open BOQ requests/ });
     const before = Number((await tile.innerText()).match(/\n(\d+)\n/)?.[1] ?? "0");
 
@@ -295,7 +295,6 @@ test.describe("dashboards use the stored requests", () => {
       await sales.getByLabel("End-user company").fill("PT Dashboard Uji");
       await sales.getByLabel("Project name").fill("Count me");
       await sales.getByText(/^BOQ: /).click();
-      await sales.getByLabel("Request summary").fill("Counted BOQ");
       await sales.getByRole("button", { name: /Create project and BOQ request/ }).click();
       await expect(sales).toHaveURL(/\?request=BOQ-/, { timeout: 4000 });
     }).toPass({ timeout: 45_000 });
@@ -390,8 +389,12 @@ test.describe("a project from another source (Other)", () => {
       await expect(soa.getByRole("listbox", { name: "salesperson options" }).getByRole("button", { name: "Satrio", exact: true })).toBeVisible({ timeout: 3000 });
       await soa.getByRole("listbox", { name: "salesperson options" }).getByRole("button", { name: "Satrio", exact: true }).click();
       await expect(pic).toHaveValue("Satrio");
+      // Tab takes the highlighted match, so the name does not have to be clicked.
+      await soa.getByRole("button", { name: "Clear salesperson" }).click();
+      await pic.fill("Satr");
+      await pic.press("Tab");
+      await expect(pic).toHaveValue("Satrio");
       await soa.getByText(/^BOQ: /).click();
-      await soa.getByLabel("Request summary").fill("BOQ untuk Sales terdaftar");
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
       await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
     }).toPass({ timeout: 60_000 });
@@ -453,7 +456,6 @@ test.describe("a project from another source (Other)", () => {
       await soa.getByLabel("Sales contact").fill("Budi");
       await soa.getByLabel("Reference").fill("MP-2026-7");
       await soa.getByText(/^BOQ: /).click();
-      await soa.getByLabel("Request summary").fill("BOQ untuk mitra");
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
       await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 4000 });
     }).toPass({ timeout: 60_000 });

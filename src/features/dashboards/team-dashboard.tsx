@@ -18,7 +18,7 @@ import { StatTile } from "./stat-tile";
 
 const COPY = {
   SOA: {
-    title: "Technical dashboard",
+    title: "SOA dashboard",
     summary: "Proyek dan request BOQ yang dikerjakan SOA: proyek terbuka, beban PIC, dan sebaran principal, solusi serta industri; di bawahnya request BOQ: berapa yang selesai, apa yang masih terbuka, apa yang terlambat, siapa yang menanggung beban kerja, dan di mana request menunggu.",
     noun: "BOQ",
     base: `${REQUESTS_PATH}/boq?`,

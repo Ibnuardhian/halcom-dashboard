@@ -212,7 +212,7 @@ export async function createProject(db: PrismaClient, claimedActor: Actor, input
       let requestCode: string | null = null;
       if (request) {
         if (!canRaiseWithNewProject(actor.role, request.type, sourceType)) return fail("FORBIDDEN");
-        requestCode = (await insertRequest(tx, actor, project.id, request, submissionKey ? `${submissionKey}:request` : null)).code;
+        requestCode = (await insertRequest(tx, actor, project.id, { ...request, title: request.title ?? name }, submissionKey ? `${submissionKey}:request` : null)).code;
       }
       return succeed({ id: project.id, code, created: true, requestCode });
     });
@@ -241,13 +241,13 @@ export async function createRequest(db: PrismaClient, claimedActor: Actor, input
         const again = await tx.request.findUnique({ where: { submissionKey }, select: { id: true, code: true } });
         if (again) return succeed({ ...again, created: false });
       }
-      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, trackStatus: true, deletedAt: true, sourceType: true } });
+      const project = await tx.project.findUnique({ where: { id: projectId }, select: { id: true, name: true, trackStatus: true, deletedAt: true, sourceType: true } });
       if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
       if (!canRaiseRequestOn(actor.role, type, project.sourceType)) return fail("FORBIDDEN");
       if (project.trackStatus !== "ON_TRACK") return fail("PROJECT_NOT_ACTIVE");
       if (type === "PO" && (await tx.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED" } })) === 0) return fail("INVALID_STATE", PO_NEEDS_RFQ);
 
-      const request = await insertRequest(tx, actor, projectId, { type, title, description, requiredBy }, submissionKey);
+      const request = await insertRequest(tx, actor, projectId, { type, title: title ?? project.name, description, requiredBy }, submissionKey);
       return succeed({ id: request.id, code: request.code, created: true });
     });
   } catch (error) {

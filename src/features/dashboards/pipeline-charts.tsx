@@ -53,7 +53,8 @@ export function PipelineTiles({ analytics, scope = "all" }: { analytics: Pipelin
  * principal (brand), solution, industry and salesperson; a salesperson's own view keeps to progress and status.
  * Projects without a value count in the numbers of projects but add nothing to the money charts.
  */
-export function PipelineCharts({ analytics, scope = "all" }: { analytics: PipelineAnalytics; scope?: "all" | "mine" }) {
+/** `customerLinks` is false for a role that may not open the Customers page (SOA, Purchasing, Finance, Management): its location bars then show the numbers without a link. */
+export function PipelineCharts({ analytics, scope = "all", customerLinks = true }: { analytics: PipelineAnalytics; scope?: "all" | "mine"; customerLinks?: boolean }) {
   const own = scope === "mine";
   // Every bar and slice opens the Projects list filtered to exactly the projects it counts; a salesperson's charts keep to their own.
   const to = (filters: DrillFilters) => projectsHref(PROJECTS_PATH, filters, { mine: own });
@@ -91,7 +92,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
                 display: String(s.count),
                 note: s.value > 0 ? formatCompact(s.value) : undefined,
                 neutral: isNeutral(s),
-                href: s.drill && s.drill.length > 0 ? `${CUSTOMERS_PATH}?${s.drill.map((key) => `location=${encodeURIComponent(key)}`).join("&")}` : null,
+                href: customerLinks && s.drill && s.drill.length > 0 ? `${CUSTOMERS_PATH}?${s.drill.map((key) => `location=${encodeURIComponent(key)}`).join("&")}` : null,
               }))}
               color={3}
               emptyText="Belum ada lokasi yang diisi."
@@ -128,7 +129,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
 }
 
 /**
- * The project side of the Technical dashboard: open projects per SOA PIC, then how all projects split by principal, solution and
+ * The project side of the SOA dashboard: open projects per SOA PIC, then how all projects split by principal, solution and
  * industry (the same charts and drill-downs as the Overview, without the sales-only ones).
  */
 export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }) {

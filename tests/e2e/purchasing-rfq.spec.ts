@@ -49,7 +49,6 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
 
   // A click before the page is interactive reloads the form instead of submitting it, so the step is retried.
   await expect(async () => {
-    await page.getByLabel("Summary").fill("Quote forty PoE switches");
     await page.getByLabel("Details").fill("48-port, managed.");
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });

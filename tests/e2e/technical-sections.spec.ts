@@ -26,7 +26,6 @@ test("an Admin adds a technical section and an SOA phase, and SOA fills the sect
   await page.goto(`${projectUrl}#requests`);
   await page.getByRole("link", { name: "New BOQ", exact: true }).click();
   await expect(async () => {
-    await page.getByLabel("Summary").fill("Phase test");
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\?request=BOQ-/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });

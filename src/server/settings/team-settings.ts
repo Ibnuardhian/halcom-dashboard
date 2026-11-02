@@ -50,17 +50,18 @@ export async function getTeamSettings(db: PrismaClient): Promise<Record<Template
   return { SOA: soa, PURCHASING: purchasing };
 }
 
+/** Every part is optional: the SLA page sends only the SLA, the Email page only the recipients and the template; what is not sent stays as it is. */
 const saveSchema = z
   .object({
     role: z.enum(TEMPLATE_TEAMS),
     /** Written as a number of days or a range: "3", "2-3", "1-4". */
-    sla: z.string().max(40),
-    emailSubject: z.string().max(1000),
-    emailBody: z.string().max(20_000),
+    sla: z.string().max(40).optional(),
+    emailSubject: z.string().max(1000).optional(),
+    emailBody: z.string().max(20_000).optional(),
     /** Addresses separated by a comma or semicolon; empty keeps the server settings. */
-    emailTo: z.string().max(2000).default(""),
-    emailCc: z.string().max(2000).default(""),
-    /** Throw away the saved template and go back to the defaults (the SLA is kept as entered). */
+    emailTo: z.string().max(2000).optional(),
+    emailCc: z.string().max(2000).optional(),
+    /** Throw away the saved template and go back to the defaults (the SLA and recipients are kept). */
     restoreDefaults: z.boolean().optional(),
   })
   .strict();
@@ -68,43 +69,58 @@ const saveSchema = z
 export type SaveSettingResult = { ok: true; changed: boolean } | { ok: false; code: "FORBIDDEN" | "INVALID_INPUT"; message: string };
 
 /**
- * Saves a team's SLA (a number of days or a range such as 2-3, at most 7 days) and email template. Superadmin only; the
- * stored actor is re-read in the transaction. An invalid template (unknown variable, no {{request_id}} in the subject) is
- * refused with the reasons.
+ * Saves a team's SLA (a number of days or a range such as 2-3, at most 7 days), its recipients and its email template, whichever are
+ * sent. Superadmin only; the stored actor is re-read in the transaction. An invalid template (unknown variable, no {{request_id}} in
+ * the subject) is refused with the reasons.
  */
 export async function saveTeamSetting(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<SaveSettingResult> {
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, code: "INVALID_INPUT", message: "Pengaturan yang dikirim tidak valid." };
   if (!can(claimedActor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   const { role, restoreDefaults } = parsed.data;
-  const sla = parseSlaRange(parsed.data.sla);
-  if (!sla) return { ok: false, code: "INVALID_INPUT", message: `Tulis SLA sebagai jumlah hari atau rentang seperti 2-3, dari 1 sampai ${SLA_MAX_DAYS} hari.` };
-  const emailSubject = restoreDefaults ? DEFAULT_TEMPLATES[role].subject : parsed.data.emailSubject.replace(/\s+/g, " ").trim();
-  const emailBody = restoreDefaults ? DEFAULT_TEMPLATES[role].body : parsed.data.emailBody.replace(/\r\n/g, "\n").trim();
-  const problems = validateTemplate(emailSubject, emailBody);
-  if (problems.length > 0) return { ok: false, code: "INVALID_INPUT", message: problems.join(" ") };
-  const to = parseRecipients(parsed.data.emailTo);
-  const cc = parseRecipients(parsed.data.emailCc);
-  const invalidAddresses = [...to.invalid, ...cc.invalid];
-  if (invalidAddresses.length > 0) return { ok: false, code: "INVALID_INPUT", message: `Alamat email tidak valid: ${invalidAddresses.join(", ")}.` };
-  const emailTo = to.addresses.join(", ");
-  // An address in To is not repeated in Cc.
-  const toKeys = new Set(to.addresses.map((address) => address.toLowerCase()));
-  const emailCc = cc.addresses.filter((address) => !toKeys.has(address.toLowerCase())).join(", ");
+  const invalid = (message: string): SaveSettingResult => ({ ok: false, code: "INVALID_INPUT", message });
+
+  const sla = parsed.data.sla === undefined ? null : parseSlaRange(parsed.data.sla);
+  if (parsed.data.sla !== undefined && !sla) return invalid(`Tulis SLA sebagai jumlah hari atau rentang seperti 2-3, dari 1 sampai ${SLA_MAX_DAYS} hari.`);
+
+  let template: { subject: string; body: string } | null = null;
+  if (restoreDefaults) template = DEFAULT_TEMPLATES[role];
+  else if (parsed.data.emailSubject !== undefined || parsed.data.emailBody !== undefined) {
+    template = { subject: (parsed.data.emailSubject ?? "").replace(/\s+/g, " ").trim(), body: (parsed.data.emailBody ?? "").replace(/\r\n/g, "\n").trim() };
+  }
+  if (template) {
+    const problems = validateTemplate(template.subject, template.body);
+    if (problems.length > 0) return invalid(problems.join(" "));
+  }
+
+  let recipients: { to: string; cc: string } | null = null;
+  if (parsed.data.emailTo !== undefined || parsed.data.emailCc !== undefined) {
+    const to = parseRecipients(parsed.data.emailTo);
+    const cc = parseRecipients(parsed.data.emailCc);
+    const invalidAddresses = [...to.invalid, ...cc.invalid];
+    if (invalidAddresses.length > 0) return invalid(`Alamat email tidak valid: ${invalidAddresses.join(", ")}.`);
+    // An address in To is not repeated in Cc.
+    const toKeys = new Set(to.addresses.map((address) => address.toLowerCase()));
+    recipients = { to: to.addresses.join(", "), cc: cc.addresses.filter((address) => !toKeys.has(address.toLowerCase())).join(", ") };
+  }
 
   return db.$transaction(async (tx): Promise<SaveSettingResult> => {
     const actor = await tx.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
     if (!actor?.isActive || !can(actor.role, "settings.manage")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
 
     const before = await getTeamSetting(tx, role);
-    const sameSla = before.sla.minDays === sla.minDays && before.sla.maxDays === sla.maxDays;
-    if (sameSla && before.emailSubject === emailSubject && before.emailBody === emailBody && before.emailTo === emailTo && before.emailCc === emailCc && !before.isDefault) return { ok: true, changed: false };
+    const next = {
+      sla: sla ?? before.sla,
+      emailSubject: template?.subject ?? before.emailSubject,
+      emailBody: template?.body ?? before.emailBody,
+      emailTo: recipients?.to ?? before.emailTo,
+      emailCc: recipients?.cc ?? before.emailCc,
+    };
+    const sameSla = before.sla.minDays === next.sla.minDays && before.sla.maxDays === next.sla.maxDays;
+    if (sameSla && before.emailSubject === next.emailSubject && before.emailBody === next.emailBody && before.emailTo === next.emailTo && before.emailCc === next.emailCc && !before.isDefault) return { ok: true, changed: false };
 
-    await tx.teamSetting.upsert({
-      where: { role },
-      create: { role, slaMinDays: sla.minDays, slaDays: sla.maxDays, emailSubject, emailBody, emailTo, emailCc, updatedById: actor.id },
-      update: { slaMinDays: sla.minDays, slaDays: sla.maxDays, emailSubject, emailBody, emailTo, emailCc, updatedById: actor.id },
-    });
+    const stored = { slaMinDays: next.sla.minDays, slaDays: next.sla.maxDays, emailSubject: next.emailSubject, emailBody: next.emailBody, emailTo: next.emailTo, emailCc: next.emailCc, updatedById: actor.id };
+    await tx.teamSetting.upsert({ where: { role }, create: { role, ...stored }, update: stored });
     await tx.auditEvent.create({
       data: {
         actorId: actor.id,
@@ -112,7 +128,7 @@ export async function saveTeamSetting(db: PrismaClient, claimedActor: Actor, inp
         entityType: "team_settings",
         entityId: role,
         before: { sla: formatSlaRange(before.sla), emailSubject: before.emailSubject, emailBody: before.emailBody, emailTo: before.emailTo, emailCc: before.emailCc, isDefault: before.isDefault },
-        after: { sla: formatSlaRange(sla), emailSubject, emailBody, emailTo, emailCc, restoredDefaults: restoreDefaults === true },
+        after: { sla: formatSlaRange(next.sla), emailSubject: next.emailSubject, emailBody: next.emailBody, emailTo: next.emailTo, emailCc: next.emailCc, restoredDefaults: restoreDefaults === true },
       },
     });
     return { ok: true, changed: true };

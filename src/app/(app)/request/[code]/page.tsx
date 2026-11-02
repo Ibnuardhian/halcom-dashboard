@@ -10,10 +10,10 @@ import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
 import { getRequestByCode } from "@/server/requests/queries";
 
-export default function RequestPage({ params }: PageProps<"/request/[code]">) {
+export default function RequestPage({ params, searchParams }: PageProps<"/request/[code]">) {
   return (
     <Suspense fallback={<PageFallback />}>
-      <RequestDetail params={params} />
+      <RequestDetail params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -23,11 +23,12 @@ export default function RequestPage({ params }: PageProps<"/request/[code]">) {
  * leads to the project page with that request open. Only someone who may read requests but not projects (a permission set by the
  * superadmin) still gets the request on its own page.
  */
-async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "params">) {
+async function RequestDetail({ params, searchParams }: Pick<PageProps<"/request/[code]">, "params" | "searchParams">) {
   const viewer = await requirePermission("requests.view");
   const request = await getRequestByCode(getDb(), viewer, (await params).code);
   if (!request) notFound();
-  if (can(viewer.role, "projects.view")) redirect(`${PROJECTS_PATH}/${request.project.code}?request=${request.code}#request-${request.code}`);
+  const openEmail = (await searchParams).email === "1";
+  if (can(viewer.role, "projects.view")) redirect(`${PROJECTS_PATH}/${request.project.code}?request=${request.code}${openEmail ? "&email=1" : ""}#request-${request.code}`);
 
   return (
     <>
@@ -35,7 +36,7 @@ async function RequestDetail({ params }: Pick<PageProps<"/request/[code]">, "par
         title={request.code}
         summary={`${REQUEST_TYPE_LABELS[request.type]} untuk ${request.project.endUserCompany}, ${request.project.name}`}
       />
-      <RequestPanel request={request} viewer={viewer} />
+      <RequestPanel request={request} viewer={viewer} openEmail={openEmail} />
     </>
   );
 }

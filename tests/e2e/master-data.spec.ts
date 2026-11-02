@@ -21,7 +21,6 @@ async function createRfq(page: Page, projectCode: string, title: string, details
   await page.getByRole("link", { name: "New RFQ", exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue("RFQ");
   await expect(async () => {
-    await page.getByLabel("Summary").fill(title);
     await page.getByLabel("Details").fill(details);
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
@@ -206,7 +205,6 @@ test.describe("Purchasing sees RFQ and PO requests only", () => {
     await page.goto(`/projects/${boqProject}#requests`);
     await page.getByRole("link", { name: "New BOQ", exact: true }).click();
     await expect(async () => {
-      await page.getByLabel("Summary").fill(`BOQ ${id}`);
       await page.getByRole("button", { name: "Create request" }).click();
       await expect(page).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
     }).toPass({ timeout: 45_000 });

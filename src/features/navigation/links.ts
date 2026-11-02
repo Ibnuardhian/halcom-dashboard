@@ -100,7 +100,7 @@ const MODULE_LINKS: readonly ModuleLink[] = [
 /** What a role calls its own dashboard. */
 const OWN_DASHBOARD_LABELS: Partial<Record<Role, string>> = {
   SALES: "Sales pipeline",
-  SOA: "Technical dashboard",
+  SOA: "SOA dashboard",
   PURCHASING: "Purchasing dashboard",
   FINANCE: "Finance dashboard",
   MANAGEMENT: "Management dashboard",
