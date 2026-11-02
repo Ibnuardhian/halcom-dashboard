@@ -251,3 +251,16 @@ describe("the Technical PIC column", () => {
     expect(JSON.stringify(refused)).toContain("Technical PIC");
   });
 });
+
+describe("the description column", () => {
+  it("is changed by Superadmin, Admin and Sales (on their projects), and refused to SOA", async () => {
+    const { root, admin, soa, sales, newOwner, tag, code, as, exported, file } = await setup();
+    expect(await previewProjectUpdate(db, as(soa), file(await exported({ Description: `By soa ${tag}` })))).toMatchObject({ ok: true, summary: { errors: 1, toUpdate: 0 } });
+    expect(await commitProjectUpdate(db, as(sales), { ...file(await exported({ Description: `By sales ${tag}` })), fileName: "d.xlsx", confirmNew: false })).toMatchObject({ ok: true, updated: 1 });
+    // Not their project: refused.
+    expect(await previewProjectUpdate(db, as(newOwner), file(await exported({ Description: "Not mine" })))).toMatchObject({ ok: true, summary: { errors: 1 } });
+    expect(await commitProjectUpdate(db, as(admin), { ...file(await exported({ Description: `By admin ${tag}` })), fileName: "d2.xlsx", confirmNew: false })).toMatchObject({ ok: true, updated: 1 });
+    expect(await commitProjectUpdate(db, as(root), { ...file(await exported({ Description: `By root ${tag}` })), fileName: "d3.xlsx", confirmNew: false })).toMatchObject({ ok: true, updated: 1 });
+    await expect(db.project.findUniqueOrThrow({ where: { code } })).resolves.toMatchObject({ description: `By root ${tag}` });
+  });
+});

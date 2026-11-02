@@ -11,6 +11,7 @@ import { requireUser } from "@/server/auth/current-user";
 import { redirect } from "next/navigation";
 import { deleteProject } from "@/server/projects/delete";
 import { reassignProject } from "@/server/projects/reassign";
+import { setProjectDescription } from "@/server/projects/description";
 import { renameProject } from "@/server/projects/rename";
 import { updateProjectSource } from "@/server/projects/source";
 import { postProjectUpdate, updateCommercialDetails, updateProjectDetails } from "@/server/projects/service";
@@ -150,4 +151,14 @@ export async function renameProjectAction(_previous: FormState, formData: FormDa
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   revalidatePath(PROJECTS_PATH);
   return { ok: true, message: result.changed ? "Nama project diubah dan dicatat di change log." : "Nama project tidak berubah." };
+}
+
+/** Whoever holds the permission (Sales on their own projects, Superadmin on any) changes a project's description; old and new text go to the change log. */
+export async function setDescriptionAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const result = await setProjectDescription(getDb(), { id: user.id, role: user.role }, { projectId: formData.get("projectId"), description: formData.get("description") ?? "" });
+  if (!result.ok) return { ok: false, message: result.message };
+  const code = formData.get("projectCode");
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  return { ok: true, message: result.changed ? "Deskripsi disimpan dan dicatat di change log." : "Deskripsi tidak berubah." };
 }

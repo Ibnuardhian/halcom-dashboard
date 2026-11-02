@@ -8,8 +8,10 @@ import type { ImportFieldKey } from "./import";
  * back by hand changes nothing. It is derived from the permissions, so changing them in the permission editor changes the sheet.
  */
 export type ImportScope = {
-  /** End user, Project name and Description. */
+  /** End user and Project name. */
   identity: boolean;
+  /** Description. */
+  description: boolean;
   /** Sales PIC, Project source and External sales name. */
   owner: boolean;
   /** Progress to Target closing, including the money columns. Also what lets a role see the money. */
@@ -23,11 +25,11 @@ export type ImportScope = {
 export function importScope(role: Role): ImportScope {
   const commercial = can(role, "projects.edit.commercial");
   const technical = can(role, "projects.edit.technical");
-  return { identity: can(role, "projects.rename"), owner: can(role, "projects.edit.source"), commercial, technical, place: commercial || technical };
+  return { identity: can(role, "projects.rename"), description: can(role, "projects.edit.description"), owner: can(role, "projects.edit.source"), commercial, technical, place: commercial || technical };
 }
 
 const ALWAYS: readonly ImportFieldKey[] = ["endUser", "name", "code", "description", "currentAction", "nextAction", "lastUpdated"];
-const GROUPS: Record<Exclude<keyof ImportScope, "identity" | "place">, readonly ImportFieldKey[]> = {
+const GROUPS: Record<Exclude<keyof ImportScope, "identity" | "description" | "place">, readonly ImportFieldKey[]> = {
   owner: ["salesPic", "source", "externalSourceName"],
   commercial: ["progress", "status", "estimatedValue", "targetMarginAmount", "targetMarginPercent", "quoteReleasedAt", "targetDate"],
   technical: ["principals", "solution", "technicalPic"],

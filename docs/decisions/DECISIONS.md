@@ -794,6 +794,14 @@ Industry was kept on two levels: the customer (chosen from the list) and a free 
 - **The table follows the width of the page.** Columns are hidden by the width of the table's container (container queries), not of the window, so opening the sidebar no longer drops columns that would fit; text cells wrap instead of being cut. Status shows from 36 rem of content, the other optional columns from 48 rem.
 - **Overview: 5 projects left longest without an update.** Open projects only, oldest "last update" first (the newest activity on the project: edit, action or request), showing project name (a link), end user and last update.
 
+## D-054: One permission to change a project's description (2026-11-02)
+
+The description of a project could only be filled in when it was created. Permission `projects.edit.description` (Superadmin, Admin and Sales by default; changeable in the permission editor) now lets those roles change it.
+
+- **Page.** On the project page the description is a text box with "Simpan deskripsi" for holders of the permission; others read it as before. Sales may change it only on the projects they act on (their own and the Other ones); Admin and Superadmin on any. An empty text clears it; at most 2000 characters.
+- **Log.** The old and new text go to the project change log and the audit log (`project.description_changed`), and the people on the project are notified. Service: `setProjectDescription`, which re-checks the stored account and permission.
+- **Excel.** The Description column of the bulk update follows this permission instead of the rename permission (D-050): SOA, which may rename, is refused a description change in a sheet; Sales (own projects), Admin and Superadmin may.
+
 ## D-056: Email draft opens after Continue, Outlook .eml draft, margin typed as an amount, Tab in the name picker (2026-11-02)
 
 - **Draft opens by itself.** "Continue to RFQ / PO" now leads to the new request with `?email=1`; the project page opens that request's email dialog ([HITRFQ] or [HITPO]) once, and the parameter is dropped from the address so a reload does not reopen it. Nothing is sent (D-017).

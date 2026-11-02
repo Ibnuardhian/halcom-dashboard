@@ -281,7 +281,8 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
 
     // A column outside the role's part of the sheet may be present (added by hand) but never changes anything: it is refused by name.
     const outside: [boolean, string][] = [
-      [!scope.identity && Boolean(applied.endUser || applied.name !== undefined || applied.description !== undefined), "End user, Project name atau Description"],
+      [!scope.identity && Boolean(applied.endUser || applied.name !== undefined), "End user atau Project name"],
+      [!scope.description && applied.description !== undefined, "Description"],
       [!scope.owner && Boolean(applied.salesOwner), "Sales PIC"],
       [!scope.commercial && commercialChanges.length > 0, "kolom commercial (Progress sampai Target closing)"],
       [!scope.technical && Boolean(applied.principals || applied.solution || applied.technicalPic), "Principals, Solution atau Technical PIC"],

@@ -61,6 +61,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "projects.edit.source": { category: "project-management", label: "Edit project source", description: "Ubah project antara Internal Sales dan Other, beserta data external sales." },
   "projects.edit.technical": { category: "project-management", label: "Edit technical fields", description: "Ubah field teknis project, dengan change log." },
   "projects.rename": { category: "project-management", label: "Rename projects", description: "Ubah nama project; nama lama dan baru masuk change log." },
+  "projects.edit.description": { category: "project-management", label: "Edit project description", description: "Ubah deskripsi project (di halaman project dan lewat Excel); Sales hanya untuk project yang ia tangani; Admin dan Superadmin untuk semua project. Perubahan masuk change log." },
   "projects.edit.commercial": { category: "project-management", label: "Edit commercial fields", description: "Ubah nilai, margin, probability, dan field komersial lain." },
   "projects.delete": { category: "project-management", label: "Delete projects", description: "Hapus project (disembunyikan, riwayatnya tetap)." },
   "projects.reassign": { category: "project-management", label: "Reassign project PICs", description: "Pindahkan project ke Sales, Technical (SOA), atau Purchasing PIC lain." },
