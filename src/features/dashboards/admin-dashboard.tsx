@@ -21,8 +21,7 @@ import { StatTile } from "./stat-tile";
  */
 const TOOLS = [
   { href: PERMISSIONS_PATH, label: "Role permissions", permission: "permissions.view" },
-  { href: `${SETTINGS_PATH}/soa`, label: "SLA SOA", permission: "settings.view" },
-  { href: `${SETTINGS_PATH}/purchasing`, label: "SLA Purchasing", permission: "settings.view" },
+  { href: SETTINGS_PATH, label: "Email & SLA", permission: "settings.view" },
   { href: SYSTEM_PATH, label: "System health", permission: "system.monitor" },
   { href: BACKUPS_PATH, label: "Backups", permission: "system.backup" },
 ] as const;

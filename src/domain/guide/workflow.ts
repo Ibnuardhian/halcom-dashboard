@@ -611,11 +611,11 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     output: "Aturan yang menjadi dasar setiap request yang masuk, tercatat di audit log.",
     recipient: "Admin dan semua peran (perubahan berlaku pada request berikutnya)",
     guide: {
-      where: "Permissions, SLA SOA, SLA Purchasing, System, Backups",
+      where: "Permissions, Email & SLA, System, Backups",
       prerequisites: ["Anda memiliki akun Superadmin."],
       steps: [
         "Buka Permissions untuk memberi atau mencabut permission suatu peran. Setiap penyimpanan dicatat sebagai satu audit event per peran yang berubah.",
-        "Buka SLA SOA atau SLA Purchasing untuk mengubah rentang SLA dan email template tim itu.",
+        "Buka Email & SLA untuk mengubah rentang SLA, penerima (To/CC) dan email template tiap tim di satu halaman.",
         "Buka System untuk memantau kesehatan aplikasi dan database, dan Backups untuk membuat dump database.",
         "Kelola akun Admin dan Superadmin di Users and roles.",
       ],
@@ -623,8 +623,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       handoff: "Superadmin selalu mempertahankan permission untuk mengelola akun dan permission.",
       links: [
         { label: "Permissions", href: "/admin/permissions", anyOf: ["permissions.view"] },
-        { label: "SLA SOA", href: "/admin/settings/soa", anyOf: ["settings.view"] },
-        { label: "SLA Purchasing", href: "/admin/settings/purchasing", anyOf: ["settings.view"] },
+        { label: "Email & SLA", href: "/admin/settings", anyOf: ["settings.view"] },
         { label: "System", href: "/admin/system", anyOf: ["system.monitor"] },
         { label: "Backups", href: "/admin/backups", anyOf: ["system.backup"] },
       ],

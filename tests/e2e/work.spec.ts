@@ -352,11 +352,11 @@ test.describe("projects and requests", () => {
 
   test("only the superadmin sees the team settings, and a template without the Request ID is refused", async ({ page, browser }) => {
     await signIn(page, "SALES");
-    await expectNotFound(page, "/admin/settings/soa", "Subjek email");
+    await expectNotFound(page, "/admin/settings", "Subjek email");
 
     const root = await asRole(browser, "SUPERADMIN");
-    await root.goto("/admin/settings/soa");
-    await expect(root.getByRole("heading", { level: 1, name: "SLA SOA" })).toBeVisible();
+    await root.goto("/admin/settings");
+    await expect(root.getByRole("heading", { level: 1, name: "Email & SLA" })).toBeVisible();
     const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan pengaturan SOA" }) });
     await expect(form.getByLabel(/^SLA tim SOA/)).toHaveValue("2-3"); // the default range
     await expect(async () => {
