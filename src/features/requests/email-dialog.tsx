@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Mail, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmailPanel } from "./email-panel";
@@ -11,9 +11,17 @@ type EmailPanelProps = React.ComponentProps<typeof EmailPanel>;
  * The email text of a request, in a modal that opens from a button: the page stays short, and the text is there when a mail has
  * to be sent. The content is the same copy-and-paste panel as before (To, Cc, subject, text, and the Outlook draft button).
  */
-export function EmailDialog({ tag, ...panel }: EmailPanelProps & { tag: string }) {
+export function EmailDialog({ tag, autoOpen, ...panel }: EmailPanelProps & { tag: string; autoOpen?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // Right after "Continue to RFQ / PO" the draft is the next thing to do, so it opens by itself; `?email` is dropped so a reload does not reopen it.
+  useEffect(() => {
+    if (!autoOpen || dialog.current?.open) return;
+    dialog.current?.showModal();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("email");
+    window.history.replaceState(null, "", url);
+  }, [autoOpen]);
   return (
     <>
       <Button type="button" variant="outline" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>

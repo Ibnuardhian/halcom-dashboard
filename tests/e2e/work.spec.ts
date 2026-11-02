@@ -107,9 +107,8 @@ test.describe("projects and requests", () => {
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill("One form demo");
     await page.getByLabel("Estimated PO value").fill("2.000.000.000");
-    await expect(page.getByLabel("Target margin (amount)")).toBeVisible(); // an amount is the default
-    await page.getByRole("radio", { name: "Percent" }).check();
-    await page.getByLabel("Target margin (%)").fill("12,5");
+    await expect(page.getByRole("radio", { name: "Percent" })).toHaveCount(0); // the margin is a number only
+    await page.getByLabel("Target margin (amount)").fill("250.000.000");
     await page.getByText(/^BOQ: /).click();
     await page.getByLabel("Request summary").fill("BOQ from the combined form");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
@@ -121,7 +120,7 @@ test.describe("projects and requests", () => {
 
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
-    await expect(page.getByLabel("Target margin (%)")).toHaveValue("12.5");
+    await expect(page.getByLabel("Target margin (amount)")).toHaveValue(/^250\.?000\.?000$/);
   });
 
   test("a date can be cleared with a button that shows only while it has a value", async ({ page }) => {
@@ -294,8 +293,7 @@ test.describe("projects and requests", () => {
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
     await commercial.getByLabel("Final PO value").fill("400");
-    await commercial.getByRole("radio", { name: "Percent" }).check();
-    await commercial.getByLabel("Target margin (%)").fill("10");
+    await commercial.getByLabel("Target margin (amount)").fill("40"); // 10% of 400
     await commercial.getByLabel("Won date").fill(`${year}-02-10`);
     await page.getByRole("button", { name: "Save commercial details" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
@@ -609,9 +607,12 @@ test.describe("projects and requests", () => {
 
     // The project page holds the BOQ and the RFQ; the RFQ is the open one, and its email text is what is checked.
     const rfqPanel = soa.locator(`li#request-${rfq}`);
-    await rfqPanel.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
-    const email = soa.getByRole("dialog");
+    const email = soa.getByRole("dialog"); // the email draft opens by itself after "Continue to RFQ"
     await expect(email.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
+    await expect(soa).not.toHaveURL(/email=1/); // dropped, so a reload does not open it again
+    const download = soa.waitForEvent("download");
+    await email.getByRole("button", { name: "Download Outlook draft (.eml)" }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.eml$/);
     await expect(email.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     expect(await email.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
     await expect(soa.getByText("Balas di dalam thread email [HITBOQ] asli")).toBeVisible();

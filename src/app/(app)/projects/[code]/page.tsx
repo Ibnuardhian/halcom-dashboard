@@ -78,6 +78,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   // `?request=CODE` (what /request/CODE leads to) opens that request and scrolls to it; the rest of the page is the project as always.
   const focusParam = (await searchParams).request;
   const focus = typeof focusParam === "string" ? focusParam : null;
+  const openEmail = (await searchParams).email === "1";
   const project = await getProjectByCode(getDb(), viewer, (await params).code);
   if (!project) notFound();
   const picOptions = can(viewer.role, "projects.reassign") ? await listPicOptions(getDb(), viewer) : null;
@@ -119,7 +120,8 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
     quoteReleasedAt: project.quoteReleasedAt ? project.quoteReleasedAt.toISOString().slice(0, 10) : "",
     estimatedValue: estimated === null ? "" : String(estimated),
     targetMargin: marginPercent === null ? "" : String(marginPercent),
-    targetMarginValue: marginValue === null ? "" : String(marginValue),
+    // The form takes an amount only, so a margin kept as a percentage is shown as the amount it comes to.
+    targetMarginValue: String(targetMarginAmount(estimated, finalValue, marginPercent, marginValue) ?? ""),
     targetDate: project.targetDate ? project.targetDate.toISOString().slice(0, 10) : "",
     finalValue: finalValue === null ? "" : String(finalValue),
     wonDate: project.wonDate ? project.wonDate.toISOString().slice(0, 10) : "",
@@ -368,7 +370,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">{request.title}</span>
                     </summary>
                     <div className="px-4 pb-4">
-                      <RequestPanel request={request} viewer={viewer} inProject />
+                      <RequestPanel request={request} viewer={viewer} inProject openEmail={openEmail && request.code === focus} />
                     </div>
                   </details>
                 </li>

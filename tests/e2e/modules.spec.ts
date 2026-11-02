@@ -390,6 +390,11 @@ test.describe("a project from another source (Other)", () => {
       await expect(soa.getByRole("listbox", { name: "salesperson options" }).getByRole("button", { name: "Satrio", exact: true })).toBeVisible({ timeout: 3000 });
       await soa.getByRole("listbox", { name: "salesperson options" }).getByRole("button", { name: "Satrio", exact: true }).click();
       await expect(pic).toHaveValue("Satrio");
+      // Tab takes the highlighted match, so the name does not have to be clicked.
+      await soa.getByRole("button", { name: "Clear salesperson" }).click();
+      await pic.fill("Satr");
+      await pic.press("Tab");
+      await expect(pic).toHaveValue("Satrio");
       await soa.getByText(/^BOQ: /).click();
       await soa.getByLabel("Request summary").fill("BOQ untuk Sales terdaftar");
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();

@@ -1,36 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { Label } from "@/components/ui/label";
-import type { MarginMode } from "@/domain/projects/margin";
 import { MoneyInput } from "./money-input";
 
 /**
- * One box for the target margin with a choice of how it is entered: as an amount (the default) or as a percentage of the
- * sale. The form sends `marginMode` and `marginInput`; the server stores it in one field and clears the other.
+ * The target margin is typed as an amount only (a number, no percentage): every project's margin is worked out on its own, so a percentage
+ * would hide that. The form still sends `marginMode`, which keeps `marginFields` storing it in the amount field; the percentage is shown, not entered.
  */
-export function MarginInput({ id, defaultMode = "amount", defaultValue = "", hint = true }: { id: string; defaultMode?: MarginMode; defaultValue?: string; hint?: boolean }) {
-  const [mode, setMode] = useState<MarginMode>(defaultMode);
+export function MarginInput({ id, defaultValue = "", hint = true }: { id: string; defaultValue?: string; hint?: boolean }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Label htmlFor={id}>{mode === "amount" ? "Target margin (amount)" : "Target margin (%)"}</Label>
-        <fieldset className="flex gap-3 text-xs" aria-label="Enter the target margin as">
-          {(["amount", "percent"] as const).map((option) => (
-            <label key={option} className="flex items-center gap-1">
-              <input type="radio" name="marginMode" value={option} checked={mode === option} onChange={() => setMode(option)} className="size-3.5 accent-primary" />
-              {option === "amount" ? "Amount" : "Percent"}
-            </label>
-          ))}
-        </fieldset>
-      </div>
-      {/* A fresh box per mode: an amount is grouped with dots as it is typed, a percentage is not, and one does not carry over to the other. */}
-      <MoneyInput key={mode} id={id} name="marginInput" grouped={mode === "amount"} defaultValue={mode === defaultMode ? defaultValue : ""} />
-      {hint ? (
-        <span className="text-xs text-muted-foreground">
-          {mode === "amount" ? "Margin dalam rupiah, misalnya 150000000. Dipakai apa adanya." : "Persentase dari nilai, misalnya 12.5. Nominalnya dihitung dari nilai."}
-        </span>
-      ) : null}
+      <Label htmlFor={id}>Target margin (amount)</Label>
+      <input type="hidden" name="marginMode" value="amount" />
+      <MoneyInput id={id} name="marginInput" grouped defaultValue={defaultValue} />
+      {hint ? <span className="text-xs text-muted-foreground">Angka saja, dalam rupiah, misalnya 150000000. Dipakai apa adanya; persentasenya dihitung dari nilai.</span> : null}
     </div>
   );
 }
