@@ -78,8 +78,11 @@ describe("the team's To and Cc", () => {
     expect(await getTeamSetting(db, "SOA")).toMatchObject({ emailTo: "Soa@Halcom.example, ops@halcom.example", emailCc: "boss@halcom.example" });
     expect(await saveTeamSetting(db, actor(root), { ...valid, emailTo: "Soa@Halcom.example, ops@halcom.example", emailCc: "boss@halcom.example" })).toEqual({ ok: true, changed: false });
     expect(await saveTeamSetting(db, actor(root), { ...valid, emailTo: "not an address", emailCc: "" })).toMatchObject({ ok: false, code: "INVALID_INPUT", message: expect.stringContaining("not an address") });
-
-    expect(await saveTeamSetting(db, actor(root), valid)).toEqual({ ok: true, changed: true });
+    // A save that sends only the SLA leaves the recipients and the template alone; only an explicit empty clears them.
+    expect(await saveTeamSetting(db, actor(root), { role: "SOA", sla: "1-4" })).toEqual({ ok: true, changed: true });
+    expect(await getTeamSetting(db, "SOA")).toMatchObject({ sla: { minDays: 1, maxDays: 4 }, emailTo: "Soa@Halcom.example, ops@halcom.example", emailCc: "boss@halcom.example", emailBody: valid.emailBody });
+    expect(await saveTeamSetting(db, actor(root), { role: "SOA", emailTo: "", emailCc: "" })).toEqual({ ok: true, changed: true });
+    expect(await getTeamSetting(db, "SOA")).toMatchObject({ sla: { minDays: 1, maxDays: 4 }, emailTo: "", emailCc: "", emailBody: valid.emailBody });
     expect(await getTeamSetting(db, "SOA")).toMatchObject({ emailTo: "", emailCc: "" });
   });
 });

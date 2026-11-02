@@ -10,11 +10,11 @@ import { SLA_MAX_DAYS } from "@/domain/requests/sla";
 import { BODY_MAX_LENGTH, SUBJECT_MAX_LENGTH, type TemplateTeam } from "@/domain/requests/template";
 import { saveTeamSettingAction } from "./actions";
 
-/** SLA dan template email satu tim. "Kembalikan template bawaan" menyimpan template bawaan (SLA tetap seperti yang dipilih). */
-export function TeamSettingsForm({ role, label, sla, subject, body, emailTo, emailCc }: { role: TemplateTeam; label: string; sla: string; subject: string; body: string; emailTo: string; emailCc: string }) {
+/** SLA satu tim: hanya rentang hari, tanpa menyentuh penerima dan template email. */
+export function TeamSlaForm({ role, label, sla }: { role: TemplateTeam; label: string; sla: string }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(saveTeamSettingAction, null);
   return (
-    <form key={`${sla}|${subject}|${body}|${emailTo}|${emailCc}`} action={formAction} className="flex flex-col gap-4">
+    <form key={sla} action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="role" value={role} />
       <div className="flex flex-col gap-1.5 sm:max-w-xs">
         <Label htmlFor={`${role}-sla`}>SLA tim {label} (hari)</Label>
@@ -24,6 +24,22 @@ export function TeamSettingsForm({ role, label, sla, subject, body, emailTo, ema
           request dibuat; hitungan berhenti selama request menunggu Sales.
         </span>
       </div>
+      <FormStatus state={state} />
+      <div>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Menyimpan…" : `Simpan SLA ${label}`}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Penerima (To, CC) dan template email satu tim. "Kembalikan template bawaan" hanya mengganti subjek dan isi. */
+export function TeamEmailForm({ role, label, subject, body, emailTo, emailCc }: { role: TemplateTeam; label: string; subject: string; body: string; emailTo: string; emailCc: string }) {
+  const [state, formAction, pending] = useActionState<FormState, FormData>(saveTeamSettingAction, null);
+  return (
+    <form key={`${subject}|${body}|${emailTo}|${emailCc}`} action={formAction} className="flex flex-col gap-4">
+      <input type="hidden" name="role" value={role} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${role}-to`}>Kirim ke (To)</Label>
@@ -47,7 +63,7 @@ export function TeamSettingsForm({ role, label, sla, subject, body, emailTo, ema
       <FormStatus state={state} />
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : `Simpan pengaturan ${label}`}
+          {pending ? "Menyimpan…" : `Simpan email ${label}`}
         </Button>
         <Button type="submit" name="restoreDefaults" value="1" variant="outline" formNoValidate disabled={pending}>
           Kembalikan template bawaan

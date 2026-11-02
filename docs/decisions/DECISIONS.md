@@ -822,3 +822,9 @@ Sales enter the Estimated PO value with PPN and think of the margin and gross pr
 ## D-057: One Email & SLA page for all teams (2026-11-02)
 
 The SLA, the To / Cc and the email template of SOA and Purchasing were two pages ("SLA SOA", "SLA Purchasing"). They are now one page, **Email & SLA** (`/admin/settings`, menu Administration): the variables once, then a section per team (`#soa`, `#purchasing`) with its SLA range, To, Cc, subject and text, and a preview. Same permissions (Admin reads, Superadmin saves); same storage and audit. The old addresses `/admin/settings/soa` and `/purchasing` redirect to their section. Where To is left empty the server variables `EMAIL_TO_HIT*` still apply.
+
+## D-058: Email and SLA are two separate pages (2026-11-02, replaces the one page of D-057)
+
+- **Email** (`/admin/settings/email`): per team (SOA, Purchasing) the To, Cc, subject and text of the email, with a preview. **SLA** (`/admin/settings/sla`): per team the SLA range. Two menu entries under Administration. Permissions and audit are as before (Admin reads, Superadmin saves).
+- **Saving is partial.** `saveTeamSetting` takes whichever parts the form sends and keeps the rest, so saving the SLA never touches the recipients or the template, and the other way round. An empty To / Cc sent on purpose still clears them. "Kembalikan template bawaan" now restores only the subject and text.
+- `/admin/settings` leads to Email; `/admin/settings/soa` and `/purchasing` lead to their section of the Email page.

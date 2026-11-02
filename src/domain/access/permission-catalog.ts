@@ -98,7 +98,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "system.monitor": { category: "audit-system", label: "System health", description: "Buka halaman System (kondisi database dan runtime)." },
   "system.backup": { category: "audit-system", label: "Backups", description: "Buat dan lihat daftar backup database." },
   "theme.switch": { category: "audit-system", label: "Theme switcher", description: "Tampilkan pengganti tema di header (hanya preferensi tampilan)." },
-  "settings.view": { category: "audit-system", label: "View SLA policies", description: "Buka halaman Email & SLA." },
+  "settings.view": { category: "audit-system", label: "View SLA policies", description: "Buka halaman Email dan SLA." },
   "settings.manage": { category: "audit-system", label: "Manage SLA policies", description: "Ubah rentang SLA dan template email SOA dan Purchasing." },
 };
 
