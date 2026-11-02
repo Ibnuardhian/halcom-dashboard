@@ -143,9 +143,8 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <SlaBadge sla={card.sla} />
           {card.overdueDays !== null ? (
-            <span className="text-xs font-medium text-destructive" title="Hari kerja melewati batas SLA">
-              {card.sla.state === "overdue" ? "Overdue by" : "Completed"} {card.overdueDays} {card.overdueDays === 1 ? "day" : "days"}
-              {card.sla.state === "overdue" ? "" : " late"}
+            <span className="text-xs font-medium text-destructive" title={`${card.overdueDays} hari kerja melewati batas SLA`}>
+              +{card.overdueDays} {card.overdueDays === 1 ? "day" : "days"}
             </span>
           ) : null}
         </div>
