@@ -92,7 +92,7 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
 
   return (
     <div>
-      <p className="mb-2 text-xs text-muted-foreground">Drag a card to another column to change its status. Revision details and questions to Sales go by email.</p>
+      <p className="mb-2 text-xs text-muted-foreground">Seret kartu ke kolom lain untuk mengubah status. Detail revisi dan pertanyaan ke Sales lewat email.</p>
       <div role="status" aria-live="polite" className={cn("mb-2 min-h-5 text-sm", message?.ok === false ? "text-destructive" : "text-muted-foreground")}>
         {message?.text}
       </div>

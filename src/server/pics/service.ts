@@ -20,7 +20,7 @@ const nameSchema = z
   .string()
   .transform(cleanName)
   .pipe(z.string().min(1, "Tulis nama.").max(PIC_NAME_MAX_LENGTH, `Nama maksimal ${PIC_NAME_MAX_LENGTH} karakter.`))
-  .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "The name contains characters that are not allowed.");
+  .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "Nama memuat karakter yang tidak diizinkan.");
 
 async function loadActor(tx: Tx, claimed: Actor) {
   const user = await tx.user.findUnique({ where: { id: claimed.id }, select: { id: true, role: true, isActive: true } });
@@ -159,7 +159,7 @@ export async function assignRequestPic(db: PrismaClient, claimedActor: Actor, in
       const pic = await tx.pic.findUnique({ where: { id: wanted }, select: { id: true, name: true, team: true, isActive: true } });
       if (!pic) return fail("NOT_FOUND", "PIC tidak ditemukan.");
       if (pic.team !== picTeamOf(request.type)) return fail("INVALID_INPUT", `A ${request.type} request goes to a ${PIC_TEAM_LABELS[picTeamOf(request.type)]} PIC.`);
-      if (!pic.isActive) return fail("INVALID_INPUT", `${pic.name} is not active, so nothing can be assigned to them.`);
+      if (!pic.isActive) return fail("INVALID_INPUT", `${pic.name} tidak aktif, jadi tidak bisa diberi tugas.`);
       toName = pic.name;
     }
     await tx.request.update({ where: { id: request.id }, data: { picId: wanted } });

@@ -155,7 +155,7 @@ test.describe("user management", () => {
       await otherPage.getByLabel("New password", { exact: true }).fill(chosen);
       await otherPage.getByLabel("Confirm new password").fill(chosen);
       await otherPage.getByRole("button", { name: "Change password" }).click();
-      await expect(otherPage.getByText("Password changed.")).toBeVisible({ timeout: 10_000 });
+      await expect(otherPage.getByText("Kata sandi diubah.")).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
     await otherPage.goto("/dashboard/purchasing");
     await expectOnDashboard(otherPage, "/dashboard/purchasing", "Purchasing dashboard");

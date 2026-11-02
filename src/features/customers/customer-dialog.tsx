@@ -35,7 +35,7 @@ export function CustomerDialog({
 
   // Closes the window after a successful save (the page behind it refreshes with the new industry).
   useEffect(() => {
-    if (state?.ok && state.message !== "Nothing changed.") dialog.current?.close();
+    if (state?.ok && state.message !== "Tidak ada perubahan.") dialog.current?.close();
   }, [state]);
 
   return (
@@ -86,7 +86,7 @@ export function CustomerDialog({
             <p className="text-xs text-muted-foreground">
               {canEdit
                 ? "Pilih dari daftar industri. Grafik, filter, dan export memakainya untuk semua project customer ini. Daftarnya diubah Admin atau Superadmin di Master data."
-                : "Anda dapat membaca industri tetapi tidak dapat mengubahnya."}
+                : "Anda bisa membaca industri tetapi tidak bisa mengubahnya."}
             </p>
           </div>
           <FormStatus state={state} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ChevronDown, Download, FileSpreadsheet } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -328,7 +328,7 @@ export function ImportWizard({ onClose, canCreate = true, canUpdate = false }: {
             <CardTitle className="text-base">
               <h2>Cocokkan kolom</h2>
             </CardTitle>
-            <CardDescription>Setiap field memakai satu kolom dari sheet Anda. Pencocokan di bawah adalah saran dari nama kolom; ubah bila perlu. Field bertanda * wajib.</CardDescription>
+            <CardDescription>Cocokkan tiap field dengan satu kolom sheet. Saran diambil dari nama kolom; ubah bila perlu. Tanda * berarti wajib.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -593,10 +593,35 @@ function Step({ number, title, children }: { number: number; title: string; chil
  */
 function TemplateMenu({ flow, canCreate, canUpdate, onChoose }: { flow: ImportFlow; canCreate: boolean; canUpdate: boolean; onChoose: (flow: ImportFlow) => void }) {
   const menu = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
   const choose = (next: ImportFlow) => {
     onChoose(next);
-    if (menu.current) menu.current.open = false;
+    setOpen(false);
   };
+  // A details element only toggles from its own summary. While the menu is open, a press anywhere else, Escape, or tabbing out closes it too.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const outside = (event: Event) => {
+      if (menu.current && !menu.current.contains(event.target as Node)) close();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      // Escape also closes the dialog; the menu takes it first.
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+      menu.current?.querySelector("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("focusin", outside);
+    document.addEventListener("keydown", escape, true);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("focusin", outside);
+      document.removeEventListener("keydown", escape, true);
+    };
+  }, [open]);
   const item = "flex flex-col rounded-md px-3 py-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
   if (!canUpdate || !canCreate) {
     return (
@@ -607,7 +632,7 @@ function TemplateMenu({ flow, canCreate, canUpdate, onChoose }: { flow: ImportFl
     );
   }
   return (
-    <details ref={menu} className="relative self-start">
+    <details ref={menu} open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="relative self-start">
       <summary className={cn(buttonVariants({ variant: "outline" }), "list-none marker:content-none")}>
         <Download aria-hidden data-icon="inline-start" />
         Unduh template

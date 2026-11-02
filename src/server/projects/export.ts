@@ -1,4 +1,3 @@
-import { effectiveIndustry } from "@/domain/customers/industry";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -63,7 +62,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer, on
         technicalPic: row.soaPic?.name ?? null,
         principal: principalNamesOf(row).join("; ") || null,
         solution: row.solutionCategory?.name ?? null,
-        industry: effectiveIndustry(row.customer?.industry, row.industry),
+        industry: row.customer?.industry?.trim() || null,
         location: row.location,
         currentAction: row.currentAction,
         nextAction: row.nextAction,

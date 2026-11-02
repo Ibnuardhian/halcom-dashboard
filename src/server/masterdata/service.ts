@@ -35,7 +35,7 @@ const nameSchema = z
   .string()
   .transform(cleanName)
   .pipe(z.string().min(1, "Tulis nama.").max(MASTER_NAME_MAX_LENGTH, `Nama maksimal ${MASTER_NAME_MAX_LENGTH} karakter.`))
-  .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "The name contains characters that are not allowed.");
+  .refine((name) => !/[\u0000-\u001F\u007F]/.test(name), "Nama memuat karakter yang tidak diizinkan.");
 
 const kindSchema = z.enum(MASTER_KINDS, "Pilih Principal atau Solution.");
 

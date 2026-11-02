@@ -18,7 +18,7 @@ export async function createPicAction(_previous: FormState, formData: FormData):
   const result = await createPic(getDb(), { id: user.id, role: user.role }, { team: text(formData, "team"), name: text(formData, "name") });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(PICS_PATH);
-  return { ok: true, message: `Added ${result.value.name}.` };
+  return { ok: true, message: `${result.value.name} ditambahkan.` };
 }
 
 /** Renames a PIC. */
@@ -27,7 +27,7 @@ export async function renamePicAction(_previous: FormState, formData: FormData):
   const result = await updatePic(getDb(), { id: user.id, role: user.role }, { id: text(formData, "id"), name: text(formData, "name") });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(PICS_PATH);
-  return { ok: true, message: "Saved." };
+  return { ok: true, message: "Tersimpan." };
 }
 
 /** Turns a PIC on or off. Requests and history that mention it are kept. */

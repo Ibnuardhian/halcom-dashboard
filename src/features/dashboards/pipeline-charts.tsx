@@ -7,7 +7,7 @@ import { FILTER_EXTERNAL, projectsHref, type DrillFilters } from "@/domain/proje
 import { buildFunnel } from "@/domain/projects/funnel";
 import { pipelineConversion } from "@/domain/projects/growth";
 import { PROGRESS_NAMES, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
-import { PROJECTS_PATH } from "@/features/navigation/links";
+import { CUSTOMERS_PATH, PROJECTS_PATH } from "@/features/navigation/links";
 import { formatAmount, formatCompact } from "@/features/projects/format";
 import type { PipelineAnalytics, Slice } from "@/server/projects/analytics";
 import { StatTile } from "./stat-tile";
@@ -73,7 +73,7 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
         </ChartCard>
       ) : (
         <>
-          <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
+          <ChartCard title="Projects by principal" description="Project per principal. Project multi-principal dihitung di tiap principal.">
             <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
           </ChartCard>
           <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
@@ -81,6 +81,21 @@ export function PipelineCharts({ analytics, scope = "all" }: { analytics: Pipeli
           </ChartCard>
           <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
             <DonutChart items={countItems(analytics.bySolution, by("solution"))} />
+          </ChartCard>
+          <ChartCard title="Customers by location" description="Customer per lokasi, diambil dari lokasi project terbanyaknya.">
+            <BarList
+              items={analytics.byCustomerLocation.map((s) => ({
+                key: s.key,
+                label: s.label,
+                value: s.count,
+                display: String(s.count),
+                note: s.value > 0 ? formatCompact(s.value) : undefined,
+                neutral: isNeutral(s),
+                href: s.drill && s.drill.length > 0 ? `${CUSTOMERS_PATH}?${s.drill.map((key) => `location=${encodeURIComponent(key)}`).join("&")}` : null,
+              }))}
+              color={3}
+              emptyText="Belum ada lokasi yang diisi."
+            />
           </ChartCard>
           <ChartCard title="Value by industry" description="Estimated value per industri customer.">
             <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />
@@ -122,14 +137,14 @@ export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }
   const principal = by("principal");
   return (
     <section aria-label="Project charts" className="mb-6 grid gap-4 lg:grid-cols-2">
-      <ChartCard title="PIC Workload" description="Hanya project yang masih open (belum Closed Won/Lost dan belum Done), per PIC SOA. Project yang sudah ditutup tidak dihitung. Tanpa PIC tampil sebagai Not set.">
+      <ChartCard title="PIC Workload" description="Open project per PIC SOA (hanya yang sudah punya PIC).">
         <BarList
           items={analytics.bySoaPic.map((s) => ({ key: s.key, label: s.label, value: s.count, display: String(s.count), note: s.value > 0 ? formatCompact(s.value) : undefined, neutral: isNeutral(s), href: s.drill && s.drill.length > 0 ? `${to({ soaPic: s.drill })}&show=open` : null }))}
           allowEmpty
           emptyText="Belum ada open project."
         />
       </ChartCard>
-      <ChartCard title="Projects by principal" description="Jumlah proyek per brand (principal). Proyek dengan beberapa principal dihitung di masing-masing.">
+      <ChartCard title="Projects by principal" description="Project per principal. Project multi-principal dihitung di tiap principal.">
         <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
       </ChartCard>
       <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">

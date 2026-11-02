@@ -61,7 +61,7 @@ export function ActionFeed({ entries }: { entries: ProjectActionRow[] }) {
           )}
         </Panel>
       </div>
-      <Panel title="All updates" hint="Terbaru di atas. Entri tidak pernah diubah; koreksi dicatat sebagai entri baru.">
+      <Panel title="All updates" hint="Terbaru di atas. Entri tidak bisa diubah; koreksi menjadi entri baru.">
         {entries.length === 0 ? (
           <p role="status" className="text-sm text-muted-foreground">
             No updates yet.

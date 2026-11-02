@@ -63,7 +63,7 @@ test.describe("several principals on a project", () => {
     }
     await expect(async () => {
       await soa.getByRole("button", { name: "Save classification" }).click();
-      await expect(soa.getByText(/Saved and logged|Nothing changed/)).toBeVisible({ timeout: 4000 });
+      await expect(soa.getByText(/Disimpan dan dicatat|Tidak ada perubahan/)).toBeVisible({ timeout: 4000 });
     }).toPass({ timeout: 30_000 });
 
     await soa.reload();
@@ -335,7 +335,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     };
     await expect(async () => {
       await drop("notes.txt", [104, 105], "text/plain");
-      await expect(soa.getByRole("dialog").getByRole("alert")).toContainText("Hanya workbook .xlsx yang dapat diimpor", { timeout: 12_000 });
+      await expect(soa.getByRole("dialog").getByRole("alert")).toContainText("Hanya workbook .xlsx yang bisa diimpor", { timeout: 12_000 });
     }).toPass({ timeout: 30_000 });
     await expect(async () => {
       await drop("dropped.xlsx", [...workbook], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

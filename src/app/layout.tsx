@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: "Halcom internal project request and fulfillment tracker for Sales, SOA and Purchasing.",
+  description: "Pelacak request BOQ, RFQ, dan PO untuk Sales, SOA, dan Purchasing Halcom.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

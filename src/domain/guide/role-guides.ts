@@ -41,7 +41,7 @@ export const ROLE_GUIDES: Record<Role, RoleGuide> = {
   PURCHASING: {
     summary: "Menerima request RFQ, mengajukan RFQ untuk proyek yang sudah ada, menjaga progres quotation tetap terbaru, dan memproses PO.",
     reads: [EVERY_PROJECT, "Purchasing dashboard, RFQ requests, dan PO requests"],
-    edits: ["Status RFQ dan PO", "PIC sebuah RFQ atau PO", "Request RFQ baru untuk proyek yang sudah ada (diberitahukan ke Sales PIC dan SOA PIC proyek)"],
+    edits: ["Status RFQ dan PO", "PIC RFQ atau PO", "Request RFQ baru untuk proyek yang sudah ada (diberitahukan ke Sales PIC dan SOA PIC proyek)"],
     cannot: ["Membuat proyek", "Mengajukan request BOQ atau PO", "Mengedit field proyek", "Mengubah status BOQ", "Memutuskan kelanjutan RFQ yang sudah selesai"],
   },
   FINANCE: {
@@ -57,7 +57,7 @@ export const ROLE_GUIDES: Record<Role, RoleGuide> = {
     cannot: [NO_CHANGES],
   },
   ADMIN: {
-    summary: "Mengelola pengguna operasional, PIC, dan master data, serta dapat membantu Sales, SOA, dan Purchasing.",
+    summary: "Mengelola pengguna operasional, PIC, dan master data, serta bisa membantu Sales, SOA, dan Purchasing.",
     reads: ["Semua dashboard kecuali milik Superadmin, proyek, request, audit log, permission matrix, dan SLA policies"],
     edits: ["Pengguna operasional", "PIC", "Master data", "Proyek dan request atas nama tim, sesuai permission matrix"],
     cannot: ["Mengubah permission", "Mengelola akun Admin dan Superadmin", "Mengedit SLA policies", "Menggunakan System dan Backups"],

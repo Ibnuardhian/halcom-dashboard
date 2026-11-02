@@ -35,7 +35,7 @@ export async function setCustomerIndustry(db: PrismaClient, claimedActor: Actor,
       const listed = await tx.industry.findUnique({ where: { nameKey: nameKey(value) } });
       if (listed) value = listed.name;
       else if (customer.industry === null || nameKey(customer.industry) !== nameKey(value)) {
-        return { ok: false, code: "INVALID_INPUT", message: "Pilih industri dari daftar. Admin atau Superadmin dapat menambah industri baru." } satisfies SetIndustryResult;
+        return { ok: false, code: "INVALID_INPUT", message: "Pilih industri dari daftar. Admin atau Superadmin bisa menambah industri baru." } satisfies SetIndustryResult;
       }
     }
     if (customer.industry === value) return { ok: true, changed: false, industry: value } satisfies SetIndustryResult;

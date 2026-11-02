@@ -44,7 +44,7 @@ async function Permissions() {
         summary={
           editable
             ? "Hak akses tiap peran, sesuai yang diterapkan server. Ubah kotak centang lalu simpan; setiap perubahan masuk audit log."
-            : "Hak akses tiap peran, sesuai yang diterapkan server. Hanya Superadmin yang dapat mengubahnya."
+            : "Hak akses tiap peran, sesuai yang diterapkan server. Hanya Superadmin yang bisa mengubahnya."
         }
       />
       <p className="mb-3 text-sm text-muted-foreground">

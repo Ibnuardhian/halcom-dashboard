@@ -65,7 +65,7 @@ function SignInCard({ accounts, remembered, chosen }: { accounts: Awaited<Return
             <CardTitle className="text-base">
               <h2>Switch account</h2>
             </CardTitle>
-            <CardDescription>Akun yang diingat di browser ini. Pilih salah satu untuk melanjutkan sebagai orang tersebut tanpa kata sandi.</CardDescription>
+            <CardDescription>Akun yang diingat di browser ini. Pilih satu untuk masuk tanpa kata sandi.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul aria-label="Remembered accounts" className="flex flex-col gap-2">
@@ -103,7 +103,7 @@ function SignInCard({ accounts, remembered, chosen }: { accounts: Awaited<Return
             <CardTitle className="text-base">
               <h2>Recent accounts</h2>
             </CardTitle>
-            <CardDescription>Akun lain yang pernah digunakan di browser ini. Pilih salah satu untuk mengisi emailnya; kata sandinya tetap harus dimasukkan.</CardDescription>
+            <CardDescription>Akun lain di browser ini. Pilih satu untuk mengisi emailnya; kata sandi tetap perlu diketik.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <ul className="flex flex-col gap-2">

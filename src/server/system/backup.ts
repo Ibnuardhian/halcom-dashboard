@@ -61,7 +61,7 @@ export async function listBackups(dir: string = backupDir()): Promise<BackupDire
     return {
       ok: false,
       dir,
-      error: code === "ENOENT" ? "The backup folder is not mounted or does not exist yet." : "The backup folder cannot be read.",
+      error: code === "ENOENT" ? "Folder backup belum di-mount atau belum ada." : "The backup folder cannot be read.",
     };
   }
 }
@@ -112,7 +112,7 @@ export async function createBackup(
   }
   if (running) return { ok: false, code: "BUSY", message: "Backup sedang berjalan." };
   if (!backupsSupported()) {
-    return { ok: false, code: "FAILED", message: "Deployment ini tidak dapat menulis backup: tidak ada pg_dump dan tidak ada disk permanen. Gunakan backup dan restore dari penyedia database." };
+    return { ok: false, code: "FAILED", message: "Deployment ini tidak bisa menulis backup: tidak ada pg_dump dan tidak ada disk permanen. Gunakan backup dan restore dari penyedia database." };
   }
 
   const databaseUrl = options.databaseUrl ?? process.env["DATABASE_URL"];
@@ -165,8 +165,8 @@ async function exists(file: string): Promise<boolean> {
 /** A short, safe message: never the command line or environment, which could carry connection details. */
 function describeFailure(error: unknown): string {
   const code = (error as NodeJS.ErrnoException).code;
-  if (code === "ENOENT") return "pg_dump is not installed in this container. Rebuild the image (docker compose build).";
-  if (code === "EACCES" || code === "EROFS") return "The backup folder is not writable by the application.";
+  if (code === "ENOENT") return "pg_dump belum terpasang di container ini. Bangun ulang image (docker compose build).";
+  if (code === "EACCES" || code === "EROFS") return "Folder backup tidak bisa ditulis oleh aplikasi.";
   const stderr = (error as { stderr?: unknown }).stderr;
   const firstLine = typeof stderr === "string" ? stderr.split("\n").find((line) => line.trim() !== "") : undefined;
   return firstLine ? `The backup failed: ${firstLine.trim().slice(0, 200)}` : "The backup failed. Check the application log.";

@@ -13,5 +13,5 @@ export async function createBackupAction(): Promise<FormState> {
   const result = await createBackup(getDb(), { id: user.id, role: user.role });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(BACKUPS_PATH);
-  return { ok: true, message: `Backup written: ${result.file.name} (${formatBytes(result.file.sizeBytes)}).` };
+  return { ok: true, message: `Backup tersimpan: ${result.file.name} (${formatBytes(result.file.sizeBytes)}).` };
 }

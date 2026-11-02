@@ -19,5 +19,5 @@ export async function saveTargetsAction(_previous: FormState, formData: FormData
   const result = await saveSalesTargets(getDb(), { id: user.id, role: user.role }, { year: text(formData, "year"), quarters });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath("/dashboard/sales");
-  return { ok: true, message: result.changed.length === 0 ? "Nothing changed." : `Saved targets for ${result.changed.map((q) => `Q${q}`).join(", ")}.` };
+  return { ok: true, message: result.changed.length === 0 ? "Tidak ada perubahan." : `Saved targets for ${result.changed.map((q) => `Q${q}`).join(", ")}.` };
 }

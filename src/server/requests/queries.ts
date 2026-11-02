@@ -1,5 +1,4 @@
 import { PROPOSE_OR_BEYOND } from "@/domain/projects/growth";
-import { effectiveIndustry } from "@/domain/customers/industry";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -336,7 +335,7 @@ export async function searchProjects(
   const industries = filter.industryKeys?.length ? new Set(filter.industryKeys) : null;
   const ordered = keys
     .filter((key) => filter.show !== "weighted" || (weightedValue(numberOrNull(key.estimatedValue), key.progress) ?? 0) > 0)
-    .filter((key) => !industries || industries.has(industryKey(effectiveIndustry(key.customer?.industry, key.industry)) ?? FILTER_NONE))
+    .filter((key) => !industries || industries.has(industryKey(key.customer?.industry?.trim() || null) ?? FILTER_NONE))
     .sort(paging.sort ? byProjectSort(paging.sort, paging.dir ?? "asc") : byCodeDescending);
   const total = ordered.length;
   const pageCount = pageSize === "all" ? 1 : Math.max(Math.ceil(total / pageSize), 1);

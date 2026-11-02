@@ -38,7 +38,7 @@ async function TeamSla({ params }: Pick<PageProps<"/admin/settings/[team]">, "pa
     <>
       <DashboardHeader
         title={team.title}
-        summary={`Batas waktu jawaban tim ${team.label} dan template email dari Sales. ${team.note} Aplikasi mengisi template dan membuka draf di klien email Anda.${mayEdit ? "" : " Hanya Superadmin yang dapat mengubahnya."}`}
+        summary={`Batas waktu jawaban tim ${team.label} dan template email dari Sales. ${team.note} Aplikasi mengisi template dan membuka draf di klien email Anda.${mayEdit ? "" : " Hanya Superadmin yang bisa mengubahnya."}`}
       />
 
       <Card className="mb-6">
@@ -48,7 +48,7 @@ async function TeamSla({ params }: Pick<PageProps<"/admin/settings/[team]">, "pa
           </CardTitle>
           <CardDescription>
             Tulis variabel di antara dua kurung kurawal, misalnya <code>{"{{request_id}}"}</code>. Subjek wajib memuat <code>{"{{request_id}}"}</code>: balasan email mempertahankan subjek, dan itulah cara SOA dan
-            Purchasing menjawab dengan Request ID. Baris yang memakai variabel kosong untuk sebuah request (misalnya BOQ asal) tidak ditampilkan.
+            Purchasing menjawab dengan Request ID. Baris yang memakai variabel kosong untuk request (misalnya BOQ asal) tidak ditampilkan.
           </CardDescription>
         </CardHeader>
         <CardContent>

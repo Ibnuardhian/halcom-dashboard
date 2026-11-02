@@ -125,7 +125,7 @@ export function TargetTracking({
 
       {notes.wonWithoutDate + notes.wonWithoutMargin + notes.openWithoutTargetDate > 0 ? (
         <div role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
-          <p className="font-medium">Not counted yet, because the project is missing something:</p>
+          <p className="font-medium">Belum dihitung karena data project belum lengkap:</p>
           <ul className="mt-1 list-disc pl-5">
             {notes.wonWithoutDate > 0 ? <li>{notes.wonWithoutDate} won project(s) without a won date.</li> : null}
             {notes.wonWithoutMargin > 0 ? <li>{notes.wonWithoutMargin} won project(s) without a target margin (they add nothing to gross profit).</li> : null}
@@ -140,7 +140,7 @@ export function TargetTracking({
             <CardTitle className="text-base">
               <h2>My {summary.year} targets</h2>
             </CardTitle>
-            <CardDescription>Enter what you aim to reach in each quarter. The table above shows how far you are.</CardDescription>
+            <CardDescription>Isi target tiap kuartal. Tabel di atas menunjukkan capaian Anda.</CardDescription>
           </CardHeader>
           <CardContent>
             <TargetForm year={summary.year} values={own} formKey={`${summary.year}-${JSON.stringify(own)}`} />

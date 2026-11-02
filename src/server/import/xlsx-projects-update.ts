@@ -3,7 +3,6 @@ import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { COMMERCIAL_FIELDS, type CommercialChange } from "@/domain/projects/commercial";
 import { fieldLabel } from "@/domain/projects/fields";
-import { effectiveIndustry } from "@/domain/customers/industry";
 import { checkImportRow, checkMapping, rowToRaw, type ColumnMapping, type ImportRow, type RawImportRow } from "@/domain/projects/import";
 import { importScope } from "@/domain/projects/import-scope";
 import { principalNamesOf } from "@/domain/projects/master-data";
@@ -64,6 +63,7 @@ type Applied = {
   salesOwner?: { id: string; label: string };
   principals?: string[];
   solution?: string;
+  technicalPic?: { id: string; name: string };
   /** The customer's industry (the list's spelling), or the project's own when it has no customer. */
   industry?: { customerId: string | null; name: string };
   location?: string;
@@ -102,7 +102,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
 
   const raws = read.sheet.rows.map((cells) => rowToRaw(cells, mapping));
   const codes = [...new Set(raws.map((raw) => raw.code.trim().toUpperCase()).filter((code) => code !== ""))];
-  const [projects, salespeople, customers, principals, solutions, industries] = await Promise.all([
+  const [projects, salespeople, customers, principals, solutions, industries, soaPics] = await Promise.all([
     db.project.findMany({
       where: { code: { in: codes }, deletedAt: null },
       include: {
@@ -111,6 +111,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
         principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
         solutionCategory: { select: { name: true } },
         customer: { select: { id: true, industry: true } },
+        soaPic: { select: { name: true } },
       },
     }),
     db.user.findMany({ where: { role: "SALES", isActive: true }, select: { id: true, name: true, email: true } }),
@@ -118,6 +119,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
     db.principal.findMany({ select: { nameKey: true } }),
     db.solutionCategory.findMany({ select: { nameKey: true } }),
     db.industry.findMany({ select: { name: true, nameKey: true } }),
+    db.pic.findMany({ where: { team: "SOA", isActive: true }, select: { id: true, name: true, nameKey: true } }),
   ]);
   const byCode = new Map(projects.map((project) => [project.code, project]));
   const byEmail = new Map(salespeople.map((person) => [person.email.toLowerCase(), person]));
@@ -130,6 +132,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
   const scope = importScope(actor.role);
   // A salesperson updates the projects they act on; a role that may also edit the source (SOA, Admin) updates any.
   const ownOnly = scope.commercial && !scope.owner;
+  const soaPicByName = new Map(soaPics.map((pic) => [pic.nameKey, pic]));
   const listedIndustries = new Map(industries.map((industry) => [industry.nameKey, industry.name]));
   // One customer takes one industry per file: its rows must agree.
   const industryOfCustomer = new Map<string, string>();
@@ -160,7 +163,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
     if (!project) return skip(`Project ID ${label.code} tidak ditemukan, jadi bukan update.`);
     if (seenCodes.has(label.code)) return fail([`Project ID ${label.code} sudah dipakai di baris ${seenCodes.get(label.code)} berkas ini.`]);
     seenCodes.set(label.code, sheetRow);
-    if (ownOnly && !salesActsOn(project, actor.id)) return fail(["Project ini bukan milik Anda, jadi tidak dapat diperbarui. Hapus barisnya dari berkas."]);
+    if (ownOnly && !salesActsOn(project, actor.id)) return fail(["Project ini bukan milik Anda, jadi tidak bisa diperbarui. Hapus barisnya dari berkas."]);
     // An import row must name its Sales PIC and source; an update row may leave them empty (nothing changes), so the stored values
     // stand in for the empty cells while the row is read and checked.
     const checkedRow = checkImportRow({
@@ -176,10 +179,10 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
     // A project changed after the export would have its newer edits overwritten by an older sheet.
     if (text(raw.lastUpdated) !== "") {
       const exportedAt = new Date(text(raw.lastUpdated));
-      if (Number.isNaN(exportedAt.getTime())) problems.push(`Last updated "${raw.lastUpdated}" tidak dapat dibaca. Pakai kolom dari hasil export.`);
+      if (Number.isNaN(exportedAt.getTime())) problems.push(`Last updated "${raw.lastUpdated}" tidak bisa dibaca. Pakai kolom dari hasil export.`);
       else if (exportedAt.getTime() !== project.updatedAt.getTime()) problems.push(`Proyek berubah sejak diexport (terakhir diubah ${project.updatedAt.toISOString()}). Export ulang, lalu edit lagi.`);
     }
-    if (text(raw.source) !== "" && row.sourceType !== project.sourceType) problems.push("Project source tidak dapat diubah lewat update. Ubah di halaman proyek.");
+    if (text(raw.source) !== "" && row.sourceType !== project.sourceType) problems.push("Project source tidak bisa diubah lewat update. Ubah di halaman proyek.");
 
     const changes: UpdateChange[] = [];
     const applied: Applied = {};
@@ -249,8 +252,17 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
       changes.push({ label: fieldLabel("solution"), from: project.solutionCategory?.name ?? null, to: row.solution });
       if (!knownSolutions.has(nameKey(row.solution))) newSolutions.set(nameKey(row.solution), row.solution);
     }
+    // The Technical PIC is a person of the SOA PIC list, written by name; the cell naming the current one is no change.
+    if (text(raw.technicalPic) !== "" && nameKey(text(raw.technicalPic)) !== nameKey(project.soaPic?.name ?? "")) {
+      const pic = soaPicByName.get(nameKey(text(raw.technicalPic)));
+      if (!pic) problems.push(`Technical PIC "${text(raw.technicalPic)}" bukan PIC SOA yang aktif.`);
+      else {
+        applied.technicalPic = { id: pic.id, name: pic.name };
+        changes.push({ label: fieldLabel("technicalPic"), from: project.soaPic?.name ?? null, to: pic.name });
+      }
+    }
     // The industry is the customer's (it wins over the project's own), chosen from the list; the cell naming the current one is no change.
-    const currentIndustry = effectiveIndustry(project.customer?.industry, project.industry);
+    const currentIndustry = project.customer?.industry?.trim() || null;
     if (row.industry && nameKey(row.industry) !== nameKey(currentIndustry ?? "")) {
       const listed = listedIndustries.get(nameKey(row.industry));
       const customerKey = applied.endUser ? `new:${nameKey(applied.endUser.name)}` : (project.customerId ?? `project:${project.id}`);
@@ -272,7 +284,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
       [!scope.identity && Boolean(applied.endUser || applied.name !== undefined || applied.description !== undefined), "End user, Project name atau Description"],
       [!scope.owner && Boolean(applied.salesOwner), "Sales PIC"],
       [!scope.commercial && commercialChanges.length > 0, "kolom commercial (Progress sampai Target closing)"],
-      [!scope.technical && Boolean(applied.principals || applied.solution), "Principals atau Solution"],
+      [!scope.technical && Boolean(applied.principals || applied.solution || applied.technicalPic), "Principals, Solution atau Technical PIC"],
       [!scope.place && Boolean(applied.industry || applied.location !== undefined), "Industry atau Location"],
     ];
     for (const [denied, name] of outside) if (denied) problems.push(`Peran Anda tidak boleh mengubah ${name}. Kosongkan atau kembalikan sel itu ke isi semula.`);
@@ -402,6 +414,10 @@ export async function commitProjectUpdate(db: PrismaClient, claimedActor: Actor,
           if (applied.solution) {
             data.solutionCategoryId = await ensureSolutionCategory(tx, applied.solution);
             log.push({ field: "solution", from: plan.report.changes.find((change) => change.label === fieldLabel("solution"))?.from ?? null, to: applied.solution });
+          }
+          if (applied.technicalPic) {
+            data.soaPicId = applied.technicalPic.id;
+            log.push({ field: "technicalPic", from: plan.report.changes.find((change) => change.label === fieldLabel("technicalPic"))?.from ?? null, to: applied.technicalPic.name });
           }
           if (applied.industry) {
             // The customer carries the industry (the new customer, when the end user changes in the same row); a project without one keeps its own.

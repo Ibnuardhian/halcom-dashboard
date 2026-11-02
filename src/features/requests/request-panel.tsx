@@ -148,7 +148,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
               <h3>PIC</h3>
             </CardTitle>
             <CardDescription>
-              Who in {PIC_TEAM_LABELS[picTeamOf(request.type)]} is working on this request. PICs are not login accounts; the change is kept in the assignment history.
+              PIC {PIC_TEAM_LABELS[picTeamOf(request.type)]} yang mengerjakan request ini. Perubahan tercatat di riwayat penugasan.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -174,7 +174,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <CardTitle className="text-base">
               <h3>Request a revision</h3>
             </CardTitle>
-            <CardDescription>The customer wants changes to this completed BOQ. Describe them: the ticket moves straight to Revision and SOA is told.</CardDescription>
+            <CardDescription>Tulis perubahan yang diminta customer. Tiket langsung masuk Revision dan SOA diberi tahu.</CardDescription>
           </CardHeader>
           <CardContent>
             <RevisionForm requestId={request.id} />
@@ -188,7 +188,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
             <CardTitle className="text-base">
               <h3>Correct the dates</h3>
             </CardTitle>
-            <CardDescription>Atur tanggal (tanpa jam) request ini dibuat dan selesai, serta siapa pemohonnya (Requested by), untuk tiket yang diinput terlambat atau salah catat. The status history is not rewritten; the change is audited.</CardDescription>
+            <CardDescription>Atur tanggal dibuat dan selesai (tanpa jam) serta pemohon, untuk tiket yang terlambat diinput atau salah catat. Riwayat status tidak berubah; perubahan masuk audit log.</CardDescription>
           </CardHeader>
           <CardContent>
             <RequestDatesForm
@@ -212,8 +212,7 @@ export async function RequestPanel({ request, viewer, inProject = false }: { req
               <h3>What happens next?</h3>
             </CardTitle>
             <CardDescription>
-              The flow is BOQ, then RFQ, then PO. Decide whether this {request.type} continues to {next === "RFQ" ? "an RFQ (quotation / pricing)" : "a PO (purchase)"}. The new request keeps the
-              project and points back to this one. Completing a {request.type} does not authorise anything by itself.
+              Putuskan apakah {request.type} ini dilanjutkan ke {next === "RFQ" ? "RFQ (quotation/harga)" : "PO (pembelian)"}. Request baru memakai project yang sama dan menautkan ke request ini.
             </CardDescription>
           </CardHeader>
           <CardContent>

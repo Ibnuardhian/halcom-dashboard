@@ -94,7 +94,7 @@ test.describe("Sales pipeline: KPI cards and Pipeline Growth", () => {
     await page.route("**/api/pipeline-growth?granularity=weekly", (route) => route.fulfill({ status: 500, json: { error: "boom" } }));
     const chart = page.getByTestId("pipeline-growth");
     await chart.getByRole("button", { name: "Weekly" }).click();
-    await expect(chart.getByRole("alert")).toContainText("tidak dapat dimuat");
+    await expect(chart.getByRole("alert")).toContainText("tidak bisa dimuat");
     await page.unroute("**/api/pipeline-growth?granularity=weekly");
     await chart.getByRole("button", { name: "Try again" }).click();
     await expect(chart.getByRole("alert")).toHaveCount(0);

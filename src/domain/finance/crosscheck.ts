@@ -14,7 +14,7 @@ export const CROSSCHECK_FLAG_LABELS: Record<CrosscheckFlag, string> = {
   won_no_final_value: "Closed Won without a final value",
   won_no_po: "Closed Won without a PO reference",
   won_no_quotation: "Closed Won without a quotation (RFQ) reference",
-  po_not_won: "PO completed but the project is not Closed Won",
+  po_not_won: "PO selesai, tetapi project belum Closed Won",
 };
 
 export function isCrosscheckFlag(value: unknown): value is CrosscheckFlag {

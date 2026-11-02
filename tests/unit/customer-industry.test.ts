@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can } from "@/domain/access/permissions";
 import { ROLES } from "@/domain/access/roles";
-import { effectiveIndustry, INDUSTRY_MAX_LENGTH, normaliseIndustry } from "@/domain/customers/industry";
+import { INDUSTRY_MAX_LENGTH, normaliseIndustry } from "@/domain/customers/industry";
 
 describe("normaliseIndustry", () => {
   it("trims, collapses inner space and treats empty as not set", () => {
@@ -19,15 +19,6 @@ describe("normaliseIndustry", () => {
   });
 });
 
-describe("effectiveIndustry", () => {
-  it("prefers the customer's industry, then the project's own text, then none", () => {
-    expect(effectiveIndustry("Banking", "Retail")).toBe("Banking");
-    expect(effectiveIndustry(null, " Retail ")).toBe("Retail");
-    expect(effectiveIndustry("  ", "Retail")).toBe("Retail");
-    expect(effectiveIndustry(null, null)).toBeNull();
-    expect(effectiveIndustry(undefined, undefined)).toBeNull();
-  });
-});
 
 describe("who may fill in a customer's industry", () => {
   it("is Sales, Admin and Superadmin; nobody else", () => {

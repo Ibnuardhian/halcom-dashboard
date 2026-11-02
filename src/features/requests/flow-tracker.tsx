@@ -34,7 +34,7 @@ export function FlowTracker({ requests }: { requests: readonly FlowRequest[] }) 
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-xs text-muted-foreground">The flow is BOQ, then RFQ, then PO. A BOQ can be skipped by starting with an RFQ.</p>
+      <p className="mt-2 text-xs text-muted-foreground">Alurnya BOQ, RFQ, lalu PO. BOQ boleh dilewati dengan memulai dari RFQ.</p>
     </div>
   );
 }

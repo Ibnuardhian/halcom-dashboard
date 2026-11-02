@@ -91,7 +91,7 @@ export function normaliseSource(input: SourceInput): SourceResult {
     return { ok: true, value: { sourceType: "INTERNAL_SALES", ...NO_EXTERNAL } };
   }
   if (external.externalSourceName === null) {
-    return { ok: false, message: `${EXTERNAL_SOURCE_LABELS.externalSourceName} is required when the project source is Other.` };
+    return { ok: false, message: `${EXTERNAL_SOURCE_LABELS.externalSourceName} wajib diisi bila project source-nya Other.` };
   }
   return { ok: true, value: { sourceType: "OTHER", ...external } };
 }

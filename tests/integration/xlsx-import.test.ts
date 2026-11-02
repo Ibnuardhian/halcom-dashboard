@@ -65,6 +65,7 @@ describe("project import from an Excel sheet", () => {
 
   it("imports the ready rows in one go: projects, owners, several principals, a solution, the update feed and the audit trail", async () => {
     const { soa, actor, good, tag, owner } = await setup();
+    await db.industry.upsert({ where: { nameKey: "banking" }, update: {}, create: { name: "Banking", nameKey: "banking" } });
     const { bytes, mapping } = sheet([
       good("one", {
         Progress: "30% - Propose",
@@ -83,7 +84,7 @@ describe("project import from an Excel sheet", () => {
 
     expect(result).toMatchObject({ ok: true, created: 2, skippedDuplicates: 0, skippedInvalid: 0 });
     if (!result.ok) return;
-    const one = await db.project.findUniqueOrThrow({ where: { code: result.codes[0]! }, include: { principals: { orderBy: { position: "asc" }, include: { principal: true } }, solutionCategory: true } });
+    const one = await db.project.findUniqueOrThrow({ where: { code: result.codes[0]! }, include: { principals: { orderBy: { position: "asc" }, include: { principal: true } }, solutionCategory: true, customer: true } });
     expect(one).toMatchObject({
       endUserCompany: `Import ${tag} one`,
       name: "Job one",
@@ -91,9 +92,10 @@ describe("project import from an Excel sheet", () => {
       sourceType: "INTERNAL_SALES",
       progress: "PROPOSE",
       trackStatus: "ON_HOLD",
-      industry: "Banking",
       importedFrom: "pipeline.xlsx",
     });
+    // The industry is the customer's, taken from the list.
+    expect(one.customer?.industry).toBe("Banking");
     expect(one.estimatedValue?.toNumber()).toBe(2500000);
     expect(one.targetDate?.toISOString().slice(0, 10)).toBe("2026-12-31");
     expect(one.quoteReleasedAt?.toISOString().slice(0, 10)).toBe("2026-03-05");

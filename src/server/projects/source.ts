@@ -35,7 +35,7 @@ const FORBIDDEN = { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan
 export async function updateProjectSource(db: PrismaClient, claimedActor: Actor, input: unknown): Promise<SourceUpdateResult> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.code === "unrecognized_keys" ? "Field itu tidak dapat diubah di sini." : "Data yang dikirim tidak valid." };
+    return { ok: false, code: "INVALID_INPUT", message: parsed.error.issues[0]?.code === "unrecognized_keys" ? "Field itu tidak bisa diubah di sini." : "Data yang dikirim tidak valid." };
   }
   if (!can(claimedActor.role, "projects.edit.source")) return FORBIDDEN;
   const wanted = normaliseSource(parsed.data);
@@ -52,7 +52,7 @@ export async function updateProjectSource(db: PrismaClient, claimedActor: Actor,
 
     const next = wanted.value;
     if (project.sourceType === "INTERNAL_SALES" && next.sourceType === "OTHER") {
-      return { ok: false, code: "INVALID_INPUT", message: "Proyek Internal Sales tidak dapat diubah menjadi Other: proyek akan kehilangan Sales PIC-nya." };
+      return { ok: false, code: "INVALID_INPUT", message: "Proyek Internal Sales tidak bisa diubah menjadi Other: proyek akan kehilangan Sales PIC-nya." };
     }
 
     const changes: { field: string; from: string | null; to: string | null }[] = [];

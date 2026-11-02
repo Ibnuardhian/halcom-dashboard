@@ -191,13 +191,13 @@ export function Flowchart({ nodes, activeRoles, ownRoles }: Props) {
             <RotateCcw aria-hidden />
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Seret atau scroll untuk bergeser. Arahkan kursor, fokus, atau klik sebuah langkah untuk melihat detailnya; tekan Escape untuk menutupnya.</p>
+        <p className="text-xs text-muted-foreground">Seret atau scroll untuk bergeser. Arahkan kursor, fokus, atau klik langkah untuk melihat detailnya; tekan Escape untuk menutupnya.</p>
       </div>
 
       <div
         ref={scroller}
         role="region"
-        aria-label="Workflow flowchart. Scrollable; zoom with the buttons, or + and - when this frame has focus."
+        aria-label="Flowchart alur kerja. Bisa digulir; zoom dengan tombol, atau tombol + dan - saat bingkai ini terfokus."
         tabIndex={0}
         data-testid="guide-chart"
         className="max-h-[75vh] cursor-grab overflow-auto rounded-xl border bg-card outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"

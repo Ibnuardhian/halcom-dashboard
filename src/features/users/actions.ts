@@ -55,7 +55,7 @@ export async function resetPasswordAction(_previous: ActionState, formData: Form
   const result = await resetUserPassword(getDb(), await actor(), String(formData.get("userId")), {
     password: formData.get("password"),
   });
-  return toState(result, "Password reset. The user was signed out everywhere.");
+  return toState(result, "Kata sandi direset. Pengguna keluar dari semua sesi.");
 }
 
 /** Superadmin only: its own permission, not users.manage, decides. */

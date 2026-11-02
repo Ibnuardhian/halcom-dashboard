@@ -59,5 +59,5 @@ export async function saveSectionValuesAction(_previous: FormState, formData: Fo
   if (!result.ok) return { ok: false, message: result.message };
   const code = text(formData, "projectCode");
   if (/^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
-  return { ok: true, message: result.value.changed.length === 0 ? "Tidak ada yang berubah." : "Disimpan dan dicatat di change log." };
+  return { ok: true, message: result.value.changed.length === 0 ? "Tidak ada perubahan." : "Disimpan dan dicatat di change log." };
 }

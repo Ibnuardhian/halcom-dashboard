@@ -17,7 +17,7 @@ type Values = Record<CommercialField, string>;
 
 const HINTS: Partial<Record<CommercialField, string>> = {
   createdAt: "Tanggal proyek ini menjadi opportunity. Pipeline Growth menghitung proyek sejak tanggal ini; tidak boleh di masa depan.",
-  progress: "Setiap tahap mewakili sebuah win probability, dipakai oleh weighted pipeline. 30% - Propose berarti quotation sudah diajukan.",
+  progress: "Setiap tahap mewakili win probability, dipakai oleh weighted pipeline. 30% - Propose berarti quotation sudah diajukan.",
   estimatedValue: "Titik ditambahkan otomatis saat Anda mengetik, contoh 1.200.000.000",
   quoteReleasedAt:
     "Tanggal quotation diajukan ke customer (mencapai 30% - Propose). Terisi hari ini saat Progress dipindah ke Propose; atau isi tanggal ini secara manual dan Progress akan ikut berpindah ke Propose. Ubah atau kosongkan saat jadwal berubah.",

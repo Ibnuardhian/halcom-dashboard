@@ -770,3 +770,26 @@ The Export/Import window was for Admin and Superadmin (update) and Admin and SOA
 - **Enforced on the server.** A column outside the role's part may be added to the sheet by hand; if its cell differs from the stored value the row is refused with the column named, and nothing changes. A cell equal to the stored value is no change.
 - **Industry is the customer's.** The update sets the customer's industry (it wins over the project's), the name must be on the list (any spelling of case and spacing is matched, the list's spelling is written), two rows may not give one customer two industries, and each change is audited as `customer.industry_set`. This replaces the earlier behaviour of writing a project-level industry. The create import still takes any industry text.
 - **Tests.** Integration: scope of the columns, SOA refused a commercial change, Sales own rows only and refused a technical column, industry on the customer. E2E: Sales updates its own project from a sheet; SOA is refused a commercial column; the SOA and Sales export headers.
+
+**D-050 addendum, Technical PIC column (2026-10-30).** The sheet gained **Technical PIC (SOA)**, in the technical part (SOA, Admin, Superadmin). The cell holds the name of an active person of the SOA PIC list (any letter case); the cell naming the current PIC is no change; a name not on the list refuses the row; Sales are refused a change. Each change is logged as Technical PIC (SOA). This lets SOA set the Technical PIC, which was Superadmin only (`projects.reassign`) on the project page; the page itself is unchanged. The create import ignores the column.
+
+## D-051: PIC Workload leaves out projects with no SOA PIC (2026-10-30)
+
+Not every project involves SOA, so "Not set" in the SOA PIC Workload chart counted projects that never needed a PIC and hid the real workload. `bySoaPic` now counts only open projects that have an SOA PIC; the card text says projects without one are not shown. Every other chart, and the Projects list filter for "Technical PIC: Not set", are unchanged.
+
+## D-052: The industry is the customer's alone (2026-10-30)
+
+Industry was kept on two levels: the customer (chosen from the list) and a free text on the project that came from the sales export, used when the customer had none. Seventy of 71 projects carried the text while only 1 of 42 customers had an industry, so the customer pages and the dashboards disagreed. The industry is now the customer's only.
+
+- **One source.** Charts (Value by industry), the Projects filter, the project page and every export read the customer's industry. The project's own text is no longer read or written; its column stays (nothing deleted) as a record.
+- **Backfill** (migration `20261104100000_customer_industry_from_projects`, applied on Neon): a customer with no industry takes its projects' industry when all its projects name the same one and it is on the list, written in the list's spelling. 29 customers were filled (30 of 42 now have one). Customers whose projects disagree (9), or whose single name is not on the list ("Telecommunications", "Healthcare": the list holds "IT & Telecommunications" and "Healthcare (Kesehatan)"), or with none (1), are left for a person to choose from the customer window.
+- **Excel.** The update sets the customer's industry (D-050). The add-projects import no longer writes a project industry: a customer that has none takes the sheet's industry when it is on the list; otherwise it is ignored.
+- **Removed** `effectiveIndustry` (customer first, then project) and its test.
+
+## D-053: Projects table columns set by the Superadmin, row click, Sales PIC badge, container-responsive table, stale projects on the Overview (2026-11-02)
+
+- **Columns for everyone.** A Superadmin (permission `settings.manage`) opens "Kolom tabel" above the Projects table and ticks which of End user, Project, Progress, Status, Principals, Sales PIC, Technical PIC, Last updated and Open requests show. Project ID always shows (it is the link). One choice for all users, stored in the new table `app_settings` (key `projects.columns`, migration `20261105100000_app_settings`), audited as `settings.project_columns`; an empty choice is refused, unknown names are dropped.
+- **Whole row opens the project.** A click anywhere on a row goes to the project; links and buttons inside keep their own action and a text selection does not navigate. The Project ID link stays the keyboard way in.
+- **Other is a badge.** The Sales PIC cell of a project from source Other showed "Name (external)" and "(Other)" together. It now shows the external name with an "Other" badge; internal projects show the Sales PIC alone.
+- **The table follows the width of the page.** Columns are hidden by the width of the table's container (container queries), not of the window, so opening the sidebar no longer drops columns that would fit; text cells wrap instead of being cut. Status shows from 36 rem of content, the other optional columns from 48 rem.
+- **Overview: 5 projects left longest without an update.** Open projects only, oldest "last update" first (the newest activity on the project: edit, action or request), showing project name (a link), end user and last update.

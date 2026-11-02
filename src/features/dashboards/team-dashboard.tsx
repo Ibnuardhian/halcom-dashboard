@@ -53,7 +53,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
       <section aria-label={`Total ${copy.noun}`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label={`Total ${copy.noun}`} value={summary.total} href={to("")} note="Semua request tim, terbuka maupun tertutup" />
         <StatTile label="Done" value={summary.done} href={to("status=COMPLETED")} note="Status Completed" />
-        <StatTile label="Completion rate" value={formatPct(summary.completionPct)} note={`Done dibagi total (${summary.done} dari ${summary.total}); request yang Cancelled ikut dihitung di total`} />
+        <StatTile label="Completion rate" value={formatPct(summary.completionPct)} note={`${summary.done} dari ${summary.total} request, termasuk yang dibatalkan`} />
         <StatTile label="On going" value={summary.onGoing} href={to("status=IN_PROGRESS")} note="Sedang In progress" />
       </section>
 
@@ -101,7 +101,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
           value={formatPct(metrics.slaCompliancePct)}
           note={measured === 0 ? `Belum ada ${copy.noun} yang selesai dalam ${METRICS_WINDOW_DAYS} hari terakhir` : `${metrics.slaMet} dari ${measured} yang selesai dalam ${METRICS_WINDOW_DAYS} hari terakhir memenuhi batas waktu`}
         />
-        <StatTile label={team === "PURCHASING" ? "Quotation turnaround" : "Turnaround"} value={formatDuration(metrics.avgTurnaroundHours)} note={`Dari dibuat sampai selesai, rata-rata dari ${metrics.completedInWindow} dalam ${METRICS_WINDOW_DAYS} hari`} />
+        <StatTile label={team === "PURCHASING" ? "Quotation turnaround" : "Turnaround"} value={formatDuration(metrics.avgTurnaroundHours)} note={`Rata-rata dari ${metrics.completedInWindow} request selesai, ${METRICS_WINDOW_DAYS} hari terakhir`} />
         <StatTile label="Processing time" value={formatDuration(metrics.avgProcessingHours)} note={`Turnaround dikurangi waktu antre (${formatDuration(metrics.avgQueueHours)})`} />
       </section>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -110,7 +110,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
             <CardTitle className="text-base">
               <h2>Workload by assignee</h2>
             </CardTitle>
-            <CardDescription>Open requests per PIC. A PIC is who a request is handed to; the team&apos;s login is shared.</CardDescription>
+            <CardDescription>Request terbuka per PIC. PIC bukan akun login.</CardDescription>
           </CardHeader>
           <CardContent>
             {metrics.workload.length === 0 ? (
@@ -162,7 +162,7 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
             <CardTitle className="text-base">
               <h2>Bottlenecks by status</h2>
             </CardTitle>
-            <CardDescription>How long the open requests have been in their current status. The oldest one is linked.</CardDescription>
+            <CardDescription>Lama request terbuka di status saat ini. Yang terlama bisa diklik.</CardDescription>
           </CardHeader>
           <CardContent>
             {metrics.bottlenecks.length === 0 ? (

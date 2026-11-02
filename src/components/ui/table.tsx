@@ -83,7 +83,7 @@ function Table({ className, topScroll = false, ...props }: React.ComponentProps<
     for (const head of sortableHeads(table)) {
       head.dataset["sortable"] = "true"
       head.tabIndex = 0
-      head.title = "Sort A to Z (click again for Z to A)"
+      head.title = "Urutkan A ke Z (klik lagi untuk Z ke A)"
     }
   })
   const sortFrom = (target: EventTarget | null) => {

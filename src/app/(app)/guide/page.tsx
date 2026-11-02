@@ -87,8 +87,7 @@ async function Guide() {
             <h2>The workflow</h2>
           </CardTitle>
           <CardDescription>
-            Proyek dibuat, lalu BOQ masuk ke SOA dan, setelah selesai, dilanjutkan ke Purchasing sebagai RFQ lalu PO. BOQ boleh dilewati: Sales dapat memulai dengan RFQ. Semua peran dapat membaca semua proyek dan
-            request; setiap peran hanya mengedit bagiannya sendiri.
+            Sales membuat project, SOA mengerjakan BOQ, lalu Purchasing mengerjakan RFQ dan PO. BOQ boleh dilewati. Semua peran bisa membaca; tiap peran hanya mengedit bagiannya.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -97,7 +96,7 @@ async function Guide() {
             <Flowchart nodes={chartNodes} activeRoles={activeRoles} ownRoles={accountRoles} />
           </div>
           <div className="md:hidden">
-            <p className="mb-2 text-sm text-muted-foreground">Flowchart membutuhkan layar yang lebih lebar. Berikut langkah yang sama secara berurutan; buka salah satunya untuk melihat detailnya.</p>
+            <p className="mb-2 text-sm text-muted-foreground">Flowchart membutuhkan layar yang lebih lebar. Langkah yang sama dalam urutan; buka salah satunya untuk melihat detailnya.</p>
             <FlowList nodes={chartNodes} activeRoles={activeRoles} ownRoles={accountRoles} />
           </div>
         </CardContent>
@@ -108,7 +107,7 @@ async function Guide() {
           <CardTitle className="text-base">
             <h2>Step by step, by role</h2>
           </CardTitle>
-          <CardDescription>Pilih sebuah peran. Link hanya membuka halaman yang boleh digunakan akun Anda.</CardDescription>
+          <CardDescription>Pilih peran. Link hanya membuka halaman yang boleh dibuka akun Anda.</CardDescription>
         </CardHeader>
         <CardContent>
           <RoleGuide sections={sections} initialRole={initialRole} />
@@ -121,8 +120,7 @@ async function Guide() {
             <h2>Request statuses</h2>
           </CardTitle>
           <CardDescription>
-            Ke mana sebuah request dapat berpindah berikutnya. SOA memindahkan BOQ, dan Purchasing memindahkan RFQ serta PO, dengan menyeret kartu di board. Membatalkan memerlukan alasan, begitu juga membuka kembali RFQ atau PO
-            yang sudah selesai. Pertanyaan dan revisi disampaikan lewat email, agar riwayatnya tetap tersimpan.
+            Status berikutnya yang boleh dipilih. SOA memindahkan BOQ, Purchasing memindahkan RFQ dan PO, dengan menyeret kartu di board. Membatalkan, atau membuka kembali RFQ atau PO yang selesai, perlu alasan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -151,7 +149,7 @@ async function Guide() {
               ))}
             </TableBody>
           </Table>
-          <p className="mt-3 text-xs text-muted-foreground">Revision hanya berlaku untuk BOQ. “Waiting for Sales” sudah tidak dipakai: request lama mungkin masih menampilkannya, tetapi tidak ada yang dapat memindahkan request ke status itu.</p>
+          <p className="mt-3 text-xs text-muted-foreground">Revision hanya berlaku untuk BOQ. “Waiting for Sales” sudah tidak dipakai. Request lama mungkin masih menampilkannya, tetapi tidak ada yang bisa memindahkan request ke status itu.</p>
         </CardContent>
       </Card>
     </>

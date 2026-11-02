@@ -18,6 +18,6 @@ export async function changePasswordAction(_previous: FormState, formData: FormD
     newPassword: formData.get("newPassword"),
   });
   return result.ok
-    ? { ok: true, message: "Password changed. Your other sessions were signed out." }
+    ? { ok: true, message: "Kata sandi diubah. Sesi Anda di perangkat lain sudah keluar." }
     : { ok: false, message: result.message };
 }

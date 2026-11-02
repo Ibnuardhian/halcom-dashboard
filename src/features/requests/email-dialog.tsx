@@ -34,7 +34,7 @@ export function EmailDialog({ tag, ...panel }: EmailPanelProps & { tag: string }
               <h2 id={titleId} className="text-base font-semibold">
                 Email text {tag}
               </h2>
-              <p className="text-sm text-muted-foreground">Subject, recipients and text for this request. Open the draft in Outlook, or copy each part.</p>
+              <p className="text-sm text-muted-foreground">Subjek, penerima, dan isi email request ini. Buka draf di Outlook, atau salin tiap bagian.</p>
             </div>
             <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => dialog.current?.close()}>
               <X aria-hidden />

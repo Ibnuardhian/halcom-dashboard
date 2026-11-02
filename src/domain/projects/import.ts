@@ -28,6 +28,7 @@ export const IMPORT_FIELD_KEYS = [
   "targetDate",
   "principals",
   "solution",
+  "technicalPic",
   "industry",
   "location",
   "currentAction",
@@ -55,6 +56,7 @@ export const IMPORT_FIELDS: readonly ImportField[] = [
   { key: "targetDate", label: "Target closing", required: false, synonyms: ["target closing", "target date", "closing date", "target close", "expected close"] },
   { key: "principals", label: "Principals", required: false, hint: "Beberapa principal dipisahkan dengan ; atau baris baru.", synonyms: ["principals", "principal", "brand", "brands", "vendor"] },
   { key: "solution", label: "Solution", required: false, synonyms: ["solution", "solution category", "category"] },
+  { key: "technicalPic", label: "Technical PIC (SOA)", required: false, hint: "Nama PIC SOA yang aktif. Hanya dipakai saat memperbarui.", synonyms: ["technical pic soa", "technical pic", "pic soa", "soa pic", "pic technical", "soa"] },
   { key: "industry", label: "Industry", required: false, synonyms: ["industry", "sector", "vertical"] },
   { key: "location", label: "Location", required: false, synonyms: ["location", "city", "site"] },
   { key: "currentAction", label: "Current action", required: false, synonyms: ["current action", "current", "last action", "update"] },
@@ -98,7 +100,7 @@ export function checkMapping(input: unknown, columnCount: number): { ok: true; m
   const mapping = Object.fromEntries(IMPORT_FIELD_KEYS.map((key) => [key, null])) as ColumnMapping;
   const used = new Set<number>();
   for (const key of Object.keys(record)) {
-    if (!(IMPORT_FIELD_KEYS as readonly string[]).includes(key)) return { ok: false, message: `"${key}" bukan field yang dapat diimpor.` };
+    if (!(IMPORT_FIELD_KEYS as readonly string[]).includes(key)) return { ok: false, message: `"${key}" bukan field yang bisa diimpor.` };
   }
   for (const key of IMPORT_FIELD_KEYS) {
     const value = record[key];
@@ -357,6 +359,7 @@ export function importRowOf(project: ExportProject, keys: readonly ImportFieldKe
     targetDate: dayOf(project.targetDate),
     principals: project.principal,
     solution: project.solution,
+    technicalPic: project.technicalPic,
     industry: project.industry,
     location: project.location,
     currentAction: project.currentAction,

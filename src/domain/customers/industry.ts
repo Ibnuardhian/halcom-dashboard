@@ -14,11 +14,3 @@ export function normaliseIndustry(input: unknown): IndustryResult {
   if (value.length > INDUSTRY_MAX_LENGTH) return { ok: false, message: `The industry must be at most ${INDUSTRY_MAX_LENGTH} characters.` };
   return { ok: true, value };
 }
-
-/**
- * The industry a project counts under: its customer's (filled in on the Customers page), else the free text the project carried
- * from the sales export, else none.
- */
-export function effectiveIndustry(customerIndustry: string | null | undefined, projectIndustry: string | null | undefined): string | null {
-  return customerIndustry?.trim() || projectIndustry?.trim() || null;
-}

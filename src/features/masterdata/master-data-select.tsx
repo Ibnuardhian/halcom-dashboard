@@ -64,7 +64,7 @@ export function MasterDataSelect({
         const existing = result.existing;
         setOptions((current) => (current.some((option) => option.id === existing.id) ? current : [...current, existing]));
         choose(existing);
-        setMessage(`${label} "${existing.name}" already existed, so it was selected.`);
+        setMessage(`${label} "${existing.name}" sudah ada, jadi langsung dipilih.`);
       } else {
         setMessage(result.message);
       }

@@ -144,7 +144,7 @@ export function readXlsx(bytes: Uint8Array): ReadResult {
       },
     });
   } catch (error) {
-    return { ok: false, message: error instanceof Error && error.message === "too large" ? "Workbook ini setelah dibuka melebihi ukuran yang diizinkan." : "Berkas tidak dapat dibuka sebagai workbook .xlsx." };
+    return { ok: false, message: error instanceof Error && error.message === "too large" ? "Workbook ini setelah dibuka melebihi ukuran yang diizinkan." : "Berkas tidak bisa dibuka sebagai workbook .xlsx." };
   }
 
   const sheet = firstSheetPath(files);

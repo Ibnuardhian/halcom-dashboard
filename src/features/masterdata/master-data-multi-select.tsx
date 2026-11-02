@@ -70,7 +70,7 @@ export function MasterDataMultiSelect({
         const existing = result.existing;
         setOptions((current) => (current.some((option) => option.id === existing.id) ? current : [...current, existing].sort((a, b) => a.name.localeCompare(b.name))));
         add(existing);
-        setMessage(`${label} "${existing.name}" already existed, so it was added.`);
+        setMessage(`${label} "${existing.name}" sudah ada, jadi langsung ditambahkan.`);
       } else {
         setMessage(result.message);
       }

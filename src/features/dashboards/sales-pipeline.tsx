@@ -70,7 +70,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
               <h2>Set a target margin</h2>
             </CardTitle>
             <CardDescription>
-              {needMargin.length} of your open project{needMargin.length === 1 ? " has" : "s have"} a value but no target margin yet.
+              {needMargin.length} open project Anda punya nilai tetapi belum punya target margin.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -111,7 +111,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
           <CardTitle className="text-base">
             <h2>{ownerId ? "My projects" : "Projects"}</h2>
           </CardTitle>
-          <CardDescription>Open projects first. Open a project to change its progress, status, value or target margin.</CardDescription>
+          <CardDescription>Open project di atas. Klik project untuk mengubah progress, status, nilai, atau target margin.</CardDescription>
         </CardHeader>
         <CardContent>
           {projects.length === 0 ? (
@@ -206,7 +206,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
                 <h2>Decide the next step</h2>
               </CardTitle>
               <CardDescription>
-                {decisions.length} completed BOQ or RFQ {decisions.length === 1 ? "is" : "are"} waiting for you to decide: continue to the next step (BOQ, then RFQ, then PO), or not.
+                {decisions.length} BOQ atau RFQ selesai menunggu keputusan Anda: lanjut ke langkah berikutnya atau tidak.
               </CardDescription>
             </CardHeader>
             <CardContent>

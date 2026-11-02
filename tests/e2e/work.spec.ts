@@ -158,7 +158,7 @@ test.describe("projects and requests", () => {
     const save = async () => {
       await expect(async () => {
         await commercial.getByRole("button", { name: "Save commercial details" }).click();
-        await expect(page.getByRole("status").filter({ hasText: /Saved and logged|Nothing changed/ })).toBeVisible({ timeout: 4000 });
+        await expect(page.getByRole("status").filter({ hasText: /Disimpan dan dicatat|Tidak ada perubahan/ })).toBeVisible({ timeout: 4000 });
       }).toPass({ timeout: 30_000 });
     };
 
@@ -275,7 +275,7 @@ test.describe("projects and requests", () => {
     await soa.goto(`/projects/${projectCode}#technical`);
     await soa.getByLabel("Phase").selectOption("SIZING");
     await soa.getByRole("button", { name: "Save phase" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: "Phase saved." })).toBeVisible();
+    await expect(soa.getByRole("status").filter({ hasText: "Phase tersimpan." })).toBeVisible();
     await soa.context().close();
 
     await page.goto("/notifications");
@@ -509,7 +509,7 @@ test.describe("projects and requests", () => {
       await soa.getByRole("radio", { name: new RegExp(`^${kind}`) }).check();
       await soa.getByLabel("Update", { exact: true }).fill(text);
       await soa.getByRole("button", { name: "Post update" }).click();
-      await expect(soa.getByRole("status").filter({ hasText: "Update posted." })).toBeVisible();
+      await expect(soa.getByRole("status").filter({ hasText: "Update tersimpan." })).toBeVisible();
       await expect(soa.getByLabel("Update", { exact: true })).toHaveValue(""); // the box clears, like a comment box
     };
 
@@ -560,14 +560,14 @@ test.describe("projects and requests", () => {
     await soa.getByRole("button", { name: "Add Technical notes" }).click();
     await soa.getByLabel("Technical notes", { exact: true }).fill("Sized for 400 users");
     await soa.getByRole("button", { name: "Save technical details" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: "Saved and logged: BOQ, Technical notes." })).toBeVisible();
+    await expect(soa.getByRole("status").filter({ hasText: "Disimpan dan dicatat: BOQ, Technical notes." })).toBeVisible();
 
     const log = soa.getByRole("list", { name: "Change log" });
     await expect(log.getByRole("listitem")).toHaveCount(2);
     await expect(log.getByText("Sized for 400 users")).toBeVisible();
 
     await soa.getByRole("button", { name: "Save technical details" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: "Nothing changed." })).toBeVisible();
+    await expect(soa.getByRole("status").filter({ hasText: "Tidak ada perubahan." })).toBeVisible();
     await expect(log.getByRole("listitem")).toHaveCount(2);
     await soa.context().close();
   });
@@ -862,7 +862,7 @@ test.describe("account", () => {
     await user.getByLabel("New password", { exact: true }).fill(second);
     await user.getByLabel("Confirm new password").fill(second);
     await user.getByRole("button", { name: "Change password" }).click();
-    await expect(user.getByRole("status").filter({ hasText: "Password changed." })).toBeVisible();
+    await expect(user.getByRole("status").filter({ hasText: "Kata sandi diubah." })).toBeVisible();
 
     const fresh = await browser.newContext();
     const freshPage = await fresh.newPage();

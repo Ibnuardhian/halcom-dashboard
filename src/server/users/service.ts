@@ -11,7 +11,7 @@ const ERROR_MESSAGES = {
   FORBIDDEN: "Anda tidak diizinkan melakukan ini.",
   NOT_FOUND: "User tidak ditemukan.",
   EMAIL_TAKEN: "Sudah ada pengguna dengan email ini.",
-  SELF_CHANGE: "Anda tidak dapat mengubah akun Anda sendiri di sini.",
+  SELF_CHANGE: "Anda tidak bisa mengubah akun Anda sendiri di sini.",
   INVALID_INPUT: "Data yang dikirim tidak valid.",
 } as const;
 
