@@ -2,6 +2,9 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { setActor } from "@/server/projects/actor-context";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
+import type { RequestStatus } from "@/domain/requests/status";
+import { slaOf } from "@/domain/requests/sla";
+import { getTeamSetting } from "@/server/settings/team-settings";
 import { allowedTransitions, canHandOver, canTransition, nextRequestType, PO_NEEDS_RFQ, reasonRequired, REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { canContinueFlow, workPermission } from "@/domain/requests/access";
 import { parseCommercialValue } from "@/domain/projects/commercial";
@@ -385,6 +388,12 @@ export async function stopFlow(db: PrismaClient, claimedActor: Actor, input: unk
   });
 }
 
+
+/** Whether a Purchasing request is past its SLA deadline right now (the same rule as the SLA badge), read inside the caller's transaction. */
+async function isOverdueNow(tx: Tx, request: { createdAt: Date; status: RequestStatus; completedAt: Date | null; id: string }): Promise<boolean> {
+  const [setting, history] = await Promise.all([getTeamSetting(tx, "PURCHASING"), tx.requestStatusHistory.findMany({ where: { requestId: request.id }, select: { toStatus: true, changedAt: true } })]);
+  return slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history, range: setting.sla, now: new Date() }).state === "overdue";
+}
 /** Moves a request to a new status. The status change, its history row and the audit event commit together. */
 export async function changeRequestStatus(
   db: PrismaClient,
@@ -416,6 +425,9 @@ export async function changeRequestStatus(
       );
     }
     if (reasonRequired(request.status, to) && !reason) return fail("INVALID_INPUT", "Isi alasan untuk perubahan ini.");
+    // An RFQ or PO completed after its deadline needs the reason; it is kept on the request, where everyone can read it.
+    const completedLate = to === "COMPLETED" && request.type !== "BOQ" && (await isOverdueNow(tx, request));
+    if (completedLate && !reason) return fail("INVALID_INPUT", "Request ini melewati batas SLA. Isi catatan alasan keterlambatan.");
 
     const now = new Date();
     await tx.request.update({
@@ -423,6 +435,7 @@ export async function changeRequestStatus(
       data: {
         status: to,
         // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
+        overdueNote: to === "COMPLETED" ? (completedLate ? reason : null) : request.status === "COMPLETED" ? null : request.overdueNote,
         completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
       },
     });

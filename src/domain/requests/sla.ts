@@ -122,3 +122,13 @@ export function slaOf({ createdAt, status, completedAt, history, range, now }: S
   if (now.getTime() > dueAt.getTime()) return { targetAt, dueAt, state: "overdue" };
   return { targetAt, dueAt, state: now.getTime() >= targetAt.getTime() || dueAt.getTime() - now.getTime() < DAY_MS ? "due_soon" : "on_track" };
 }
+
+/**
+ * How many working days a request ran past its deadline, up to `until` (when it was completed, or now while it is still open): the smallest
+ * number of working days after `dueAt` that reaches `until`. 0 when it was not late; a request late by an hour is 1 day late.
+ */
+export function overdueWorkingDays(dueAt: Date, until: Date): number {
+  let days = 0;
+  while (addWorkingDays(dueAt, days).getTime() < until.getTime()) days += 1;
+  return days;
+}

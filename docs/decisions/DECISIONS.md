@@ -837,3 +837,11 @@ The Summary box is gone from the request form and from "new project with a reque
 
 - The SOA role's menu entry and page title said "Technical dashboard" while a Superadmin saw "SOA dashboard" for the same page. Both are now "SOA dashboard".
 - On the Overview, the bars of "Customers by location" link to the Customers page. SOA, Purchasing, Finance and Management see that chart but may not open Customers (`customers.view`), so every bar (the folded "Other" one included) led them to an error page. The bars are now plain for those roles and links for the others (`customerLinks`). Whether those roles should be allowed to open Customers is a separate question.
+
+## D-061: Note when Purchasing completes an overdue request; overdue table; lighter board (2026-11-03)
+
+- **Note.** Moving an RFQ or PO to Completed on the board after its SLA deadline opens a dialog that asks why it was late. The server refuses the move without it (a BOQ is not asked). The text is stored in the new `requests.overdue_note` (migration `20261106100000_request_overdue_note`) and in the status history, and is shown to every role on the request card, the request list and the request panel. Moving the request out of Completed again clears the note; a request completed on time has none.
+- **Overdue days.** Counted in working days (the SLA's own unit): the smallest number of working days after the deadline that reaches now (open request) or the completion time. A card shows "Overdue by N days", or "Completed N days late" once completed.
+- **Purchasing dashboard.** Under "RFQ & PO per PIC" a table lists the requests past their deadline: still open, and completed late in the last 90 days, longest first, with Customer, Project, PIC, Request in, Overdue (days) and Notes (empty for an open request).
+- **Board.** Completed shows its cards in two columns and is twice as wide; Revision and Cancelled are folded to their name and number, open with a click, and still accept a dropped card; cards are tighter.
+- The merge of development into main kept main's old menu lines ("SLA SOA", "SLA Purchasing"); the Email and SLA entries of D-058 are put back.

@@ -86,6 +86,7 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
             <Fact label="Needed by">{formatDateOnly(request.requiredBy)}</Fact>
             <Fact label="Created">{formatDay(request.createdAt)}</Fact>
             {request.completedAt ? <Fact label="Completed">{formatDay(request.completedAt)}</Fact> : null}
+            {request.overdueNote ? <Fact label="Catatan overdue">{request.overdueNote}</Fact> : null}
             {request.source ? (
               <Fact label="Handed over from">
                 <Link href={`/request/${request.source.code}`} className="font-mono text-primary underline-offset-4 hover:underline">
