@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { PageFallback } from "@/components/app-shell/page-fallback";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -13,10 +14,13 @@ import { PROJECT_SOURCE_TYPES, SOURCE_LABELS } from "@/domain/projects/source";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { formatDay } from "@/features/dashboards/format";
+import { ColumnSettings } from "@/features/projects/column-settings";
+import { ProjectRow } from "@/features/projects/project-row";
 import { ImportDialog } from "@/features/projects/import-dialog";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
+import { getProjectColumns } from "@/server/settings/app-settings";
 import {
   DEFAULT_PROJECT_PAGE_SIZE,
   listPrincipalOptions,
@@ -61,7 +65,8 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
   const search = one(query.q).slice(0, 100);
   const progress = PROJECT_PROGRESSES.find((p) => p === one(query.progress));
   const trackStatus = TRACK_STATUSES.find((s) => s === one(query.status));
-  const principals = await listPrincipalOptions(getDb(), viewer);
+  const [principals, columns] = await Promise.all([listPrincipalOptions(getDb(), viewer), getProjectColumns(getDb())]);
+  const showing = new Set<string>(columns);
   // The Overview charts link here with filters (D-031); the principal select shows a single principal, any others stay as hidden fields.
   const drill = readDrillFilters(query);
   const principalId = drill.principal?.length === 1 ? principals.find((p) => p.id === drill.principal![0])?.id : undefined;
@@ -207,6 +212,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
             ) : null}
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            {can(viewer.role, "settings.manage") ? <ColumnSettings shown={columns} /> : null}
             {can(viewer.role, "projects.import") || can(viewer.role, "projects.bulk-update") ? <ImportDialog canCreate={can(viewer.role, "projects.import")} canUpdate={can(viewer.role, "projects.bulk-update")} /> : null}
             {can(viewer.role, "projects.create") || can(viewer.role, "projects.create.external") ? (
               <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>
@@ -221,51 +227,69 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           {filtered ? "Tidak ada project yang cocok dengan filter ini." : "Belum ada project."}
         </p>
       ) : (
+        <div className="@container">
         <Table topScroll>
           <TableHeader>
             <TableRow>
               <SortableHead label="Project ID" column="code" active={sort === "code"} dir={dir} href={sortHref} className="sticky left-0 z-10 bg-background" />
-              <SortableHead label="End user" column="endUser" active={sort === "endUser"} dir={dir} href={sortHref} />
-              <SortableHead label="Project" column="name" active={sort === "name"} dir={dir} href={sortHref} />
-              <SortableHead label="Progress" column="progress" active={sort === "progress"} dir={dir} href={sortHref} />
-              <SortableHead label="Status" column="status" active={sort === "status"} dir={dir} href={sortHref} className="hidden sm:table-cell" />
-              <TableHead className="hidden lg:table-cell">Principals</TableHead>
-              <SortableHead label="Sales PIC" column="salesOwner" active={sort === "salesOwner"} dir={dir} href={sortHref} className="hidden md:table-cell" />
-              <SortableHead label="Technical PIC" column="technicalPic" active={sort === "technicalPic"} dir={dir} href={sortHref} className="hidden xl:table-cell" />
-              <SortableHead label="Last updated" column="lastUpdate" active={sort === "lastUpdate"} dir={dir} href={sortHref} className="hidden lg:table-cell" />
-              <TableHead className="hidden text-right md:table-cell">Open requests</TableHead>
+              {showing.has("endUser") ? <SortableHead label="End user" column="endUser" active={sort === "endUser"} dir={dir} href={sortHref} /> : null}
+              {showing.has("name") ? <SortableHead label="Project" column="name" active={sort === "name"} dir={dir} href={sortHref} /> : null}
+              {showing.has("progress") ? <SortableHead label="Progress" column="progress" active={sort === "progress"} dir={dir} href={sortHref} /> : null}
+              {showing.has("status") ? <SortableHead label="Status" column="status" active={sort === "status"} dir={dir} href={sortHref} className="hidden @xl:table-cell" /> : null}
+              {showing.has("principals") ? <TableHead className="hidden @3xl:table-cell">Principals</TableHead> : null}
+              {showing.has("salesPic") ? <SortableHead label="Sales PIC" column="salesOwner" active={sort === "salesOwner"} dir={dir} href={sortHref} className="hidden @3xl:table-cell" /> : null}
+              {showing.has("technicalPic") ? <SortableHead label="Technical PIC" column="technicalPic" active={sort === "technicalPic"} dir={dir} href={sortHref} className="hidden @3xl:table-cell" /> : null}
+              {showing.has("lastUpdated") ? <SortableHead label="Last updated" column="lastUpdate" active={sort === "lastUpdate"} dir={dir} href={sortHref} className="hidden @3xl:table-cell" /> : null}
+              {showing.has("openRequests") ? <TableHead className="hidden text-right @3xl:table-cell">Open requests</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
             {projects.map((project) => (
-              <TableRow key={project.id}>
+              <ProjectRow key={project.id} href={`${PROJECTS_PATH}/${project.code}`}>
                 <TableCell className="sticky left-0 z-10 bg-background font-mono text-xs font-medium whitespace-nowrap">
                   <Link href={`${PROJECTS_PATH}/${project.code}`} className="text-primary underline-offset-4 hover:underline">
                     {project.code}
                   </Link>
                 </TableCell>
-                <TableCell className="max-w-48 truncate">{project.endUserCompany}</TableCell>
-                <TableCell className="max-w-64 truncate">{project.name}</TableCell>
-                <TableCell>
-                  <ProgressBadge progress={project.progress} />
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <TrackStatusBadge status={project.trackStatus} />
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">{project.principalName ?? "–"}</TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {project.salesOwnerName}
-                  {project.sourceType !== "INTERNAL_SALES" ? <span className="ml-1 text-xs text-muted-foreground">({SOURCE_LABELS[project.sourceType]})</span> : null}
-                </TableCell>
-                <TableCell className="hidden xl:table-cell">{project.technicalPicName ?? "–"}</TableCell>
-                <TableCell className="hidden whitespace-nowrap lg:table-cell">{formatDay(project.lastUpdated)}</TableCell>
-                <TableCell className="hidden text-right tabular-nums md:table-cell">
-                  {project.openRequests} / {project.totalRequests}
-                </TableCell>
-              </TableRow>
+                {showing.has("endUser") ? <TableCell className="min-w-28 break-words whitespace-normal">{project.endUserCompany}</TableCell> : null}
+                {showing.has("name") ? <TableCell className="min-w-36 break-words whitespace-normal">{project.name}</TableCell> : null}
+                {showing.has("progress") ? (
+                  <TableCell>
+                    <ProgressBadge progress={project.progress} />
+                  </TableCell>
+                ) : null}
+                {showing.has("status") ? (
+                  <TableCell className="hidden @xl:table-cell">
+                    <TrackStatusBadge status={project.trackStatus} />
+                  </TableCell>
+                ) : null}
+                {showing.has("principals") ? <TableCell className="hidden break-words whitespace-normal @3xl:table-cell">{project.principalName ?? "–"}</TableCell> : null}
+                {showing.has("salesPic") ? (
+                  <TableCell className="hidden break-words whitespace-normal @3xl:table-cell">
+                    {project.sourceType === "INTERNAL_SALES" ? (
+                      project.salesOwnerName
+                    ) : (
+                      <>
+                        {project.salesOwnerName.replace(/ \(external\)$/, "")}
+                        <Badge variant="outline" className="ml-1.5" title="Project dari source Other: tidak ada Sales PIC internal">
+                          {SOURCE_LABELS[project.sourceType]}
+                        </Badge>
+                      </>
+                    )}
+                  </TableCell>
+                ) : null}
+                {showing.has("technicalPic") ? <TableCell className="hidden @3xl:table-cell">{project.technicalPicName ?? "–"}</TableCell> : null}
+                {showing.has("lastUpdated") ? <TableCell className="hidden whitespace-nowrap @3xl:table-cell">{formatDay(project.lastUpdated)}</TableCell> : null}
+                {showing.has("openRequests") ? (
+                  <TableCell className="hidden text-right tabular-nums @3xl:table-cell">
+                    {project.openRequests} / {project.totalRequests}
+                  </TableCell>
+                ) : null}
+              </ProjectRow>
             ))}
           </TableBody>
         </Table>
+        </div>
       )}
       {result.total > 0 ? (
         <nav aria-label="Pages" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">

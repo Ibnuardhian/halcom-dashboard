@@ -52,6 +52,7 @@ model User {
   purchasingProjects Project[]             @relation("ProjectPurchasingPic")
   deletedProjects   Project[]              @relation("ProjectDeletedBy")
   teamSettings      TeamSetting[]          @relation("TeamSettingUpdatedBy")
+  appSettings       AppSetting[]           @relation("AppSettingUpdatedBy")
   rolePermissionChanges RolePermissionOverride[] @relation("RolePermissionUpdatedBy")
   projectChanges    ProjectChange[]
   progressChanges   ProjectProgressHistory[] @relation("ProgressChangedBy")
@@ -683,4 +684,16 @@ model Industry {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@map("industries")
+}
+
+/// Settings that apply to the whole application, one row per name (for now: which columns the Projects table shows). A Superadmin changes them.
+model AppSetting {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String?  @map("updated_by_id") @db.Uuid
+
+  updatedBy User? @relation("AppSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@map("app_settings")
 }
