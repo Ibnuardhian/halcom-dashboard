@@ -4,6 +4,8 @@ import type { Role } from "@/domain/access/roles";
 import { principalNamesOf } from "@/domain/projects/master-data";
 import type { ExportProject } from "@/domain/projects/export";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { marginFactor } from "@/domain/projects/tax-basis";
+import { getTaxBasis } from "@/server/settings/app-settings";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { isOpen } from "@/domain/requests/status";
 
@@ -15,6 +17,7 @@ type Viewer = { id: string; role: Role };
  */
 export async function listProjectsForExport(db: PrismaClient, viewer: Viewer, onlyActingFor?: string): Promise<ExportProject[]> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
+  const factor = marginFactor(await getTaxBasis(db));
   const rows = await db.project.findMany({
     where: { deletedAt: null, ...(onlyActingFor ? { OR: [{ sourceType: "OTHER" as const }, { salesOwnerId: onlyActingFor }] } : {}) },
     include: {
@@ -46,8 +49,8 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer, on
         estimatedValue,
         probability: PROGRESS_PERCENT[row.progress],
         weightedValue: weightedValue(estimatedValue, row.progress),
-        targetMargin: targetMarginPercentOf(estimatedValue, finalValue, percent, fixed),
-        estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, percent, fixed),
+        targetMargin: targetMarginPercentOf(estimatedValue, finalValue, percent, fixed, factor),
+        estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, percent, fixed, factor),
         finalValue,
         marginPercentInput: percent,
         marginAmountInput: fixed,

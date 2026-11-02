@@ -5,7 +5,7 @@ import type { FormState } from "@/components/ui/form-status";
 import { PROJECTS_PATH, SETTINGS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
-import { saveProjectColumns } from "@/server/settings/app-settings";
+import { saveProjectColumns, saveTaxBasis } from "@/server/settings/app-settings";
 import { saveTeamSetting } from "@/server/settings/team-settings";
 
 /** Saves one team's SLA and email template (superadmin only; the service checks it again). */
@@ -39,4 +39,18 @@ export async function saveProjectColumnsAction(_previous: FormState, formData: F
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(PROJECTS_PATH);
   return { ok: true, message: result.changed ? "Tersimpan. Semua pengguna melihat kolom ini." : "Tidak ada perubahan." };
+}
+
+/** Saves whether the Estimated PO value and the margin include PPN, and the rate (superadmin only; the service checks it again). */
+export async function saveTaxBasisAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const rate = String(formData.get("taxRatePercent") ?? "").trim().replace(",", ".");
+  const result = await saveTaxBasis(getDb(), { id: user.id, role: user.role }, {
+    valueIncludesTax: formData.get("valueIncludesTax") === "1",
+    marginIncludesTax: formData.get("marginIncludesTax") === "1",
+    taxRatePercent: rate === "" ? Number.NaN : Number(rate),
+  });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/", "layout");
+  return { ok: true, message: result.changed ? "Tersimpan. Margin dan gross profit dihitung ulang dengan basis ini." : "Tidak ada perubahan." };
 }

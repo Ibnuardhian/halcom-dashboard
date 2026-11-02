@@ -89,6 +89,7 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   { href: PERMISSIONS_PATH, label: "Permissions", group: "administration", icon: "permissions", permission: "permissions.view" },
   { href: `${SETTINGS_PATH}/soa`, label: "SLA SOA", group: "administration", icon: "sla", permission: "settings.view" },
   { href: `${SETTINGS_PATH}/purchasing`, label: "SLA Purchasing", group: "administration", icon: "sla", permission: "settings.view" },
+  { href: `${SETTINGS_PATH}/ppn`, label: "Basis PPN", group: "administration", icon: "sla", permission: "settings.view" },
   { href: MASTER_DATA_PATH, label: "Master data", group: "administration", icon: "masterdata", permission: "masterdata.manage", labels: { SOA: "Principal & solution master data" } },
   { href: PICS_PATH, label: "PICs", group: "administration", icon: "pics", permission: "pics.manage" },
   { href: AUDIT_PATH, label: "Audit logs", group: "administration", icon: "audit", permission: "audit.view" },

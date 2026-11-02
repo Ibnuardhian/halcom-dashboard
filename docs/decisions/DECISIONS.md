@@ -802,6 +802,16 @@ The description of a project could only be filled in when it was created. Permis
 - **Log.** The old and new text go to the project change log and the audit log (`project.description_changed`), and the people on the project are notified. Service: `setProjectDescription`, which re-checks the stored account and permission.
 - **Excel.** The Description column of the bulk update follows this permission instead of the rename permission (D-050): SOA, which may rename, is refused a description change in a sheet; Sales (own projects), Admin and Superadmin may.
 
+## D-055: PPN basis of the value and the margin, set by the Superadmin (2026-11-02)
+
+Sales enter the Estimated PO value with PPN and think of the margin and gross profit without it. The system treated both as one base: a margin percentage was taken of the value with PPN (10% of 111,000,000 gave 11,100,000, while the gross profit without PPN is 10,000,000), and a gross profit amount without PPN was divided by the value with PPN (10,000,000 / 111,000,000 showed 9.01% instead of 10%). Every margin figure was therefore off by the PPN rate.
+
+- **Setting.** A Superadmin (`settings.manage`) chooses, on **Basis PPN** (`/admin/settings/ppn`, in the Administration menu; Admin reads it), whether Estimated PO value and Final value include PPN (default: include), whether Target margin and Estimated gross profit include PPN (default: exclude), and the PPN rate (default 11%, 0 to 30). Stored in `app_settings` (`pricing.tax-basis`), audited as `settings.tax_basis`.
+- **Calculation.** The value is put on the margin's basis before the margin is worked out (`marginFactor`: value with PPN and margin without gives 1/1.11). A margin percentage is taken of that value; a gross profit amount is divided by it to give the percentage. With both on the same basis the factor is 1 and nothing changes. Used by the project page, the pipeline analytics (open target margin, pipeline rows) and the exports.
+- **Stored data.** Nothing stored is rewritten: the entered value, percentage and amount stay as they were; only the figures derived from them change.
+- **Labels.** The project page says which basis each figure has ("Estimated PO value (incl. PPN)", "Estimated gross profit (excl. PPN)"). The Excel columns and the commercial form keep their names (the import matches columns by name).
+- **Not changed.** Sales targets and the Finance crosscheck compare values as entered; they do not know the basis, and the Final value is assumed to be on the same basis as the Estimated PO value.
+
 ## D-056: Email draft opens after Continue, Outlook .eml draft, margin typed as an amount, Tab in the name picker (2026-11-02)
 
 - **Draft opens by itself.** "Continue to RFQ / PO" now leads to the new request with `?email=1`; the project page opens that request's email dialog ([HITRFQ] or [HITPO]) once, and the parameter is dropped from the address so a reload does not reopen it. Nothing is sent (D-017).

@@ -4,6 +4,8 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { marginFactor } from "@/domain/projects/tax-basis";
+import { getTaxBasis } from "@/server/settings/app-settings";
 import { FILTER_EXTERNAL, FILTER_NONE } from "@/domain/projects/drilldown";
 import { industryKey } from "@/domain/projects/drilldown";
 import {
@@ -131,6 +133,7 @@ export function isOpenProject(progress: ProjectProgress, trackStatus: TrackStatu
  */
 export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, options: { salesOwnerId?: string } = {}): Promise<PipelineAnalytics> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
+  const factor = marginFactor(await getTaxBasis(db));
   const projects = await db.project.findMany({
     where: { deletedAt: null, ...(options.salesOwnerId ? { salesOwnerId: options.salesOwnerId } : {}) },
     select: {
@@ -202,7 +205,7 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       person.open += 1;
       if (atPropose) person.quoted += 1;
       conversion.set(project.salesOwner?.id ?? EXTERNAL_KEY, person);
-      const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null, project.targetMarginValue?.toNumber() ?? null);
+      const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null, project.targetMarginValue?.toNumber() ?? null, factor);
       if (margin !== null) {
         totals.openTargetMargin += margin;
         totals.openWithMargin += 1;
@@ -262,6 +265,7 @@ export type PipelineProjectRow = {
  */
 export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, salesOwnerId?: string): Promise<PipelineProjectRow[]> {
   if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
+  const factor = marginFactor(await getTaxBasis(db));
   const rows = await db.project.findMany({ where: { deletedAt: null, ...(salesOwnerId ? { salesOwnerId } : {}) } });
   const mapped = rows.map((row): PipelineProjectRow => {
     const estimatedValue = row.estimatedValue?.toNumber() ?? null;
@@ -277,8 +281,8 @@ export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, sal
       accountName: row.endUserCompany,
       projectTitle: row.name,
       estimatedValue,
-      targetMargin: targetMarginPercentOf(estimatedValue, finalValue, percent, fixed),
-      estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, percent, fixed),
+      targetMargin: targetMarginPercentOf(estimatedValue, finalValue, percent, fixed, factor),
+      estimatedGrossProfit: targetMarginAmount(estimatedValue, finalValue, percent, fixed, factor),
       isOpen: isOpenProject(row.progress, row.trackStatus),
     };
   });

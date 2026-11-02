@@ -37,6 +37,8 @@ import { RequestPanel } from "@/features/requests/request-panel";
 import { ScrollToRequest } from "@/features/requests/scroll-to-request";
 import { ProgressBadge, StatusBadge, TrackStatusBadge, TypeBadge } from "@/features/requests/status-badges";
 import { getDb } from "@/lib/db";
+import { marginFactor, taxLabel } from "@/domain/projects/tax-basis";
+import { getTaxBasis } from "@/server/settings/app-settings";
 import { requirePermission } from "@/server/auth/current-user";
 import { listProjectActions, listProjectChanges } from "@/server/projects/queries";
 import { isOpen } from "@/domain/requests/status";
@@ -114,7 +116,9 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   const finalValue = project.finalValue?.toNumber() ?? null;
   const marginPercent = project.targetMargin?.toNumber() ?? null;
   const marginValue = project.targetMarginValue?.toNumber() ?? null;
-  const targetMargin = targetMarginPercentOf(estimated, finalValue, marginPercent, marginValue);
+  const basis = await getTaxBasis(getDb());
+  const factor = marginFactor(basis);
+  const targetMargin = targetMarginPercentOf(estimated, finalValue, marginPercent, marginValue, factor);
   const commercialValues = {
     createdAt: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(project.createdAt),
     progress: project.progress,
@@ -185,12 +189,12 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           <Fact label="Technical PIC (SOA)">{project.soaPic?.name ?? "–"}</Fact>
           <Fact label="Purchasing PIC">{project.purchasingPicRef?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
-          <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
+          <Fact label={`Estimated PO value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(estimated)}</Fact>
           <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
-          <Fact label="Weighted value">{formatAmount(weightedValue(estimated, project.progress))}</Fact>
+          <Fact label={`Weighted value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(weightedValue(estimated, project.progress))}</Fact>
           <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
-          <Fact label="Estimated gross profit">{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue))}</Fact>
-          <Fact label="Final value">{formatAmount(finalValue)}</Fact>
+          <Fact label={`Estimated gross profit (${taxLabel(basis.marginIncludesTax)})`}>{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue, factor))}</Fact>
+          <Fact label={`Final value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(finalValue)}</Fact>
           {project.wonDate ? <Fact label="Won on">{formatDateOnly(project.wonDate)}</Fact> : null}
           {project.competitor ? <Fact label="Competitor">{project.competitor}</Fact> : null}
           {project.competitionStatus ? <Fact label="Competition status">{project.competitionStatus}</Fact> : null}
@@ -248,7 +252,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
             <Fact label="Status">
               <TrackStatusBadge status={project.trackStatus} />
             </Fact>
-            <Fact label="Estimated PO value">{formatAmount(estimated)}</Fact>
+            <Fact label={`Estimated PO value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(estimated)}</Fact>
             <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
             <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
             <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
