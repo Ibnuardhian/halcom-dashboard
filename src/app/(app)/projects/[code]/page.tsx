@@ -127,7 +127,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
     estimatedValue: estimated === null ? "" : String(estimated),
     targetMargin: marginPercent === null ? "" : String(marginPercent),
     // The form takes an amount only, so a margin kept as a percentage is shown as the amount it comes to.
-    targetMarginValue: String(targetMarginAmount(estimated, finalValue, marginPercent, marginValue) ?? ""),
+    targetMarginValue: String(targetMarginAmount(estimated, finalValue, marginPercent, marginValue, factor) ?? ""),
     targetDate: project.targetDate ? project.targetDate.toISOString().slice(0, 10) : "",
     finalValue: finalValue === null ? "" : String(finalValue),
     wonDate: project.wonDate ? project.wonDate.toISOString().slice(0, 10) : "",
