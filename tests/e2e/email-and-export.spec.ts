@@ -229,7 +229,6 @@ test("the email draft of a request opens by itself after Continue (?email=1) and
     await page.getByLabel("End-user company").fill("E2E Draft Co");
     await page.getByLabel("Project name").fill(`Draft job ${Date.now()}`);
     await page.getByText(/^BOQ: /).click();
-    await page.getByLabel("Request summary").fill("BOQ for the draft");
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
     await expect(page).toHaveURL(/\?request=BOQ-/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });

@@ -41,7 +41,6 @@ export async function createProjectAction(_previous: FormState, formData: FormDa
     request: requestType
       ? {
           type: requestType,
-          title: text(formData, "requestTitle"),
           description: text(formData, "requestDescription"),
           requiredBy: text(formData, "requestRequiredBy"),
         }

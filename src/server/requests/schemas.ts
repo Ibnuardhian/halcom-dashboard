@@ -40,7 +40,8 @@ const submissionKey = z.string().trim().min(8).max(100).nullish().transform((val
 /** The request fields shared by the stand-alone request form and the "new project with a request" form. */
 const requestBody = {
   type: z.enum(REQUEST_TYPES, "Pilih jenis request."),
-  title: required("Summary", 150),
+  // Not asked for any more: a request is titled with its project name (the service fills it in); a caller may still pass one.
+  title: optionalText(150),
   description: optionalText(4000),
   requiredBy: optionalDate,
 };

@@ -18,11 +18,10 @@ async function createProject(page: Page, name: string): Promise<string> {
   return page.url().split("/").pop()!;
 }
 
-async function createBoq(page: Page, projectCode: string, title: string): Promise<string> {
+async function createBoq(page: Page, projectCode: string): Promise<string> {
   await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: "New BOQ", exact: true }).click();
   await expect(async () => {
-    await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 45_000 });
   }).toPass({ timeout: 120_000 });
@@ -33,7 +32,7 @@ test.describe("a superadmin sets the dates of a request by hand", () => {
   test("only the superadmin sees the form, and the saved dates are shown again", async ({ page }) => {
     test.setTimeout(180_000);
     await signIn(page, "SALES");
-    const requestCode = await createBoq(page, await createProject(page, `Dates ${Date.now()}`), "BOQ with a late entry");
+    const requestCode = await createBoq(page, await createProject(page, `Dates ${Date.now()}`));
     await page.goto(`/request/${requestCode}`);
     await expect(page.getByText(/^Status history/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Correct the dates" })).toHaveCount(0);

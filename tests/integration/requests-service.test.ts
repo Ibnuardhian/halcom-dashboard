@@ -191,7 +191,7 @@ describe("createRequest", () => {
     const project = await makeProject(sales);
 
     expect(await createRequest(db, sales, { projectId: crypto.randomUUID(), type: "BOQ", title: "x" })).toMatchObject({ ok: false, code: "NOT_FOUND" });
-    expect(await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "  " })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await createRequest(db, sales, { projectId: project.id, type: "BOQ", description: "x".repeat(4001) })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await createRequest(db, sales, { projectId: project.id, type: "XYZ", title: "x" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await createRequest(db, sales, { projectId: "nope", type: "BOQ", title: "x" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     for (const role of ["SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
@@ -530,5 +530,19 @@ describe("setRequestDates: requested by a SOA PIC", () => {
     expect(back.ok).toBe(true);
     expect((await db.request.findUniqueOrThrow({ where: { id: rfq.id } })).raisedByPicId).toBeNull();
     void soa;
+  });
+});
+
+describe("request title", () => {
+  it("is the name of the project when none is given, for a request on its own and for one raised with the project", async () => {
+    const sales = await actorOf("SALES");
+    const created = await createProject(db, sales, { endUserCompany: `PT Title ${randomBytes(3).toString("hex")}`, name: "Nama judul otomatis", request: { type: "BOQ", description: "Butuh 3 server" } });
+    expect(created).toMatchObject({ ok: true });
+    if (!created.ok) return;
+    const first = await db.request.findFirstOrThrow({ where: { code: created.value.requestCode! } });
+    expect(first.title).toBe("Nama judul otomatis");
+    const again = await createRequest(db, sales, { projectId: created.value.id, type: "RFQ" });
+    expect(again).toMatchObject({ ok: true });
+    if (again.ok) expect((await db.request.findUniqueOrThrow({ where: { id: again.value.id } })).title).toBe("Nama judul otomatis");
   });
 });

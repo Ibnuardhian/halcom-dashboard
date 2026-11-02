@@ -27,12 +27,11 @@ async function createProject(page: Page, company: string, name: string): Promise
   return page.url().split("/").pop()!;
 }
 
-async function createBoq(page: Page, projectCode: string, title: string): Promise<string> {
+async function createBoq(page: Page, projectCode: string): Promise<string> {
   await page.goto(`/projects/${projectCode}#requests`);
   await page.getByRole("link", { name: "New BOQ", exact: true }).click();
   await expect(page.getByLabel("Request type")).toHaveValue("BOQ");
   await expect(async () => {
-    await page.getByLabel("Summary").fill(title);
     await page.getByRole("button", { name: "Create request" }).click();
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
@@ -96,7 +95,7 @@ test.describe("PICs for SOA and Purchasing", () => {
     const id = tag();
     await signIn(page, "SALES");
     const project = await createProject(page, `PT Pic ${id}`, "PIC demo");
-    const boq = await createBoq(page, project, "BOQ for the PIC demo");
+    const boq = await createBoq(page, project);
 
     const admin = await asRole(browser, "ADMIN");
     await admin.goto("/admin/pics");

@@ -828,3 +828,7 @@ The SLA, the To / Cc and the email template of SOA and Purchasing were two pages
 - **Email** (`/admin/settings/email`): per team (SOA, Purchasing) the To, Cc, subject and text of the email, with a preview. **SLA** (`/admin/settings/sla`): per team the SLA range. Two menu entries under Administration. Permissions and audit are as before (Admin reads, Superadmin saves).
 - **Saving is partial.** `saveTeamSetting` takes whichever parts the form sends and keeps the rest, so saving the SLA never touches the recipients or the template, and the other way round. An empty To / Cc sent on purpose still clears them. "Kembalikan template bawaan" now restores only the subject and text.
 - `/admin/settings` leads to Email; `/admin/settings/soa` and `/purchasing` lead to their section of the Email page.
+
+## D-059: No Summary on a request; it takes the project name (2026-11-02)
+
+The Summary box is gone from the request form and from "new project with a request". A request is titled with the name of its project (the service fills it in; a caller may still send a title, which the importers do). The text of what is needed goes in Details. In the Neon copy 37 of 44 requests already carried the project name as their title. Consequences: board cards, tables and notifications show the project name; the default email template no longer has a "Summary" block (saved templates are not changed, and `{{summary}}` still works in them); a second request on the same project is told apart by its code, type and Details. Details stays optional.
