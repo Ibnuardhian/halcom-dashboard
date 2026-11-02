@@ -43,10 +43,10 @@ describe("navLinksFor", () => {
     ]);
   });
 
-  it("shows SOA its technical dashboard, projects, BOQ tickets, handoff, reports and master data", () => {
+  it("shows SOA its SOA dashboard, projects, BOQ tickets, handoff, reports and master data", () => {
     expect(labelsFor("SOA")).toEqual([
       ["/dashboard", "Overview"],
-      ["/dashboard/soa", "Technical dashboard"],
+      ["/dashboard/soa", "SOA dashboard"],
       ["/projects", "Projects"],
       ["/requests/boq", "BOQ tickets"],
       ["/handoffs", "Purchasing handoff"],

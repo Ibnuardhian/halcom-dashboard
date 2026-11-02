@@ -216,7 +216,7 @@ test.describe("persistent login and switching accounts", () => {
 test.describe("each role sees its own modules", () => {
   const MODULES = {
     SALES: ["Overview", "Sales pipeline", "Projects", "Customers", "Sales targets", "Request center"],
-    SOA: ["Overview", "Technical dashboard", "Projects", "BOQ tickets", "Purchasing handoff", "Technical reports", "Principal & solution master data"],
+    SOA: ["Overview", "SOA dashboard", "Projects", "BOQ tickets", "Purchasing handoff", "Technical reports", "Principal & solution master data"],
     PURCHASING: ["Purchasing dashboard", "RFQ requests", "PO requests"],
     FINANCE: ["Overview", "Finance dashboard", "Projects", "All requests", "BOQ requests", "RFQ requests", "PO requests", "Financial crosscheck"],
   } as const;
@@ -262,7 +262,7 @@ test.describe("dashboards use the stored requests", () => {
       await expect(page.getByRole("heading", { name: `${noun} by status` })).toBeVisible();
       await expect(page.getByRole("heading", { name: `${noun} per PIC` })).toBeVisible();
       if (role === "SOA") {
-        // Projects lead on the Technical dashboard; the BOQ requests sit below them.
+        // Projects lead on the SOA dashboard; the BOQ requests sit below them.
         await expect(page.getByRole("region", { name: "Open projects" }).getByText("Open projects", { exact: true })).toBeVisible();
         for (const title of ["PIC Workload", "Projects by principal", "Value by principal", "Solution mix", "Value by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
         const order = await page.getByText(/^(PIC Workload|BOQ by status)$/).allTextContents();
@@ -279,13 +279,13 @@ test.describe("dashboards use the stored requests", () => {
     await purchasing.context().close();
   });
 
-  test("SOA's technical dashboard counts a new BOQ and every number links to the filtered list", async ({ browser }) => {
+  test("SOA dashboard counts a new BOQ and every number links to the filtered list", async ({ browser }) => {
     test.setTimeout(120_000);
     const sales = await asRole(browser, "SALES");
     const soa = await asRole(browser, "SOA");
 
     await soa.goto("/dashboard/soa");
-    await expect(soa.getByRole("heading", { level: 1, name: "Technical dashboard" })).toBeVisible();
+    await expect(soa.getByRole("heading", { level: 1, name: "SOA dashboard" })).toBeVisible();
     const tile = soa.getByRole("link", { name: /^Open BOQ requests/ });
     const before = Number((await tile.innerText()).match(/\n(\d+)\n/)?.[1] ?? "0");
 

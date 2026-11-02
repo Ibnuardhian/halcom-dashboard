@@ -7,7 +7,7 @@ const OWN_DASHBOARD_HEADING: Record<Role, string> = {
   SUPERADMIN: "Admin dashboard",
   ADMIN: "Admin dashboard",
   SALES: "Sales pipeline",
-  SOA: "Technical dashboard",
+  SOA: "SOA dashboard",
   PURCHASING: "Purchasing dashboard",
   FINANCE: "Finance dashboard",
   MANAGEMENT: "Management dashboard",
@@ -44,7 +44,7 @@ test.describe("sign in", () => {
 
   test("signing out ends the session", async ({ page }) => {
     await signIn(page, "SOA");
-    await expectOnDashboard(page, "/dashboard/soa", "Technical dashboard");
+    await expectOnDashboard(page, "/dashboard/soa", "SOA dashboard");
 
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("button", { name: "Sign out" }).click();

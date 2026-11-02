@@ -832,3 +832,8 @@ The SLA, the To / Cc and the email template of SOA and Purchasing were two pages
 ## D-059: No Summary on a request; it takes the project name (2026-11-02)
 
 The Summary box is gone from the request form and from "new project with a request". A request is titled with the name of its project (the service fills it in; a caller may still send a title, which the importers do). The text of what is needed goes in Details. In the Neon copy 37 of 44 requests already carried the project name as their title. Consequences: board cards, tables and notifications show the project name; the default email template no longer has a "Summary" block (saved templates are not changed, and `{{summary}}` still works in them); a second request on the same project is told apart by its code, type and Details. Details stays optional.
+
+## D-060: "SOA dashboard" everywhere; no dead links in Customers by location (2026-11-02)
+
+- The SOA role's menu entry and page title said "Technical dashboard" while a Superadmin saw "SOA dashboard" for the same page. Both are now "SOA dashboard".
+- On the Overview, the bars of "Customers by location" link to the Customers page. SOA, Purchasing, Finance and Management see that chart but may not open Customers (`customers.view`), so every bar (the folded "Other" one included) led them to an error page. The bars are now plain for those roles and links for the others (`customerLinks`). Whether those roles should be allowed to open Customers is a separate question.
