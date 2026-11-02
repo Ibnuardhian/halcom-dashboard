@@ -24,6 +24,7 @@ export type Permission =
   | "projects.edit.source"
   | "projects.edit.technical"
   | "projects.rename"
+  | "projects.edit.description"
   | "projects.edit.commercial"
   | "projects.delete"
   | "projects.reassign"
@@ -74,6 +75,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.edit.source",
   "projects.edit.technical",
   "projects.rename",
+  "projects.edit.description",
   "projects.edit.commercial",
   "projects.delete",
   "projects.reassign",
@@ -129,7 +131,8 @@ export function permissionChangeBlock(role: Role, permission: Permission, grante
 
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
-const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "projects.bulk-update", "requests.create", "requests.email", "requests.revise"];
+// Sales and Admin (the Superadmin holds everything) also change the description of a project.
+const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "projects.bulk-update", "projects.edit.description", "requests.create", "requests.email", "requests.revise"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;

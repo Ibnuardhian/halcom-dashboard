@@ -24,6 +24,7 @@ import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
 import { ReassignPics } from "@/features/projects/reassign-pics";
+import { DescriptionForm } from "@/features/projects/description-form";
 import { RenameProjectForm } from "@/features/projects/rename-form";
 import { SourceForm } from "@/features/projects/source-form";
 import { ClassificationForm } from "@/features/masterdata/classification-form";
@@ -107,6 +108,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   const mayPostUpdate = can(viewer.role, "projects.post-update");
   // Sales change their own projects; admins support any project (the service enforces the same rule).
   const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
+  const mayEditDescription = can(viewer.role, "projects.edit.description") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
   const estimated = project.estimatedValue?.toNumber() ?? null;
   const finalValue = project.finalValue?.toNumber() ?? null;
   const marginPercent = project.targetMargin?.toNumber() ?? null;
@@ -199,8 +201,14 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           </div>
         ) : null}
         <div className="mt-4 border-t pt-4">
-          <Label>Description</Label>
-          <Prose value={project.description} />
+          {mayEditDescription ? (
+            <DescriptionForm projectId={project.id} projectCode={project.code} description={project.description} />
+          ) : (
+            <>
+              <Label>Description</Label>
+              <Prose value={project.description} />
+            </>
+          )}
           {project.sourceNotes ? (
             <>
               <div className="mt-4" />
