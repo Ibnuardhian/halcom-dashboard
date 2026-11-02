@@ -64,17 +64,19 @@ export function cleanName(name: string): string {
  * The margin Sales aims for, in money. A fixed amount entered by Sales is used as it is; otherwise it is the sale value times
  * the target margin percentage. The value is the final value once it is known, otherwise the estimate. Empty when neither
  * an amount nor a percentage with a value is there, never a guess.
+ * `factor` puts the value on the margin's basis (see tax-basis.ts): the percentage is taken of the value without PPN when the margin is without PPN.
  */
 export function targetMarginAmount(
   estimatedValue: number | null,
   finalValue: number | null,
   targetMarginPercent: number | null,
   fixedAmount: number | null = null,
+  factor = 1,
 ): number | null {
   if (fixedAmount !== null) return fixedAmount;
   const basis = finalValue ?? estimatedValue;
   if (basis === null || targetMarginPercent === null) return null;
-  return Math.round(basis * targetMarginPercent) / 100;
+  return Math.round(basis * factor * targetMarginPercent) / 100;
 }
 
 /** The target margin as a percentage of the sale: the entered percentage, or the fixed amount over the sale value. */
@@ -83,8 +85,9 @@ export function targetMarginPercentOf(
   finalValue: number | null,
   targetMarginPercent: number | null,
   fixedAmount: number | null = null,
+  factor = 1,
 ): number | null {
   if (fixedAmount === null) return targetMarginPercent;
   const basis = finalValue ?? estimatedValue;
-  return basis === null || basis === 0 ? null : Math.round((fixedAmount / basis) * 10_000) / 100;
+  return basis === null || basis === 0 ? null : Math.round((fixedAmount / (basis * factor)) * 10_000) / 100;
 }

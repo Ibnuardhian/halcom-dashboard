@@ -41,6 +41,6 @@ export async function expectOnDashboard(page: Page, path: string, heading: strin
  */
 export async function expectNotFound(page: Page, path: string, mustNotContain: string): Promise<void> {
   await page.goto(path);
-  await expect(page.getByText("This page could not be found.")).toBeVisible();
+  await expect(page.getByText("Halaman tidak ditemukan")).toBeVisible();
   expect(await page.content(), path).not.toContain(mustNotContain);
 }
