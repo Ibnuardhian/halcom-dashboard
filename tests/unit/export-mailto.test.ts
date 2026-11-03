@@ -131,7 +131,7 @@ describe("export columns", () => {
       "Project Title",
       "Project Source",
       "Estimated PO Value",
-      "Estimated Gross Profit",
+      "Gross Profit",
     ]);
   });
 });
@@ -197,9 +197,7 @@ describe("export in the import format", () => {
       salesPic: "Satrio",
       progress: "PROPOSE",
       trackStatus: "ON_HOLD",
-      estimatedValue: 1000,
       targetMarginAmount: 125,
-      targetMarginPercent: null,
       quoteReleasedAt: "2026-10-01",
       targetDate: "2026-12-31",
       principals: ["HPE", "Aruba"],
@@ -207,11 +205,10 @@ describe("export in the import format", () => {
     });
   });
 
-  it("writes the margin the way it was entered, never both", () => {
+  it("writes the Gross Profit as an amount, the one entered or the one computed from a percentage", () => {
     const columns = Object.fromEntries(IMPORT_FIELD_KEYS.map((key, index) => [key, index]));
-    const percent = importRowOf({ ...project, marginPercentInput: 12.5, marginAmountInput: null });
-    expect([percent[columns["targetMarginPercent"]!], percent[columns["targetMarginAmount"]!]]).toEqual([12.5, null]);
-    const amount = importRowOf(project);
-    expect([amount[columns["targetMarginPercent"]!], amount[columns["targetMarginAmount"]!]]).toEqual([null, 125]);
+    expect(importRowOf(project)[columns["targetMarginAmount"]!]).toBe(125);
+    expect(IMPORT_FIELD_KEYS).not.toContain("estimatedValue");
+    expect(IMPORT_FIELD_KEYS).not.toContain("targetMarginPercent");
   });
 });

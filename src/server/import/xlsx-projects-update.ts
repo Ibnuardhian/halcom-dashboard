@@ -228,11 +228,7 @@ export async function prepareUpdate(db: Db, actor: { id: string; role: Role }, b
     const submitted: CommercialSubmission = {};
     if (text(raw.progress) !== "") submitted.progress = row.progress;
     if (text(raw.status) !== "") submitted.trackStatus = row.trackStatus;
-    if (text(raw.estimatedValue) !== "") submitted.estimatedValue = row.estimatedValue;
-    if (text(raw.targetMarginPercent) !== "") {
-      submitted.targetMargin = row.targetMarginPercent;
-      submitted.targetMarginValue = null;
-    } else if (text(raw.targetMarginAmount) !== "") {
+    if (text(raw.targetMarginAmount) !== "") {
       submitted.targetMarginValue = row.targetMarginAmount;
       submitted.targetMargin = null;
     }

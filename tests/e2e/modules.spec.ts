@@ -264,7 +264,7 @@ test.describe("dashboards use the stored requests", () => {
       if (role === "SOA") {
         // Projects lead on the SOA dashboard; the BOQ requests sit below them.
         await expect(page.getByRole("region", { name: "Open projects" }).getByText("Open projects", { exact: true })).toBeVisible();
-        for (const title of ["PIC Workload", "Projects by principal", "Value by principal", "Solution mix", "Value by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
+        for (const title of ["PIC Workload", "Projects by principal", "Gross Profit by principal", "Solution mix", "Gross Profit by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
         const order = await page.getByText(/^(PIC Workload|BOQ by status)$/).allTextContents();
         expect(order).toEqual(["PIC Workload", "BOQ by status"]);
       }
@@ -446,7 +446,7 @@ test.describe("a project from another source (Other)", () => {
     await soa.getByLabel("Project source").selectOption("OTHER");
     await expect(soa.getByRole("combobox", { name: /Sales PIC/ })).toHaveCount(0);
     await expect(soa.getByLabel("Sales name *")).toBeVisible();
-    await expect(soa.getByLabel("Estimated PO value")).toHaveCount(0);
+    await expect(soa.getByLabel("Gross Profit")).toHaveCount(0);
     await expect(soa.getByLabel("Progress")).toHaveCount(0);
 
     await expect(async () => {
@@ -481,7 +481,7 @@ test.describe("a project from another source (Other)", () => {
     // Any salesperson can work on a project whose sales is Other (its commercial form is there), but only SOA set or change its source.
     const sales = await asRole(browser, "SALES");
     await sales.goto(projectUrl);
-    await expect(sales.locator("#commercial").getByLabel("Estimated PO value")).toBeVisible();
+    await expect(sales.locator("#commercial").getByLabel("Gross Profit")).toBeVisible();
     await expect(sales.getByRole("heading", { name: "Project source" })).toHaveCount(0);
     await expect(sales.getByRole("button", { name: "Save source" })).toHaveCount(0);
 
@@ -508,7 +508,7 @@ test.describe("a project from another source (Other)", () => {
     await expect(page.getByLabel("Sales PIC")).toHaveValue("Satrio");
     await expect(page.getByLabel("Sales PIC")).toBeDisabled();
     await expect(page.getByLabel("Sales name *")).toHaveCount(0);
-    await expect(page.getByLabel("Estimated PO value")).toBeVisible();
+    await expect(page.getByLabel("Gross Profit")).toBeVisible();
 
     await expect(async () => {
       await page.getByLabel("End-user company").fill(company);

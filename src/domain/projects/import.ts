@@ -21,9 +21,7 @@ export const IMPORT_FIELD_KEYS = [
   "externalSourceName",
   "progress",
   "status",
-  "estimatedValue",
   "targetMarginAmount",
-  "targetMarginPercent",
   "quoteReleasedAt",
   "targetDate",
   "principals",
@@ -49,9 +47,7 @@ export const IMPORT_FIELDS: readonly ImportField[] = [
   { key: "externalSourceName", label: "External sales name", required: false, hint: "Wajib bila source-nya Other.", synonyms: ["external sales name", "external source", "external sales", "external company", "sales company"] },
   { key: "progress", label: "Progress", required: false, hint: "Misalnya 30% - Propose, Propose, atau PROPOSE. Kosong: Qualify.", synonyms: ["progress", "stage", "pipeline stage"] },
   { key: "status", label: "Status", required: false, hint: "On Track, On Hold, Done, atau Block. Kosong: On Track.", synonyms: ["status", "track status", "project status"] },
-  { key: "estimatedValue", label: "Estimated PO value", required: false, synonyms: ["estimated po value", "estimated value", "value", "amount", "po value", "estimated"] },
-  { key: "targetMarginAmount", label: "Target margin (amount)", required: false, synonyms: ["target margin amount", "estimated gross profit", "gross profit", "margin amount", "gp"] },
-  { key: "targetMarginPercent", label: "Target margin (%)", required: false, synonyms: ["target margin", "target margin %", "margin %", "margin percent", "margin"] },
+  { key: "targetMarginAmount", label: "Gross Profit", required: false, hint: "Angka saja, dalam rupiah. Kosong: tidak diubah.", synonyms: ["gross profit", "estimated gross profit", "gp", "target margin", "target margin amount", "target margin (amount)", "margin", "margin amount"] },
   { key: "quoteReleasedAt", label: "Quote released", required: false, synonyms: ["quote released", "quotation date", "quote date", "quotation released"] },
   { key: "targetDate", label: "Target closing", required: false, synonyms: ["target closing", "target date", "closing date", "target close", "expected close"] },
   { key: "principals", label: "Principals", required: false, hint: "Beberapa principal dipisahkan dengan ; atau baris baru.", synonyms: ["principals", "principal", "brand", "brands", "vendor"] },
@@ -135,9 +131,7 @@ export type ImportRow = {
   externalSourceName: string | null;
   progress: ProjectProgress;
   trackStatus: TrackStatus;
-  estimatedValue: number | null;
   targetMarginAmount: number | null;
-  targetMarginPercent: number | null;
   quoteReleasedAt: string | null;
   targetDate: string | null;
   principals: string[];
@@ -268,15 +262,7 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
     }
     return result.value;
   };
-  const estimatedValue = amount(raw.estimatedValue, "Estimated PO value");
-  const targetMarginAmount = amount(raw.targetMarginAmount, "Target margin (amount)");
-  let targetMarginPercent: number | null = null;
-  if (raw.targetMarginPercent !== "") {
-    const normal = raw.targetMarginPercent.replace("%", "").replace(",", ".").trim();
-    if (!/^\d{1,3}(\.\d{1,2})?$/.test(normal) || Number(normal) > 100) errors.push("Target margin (%) harus 0 sampai 100 (maksimal dua desimal).");
-    else targetMarginPercent = Number(normal);
-  }
-  if (targetMarginAmount !== null && targetMarginPercent !== null) errors.push("Isi target margin sebagai persentase atau sebagai nominal, tidak keduanya.");
+  const targetMarginAmount = amount(raw.targetMarginAmount, "Gross Profit");
 
   const date = (value: string, label: string): string | null => {
     if (value === "") return null;
@@ -315,9 +301,7 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
       externalSourceName,
       progress,
       trackStatus,
-      estimatedValue,
       targetMarginAmount,
-      targetMarginPercent,
       quoteReleasedAt,
       targetDate,
       principals,
@@ -357,10 +341,7 @@ export function importRowOf(project: ExportProject, keys: readonly ImportFieldKe
     externalSourceName: project.externalSourceName,
     progress: PROGRESS_LABELS[project.progress],
     status: TRACK_STATUS_LABELS[project.trackStatus],
-    estimatedValue: project.estimatedValue,
-    // The import takes a percentage or an amount, never both: the one that was entered wins.
-    targetMarginAmount: project.marginPercentInput === null ? project.marginAmountInput : null,
-    targetMarginPercent: project.marginPercentInput,
+    targetMarginAmount: project.estimatedGrossProfit,
     quoteReleasedAt: dayOf(project.quoteReleasedAt),
     targetDate: dayOf(project.targetDate),
     principals: project.principal,

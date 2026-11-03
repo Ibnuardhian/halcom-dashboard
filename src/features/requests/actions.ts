@@ -35,7 +35,6 @@ export async function createProjectAction(_previous: FormState, formData: FormDa
     salesOwnerId: text(formData, "salesOwnerId"),
     progress: text(formData, "progress"),
     trackStatus: text(formData, "trackStatus"),
-    estimatedValue: text(formData, "estimatedValue"),
     ...marginFields(formData.get("marginMode"), formData.get("marginInput")),
     // "" means no request; otherwise the project is created together with its first BOQ, RFQ or PO.
     request: requestType

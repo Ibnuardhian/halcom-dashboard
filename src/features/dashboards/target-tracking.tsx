@@ -128,7 +128,7 @@ export function TargetTracking({
           <p className="font-medium">Belum dihitung karena data project belum lengkap:</p>
           <ul className="mt-1 list-disc pl-5">
             {notes.wonWithoutDate > 0 ? <li>{notes.wonWithoutDate} won project(s) without a won date.</li> : null}
-            {notes.wonWithoutMargin > 0 ? <li>{notes.wonWithoutMargin} won project(s) without a target margin (they add nothing to gross profit).</li> : null}
+            {notes.wonWithoutMargin > 0 ? <li>{notes.wonWithoutMargin} won project(s) without a Gross Profit (they add nothing to gross profit).</li> : null}
             {notes.openWithoutTargetDate > 0 ? <li>{notes.openWithoutTargetDate} open project(s) with a value but no target closing date.</li> : null}
           </ul>
         </div>

@@ -858,3 +858,35 @@ The Summary box is gone from the request form and from "new project with a reque
 ## D-063: A salesperson's uploaded new projects are owned by the signed-in account (2026-11-03)
 
 When a salesperson (role Sales, with the permission to add projects from a sheet) uploaded rows without a Project ID, every row with an empty Sales PIC cell was refused ("Sales PIC wajib diisi untuk proyek Internal Sales"). A salesperson always owns what they add (as on the project form), so for that role the Sales PIC is the signed-in account whatever the cell says: empty, or another name, which is ignored. A row whose source is Other is untouched (no Sales PIC, external sales name required). SOA, Admin and the other roles that add projects still have to name the salesperson.
+
+## D-064: Gross Profit replaces the target margin, and Estimated PO value is no longer typed (2026-11-03)
+
+- **Name.** "Target margin" is **Gross Profit** everywhere it is shown: the forms, the project page, the Sales pipeline (tile, table, reminder), the export columns, the Excel template and export, the guide and the permission texts. The change log reads "Gross Profit". Sheets that still say Target margin, Target margin (amount) or Margin are read as Gross Profit.
+- **Entry.** Estimated PO value is gone from the new-project form, the commercial form on the project page and the Excel template and export. Gross Profit alone is enough: an amount in rupiah (D-056). The Final value stays (it is what a won project closed at, and the target tracking uses it). The Estimated PO value already stored is kept, not shown when empty, and still counts where it exists (open value, weighted value, a percentage on older projects); nothing was deleted. A save of the commercial form leaves it alone.
+- **Excel.** The columns "Estimated PO value" and "Target margin (%)" are no longer in the sheet; a sheet that still has them sees them listed as columns that are not recognised, and they are ignored. The Gross Profit column of an export holds the amount, also for an older project whose margin was entered as a percentage.
+- **Numbers that no longer wait for a value.** The Gross Profit tile and its list, the "set a Gross Profit" reminder, the order of the Sales table and the quarter forecast of the target tracking count a project by its Gross Profit alone (the forecast is weighted by Progress). A percentage is shown only when the project has a value to compare it with.
+- **Not changed, and worth knowing.** The money charts and tiles that sum the Estimated PO value (open pipeline, weighted value, value by principal, solution and industry) fall quiet for projects added from now on, since they have no value; the counts and the Gross Profit numbers keep working. Whether those charts should add up Gross Profit instead is a separate decision. The PPN basis setting (D-055) still applies to the Final value and the Gross Profit.
+
+## D-065: Deployment target is a Hostinger VPS, not Oracle Cloud; Neon becomes the backup copy (2026-11-04)
+
+**Decided by the owner.** The Oracle Cloud Always Free (Ampere ARM) plan is dropped, and its audit files (`deployment/ARCHITECTURE.md`, `deployment/CHECKLIST.md`, branch `deploy/oracle-cloud`) are removed; they stay in git history. The production target is a Hostinger KVM VPS running Ubuntu 26.04 LTS (x86_64, so the ARM checks no longer apply):
+
+- Docker Compose with two services, `app` and `db` (PostgreSQL 18). The `app` image is built in GitHub Actions and pulled from GHCR, never built on the VPS. Caddy runs on the host for HTTPS.
+- The database on the VPS is the primary. Neon is the second copy: a nightly dump is restored into a separate Neon database, which also proves the dump restores. A superadmin can also download a dump from the Backups page.
+- One environment (no staging). KVM 1 is enough; move up if load grows.
+- The repository moves from a personal account to the company GitHub organization, and the workflows use no personal tokens.
+
+Not yet built: the Hostinger files, the backup job, the download button, CI and the organization move. `deployment/VERCEL.md` describes the earlier plan with Neon as the primary and is to be retired once the VPS is live.
+
+## D-066: The pipeline charts and tiles are in Gross Profit (2026-11-03, settles the open point of D-064; numbered D-066 because D-065 is the deployment decision)
+
+The money measure of the pipeline is the Gross Profit of a project, not its Estimated PO value. A project's Gross Profit is the amount entered; an older project whose margin was entered as a percentage keeps counting through its stored value. A project without a Gross Profit adds to the counts but not to the money.
+
+- **Tiles (Sales pipeline, Overview, Finance):** Open Gross Profit, Weighted Gross Profit (times the probability of the project's Progress) and Won Gross Profit replace Open pipeline, the old Gross Profit tile and Won. The first two open the list of open projects with a Gross Profit; the third opens the won projects.
+- **Charts:** the Sales funnel, Pipeline by progress, Gross Profit by principal and Gross Profit by industry add up Gross Profit. The charts that count projects (by principal, solution, status, location, conversion) are as before.
+- **Won** is the Gross Profit of Closed Won projects (the amount; for an older percentage margin, of the final value).
+- Revenue in the target tracking is still the final value (revenue targets are not in Gross Profit); its Gross Profit rows follow D-064.
+
+## D-067: Estimated PO value and Weighted value are no longer shown on the project page (2026-11-03)
+
+The project page, like the forms and the dashboards, no longer shows the Estimated PO value or the Weighted value, even for an older project that has them stored (the data is kept, and still feeds a percentage of an older project). The page shows Progress, Status, Probability, Gross Profit, the Final value, and the dates.

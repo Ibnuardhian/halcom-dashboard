@@ -3,7 +3,7 @@ import { customerLocation, type LocatedProject } from "@/domain/customers/locati
 import type { PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, targetMarginPercentOf } from "@/domain/projects/pipeline";
 import { marginFactor } from "@/domain/projects/tax-basis";
 import { getTaxBasis } from "@/server/settings/app-settings";
 import { FILTER_EXTERNAL, FILTER_NONE } from "@/domain/projects/drilldown";
@@ -11,6 +11,7 @@ import { industryKey } from "@/domain/projects/drilldown";
 import {
   CLOSED_PROGRESSES,
   PROGRESS_LABELS,
+  PROGRESS_PERCENT,
   PROJECT_PROGRESSES,
   TRACK_STATUSES,
   TRACK_STATUS_LABELS,
@@ -21,7 +22,7 @@ import {
 type Viewer = { id: string; role: Role };
 
 /**
- * One bar or slice: how many projects, and their summed estimated and weighted value. `drill` is what the Projects list filters by
+ * One bar or slice: how many projects, and their summed Gross Profit and weighted Gross Profit (`value` and `weighted`). `drill` is what the Projects list filters by
  * to show exactly these projects when the bar is clicked (an id, "none" for "Not set", "external" for the Other source); the folded
  * "Other (n)" slice carries the values of every slice folded into it.
  */
@@ -169,35 +170,39 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
   const totals: PipelineAnalytics["totals"] = { projects: projects.length, open: 0, openValue: 0, openWeighted: 0, openTargetMargin: 0, openWithMargin: 0, openQuoted: 0, wonCount: 0, wonValue: 0 };
 
   for (const project of projects) {
-    const estimated = project.estimatedValue?.toNumber() ?? null;
+    // The money of a project is its Gross Profit; the value only serves an older project whose margin was entered as a percentage.
+    const value = project.estimatedValue?.toNumber() ?? null;
     const finalValue = project.finalValue?.toNumber() ?? null;
-    const weighted = weightedValue(estimated, project.progress);
+    const percent = project.targetMargin?.toNumber() ?? null;
+    const fixed = project.targetMarginValue?.toNumber() ?? null;
+    const profit = targetMarginAmount(value, null, percent, fixed, factor);
+    const weighted = profit === null ? null : Math.round(profit * PROGRESS_PERCENT[project.progress]) / 100;
 
-    add(progresses, project.progress, PROGRESS_LABELS[project.progress], estimated, weighted);
-    add(statuses, project.trackStatus, TRACK_STATUS_LABELS[project.trackStatus], estimated, weighted);
+    add(progresses, project.progress, PROGRESS_LABELS[project.progress], profit, weighted);
+    add(statuses, project.trackStatus, TRACK_STATUS_LABELS[project.trackStatus], profit, weighted);
     // A project built on several principals counts under each of them (so these slices can add up to more than the projects).
     const brands = project.principals.length > 0 ? project.principals.map((link) => link.principal) : project.principal ? [project.principal] : [];
-    if (brands.length === 0) add(principals, UNSET, UNSET, estimated, weighted, FILTER_NONE, project.id);
-    for (const brand of brands) add(principals, brand.id, brand.name, estimated, weighted, brand.id, project.id);
-    add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, estimated, weighted, project.solutionCategory ? undefined : FILTER_NONE, project.id);
+    if (brands.length === 0) add(principals, UNSET, UNSET, profit, weighted, FILTER_NONE, project.id);
+    for (const brand of brands) add(principals, brand.id, brand.name, profit, weighted, brand.id, project.id);
+    add(solutions, project.solutionCategory?.id ?? UNSET, project.solutionCategory?.name ?? UNSET, profit, weighted, project.solutionCategory ? undefined : FILTER_NONE, project.id);
     const projectIndustry = project.customer?.industry?.trim() || null;
     const industry = projectIndustry ?? UNSET;
-    add(industries, industry.toLowerCase(), industry, estimated, weighted, industryKey(projectIndustry) ?? FILTER_NONE, project.id);
+    add(industries, industry.toLowerCase(), industry, profit, weighted, industryKey(projectIndustry) ?? FILTER_NONE, project.id);
     if (project.customerId) {
       const customer = customers.get(project.customerId) ?? { projects: [], estimated: 0, weighted: 0 };
       customer.projects.push({ location: project.location, createdAt: project.createdAt });
-      customer.estimated += estimated ?? 0;
+      customer.estimated += profit ?? 0;
       customer.weighted += weighted ?? 0;
       customers.set(project.customerId, customer);
     }
     // A project from another source has no internal Sales PIC; its numbers stay in the totals under one "external" row.
-    add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, estimated, weighted, project.salesOwner ? undefined : FILTER_EXTERNAL, project.id);
+    add(salespeople, project.salesOwner?.id ?? EXTERNAL_KEY, project.salesOwner?.name ?? EXTERNAL_LABEL, profit, weighted, project.salesOwner ? undefined : FILTER_EXTERNAL, project.id);
 
     if (isOpenProject(project.progress, project.trackStatus)) {
       totals.open += 1;
       // A project with no SOA PIC is not counted: not every project involves SOA.
-      if (project.soaPic) add(soaPics, project.soaPic.id, project.soaPic.name, estimated, weighted, undefined, project.id);
-      totals.openValue += estimated ?? 0;
+      if (project.soaPic) add(soaPics, project.soaPic.id, project.soaPic.name, profit, weighted, undefined, project.id);
+      totals.openValue += profit ?? 0;
       totals.openWeighted += weighted ?? 0;
       const atPropose = PROPOSE_OR_BEYOND.includes(project.progress);
       if (atPropose) totals.openQuoted += 1;
@@ -205,15 +210,14 @@ export async function getPipelineAnalytics(db: PrismaClient, viewer: Viewer, opt
       person.open += 1;
       if (atPropose) person.quoted += 1;
       conversion.set(project.salesOwner?.id ?? EXTERNAL_KEY, person);
-      const margin = targetMarginAmount(estimated, null, project.targetMargin?.toNumber() ?? null, project.targetMarginValue?.toNumber() ?? null, factor);
-      if (margin !== null) {
-        totals.openTargetMargin += margin;
+      if (profit !== null) {
+        totals.openTargetMargin += profit;
         totals.openWithMargin += 1;
       }
     }
     if (project.progress === "CLOSED_WON") {
       totals.wonCount += 1;
-      totals.wonValue += finalValue ?? estimated ?? 0;
+      totals.wonValue += targetMarginAmount(value, finalValue, percent, fixed, factor) ?? 0;
     }
   }
 
@@ -286,6 +290,6 @@ export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, sal
       isOpen: isOpenProject(row.progress, row.trackStatus),
     };
   });
-  const rank = (row: PipelineProjectRow) => (!row.isOpen ? 2 : row.estimatedValue !== null && row.estimatedGrossProfit === null ? 0 : 1);
-  return mapped.sort((a, b) => rank(a) - rank(b) || (b.estimatedValue ?? -1) - (a.estimatedValue ?? -1) || a.code.localeCompare(b.code));
+  const rank = (row: PipelineProjectRow) => (!row.isOpen ? 2 : row.estimatedGrossProfit === null ? 0 : 1);
+  return mapped.sort((a, b) => rank(a) - rank(b) || (b.estimatedGrossProfit ?? -1) - (a.estimatedGrossProfit ?? -1) || a.code.localeCompare(b.code));
 }

@@ -311,8 +311,6 @@ export async function writeNewProjects(
         externalSourceName: row.sourceType === "OTHER" ? row.externalSourceName : null,
         progress: row.progress,
         trackStatus: row.trackStatus,
-        estimatedValue: row.estimatedValue,
-        targetMargin: row.targetMarginPercent,
         targetMarginValue: row.targetMarginAmount,
         quoteReleasedAt: row.quoteReleasedAt ? new Date(`${row.quoteReleasedAt}T00:00:00Z`) : null,
         targetDate: row.targetDate ? new Date(`${row.targetDate}T00:00:00Z`) : null,

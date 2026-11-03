@@ -60,7 +60,7 @@ describe("bulk update of projects from an Excel sheet", () => {
 
   it("changes end user, Sales PIC and principals (replacing them all), asks before creating a new name, and logs each change", async () => {
     const { admin, newOwner, tag, code, as, file, exported, projectId, sales } = await setup();
-    const changes = { "End user": `Bulk ${tag} Renamed`, "Sales PIC": newOwner.email, Principals: `Bulk HPE ${tag}; Bulk Aruba ${tag}`, "Estimated PO value": 5000 };
+    const changes = { "End user": `Bulk ${tag} Renamed`, "Sales PIC": newOwner.email, Principals: `Bulk HPE ${tag}; Bulk Aruba ${tag}`, "Gross Profit": 500 };
     const input = file(await exported(changes));
 
     const preview = await previewProjectUpdate(db, as(admin), input);
@@ -75,12 +75,12 @@ describe("bulk update of projects from an Excel sheet", () => {
     const project = await db.project.findUniqueOrThrow({ where: { id: projectId }, include: { principals: { orderBy: { position: "asc" }, include: { principal: true } }, customer: true } });
     expect(project).toMatchObject({ endUserCompany: `Bulk ${tag} Renamed`, salesOwnerId: newOwner.id });
     expect(project.customer?.name).toBe(`Bulk ${tag} Renamed`);
-    expect(project.estimatedValue?.toNumber()).toBe(5000);
+    expect(project.targetMarginValue?.toNumber()).toBe(500);
     expect(project.principals.map((link) => link.principal.name)).toEqual([`Bulk HPE ${tag}`, `Bulk Aruba ${tag}`]);
     expect(project.principalId).toBe(project.principals[0]!.principalId);
 
     const log = await listProjectChanges(db, as(admin), projectId);
-    expect(log.map((row) => row.field)).toEqual(expect.arrayContaining(["endUserCompany", "salesOwner", "principal", "estimatedValue"]));
+    expect(log.map((row) => row.field)).toEqual(expect.arrayContaining(["endUserCompany", "salesOwner", "principal", "targetMarginValue"]));
     expect(log.find((row) => row.field === "endUserCompany")).toMatchObject({ fromValue: `Bulk ${tag}`, toValue: `Bulk ${tag} Renamed` });
     await expect(db.auditEvent.count({ where: { action: "project.bulk_updated", entityId: projectId } })).resolves.toBe(1);
     await expect(db.notification.count({ where: { recipientId: sales.id, kind: "project.reassigned" } })).resolves.toBeGreaterThan(0);
@@ -164,10 +164,10 @@ describe("each role updates only its part of the sheet", () => {
   it("gives Sales the commercial columns and SOA the technical ones, and keeps the money from SOA", () => {
     const sales = labelsOf("SALES");
     const soa = labelsOf("SOA");
-    expect(sales).toEqual(expect.arrayContaining(["Progress", "Estimated PO value", "Target margin (%)", "Industry", "Location"]));
+    expect(sales).toEqual(expect.arrayContaining(["Progress", "Gross Profit", "Industry", "Location"]));
     expect(sales).not.toEqual(expect.arrayContaining(["Principals"]));
     expect(soa).toEqual(expect.arrayContaining(["Principals", "Solution", "Technical PIC (SOA)", "Sales PIC", "Industry", "Location", "Project ID", "Last updated"]));
-    for (const money of ["Progress", "Status", "Estimated PO value", "Target margin (amount)", "Target margin (%)", "Quote released", "Target closing"]) expect(soa).not.toContain(money);
+    for (const money of ["Progress", "Status", "Gross Profit", "Quote released", "Target closing"]) expect(soa).not.toContain(money);
     expect(labelsOf("ADMIN")).toEqual(templateHeaders().map((header) => header.replace(/ \*$/, "")));
   });
 
@@ -177,8 +177,8 @@ describe("each role updates only its part of the sheet", () => {
     expect(ok).toMatchObject({ ok: true, summary: { toUpdate: 1, errors: 0 } });
 
     // A commercial column added to the sheet by hand does nothing: the row is refused.
-    const bytes = toXlsx("Projects", [...templateHeaders(KEYS("SOA")), "Estimated PO value"], [[...importRowOf((await listProjectsForExport(db, actor(soa))).find((entry) => entry.code === code)!, KEYS("SOA")), 9999]]);
-    const headers = [...templateHeaders(KEYS("SOA")), "Estimated PO value"];
+    const bytes = toXlsx("Projects", [...templateHeaders(KEYS("SOA")), "Gross Profit"], [[...importRowOf((await listProjectsForExport(db, actor(soa))).find((entry) => entry.code === code)!, KEYS("SOA")), 9999]]);
+    const headers = [...templateHeaders(KEYS("SOA")), "Gross Profit"];
     const refused = await previewProjectUpdate(db, as(soa), { bytes, mapping: suggestMapping(headers) });
     expect(refused).toMatchObject({ ok: true, summary: { errors: 1, toUpdate: 0 } });
     expect(JSON.stringify(refused)).toContain("kolom commercial");
@@ -186,7 +186,7 @@ describe("each role updates only its part of the sheet", () => {
 
   it("lets Sales change commercial fields of their own projects only", async () => {
     const { sales, newOwner, code, projectId, as } = await setup();
-    const mine = await commitProjectUpdate(db, as(sales), { ...(await sheet("SALES", actor(sales), code, { Progress: "Propose", "Estimated PO value": 7000 })), fileName: "mine.xlsx", confirmNew: false });
+    const mine = await commitProjectUpdate(db, as(sales), { ...(await sheet("SALES", actor(sales), code, { Progress: "Propose", "Gross Profit": 700 })), fileName: "mine.xlsx", confirmNew: false });
     expect(mine).toMatchObject({ ok: true, updated: 1 });
     await expect(db.project.findUniqueOrThrow({ where: { id: projectId } })).resolves.toMatchObject({ progress: "PROPOSE" });
 

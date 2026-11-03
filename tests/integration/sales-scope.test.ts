@@ -19,8 +19,8 @@ describe("a salesperson's dashboard numbers belong to that salesperson", () => {
     const tag = randomBytes(3).toString("hex");
     const own = { id: mine.id, role: mine.role };
     const other = { id: theirs.id, role: theirs.role };
-    const a = await createProject(db, own, { endUserCompany: `Mine ${tag}`, name: "mine", estimatedValue: "1000" });
-    const b = await createProject(db, other, { endUserCompany: `Theirs ${tag}`, name: "theirs", estimatedValue: "9000" });
+    const a = await createProject(db, own, { endUserCompany: `Mine ${tag}`, name: "mine", targetMarginValue: "1000" });
+    const b = await createProject(db, other, { endUserCompany: `Theirs ${tag}`, name: "theirs", targetMarginValue: "9000" });
     if (!a.ok || !b.ok) throw new Error("fixture");
     for (const [actor, project, type] of [
       [own, a.value, "BOQ"],

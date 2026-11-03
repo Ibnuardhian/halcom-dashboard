@@ -92,7 +92,7 @@ test("the projects can be exported in the import template, with pick lists, and 
   // The template's own header row, then one row per project.
   for (const header of ["End user *", "Project name *", "Project ID", "Sales PIC", "Principals", "Industry", "Next action"]) expect(sheet).toContain(header);
   // SOA gets its own part of the sheet: the commercial columns, money included, are not in it.
-  for (const header of ["Progress", "Estimated PO value", "Target margin"]) expect(sheet).not.toContain(header);
+  for (const header of ["Progress", "Gross Profit"]) expect(sheet).not.toContain(header);
   expect(sheet).toContain(code);
   expect(sheet).toContain(name);
   expect(sheet).toContain("E2E Export Co");
@@ -114,7 +114,7 @@ test("the projects can be exported in the import template, with pick lists, and 
   // Sales get the commercial part, and only the projects they act on.
   await file.saveAs("/tmp/sales-import-format.xlsx");
   const salesSheet = strFromU8(unzipSync(new Uint8Array(readFileSync("/tmp/sales-import-format.xlsx")))["xl/worksheets/sheet1.xml"]!);
-  for (const header of ["Progress", "Estimated PO value", "Industry"]) expect(salesSheet).toContain(header);
+  for (const header of ["Progress", "Gross Profit", "Industry"]) expect(salesSheet).toContain(header);
   expect(salesSheet).toContain("<dataValidations"); // Progress and Status are picked from a list in Excel
   expect(salesSheet).not.toContain("Principals");
   await sales.context().close();
@@ -196,8 +196,8 @@ test("a salesperson updates the commercial part of their own project from a shee
       await expect(page.getByRole("heading", { name: "Periksa dan simpan" })).toBeVisible({ timeout: 15_000 });
     }).toPass({ timeout: 45_000 });
   };
-  const salesHeaders = ["End user *", "Project name *", "Project ID", "Progress", "Estimated PO value"];
-  await upload(seller, xlsx(salesHeaders, { "End user": `Scope Co ${stamp}`, "Project name": `Scope job ${stamp}`, "Project ID": code, Progress: "Propose", "Estimated PO value": "12000" }));
+  const salesHeaders = ["End user *", "Project name *", "Project ID", "Progress", "Gross Profit"];
+  await upload(seller, xlsx(salesHeaders, { "End user": `Scope Co ${stamp}`, "Project name": `Scope job ${stamp}`, "Project ID": code, Progress: "Propose", "Gross Profit": "12000" }));
   await expect(seller.getByText(/Data ditulis setelah Anda menyimpan/)).toContainText(/0\s+project baru,\s+1\s+diperbarui/, { timeout: 30_000 });
   await seller.getByRole("button", { name: "Simpan 0 baru dan 1 diperbarui" }).click();
   await expect(seller.getByRole("heading", { name: "Selesai" })).toBeVisible({ timeout: 60_000 });
@@ -210,7 +210,7 @@ test("a salesperson updates the commercial part of their own project from a shee
     await soa.getByRole("button", { name: "Import / Export" }).click();
     await expect(soa.getByRole("dialog", { name: "Import / Export projects" })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
-  await upload(soa, xlsx(salesHeaders, { "End user": `Scope Co ${stamp}`, "Project name": `Scope job ${stamp}`, "Project ID": code, "Estimated PO value": "99000" }));
+  await upload(soa, xlsx(salesHeaders, { "End user": `Scope Co ${stamp}`, "Project name": `Scope job ${stamp}`, "Project ID": code, "Gross Profit": "99000" }));
   await expect(soa.getByText(/Peran Anda tidak boleh mengubah kolom commercial/)).toBeVisible({ timeout: 30_000 });
   await soa.context().close();
 });

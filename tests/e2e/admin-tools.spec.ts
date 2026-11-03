@@ -162,7 +162,7 @@ test.describe("PICs for SOA and Purchasing", () => {
   });
 });
 
-const HEADERS = ["End user", "Project", "Sales PIC", "Progress", "Status", "Estimated PO value", "Principals", "Industry"];
+const HEADERS = ["End user", "Project", "Sales PIC", "Progress", "Status", "Gross Profit", "Principals", "Industry"];
 
 test.describe("importing projects from Excel, paging the table and drilling down from the charts", () => {
   test("SOA imports a sheet (duplicate and invalid rows are reported), the table pages 25, 50, 100 and All, and the Overview charts open the same projects", async ({ browser }) => {
@@ -179,7 +179,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
         "Sales PIC": salesEmail,
         Progress: index % 2 === 0 ? "30% - Propose" : "Qualify",
         Status: "On Track",
-        "Estimated PO value": scale * 1000 * (index + 1),
+        "Gross Profit": scale * 100 * (index + 1),
         Principals: `E2E Brand ${id}; E2E Second ${id}`,
         Industry: `E2E Industry ${id}`,
         ...extra,
@@ -202,7 +202,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     const [download] = await Promise.all([soa.waitForEvent("download"), (async () => { await soa.getByText("Unduh berkas", { exact: true }).click(); await soa.getByRole("link", { name: /Template project baru/ }).click(); })()]);
     expect(download.suggestedFilename()).toBe("halcom-projects-import-template.xlsx");
     const sheet = strFromU8(unzipSync(new Uint8Array(readFileSync((await download.path())!)))["xl/worksheets/sheet1.xml"]!);
-    for (const header of ["End user *", "Project name *", "Sales PIC", "Estimated PO value", "Principals"]) expect(sheet).toContain(header);
+    for (const header of ["End user *", "Project name *", "Sales PIC", "Gross Profit", "Principals"]) expect(sheet).toContain(header);
     expect(sheet).toContain("<dataValidations"); // Progress and Status are picked from a list in Excel
     await soa.getByText("Tampilkan ketentuan pengisian").click();
     await expect(soa.getByRole("cell", { name: "External sales name" })).toBeVisible();

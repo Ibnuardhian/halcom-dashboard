@@ -19,7 +19,7 @@ const actor = (user: { id: string; role: Parameters<typeof setProjectMasterData>
 async function setup() {
   const [sales, soa, admin] = await Promise.all([makeUser("SALES"), makeUser("SOA"), makeUser("ADMIN")]);
   const tag = randomBytes(3).toString("hex");
-  const created = await createProject(db, actor(sales), { endUserCompany: `Brands ${tag}`, name: "multi principal", estimatedValue: "1000" });
+  const created = await createProject(db, actor(sales), { endUserCompany: `Brands ${tag}`, name: "multi principal", estimatedValue: "1000", targetMarginValue: "1000" });
   if (!created.ok) throw new Error(created.message);
   const principals = await Promise.all(["Alpha", "Bravo", "Charlie"].map((name) => db.principal.create({ data: { name: `${name} ${tag}`, nameKey: `${name} ${tag}`.toLowerCase() } })));
   return { sales, soa, admin, tag, project: created.value, principals };

@@ -28,7 +28,7 @@ async function TaxBasis() {
     <>
       <DashboardHeader
         title="Basis PPN"
-        summary={`Menentukan apakah Estimated PO value dan margin memakai PPN, supaya persentase margin dihitung dari dasar yang sama.${mayEdit ? "" : " Hanya Superadmin yang bisa mengubahnya."}`}
+        summary={`Menentukan apakah nilai (Final value dan Estimated PO value yang sudah ada) dan Gross Profit memakai PPN, supaya persentase Gross Profit dihitung dari dasar yang sama.${mayEdit ? "" : " Hanya Superadmin yang bisa mengubahnya."}`}
       />
       <Card>
         <CardHeader>
@@ -36,7 +36,7 @@ async function TaxBasis() {
             <h2>Pengaturan saat ini</h2>
           </CardTitle>
           <CardDescription>
-            Estimated PO value {taxLabel(basis.valueIncludesTax)}, margin dan gross profit {taxLabel(basis.marginIncludesTax)}, PPN {basis.taxRatePercent}%. Contoh: nilai Rp {example.toLocaleString("id-ID")} dengan margin
+            Nilai {taxLabel(basis.valueIncludesTax)}, Gross Profit {taxLabel(basis.marginIncludesTax)}, PPN {basis.taxRatePercent}%. Contoh: nilai Rp {example.toLocaleString("id-ID")} dengan margin
             10% menghasilkan gross profit Rp {Math.round(example * factor * 0.1).toLocaleString("id-ID")}. Angka yang sudah tersimpan tidak diubah; hanya perhitungan margin yang mengikuti pengaturan ini.
           </CardDescription>
         </CardHeader>

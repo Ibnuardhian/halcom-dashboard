@@ -110,7 +110,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     col: 0,
     row: 0,
     action: "Daftarkan opportunity sebagai proyek. Anda menjadi Sales PIC-nya. Project ID (HIT-PROJ-001, HIT-PROJ-002, dan seterusnya) diberikan saat Anda menyimpan.",
-    input: "End-user company dan Project name (wajib). Opsional: Target closing, Progress, Status, Estimated PO value, Description.",
+    input: "End-user company dan Project name (wajib). Opsional: Target closing, Progress, Status, Gross Profit, Description.",
     output: "Proyek dengan Project ID-nya. Semua peran bisa membacanya.",
     recipient: "Anda sendiri: ajukan request BOQ atau RFQ berikutnya, atau pilih langsung di form yang sama.",
     guide: {
@@ -118,11 +118,11 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       prerequisites: ["Anda masuk dengan akun Sales (Admin atau Superadmin juga bisa melakukannya atas nama Sales)."],
       steps: [
         "Buka Projects lalu pilih New project.",
-        "Isi End-user company dan Project name. Tambahkan Target closing, Estimated PO value, dan Description jika sudah diketahui.",
+        "Isi End-user company dan Project name. Tambahkan Target closing, Gross Profit, dan Description jika sudah diketahui.",
         "Untuk langsung meminta pekerjaan, pilih BOQ atau RFQ pada pilihan request dan isi ringkasannya. Biarkan kosong jika hanya ingin membuat proyek.",
         "Pilih Create project (atau Create project and BOQ request). Project ID muncul di halaman proyek.",
       ],
-      editable: ["End-user company", "Project name", "Target closing", "Progress", "Status", "Estimated PO value", "Description"],
+      editable: ["End-user company", "Project name", "Target closing", "Progress", "Status", "Gross Profit", "Description"],
       handoff: "Proyek saja tidak menyerahkan apa pun. Request yang dibuat di form yang sama masuk ke tim pemiliknya (SOA untuk BOQ, Purchasing untuk RFQ).",
       links: [PROJECTS_NEW, PROJECTS],
     },
@@ -240,7 +240,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     col: 9,
     row: 0,
     action: "Jaga sisi komersial proyek tetap terbaru dan pantau di halaman Sales pipeline dan Sales targets.",
-    input: "Opportunity date, Progress, Status, Estimated PO value, Target margin, Quote released, Target closing, Final value, dan Won date seiring perkembangan deal.",
+    input: "Opportunity date, Progress, Status, Gross Profit, Quote released, Target closing, Final value, dan Won date seiring perkembangan deal.",
     output: "Angka pipeline yang terbaru dan change log untuk setiap perubahan. Semua peran bisa membaca proyek; Finance membaca nilai dan referensinya.",
     recipient: "Semua orang yang bisa membaca proyek",
     guide: {
@@ -253,7 +253,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Pantau pipeline Anda di Sales pipeline dan target Anda di halaman Sales targets.",
         "Cek bagian Requests untuk melihat posisi BOQ, RFQ, dan PO.",
       ],
-      editable: ["Opportunity date", "Progress", "Status", "Estimated PO value", "Target margin", "Quote released", "Target closing", "Final value", "Won date"],
+      editable: ["Opportunity date", "Progress", "Status", "Gross Profit", "Quote released", "Target closing", "Final value", "Won date"],
       handoff: "Tidak ada serah terima. Semua peran bisa membaca detail proyek; hanya Sales PIC yang mengedit field komersial.",
       links: [
         { label: "Sales pipeline", href: "/dashboard/sales", anyOf: ["dashboard.sales.view"] },

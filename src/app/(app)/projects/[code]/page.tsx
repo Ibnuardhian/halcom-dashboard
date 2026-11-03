@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
-import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, targetMarginPercentOf } from "@/domain/projects/pipeline";
 import { principalNamesOf } from "@/domain/projects/master-data";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn } from "@/domain/projects/source";
@@ -189,11 +189,9 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           <Fact label="Technical PIC (SOA)">{project.soaPic?.name ?? "–"}</Fact>
           <Fact label="Purchasing PIC">{project.purchasingPicRef?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
-          <Fact label={`Estimated PO value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(estimated)}</Fact>
           <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
-          <Fact label={`Weighted value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(weightedValue(estimated, project.progress))}</Fact>
-          <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
-          <Fact label={`Estimated gross profit (${taxLabel(basis.marginIncludesTax)})`}>{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue, factor))}</Fact>
+          {targetMargin !== null ? <Fact label="Gross Profit (%)">{formatPercent(targetMargin)}</Fact> : null}
+          <Fact label={`Gross Profit (${taxLabel(basis.marginIncludesTax)})`}>{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue, factor))}</Fact>
           <Fact label={`Final value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(finalValue)}</Fact>
           {project.wonDate ? <Fact label="Won on">{formatDateOnly(project.wonDate)}</Fact> : null}
           {project.competitor ? <Fact label="Competitor">{project.competitor}</Fact> : null}
@@ -238,7 +236,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
         title="Commercial"
         description={
           mayEditCommercial
-            ? "Opportunity date, progress, status, nilai, target margin, quote release, dan target closing. Setiap perubahan dicatat di change log di bawah."
+            ? "Opportunity date, progress, status, gross profit, quote release, dan target closing. Setiap perubahan dicatat di change log di bawah."
             : "Dimiliki Sales PIC proyek ini. Anda bisa membacanya tetapi tidak bisa mengubahnya."
         }
       >
@@ -252,15 +250,15 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
             <Fact label="Status">
               <TrackStatusBadge status={project.trackStatus} />
             </Fact>
-            <Fact label={`Estimated PO value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(estimated)}</Fact>
+            <Fact label={`Gross Profit (${taxLabel(basis.marginIncludesTax)})`}>{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue, factor))}</Fact>
             <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
-            <Fact label="Target margin">{formatPercent(targetMargin)}</Fact>
+            {targetMargin !== null ? <Fact label="Gross Profit (%)">{formatPercent(targetMargin)}</Fact> : null}
             <Fact label="Quote released">{formatDateOnly(project.quoteReleasedAt)}</Fact>
             <Fact label="Target closing">{formatDateOnly(project.targetDate)}</Fact>
           </dl>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          Target margin is a percentage of the sale; the estimated gross profit is computed from the final value, or the estimate until it is known.
+          Gross Profit is the amount entered for this project (in rupiah); a percentage is shown only when the project has a value to compare it with.
         </p>
       </Section>
       ) },

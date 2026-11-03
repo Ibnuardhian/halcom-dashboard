@@ -20,9 +20,9 @@ const row = (values: Partial<RawImportRow>): RawImportRow => ({ ...empty(), endU
 
 describe("suggestMapping", () => {
   it("matches headers by name and by synonym, ignoring case and punctuation, each column once", () => {
-    const mapping = suggestMapping(["No", "Account Name", "Project Title", "SALES PIC", "Estimated PO Value", "Quote Released", "Target Closing", "Principal", "Unknown"]);
+    const mapping = suggestMapping(["No", "Account Name", "Project Title", "SALES PIC", "Quote Released", "Target Closing", "Principal", "Unknown"]);
 
-    expect(mapping).toMatchObject({ code: 0, endUser: 1, name: 2, salesPic: 3, estimatedValue: 4, quoteReleasedAt: 5, targetDate: 6, principals: 7 });
+    expect(mapping).toMatchObject({ code: 0, endUser: 1, name: 2, salesPic: 3, quoteReleasedAt: 4, targetDate: 5, principals: 6 });
     expect(mapping.description).toBeNull();
     expect(Object.values(mapping).filter((value) => value !== null)).toHaveLength(new Set(Object.values(mapping).filter((value) => value !== null)).size);
   });
@@ -105,7 +105,7 @@ describe("parsing cells", () => {
 
 describe("checkImportRow", () => {
   it("accepts a complete row and fills the defaults", () => {
-    const result = checkImportRow(row({ progress: "30% - Propose", estimatedValue: "1.500.000.000", targetMarginPercent: "12,5%", targetDate: "31/12/2026", principals: "HPE; Dell" }));
+    const result = checkImportRow(row({ progress: "30% - Propose", targetMarginAmount: "150.000.000", targetDate: "31/12/2026", principals: "HPE; Dell" }));
 
     expect(result).toEqual({
       ok: true,
@@ -114,8 +114,7 @@ describe("checkImportRow", () => {
         salesPic: "Dzaki",
         progress: "PROPOSE",
         trackStatus: "ON_TRACK",
-        estimatedValue: 1500000000,
-        targetMarginPercent: 12.5,
+        targetMarginAmount: 150000000,
         targetDate: "2026-12-31",
         principals: ["HPE", "Dell"],
         code: null,
@@ -126,7 +125,7 @@ describe("checkImportRow", () => {
   });
 
   it("reports every problem of a row together", () => {
-    const result = checkImportRow(row({ endUser: "", name: "", code: "P-1", progress: "maybe", status: "lost", estimatedValue: "-5", targetMarginPercent: "150", quoteReleasedAt: "soon", salesPic: "" }));
+    const result = checkImportRow(row({ endUser: "", name: "", code: "P-1", progress: "maybe", status: "lost", targetMarginAmount: "-5", quoteReleasedAt: "soon", salesPic: "" }));
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -137,8 +136,7 @@ describe("checkImportRow", () => {
         expect.stringContaining('Project ID "P-1"'),
         expect.stringContaining('Progress "maybe"'),
         expect.stringContaining('Status "lost"'),
-        expect.stringContaining("Estimated PO value"),
-        expect.stringContaining("Target margin (%)"),
+        expect.stringContaining("Gross Profit"),
         expect.stringContaining('Quote released "soon"'),
         "Sales PIC wajib diisi untuk proyek Internal Sales.",
       ]),
@@ -154,8 +152,7 @@ describe("checkImportRow", () => {
     expect(checkImportRow(row({ source: "Somewhere" }))).toMatchObject({ ok: false });
   });
 
-  it("refuses both margin forms together, over-long text and control characters", () => {
-    expect(checkImportRow(row({ targetMarginAmount: "100", targetMarginPercent: "10" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("tidak keduanya")] });
+  it("refuses over-long text and control characters", () => {
     expect(checkImportRow(row({ name: "x".repeat(121) }))).toMatchObject({ ok: false, errors: [expect.stringContaining("120")] });
     expect(checkImportRow(row({ description: "bad\u0007text" }))).toMatchObject({ ok: false, errors: [expect.stringContaining("tidak diizinkan")] });
     expect(checkImportRow(row({ principals: Array.from({ length: 21 }, (_, i) => `P${i}`).join(";") }))).toMatchObject({ ok: false, errors: [expect.stringContaining("maksimal memiliki 20")] });
@@ -175,16 +172,16 @@ describe("projectIdentity", () => {
 
 describe("suggestMapping finds columns by name, wherever they are", () => {
   it("reads Project ID in column A and End user in column C, however the names are written", () => {
-    const headers = ["ProjectID", "Nama Project", "End_User *", "Remarks", "Estimated PO Value", "target-closing"];
+    const headers = ["ProjectID", "Nama Project", "End_User *", "Remarks", "Gross Profit", "target-closing"];
     const mapping = suggestMapping(headers);
-    expect(mapping).toMatchObject({ code: 0, name: 1, endUser: 2, estimatedValue: 4, targetDate: 5 });
+    expect(mapping).toMatchObject({ code: 0, name: 1, endUser: 2, targetMarginAmount: 4, targetDate: 5 });
     // A column the importer does not know is left alone, and every field without a column is null.
     expect(Object.values(mapping)).not.toContain(3);
     expect(mapping.progress).toBeNull();
   });
 
-  it("gives a column to one field only", () => {
-    const mapping = suggestMapping(["Target margin (%)", "Target margin (amount)"]);
-    expect(mapping).toMatchObject({ targetMarginPercent: 0, targetMarginAmount: 1 });
+  it("gives a column to one field only, and still reads the old Target margin names as Gross Profit", () => {
+    expect(suggestMapping(["Gross Profit", "Target margin (amount)"])).toMatchObject({ targetMarginAmount: 0 });
+    expect(suggestMapping(["Target margin (amount)"])).toMatchObject({ targetMarginAmount: 0 });
   });
 });

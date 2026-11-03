@@ -91,16 +91,17 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
       else at(when.quarter).grossProfit.won += profit;
     } else if (isOpenProject(project)) {
       if (!project.targetDate) {
-        if (value > 0) notes.openWithoutTargetDate += 1;
+        if (value > 0 || fixed !== null) notes.openWithoutTargetDate += 1;
         continue;
       }
       const when = quarterOf(project.targetDate);
       if (when.year !== year) continue;
       const weighted = weightedValue(project.estimatedValue, project.progress);
-      if (weighted === null) continue;
-      at(when.quarter).revenue.forecast += weighted;
+      // The Gross Profit alone is enough for its forecast; the revenue forecast needs a value.
+      if (weighted === null && fixed === null) continue;
+      if (weighted !== null) at(when.quarter).revenue.forecast += weighted;
       if (fixed !== null) at(when.quarter).grossProfit.forecast += (fixed * PROGRESS_PERCENT[project.progress]) / 100;
-      else if (percent !== null) at(when.quarter).grossProfit.forecast += (weighted * percent) / 100;
+      else if (percent !== null && weighted !== null) at(when.quarter).grossProfit.forecast += (weighted * percent) / 100;
     }
   }
 

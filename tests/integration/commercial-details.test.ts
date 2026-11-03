@@ -19,7 +19,7 @@ async function actorOf(role: Role) {
   return { id: user.id, role: user.role };
 }
 
-async function makeProject(owner: { id: string; role: Role }, values: { estimatedValue?: number } = {}) {
+async function makeProject(owner: { id: string; role: Role }, values: { estimatedValue?: number; targetMarginValue?: number } = {}) {
   const result = await createProject(db, owner, { endUserCompany: `PT ${randomBytes(3).toString("hex")}`, name: "CCTV AI" });
   if (!result.ok) throw new Error(result.message);
   await db.project.update({ where: { id: result.value.id }, data: { ...values } });
@@ -228,9 +228,9 @@ describe("Progress, Status and Quote released", () => {
 
   it("closed or done projects are not in the open pipeline", async () => {
     const sales = await actorOf("SALES");
-    await makeProject(sales, { estimatedValue: 100 });
-    const done = await makeProject(sales, { estimatedValue: 200 });
-    const lost = await makeProject(sales, { estimatedValue: 400 });
+    await makeProject(sales, { targetMarginValue: 100 });
+    const done = await makeProject(sales, { targetMarginValue: 200 });
+    const lost = await makeProject(sales, { targetMarginValue: 400 });
     await updateCommercialDetails(db, sales, { projectId: done.id, values: { trackStatus: "DONE" } });
     await updateCommercialDetails(db, sales, { projectId: lost.id, values: { progress: "CLOSED_LOST" } });
 
@@ -243,24 +243,23 @@ describe("Progress, Status and Quote released", () => {
 describe("pipeline analytics", () => {
   it("sums the open pipeline of one salesperson, with margin and weighted values, and ranks the Sales pipeline list", async () => {
     const sales = await actorOf("SALES");
-    const a = await makeProject(sales, { estimatedValue: 1_000 });
-    const b = await makeProject(sales, { estimatedValue: 4_000 });
+    const a = await makeProject(sales, { targetMarginValue: 1_000 });
+    const b = await makeProject(sales, { targetMarginValue: 4_000 });
     const noValue = await makeProject(sales);
-    await updateCommercialDetails(db, sales, { projectId: a.id, values: { targetMargin: "10" } });
-    const won = await makeProject(sales, { estimatedValue: 9_000 });
+    const won = await makeProject(sales, { targetMarginValue: 9_000 });
     await db.project.update({ where: { id: won.id }, data: { progress: "CLOSED_WON", finalValue: 8_000 } });
 
     const analytics = await getPipelineAnalytics(db, sales, { salesOwnerId: sales.id });
 
-    expect(analytics.totals).toMatchObject({ projects: 4, open: 3, openValue: 5_000, openWeighted: 250, openTargetMargin: 100, openWithMargin: 1, wonCount: 1, wonValue: 8_000 });
+    expect(analytics.totals).toMatchObject({ projects: 4, open: 3, openValue: 5_000, openWeighted: 250, openTargetMargin: 5_000, openWithMargin: 2, wonCount: 1, wonValue: 9_000 });
     expect(analytics.byProgress.find((s) => s.key === "QUALIFY")).toMatchObject({ count: 3, value: 5_000 });
     expect(analytics.byProgress.find((s) => s.key === "CLOSED_WON")).toMatchObject({ count: 1, value: 9_000 });
     expect(analytics.byPrincipal).toMatchObject([{ label: "Not set", count: 4 }]);
 
     const list = await listPipelineProjects(db, sales, sales.id);
-    // Open first: value but no margin (b), then by value (a), then no value (noValue); the closed project last.
-    expect(list.map((row) => row.code)).toEqual([b.code, a.code, noValue.code, won.code]);
-    expect(list[1]).toMatchObject({ accountName: expect.any(String), projectTitle: "CCTV AI", targetMargin: 10, estimatedGrossProfit: 100, isOpen: true });
+    // Open first: no Gross Profit yet (noValue), then by Gross Profit (b, a); the closed project last.
+    expect(list.map((row) => row.code)).toEqual([noValue.code, b.code, a.code, won.code]);
+    expect(list[1]).toMatchObject({ accountName: expect.any(String), projectTitle: "CCTV AI", targetMargin: null, estimatedGrossProfit: 4_000, isOpen: true });
     expect(list[3]).toMatchObject({ progress: "CLOSED_WON", isOpen: false });
     expect(list[1]!.lastUpdated).toBeInstanceOf(Date);
   });
