@@ -85,11 +85,9 @@ test.describe("projects and requests", () => {
     await expect(page.getByLabel("To", { exact: true })).toHaveValue("soa-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("soa-cc@example.invalid");
     const body = await page.getByLabel("Text", { exact: true }).inputValue();
-    expect(body).toContain(`Request ID   : ${code}`);
-    expect(body).toContain(`Project ID   : ${projectCode}`);
+    expect(body).toContain(`pertahankan ${code} di subjek`);
     expect(body).toContain("Dear SOA team,");
-    expect(body).toMatch(/Reply by     : \d+ \w+ \d{4} \(SLA [\d-]+ working days\)/);
-    expect(body).toContain(`keep the Request ID ${code} in the subject`);
+    expect(body).toMatch(/Mohon balas sebelum \d+ \w+ \d{4}/);
     await expect(page.getByText(/^SLA \([\d-]+ working days\)$/)).toBeVisible();
     expect(body).toContain(`/request/${code}`);
     await page.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
@@ -335,7 +333,7 @@ test.describe("projects and requests", () => {
     await page.goto("/dashboard/sales");
     const tiles = page.getByRole("region", { name: "Pipeline numbers" });
 
-    for (const [name, show] of [["Open Gross Profit", "margin"], ["Weighted Gross Profit", "margin"], ["Won Gross Profit", "won"]] as const) {
+    for (const [name, show] of [["Open Gross Profit", "margin"], ["Won Gross Profit", "won"]] as const) {
       await expect(async () => {
         await page.goto("/dashboard/sales");
         await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();

@@ -901,3 +901,9 @@ The project page, like the forms and the dashboards, no longer shows the Estimat
 - **Until then** the live version on Vercel has no backup button (the Backups page says so); its backup is Neon's point-in-time restore.
 
 Not yet built: the timer, the cleanup of old dumps, the restore into Neon and the alert (checklist section 8).
+
+## D-069: Shorter default email text; Weighted Gross Profit tile removed (2026-11-03)
+
+**Asked by the owner.** The default email body for SOA and Purchasing is short: greeting, one line of what is asked (now in Indonesian, for example "Mohon diberikan informasi Cost / harga item untuk kebutuhan berikut."), End user, Project, Needed by, Source BOQ (left out when empty), Detail, one line asking for a reply before the due date with the Request ID kept in the subject, the link, and the thanks. Request ID, Project ID, request type, requester team, the SLA days and the next action are no longer in the default text (the Request ID stays in the subject and in the reply line). All variables remain available to the template editor.
+
+A template a superadmin has already saved is not changed; "restore defaults" on `/admin/settings/email` loads the new text. The Weighted Gross Profit tile is removed from the pipeline tiles (four tiles remain); the weighted figure is still computed in the analytics but not shown.

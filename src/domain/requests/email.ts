@@ -21,17 +21,17 @@ export function singleLine(value: string): string {
 export const INTENT: Record<RequestType, { team: string; ask: string; next: string }> = {
   BOQ: {
     team: "SOA team",
-    ask: "Please prepare a BOQ / technical solution for the project below.",
+    ask: "Mohon dibuatkan BOQ / solusi teknis untuk kebutuhan berikut.",
     next: "Review the request, ask Sales for any missing information, then prepare and complete the BOQ.",
   },
   RFQ: {
     team: "Purchasing team",
-    ask: "Please provide a quotation / item pricing so we can prepare an offer for the end user.",
+    ask: "Mohon diberikan informasi Cost / harga item untuk kebutuhan berikut.",
     next: "Review the specification and return the quotation or item pricing.",
   },
   PO: {
     team: "Purchasing team",
-    ask: "Please proceed with the purchase / PO process for the project below.",
+    ask: "Mohon diproses pembelian / PO untuk kebutuhan berikut.",
     next: "Review the specification and process the purchase.",
   },
 };
