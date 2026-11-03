@@ -886,3 +886,7 @@ The money measure of the pipeline is the Gross Profit of a project, not its Esti
 - **Charts:** the Sales funnel, Pipeline by progress, Gross Profit by principal and Gross Profit by industry add up Gross Profit. The charts that count projects (by principal, solution, status, location, conversion) are as before.
 - **Won** is the Gross Profit of Closed Won projects (the amount; for an older percentage margin, of the final value).
 - Revenue in the target tracking is still the final value (revenue targets are not in Gross Profit); its Gross Profit rows follow D-064.
+
+## D-067: Estimated PO value and Weighted value are no longer shown on the project page (2026-11-03)
+
+The project page, like the forms and the dashboards, no longer shows the Estimated PO value or the Weighted value, even for an older project that has them stored (the data is kept, and still feeds a percentage of an older project). The page shows Progress, Status, Probability, Gross Profit, the Final value, and the dates.

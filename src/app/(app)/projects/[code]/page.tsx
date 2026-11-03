@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { can } from "@/domain/access/permissions";
 import { PROJECT_EDITABLE_FIELDS, TECHNICAL_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
-import { targetMarginAmount, targetMarginPercentOf, weightedValue } from "@/domain/projects/pipeline";
+import { targetMarginAmount, targetMarginPercentOf } from "@/domain/projects/pipeline";
 import { principalNamesOf } from "@/domain/projects/master-data";
 import { PROGRESS_PERCENT } from "@/domain/projects/progress";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_LABELS, canRaiseRequestOn, salesActsOn } from "@/domain/projects/source";
@@ -189,9 +189,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           <Fact label="Technical PIC (SOA)">{project.soaPic?.name ?? "–"}</Fact>
           <Fact label="Purchasing PIC">{project.purchasingPicRef?.name ?? "–"}</Fact>
           <Fact label="Stakeholders">{project.stakeholders ?? "–"}</Fact>
-          {estimated !== null ? <Fact label={`Estimated PO value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(estimated)}</Fact> : null}
           <Fact label="Probability (from Progress)">{formatPercent(PROGRESS_PERCENT[project.progress])}</Fact>
-          {estimated !== null ? <Fact label={`Weighted value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(weightedValue(estimated, project.progress))}</Fact> : null}
           {targetMargin !== null ? <Fact label="Gross Profit (%)">{formatPercent(targetMargin)}</Fact> : null}
           <Fact label={`Gross Profit (${taxLabel(basis.marginIncludesTax)})`}>{formatAmount(targetMarginAmount(estimated, finalValue, marginPercent, marginValue, factor))}</Fact>
           <Fact label={`Final value (${taxLabel(basis.valueIncludesTax)})`}>{formatAmount(finalValue)}</Fact>
