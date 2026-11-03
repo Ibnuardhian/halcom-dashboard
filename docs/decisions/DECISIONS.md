@@ -866,3 +866,14 @@ When a salesperson (role Sales, with the permission to add projects from a sheet
 - **Excel.** The columns "Estimated PO value" and "Target margin (%)" are no longer in the sheet; a sheet that still has them sees them listed as columns that are not recognised, and they are ignored. The Gross Profit column of an export holds the amount, also for an older project whose margin was entered as a percentage.
 - **Numbers that no longer wait for a value.** The Gross Profit tile and its list, the "set a Gross Profit" reminder, the order of the Sales table and the quarter forecast of the target tracking count a project by its Gross Profit alone (the forecast is weighted by Progress). A percentage is shown only when the project has a value to compare it with.
 - **Not changed, and worth knowing.** The money charts and tiles that sum the Estimated PO value (open pipeline, weighted value, value by principal, solution and industry) fall quiet for projects added from now on, since they have no value; the counts and the Gross Profit numbers keep working. Whether those charts should add up Gross Profit instead is a separate decision. The PPN basis setting (D-055) still applies to the Final value and the Gross Profit.
+
+## D-065: Deployment target is a Hostinger VPS, not Oracle Cloud; Neon becomes the backup copy (2026-11-04)
+
+**Decided by the owner.** The Oracle Cloud Always Free (Ampere ARM) plan is dropped, and its audit files (`deployment/ARCHITECTURE.md`, `deployment/CHECKLIST.md`, branch `deploy/oracle-cloud`) are removed; they stay in git history. The production target is a Hostinger KVM VPS running Ubuntu 26.04 LTS (x86_64, so the ARM checks no longer apply):
+
+- Docker Compose with two services, `app` and `db` (PostgreSQL 18). The `app` image is built in GitHub Actions and pulled from GHCR, never built on the VPS. Caddy runs on the host for HTTPS.
+- The database on the VPS is the primary. Neon is the second copy: a nightly dump is restored into a separate Neon database, which also proves the dump restores. A superadmin can also download a dump from the Backups page.
+- One environment (no staging). KVM 1 is enough; move up if load grows.
+- The repository moves from a personal account to the company GitHub organization, and the workflows use no personal tokens.
+
+Not yet built: the Hostinger files, the backup job, the download button, CI and the organization move. `deployment/VERCEL.md` describes the earlier plan with Neon as the primary and is to be retired once the VPS is live.
