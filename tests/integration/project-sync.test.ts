@@ -110,6 +110,20 @@ describe("one upload that adds and updates projects", () => {
     expect(await commitProjectSync(db, purchasing, { bytes, mapping, fileName: "p.xlsx", mode: "atomic", confirmNew: true })).toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
+  it("lets a role that may only update change its projects, and marks a new row as not allowed", async () => {
+    const { owner, existing, row, ofExisting } = await setup();
+    // Sales hold the bulk update but not the import: their rows with a Project ID are updates, the others are refused.
+    const seller = { id: owner.id, role: owner.role };
+    const { bytes, mapping } = sheet([ofExisting({ Progress: "30% - Propose" }), row("fresh")]);
+    const result = await previewProjectSync(db, seller, { bytes, mapping });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.summary).toMatchObject({ created: 0, updated: 1, errors: 1 });
+    expect(result.summary.rows.find((r) => r.status === "error")?.messages[0]).toContain("tidak boleh menambah project baru");
+    const done = await commitProjectSync(db, seller, { bytes, mapping, fileName: "sales.xlsx", mode: "skip-invalid", confirmNew: true });
+    expect(done).toMatchObject({ ok: true, created: [], updated: [expect.objectContaining({ code: existing.code })] });
+  });
+
   it("treats every row as new when the sheet has no Project ID column", async () => {
     const { admin, owner, tag } = await setup();
     const headers = ["Project", "End user", "Sales PIC"];

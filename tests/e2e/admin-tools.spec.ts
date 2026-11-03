@@ -193,45 +193,48 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await soa.goto("/projects");
     // The import is a modal on the Projects page, not a page of its own.
     await expect(async () => {
-      await soa.getByRole("button", { name: "Import projects" }).click();
-      await expect(soa.getByRole("dialog", { name: "Import projects" })).toBeVisible({ timeout: 3000 });
+      await soa.getByRole("button", { name: "Import / Export" }).click();
+      await expect(soa.getByRole("dialog", { name: "Import / Export projects" })).toBeVisible({ timeout: 3000 });
     }).toPass({ timeout: 30_000 });
     await expect(soa).toHaveURL(/\/projects$/);
 
     // The template: a workbook with one column per field and the required ones marked.
-    const [download] = await Promise.all([soa.waitForEvent("download"), (async () => { await soa.getByText("Unduh template", { exact: true }).click(); await soa.getByRole("link", { name: /Template project baru/ }).click(); })()]);
+    const [download] = await Promise.all([soa.waitForEvent("download"), (async () => { await soa.getByText("Unduh berkas", { exact: true }).click(); await soa.getByRole("link", { name: /Template project baru/ }).click(); })()]);
     expect(download.suggestedFilename()).toBe("halcom-projects-import-template.xlsx");
     const sheet = strFromU8(unzipSync(new Uint8Array(readFileSync((await download.path())!)))["xl/worksheets/sheet1.xml"]!);
     for (const header of ["End user *", "Project name *", "Sales PIC", "Estimated PO value", "Principals"]) expect(sheet).toContain(header);
+    expect(sheet).toContain("<dataValidations"); // Progress and Status are picked from a list in Excel
     await soa.getByText("Tampilkan ketentuan pengisian").click();
     await expect(soa.getByRole("cell", { name: "External sales name" })).toBeVisible();
 
     // 1. Choose the file. A choice made before the page is interactive does nothing, so it is repeated.
     await expect(async () => {
       await soa.getByLabel("Workbook Excel (.xlsx)").setInputFiles({ name: `e2e-${id}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbook });
-      await expect(soa.getByRole("heading", { name: "Cocokkan kolom" })).toBeVisible({ timeout: 4000 });
+      await expect(soa.getByRole("heading", { name: "Periksa dan simpan" })).toBeVisible({ timeout: 15_000 }); // every column was found by its name: the check runs at once
     }).toPass({ timeout: 45_000 });
     await expect(soa.getByText(/32 baris data, 8 kolom/)).toBeVisible();
-    // The columns were matched by name.
+    // The columns were matched by name: nothing is asked, and the full list is one click away.
+    await soa.getByText("Lihat dan ubah semua pemetaan kolom").click();
     await expect(soa.getByLabel("End user *")).toHaveValue("0");
     await expect(soa.getByLabel("Sales PIC")).toHaveValue("2");
-    // A required field cannot be left without a column.
-    await soa.getByLabel("Project name *").selectOption("");
+    // A required field cannot be left without a column: the check is withdrawn until one is chosen.
+    await soa.locator("#all-name").selectOption("");
     await expect(soa.getByRole("button", { name: "Periksa sheet" })).toBeDisabled();
-    await soa.getByLabel("Project name *").selectOption("1");
-
-    // 2. Check: 30 ready, 1 duplicate, 1 problem, and nothing written yet.
+    await soa.locator("#all-name").selectOption("1");
     await soa.getByRole("button", { name: "Periksa sheet" }).click();
-    await expect(soa.getByText(/32 baris di .Pipeline.: 30 siap, 1 duplikat/)).toBeVisible();
+
+    // The check: 30 new, 1 duplicate, 1 problem, and nothing written yet.
+    await expect(soa.getByText(/32 baris di .Pipeline.: 30 project baru, 0 diperbarui/)).toBeVisible();
     await expect(soa.getByRole("cell", { name: "Duplikat (dilewati)" })).toBeVisible();
     await expect(soa.getByRole("cell", { name: /Progress "maybe"/ })).toBeVisible();
-    await expect(soa.getByText(`principal: E2E Brand ${id}, E2E Second ${id}`)).toBeVisible();
-    // All or nothing is the default, and it refuses while a row has a problem.
-    await expect(soa.getByRole("button", { name: /^Impor 30 project/ })).toBeDisabled();
-    await soa.getByLabel("Impor baris yang valid dan lewati baris yang bermasalah").check();
-    await soa.getByRole("button", { name: "Impor 30 project" }).click();
-    await expect(soa.getByRole("heading", { name: "Impor selesai" })).toBeVisible({ timeout: 60_000 });
-    await expect(soa.getByText(/30 project dibuat, 1 duplikat dilewati, 1 baris bermasalah dilewati/)).toBeVisible();
+    await expect(soa.getByText(`Principals: E2E Brand ${id}, E2E Second ${id}`)).toBeVisible();
+    // All or nothing is the default, and it refuses while a row has a problem; new names must be confirmed.
+    await expect(soa.getByRole("button", { name: /^Simpan 30 baru/ })).toBeDisabled();
+    await soa.getByLabel("Simpan baris yang valid dan lewati baris yang bermasalah").check();
+    await soa.getByLabel("Ejaannya benar, buat nama-nama ini").check();
+    await soa.getByRole("button", { name: "Simpan 30 baru dan 0 diperbarui" }).click();
+    await expect(soa.getByRole("heading", { name: "Selesai" })).toBeVisible({ timeout: 60_000 });
+    await expect(soa.getByText(/30 project baru, 0 diperbarui, 0 tidak berubah, 1 dilewati, 1 bermasalah tidak disimpan/)).toBeVisible();
     await soa.getByRole("button", { name: "Tutup dan tampilkan project" }).click();
     await expect(soa.getByRole("dialog")).toHaveCount(0);
 
@@ -280,12 +283,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
 
     // The same projects, from the Overview charts. Each chart opens the list with the count it showed.
     await soa.goto("/dashboard");
-    const industry = soa.getByRole("link", { name: new RegExp(`^E2E Industry ${id}: .*Show the projects`) }).first();
-    await expect(industry).toBeVisible();
-    await industry.click();
-    await expect(soa).toHaveURL(new RegExp(`industry=e2e\\+industry\\+${id}`));
-    await expect(soa.getByRole("status").filter({ hasText: "30 projects" })).toBeVisible();
-
+    // The industry chart is not checked here: the industry is the customer's and comes from a list (D-052), so an imported name that is not on it is not kept.
     await soa.goto("/dashboard");
     const brand = soa.getByRole("link", { name: new RegExp(`^E2E Brand ${id}: .*Show the projects`) }).first();
     await brand.click();
@@ -316,7 +314,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     const workbook = Buffer.from(toXlsx("Pipeline", HEADERS, [["PT Drop", "Dropped job", "sales@example.invalid", null, null, null, null, null]]));
     const soa = await asRole(browser, "SOA");
     await soa.goto("/projects");
-    await soa.getByRole("button", { name: "Import projects" }).click();
+    await soa.getByRole("button", { name: "Import / Export" }).click();
     await expect(soa.getByText("Seret berkas .xlsx ke sini, atau klik untuk memilihnya")).toBeVisible();
     // The zone is the label of the file input; its text changes to the file name once a file was dropped.
     const zone = soa.locator('label[for="import-file"]');
@@ -338,7 +336,7 @@ test.describe("importing projects from Excel, paging the table and drilling down
     }).toPass({ timeout: 30_000 });
     await expect(async () => {
       await drop("dropped.xlsx", [...workbook], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      await expect(soa.getByRole("heading", { name: "Cocokkan kolom" })).toBeVisible({ timeout: 12_000 });
+      await expect(soa.getByRole("heading", { name: "Kolom", exact: true })).toBeVisible({ timeout: 12_000 });
     }).toPass({ timeout: 30_000 });
     await expect(soa.getByText(/dropped.xlsx: sheet .Pipeline., 1 baris data/)).toBeVisible();
     await soa.getByRole("button", { name: "Tutup", exact: true }).click();
