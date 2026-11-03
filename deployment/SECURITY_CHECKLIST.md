@@ -92,7 +92,7 @@ Fakta dari kode: kata sandi di-hash dengan scrypt (N=2^16), sesi di server dan c
 - [ ] **P0** **Uji restore**: pulihkan dump terbaru ke database kosong, lalu bandingkan jumlah baris tabel utama (projects, requests, users, audit_events). Catat hasilnya.
 - [ ] **P0** Salinan Neon terisi tiap malam, ke database **terpisah** dari produksi mana pun. Cek: jumlah baris di Neon sama dengan VPS.
 - [ ] **P1** Peringatan jika backup lebih tua dari 26 jam atau restore ke Neon gagal, dikirim ke milis grup, bukan satu orang.
-- [ ] **P1** Retensi berjalan: 7 harian, 4 mingguan, 6 bulanan. Disk tidak terisi dump lama.
+- [ ] **P1** Retensi berjalan: dump disimpan 1 bulan (30 hari), yang lebih lama dihapus oleh job malam, bukan oleh aplikasi (D-068). Disk tidak terisi dump lama.
 - [ ] **P1** Tombol **Unduh** di halaman Backups hanya untuk pemegang `system.backup`, hanya menerima nama berkas yang valid, dan tiap unduhan masuk audit log **[kode]**.
 - [ ] **P1** Salinan di PC Superadmin (untuk OneDrive/SharePoint) tersimpan di folder terenkripsi, dan pengingat mingguan ada. Dump berisi data customer: jangan dikirim lewat email atau chat.
 - [ ] **P2** Dump dienkripsi (mis. `age`) sebelum keluar dari VPS, kuncinya disimpan terpisah.

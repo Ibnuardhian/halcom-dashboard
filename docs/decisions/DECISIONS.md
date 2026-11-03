@@ -890,3 +890,14 @@ The money measure of the pipeline is the Gross Profit of a project, not its Esti
 ## D-067: Estimated PO value and Weighted value are no longer shown on the project page (2026-11-03)
 
 The project page, like the forms and the dashboards, no longer shows the Estimated PO value or the Weighted value, even for an older project that has them stored (the data is kept, and still feeds a percentage of an older project). The page shows Progress, Status, Probability, Gross Profit, the Final value, and the dates.
+
+## D-068: Backups run every day and are kept for one month; Neon stays live until the VPS is live (2026-11-03)
+
+**Decided by the owner**, as detail to D-065.
+
+- **Daily:** an automatic backup once a night on the Hostinger VPS (a systemd timer, not the Backups page button).
+- **Retention:** one month (30 days). The nightly job deletes dumps older than that; the application itself still never deletes a file. This replaces the 7 daily, 4 weekly, 6 monthly idea in the security checklist.
+- **Neon now and later:** until the application is live on the VPS, the Neon database stays the live (primary) database, as today. After the cut-over, Neon stops being live and becomes the backup copy that the nightly dump is restored into (D-065). Vercel keeps using its own database until then and is retired or turned into a demo afterwards; it must not share the Neon database that receives the restore.
+- **Until then** the live version on Vercel has no backup button (the Backups page says so); its backup is Neon's point-in-time restore.
+
+Not yet built: the timer, the cleanup of old dumps, the restore into Neon and the alert (checklist section 8).
