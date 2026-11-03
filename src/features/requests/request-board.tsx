@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { allowedTransitions, boardColumns, columnOf, reasonRequired, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
@@ -15,7 +16,11 @@ import { SlaBadge } from "./sla-badge";
 
 type Pending = { card: RequestRow; to: RequestStatus };
 
-const GRID: Record<number, string> = { 4: "xl:grid-cols-4", 5: "xl:grid-cols-5" };
+/** An RFQ or PO moved to Completed after its SLA deadline: the team says why (the server asks for it too). */
+const lateCompletion = (card: RequestRow, to: RequestStatus) => to === "COMPLETED" && card.type !== "BOQ" && card.sla.state === "overdue";
+
+/** Columns shown folded until opened: only their name and number are on show. */
+const FOLDED: ReadonlySet<RequestStatus> = new Set<RequestStatus>(["REVISION", "CANCELLED"]);
 
 /**
  * The board: one column per status, and the place where SOA and Purchasing change a status, by dragging a card to another column.
@@ -34,6 +39,10 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
   const [, startTransition] = useTransition();
   const dialog = useRef<HTMLDialogElement>(null);
   const columns = boardColumns(type);
+  const mainColumns = columns.filter((status) => !FOLDED.has(status));
+  const foldedColumns = columns.filter((status) => FOLDED.has(status));
+  const [opened, setOpened] = useState<ReadonlySet<RequestStatus>>(new Set());
+  const toggle = (status: RequestStatus) => setOpened((current) => { const next = new Set(current); if (!next.delete(status)) next.add(status); return next; });
 
   const accepts = (card: RequestRow | null, to: RequestStatus) => card !== null && movable[card.type] && allowedTransitions(card.status, card.type).includes(to);
 
@@ -57,7 +66,7 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
     setOver(null);
     setDragging(null);
     if (!card || !accepts(card, to)) return;
-    if (reasonRequired(card.status, to)) {
+    if (reasonRequired(card.status, to) || lateCompletion(card, to)) {
       setReason("");
       setPending({ card, to });
       dialog.current?.showModal();
@@ -90,98 +99,123 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
     }
   }
 
+
+  function renderCard(card: RequestRow) {
+    const mayMove = movable[card.type] && allowedTransitions(card.status, card.type).length > 0;
+    return (
+      <li
+        key={card.id}
+        data-request={card.code}
+        draggable={mayMove}
+        tabIndex={mayMove ? 0 : undefined}
+        aria-label={mayMove ? `${card.code}, ${REQUEST_STATUS_LABELS[card.status]}. Shift and arrow keys move it.` : undefined}
+        className={cn("rounded-lg border bg-card p-2.5 text-sm shadow-xs", mayMove && "cursor-grab active:cursor-grabbing", dragging?.id === card.id && "opacity-50")}
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", card.id);
+          setDragging(card);
+          setMessage(null);
+        }}
+        onDragEnd={() => {
+          setDragging(null);
+          setOver(null);
+        }}
+        onKeyDown={(event) => {
+          if (!mayMove || !event.shiftKey || event.target !== event.currentTarget) return;
+          if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+            event.preventDefault();
+            keyboardMove(card, event.key === "ArrowRight" ? 1 : -1);
+          }
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <Link href={`/request/${card.code}`} draggable={false} className="font-mono text-xs font-medium text-primary underline-offset-4 hover:underline">
+            {card.code}
+          </Link>
+          <span className="truncate text-xs text-muted-foreground">{card.assigneeName ?? "Unassigned"}</span>
+        </div>
+        <p className={cn("mt-1 line-clamp-1 font-medium", card.status === "CANCELLED" && "text-muted-foreground line-through")} title={card.title}>
+          {card.title}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {card.endUserCompany}, {card.projectName}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <SlaBadge sla={card.sla} />
+          {card.overdueDays !== null ? (
+            <span className="text-xs font-medium text-destructive" title={`${card.overdueDays} hari kerja melewati batas SLA`}>
+              +{card.overdueDays} {card.overdueDays === 1 ? "day" : "days"}
+            </span>
+          ) : null}
+        </div>
+        {card.overdueNote ? (
+          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground" title={card.overdueNote}>
+            Catatan overdue: {card.overdueNote}
+          </p>
+        ) : null}
+        {card.requiredBy ? <p className="mt-1 text-[11px] text-muted-foreground">{`needed by ${formatDateOnly(card.requiredBy)}`}</p> : null}
+      </li>
+    );
+  }
+
+  /** One column. Revision and Cancelled are folded: only their name and number show until opened, and a card can still be dropped on them. */
+  function renderColumn(status: RequestStatus) {
+    const inColumn = cards.filter((row) => columnOf(row.status) === status);
+    const droppable = accepts(dragging, status);
+    const folded = FOLDED.has(status) && !opened.has(status);
+    return (
+      <section
+        key={status}
+        aria-label={`${REQUEST_STATUS_LABELS[status]}, ${inColumn.length} request${inColumn.length === 1 ? "" : "s"}`}
+        data-column={status}
+        className={cn("flex min-w-0 flex-col gap-2 rounded-xl bg-muted/40 p-2 transition-colors", folded ? "min-h-0" : "min-h-32", droppable && "ring-2 ring-primary/40", over === status && droppable && "bg-primary/10")}
+        onDragOver={(event) => {
+          if (!droppable) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setOver(status);
+        }}
+        onDragLeave={() => setOver((current) => (current === status ? null : current))}
+        onDrop={(event) => {
+          event.preventDefault();
+          drop(dragging, status);
+        }}
+      >
+        <h2 className="flex items-center justify-between gap-2 px-1 pt-1 text-sm font-semibold">
+          {FOLDED.has(status) ? (
+            <button type="button" aria-expanded={!folded} onClick={() => toggle(status)} className="flex items-center gap-1 text-left">
+              <ChevronRight aria-hidden className={cn("size-4 transition-transform", !folded && "rotate-90")} />
+              {REQUEST_STATUS_LABELS[status]}
+            </button>
+          ) : (
+            REQUEST_STATUS_LABELS[status]
+          )}
+          <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{inColumn.length}</span>
+        </h2>
+        {folded ? null : inColumn.length === 0 ? (
+          <p className="px-1 pb-2 text-xs text-muted-foreground">None.</p>
+        ) : (
+          // Completed is the long column, so its cards sit in two columns instead of one tall stack.
+          <ul className={cn("gap-2", status === "COMPLETED" ? "grid sm:grid-cols-2" : "flex flex-col")}>{inColumn.map(renderCard)}</ul>
+        )}
+      </section>
+    );
+  }
+
   return (
     <div>
       <p className="mb-2 text-xs text-muted-foreground">Seret kartu ke kolom lain untuk mengubah status. Detail revisi dan pertanyaan ke Sales lewat email.</p>
       <div role="status" aria-live="polite" className={cn("mb-2 min-h-5 text-sm", message?.ok === false ? "text-destructive" : "text-muted-foreground")}>
         {message?.text}
       </div>
-      <div className={cn("grid gap-3 md:grid-cols-2", GRID[columns.length])} role="group" aria-label="Request board">
-        {columns.map((status) => {
-          const inColumn = cards.filter((row) => columnOf(row.status) === status);
-          const droppable = accepts(dragging, status);
-          return (
-            <section
-              key={status}
-              aria-label={`${REQUEST_STATUS_LABELS[status]}, ${inColumn.length} request${inColumn.length === 1 ? "" : "s"}`}
-              data-column={status}
-              className={cn("flex min-h-32 min-w-0 flex-col gap-2 rounded-xl bg-muted/40 p-2 transition-colors", droppable && "ring-2 ring-primary/40", over === status && droppable && "bg-primary/10")}
-              onDragOver={(event) => {
-                if (!droppable) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setOver(status);
-              }}
-              onDragLeave={() => setOver((current) => (current === status ? null : current))}
-              onDrop={(event) => {
-                event.preventDefault();
-                drop(dragging, status);
-              }}
-            >
-              <h2 className="flex items-center justify-between px-1 pt-1 text-sm font-semibold">
-                {REQUEST_STATUS_LABELS[status]}
-                <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{inColumn.length}</span>
-              </h2>
-              {inColumn.length === 0 ? (
-                <p className="px-1 pb-2 text-xs text-muted-foreground">None.</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {inColumn.map((card) => {
-                    const mayMove = movable[card.type] && allowedTransitions(card.status, card.type).length > 0;
-                    return (
-                      <li
-                        key={card.id}
-                        data-request={card.code}
-                        draggable={mayMove}
-                        tabIndex={mayMove ? 0 : undefined}
-                        aria-label={mayMove ? `${card.code}, ${REQUEST_STATUS_LABELS[card.status]}. Shift and arrow keys move it.` : undefined}
-                        className={cn("rounded-lg border bg-card p-3 text-sm shadow-xs", mayMove && "cursor-grab active:cursor-grabbing", dragging?.id === card.id && "opacity-50")}
-                        onDragStart={(event) => {
-                          event.dataTransfer.effectAllowed = "move";
-                          event.dataTransfer.setData("text/plain", card.id);
-                          setDragging(card);
-                          setMessage(null);
-                        }}
-                        onDragEnd={() => {
-                          setDragging(null);
-                          setOver(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (!mayMove || !event.shiftKey || event.target !== event.currentTarget) return;
-                          if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-                            event.preventDefault();
-                            keyboardMove(card, event.key === "ArrowRight" ? 1 : -1);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <Link href={`/request/${card.code}`} draggable={false} className="font-mono text-xs font-medium text-primary underline-offset-4 hover:underline">
-                            {card.code}
-                          </Link>
-                          {card.status === "WAITING_FOR_SALES" ? <span className="text-[11px] text-muted-foreground">was waiting for Sales</span> : null}
-                        </div>
-                        <p className={cn("mt-1 line-clamp-2 font-medium", card.status === "CANCELLED" && "text-muted-foreground line-through")}>{card.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {card.endUserCompany}, {card.projectName}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                          <SlaBadge sla={card.sla} />
-                          <span className="text-xs text-muted-foreground">{card.assigneeName ?? "Unassigned"}</span>
-                        </div>
-                        {card.requiredBy ? (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {`needed by ${formatDateOnly(card.requiredBy)}`}
-                          </p>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          );
-        })}
+      <div className={cn("grid gap-3 md:grid-cols-2", "lg:grid-cols-(--board-cols)")} style={{ "--board-cols": mainColumns.map((status) => (status === "COMPLETED" ? "2fr" : "1fr")).join(" ") } as React.CSSProperties} role="group" aria-label="Request board">
+        {mainColumns.map((status) => renderColumn(status))}
       </div>
+      {foldedColumns.length > 0 ? (
+        <div className="mt-3 grid gap-3 md:grid-cols-2" role="group" aria-label="Hidden columns">
+          {foldedColumns.map((status) => renderColumn(status))}
+        </div>
+      ) : null}
       <dialog
         ref={dialog}
         aria-labelledby="board-reason-title"
@@ -197,17 +231,21 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         >
           <div>
             <h2 id="board-reason-title" className="text-base font-semibold">
-              {pending?.to === "CANCELLED" ? "Cancel" : "Reopen"} {pending?.card.code}?
+              {pending?.to === "COMPLETED" ? `Selesaikan ${pending.card.code} yang overdue?` : `${pending?.to === "CANCELLED" ? "Cancel" : "Reopen"} ${pending?.card.code}?`}
             </h2>
-            <p className="text-sm text-muted-foreground">Say why. It is kept in the status history.</p>
+            <p className="text-sm text-muted-foreground">
+              {pending?.to === "COMPLETED"
+                ? "Request ini melewati batas SLA. Tulis alasan keterlambatan: catatan ini bisa dilihat semua orang di daftar request dan di Purchasing dashboard."
+                : "Say why. It is kept in the status history."}
+            </p>
           </div>
-          <Textarea aria-label="Reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required className="min-h-24" />
+          <Textarea aria-label={pending?.to === "COMPLETED" ? "Catatan keterlambatan" : "Reason"} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required className="min-h-24" />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={cancelDialog}>
               Keep it as it is
             </Button>
             <Button type="submit" variant={pending?.to === "CANCELLED" ? "destructive" : "default"} disabled={reason.trim() === ""}>
-              {pending?.to === "CANCELLED" ? "Cancel request" : "Reopen request"}
+              {pending?.to === "COMPLETED" ? "Selesaikan request" : pending?.to === "CANCELLED" ? "Cancel request" : "Reopen request"}
             </Button>
           </div>
         </form>

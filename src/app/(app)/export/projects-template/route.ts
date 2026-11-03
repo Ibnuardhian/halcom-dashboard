@@ -1,4 +1,4 @@
-import { templateHeaders } from "@/domain/projects/import";
+import { sheetDropdowns, templateHeaders } from "@/domain/projects/import";
 import { requirePermission } from "@/server/auth/current-user";
 import { toXlsx, XLSX_CONTENT_TYPE } from "@/server/export/xlsx";
 
@@ -8,7 +8,7 @@ import { toXlsx, XLSX_CONTENT_TYPE } from "@/server/export/xlsx";
  */
 export async function GET(): Promise<Response> {
   await requirePermission("projects.import");
-  return new Response(Buffer.from(toXlsx("Projects", templateHeaders(), [])), {
+  return new Response(Buffer.from(toXlsx("Projects", templateHeaders(), [], sheetDropdowns())), {
     headers: {
       "content-type": XLSX_CONTENT_TYPE,
       "content-disposition": 'attachment; filename="halcom-projects-import-template.xlsx"',

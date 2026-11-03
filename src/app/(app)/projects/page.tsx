@@ -148,7 +148,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
     <>
       <DashboardHeader
         title="Projects"
-        summary="Semua proyek di pipeline, terbaru di atas. Nilai dalam IDR; weighted value = estimated value × probability."
+        summary="Semua proyek di pipeline, terbaru di atas."
       />
       <div className="mb-4 flex flex-col gap-3">
         <form role="search" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]">

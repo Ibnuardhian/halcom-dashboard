@@ -93,6 +93,7 @@ export function RequestTable({
             <TableCell className="hidden max-w-64 md:table-cell">
               <span className="block truncate">{row.title}</span>
               {detailed && row.description ? <span className="block truncate text-xs text-muted-foreground">{row.description}</span> : null}
+              {row.overdueNote ? <span className="block truncate text-xs text-destructive" title={row.overdueNote}>Catatan overdue: {row.overdueNote}</span> : null}
             </TableCell>
             <TableCell>
               <StatusBadge status={row.status} />

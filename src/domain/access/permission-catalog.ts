@@ -57,7 +57,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "projects.create": { category: "project-management", label: "Register own projects", description: "Daftarkan project sebagai Sales owner (source Internal Sales)." },
   "projects.create.external": { category: "project-management", label: "Register external projects", description: "Daftarkan project dari luar tim Sales internal (source Other)." },
   "projects.assign-sales": { category: "project-management", label: "Register for a salesperson", description: "Pilih salesperson internal yang didaftarkan untuk sebuah project." },
-  "projects.import": { category: "project-management", label: "Import projects", description: "Impor project dari sheet Excel dan unduh templatenya." },
+  "projects.import": { category: "project-management", label: "Import projects", description: "Tambah project baru dari sheet Excel (baris tanpa Project ID) lewat Import / Export, dan unduh templatenya." },
   "projects.edit.source": { category: "project-management", label: "Edit project source", description: "Ubah project antara Internal Sales dan Other, beserta data external sales." },
   "projects.edit.technical": { category: "project-management", label: "Edit technical fields", description: "Ubah field teknis project, dengan change log." },
   "projects.rename": { category: "project-management", label: "Rename projects", description: "Ubah nama project; nama lama dan baru masuk change log." },

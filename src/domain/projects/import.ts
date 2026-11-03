@@ -40,9 +40,9 @@ export type ImportFieldKey = (typeof IMPORT_FIELD_KEYS)[number];
 export type ImportField = { key: ImportFieldKey; label: string; required: boolean; hint?: string; synonyms: readonly string[] };
 
 export const IMPORT_FIELDS: readonly ImportField[] = [
-  { key: "endUser", label: "End user", required: true, synonyms: ["end user", "end user company", "customer", "account", "account name", "company", "client"] },
-  { key: "name", label: "Project name", required: true, synonyms: ["project", "project name", "project title", "title", "opportunity"] },
-  { key: "code", label: "Project ID", required: false, hint: "Bentuk HIT-PROJ-001. Kosong: nomor berikutnya diberikan. Nomor yang sudah ada dianggap duplikat.", synonyms: ["project id", "project code", "id", "code", "no"] },
+  { key: "endUser", label: "End user", required: true, synonyms: ["end user", "end user company", "customer", "customer name", "nama customer", "account", "account name", "company", "perusahaan", "client"] },
+  { key: "name", label: "Project name", required: true, synonyms: ["project", "project name", "nama project", "nama proyek", "project title", "title", "opportunity"] },
+  { key: "code", label: "Project ID", required: false, hint: "Bentuk HIT-PROJ-001. Kosong: project baru dengan nomor berikutnya. Terisi dan sudah ada: project itu diperbarui.", synonyms: ["project id", "id project", "project code", "kode project", "no project", "id", "code", "no"] },
   { key: "description", label: "Description", required: false, synonyms: ["description", "details", "scope", "notes"] },
   { key: "salesPic", label: "Sales PIC", required: false, hint: "Email atau nama persis salesperson yang aktif. Wajib untuk Internal Sales.", synonyms: ["sales pic", "sales", "salesperson", "sales person", "pic sales", "owner", "sales name"] },
   { key: "source", label: "Project source", required: false, hint: "Internal Sales (bawaan) atau Other.", synonyms: ["project source", "source", "source type"] },
@@ -69,7 +69,8 @@ export const IMPORT_FIELD_BY_KEY = Object.fromEntries(IMPORT_FIELDS.map((field) 
 /** For each field, the zero-based column of the sheet that holds it, or null when the sheet has none. */
 export type ColumnMapping = Record<ImportFieldKey, number | null>;
 
-const squashHeader = (text: string) => text.toLowerCase().replace(/[^a-z0-9%]+/g, " ").trim();
+/** A header as comparable text: lower case, no punctuation and no spaces, so "Project ID", "ProjectID", "project_id" and "Project-ID *" are one. */
+const squashHeader = (text: string) => text.toLowerCase().replace(/[^a-z0-9%]+/g, "");
 
 /**
  * Matches the sheet's headers to the fields by name. An exact name wins over a synonym; a column is given to one field only, and a
@@ -367,4 +368,20 @@ export function importRowOf(project: ExportProject, keys: readonly ImportFieldKe
     lastUpdated: project.lastUpdated.toISOString(),
   };
   return IMPORT_FIELD_KEYS.filter((key) => keys.includes(key)).map((key) => cells[key]);
+}
+
+/** A drop-down in a column of the sheet: the position of the column in the header row and the choices it offers, in order. */
+export type SheetDropdown = { column: number; list: readonly string[]; title: string };
+
+/**
+ * The columns of the template and the export that offer a pick list (Progress from 5% up to Closed Lost, Status), so a value is chosen and not
+ * typed. The texts are the ones the export writes and the import reads. `keys` are the columns the sheet has, as for `templateHeaders`.
+ */
+export function sheetDropdowns(keys: readonly ImportFieldKey[] = IMPORT_FIELD_KEYS): SheetDropdown[] {
+  const lists: Partial<Record<ImportFieldKey, { list: readonly string[]; title: string }>> = {
+    progress: { list: PROJECT_PROGRESSES.map((progress) => PROGRESS_LABELS[progress]), title: "Progress" },
+    status: { list: TRACK_STATUSES.map((status) => TRACK_STATUS_LABELS[status]), title: "Status" },
+  };
+  const columns = IMPORT_FIELDS.filter((field) => keys.includes(field.key));
+  return columns.flatMap((field, column) => (lists[field.key] ? [{ column, ...lists[field.key]! }] : []));
 }

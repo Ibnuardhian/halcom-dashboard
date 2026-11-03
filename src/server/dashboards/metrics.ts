@@ -1,8 +1,9 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { computeTeamMetrics, monthlyReport, summariseRequests, summariseStatuses, type StatusSummary, type MonthlyRow, type MetricRequest, type RequesterSummary, type TeamMetrics } from "@/domain/requests/metrics";
+import { METRICS_WINDOW_DAYS, computeTeamMetrics, monthlyReport, summariseRequests, summariseStatuses, type StatusSummary, type MonthlyRow, type MetricRequest, type RequesterSummary, type TeamMetrics } from "@/domain/requests/metrics";
 import { OWNING_ROLE, type RequestType } from "@/domain/requests/types";
+import { overdueWorkingDays, slaOf } from "@/domain/requests/sla";
 import { getTeamSettings } from "@/server/settings/team-settings";
 
 type Viewer = { id: string; role: Role };
@@ -83,4 +84,63 @@ export async function getRequesterSummary(db: PrismaClient, viewer: Viewer, owne
   assertPermitted(viewer);
   const [requests, settings] = await Promise.all([load(db, { ownerId }), getTeamSettings(db)]);
   return summariseRequests(requests, (type) => settings[OWNING_ROLE[type] as "SOA" | "PURCHASING"].sla, now);
+}
+
+export type OverdueRow = {
+  code: string;
+  customer: string;
+  project: string;
+  pic: string | null;
+  requestIn: Date;
+  /** Working days past the SLA deadline: until now while the request is open, until its completion once completed. */
+  overdueDays: number;
+  completed: boolean;
+  /** Why it ran late, written when it was completed; empty while it is still open. */
+  note: string | null;
+};
+
+/**
+ * The late requests of a team: those open and past their deadline now, and those completed late in the last `METRICS_WINDOW_DAYS`
+ * days (the same window as the dashboard's averages), the longest overdue first.
+ */
+export async function listOverdueRequests(db: PrismaClient, viewer: Viewer, team: "SOA" | "PURCHASING", now: Date = new Date()): Promise<OverdueRow[]> {
+  assertPermitted(viewer);
+  const since = new Date(now.getTime() - METRICS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const [rows, settings] = await Promise.all([
+    db.request.findMany({
+      where: {
+        type: { in: [...TEAM_TYPES[team]] },
+        project: { deletedAt: null },
+        OR: [{ status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] } }, { status: "COMPLETED", completedAt: { gte: since } }],
+      },
+      select: {
+        code: true,
+        status: true,
+        createdAt: true,
+        completedAt: true,
+        overdueNote: true,
+        project: { select: { endUserCompany: true, name: true } },
+        pic: { select: { name: true } },
+        statusHistory: { select: { toStatus: true, changedAt: true } },
+      },
+    }),
+    getTeamSettings(db),
+  ]);
+  const late: OverdueRow[] = [];
+  for (const row of rows) {
+    const sla = slaOf({ createdAt: row.createdAt, status: row.status, completedAt: row.completedAt, history: row.statusHistory, range: settings[team].sla, now });
+    const completed = row.status === "COMPLETED";
+    if (sla.state !== (completed ? "late" : "overdue")) continue;
+    late.push({
+      code: row.code,
+      customer: row.project.endUserCompany,
+      project: row.project.name,
+      pic: row.pic?.name ?? null,
+      requestIn: row.createdAt,
+      overdueDays: overdueWorkingDays(sla.dueAt, completed ? row.completedAt! : now),
+      completed,
+      note: row.overdueNote,
+    });
+  }
+  return late.sort((a, b) => b.overdueDays - a.overdueDays || a.requestIn.getTime() - b.requestIn.getTime());
 }

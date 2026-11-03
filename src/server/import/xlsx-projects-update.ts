@@ -69,7 +69,7 @@ type Applied = {
   location?: string;
 };
 
-type Planned = {
+export type Planned = {
   report: UpdateRowReport;
   projectId: string;
   submitted: CommercialSubmission;
@@ -78,7 +78,7 @@ type Planned = {
   oldSalesOwnerId: string | null;
 };
 
-type Prepared = {
+export type Prepared = {
   fileRows: number;
   sheetName: string;
   reports: UpdateRowReport[];
@@ -92,7 +92,8 @@ type Prepared = {
 const text = (value: string | null | undefined) => (value ?? "").trim();
 
 /** Reads the file and plans every row against the stored projects. Writes nothing. */
-async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Array, mappingInput: unknown): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
+/** `only` leaves out the rows it refuses: they are not checked, counted or reported (the sync import hands those rows to the new-project import). */
+export async function prepareUpdate(db: Db, actor: { id: string; role: Role }, bytes: Uint8Array, mappingInput: unknown, only?: (raw: RawImportRow) => boolean): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
   const read = readXlsx(bytes);
   if (!read.ok) return { ok: false, code: "INVALID_FILE", message: read.message };
   const checked = checkMapping(mappingInput, read.sheet.headers.length);
@@ -148,6 +149,7 @@ async function prepare(db: Db, actor: { id: string; role: Role }, bytes: Uint8Ar
   read.sheet.rows.forEach((_, index) => {
     const sheetRow = read.sheet.rowNumbers[index]!;
     const raw: RawImportRow = raws[index]!;
+    if (only && !only(raw)) return;
     const label = { sheetRow, code: raw.code.trim().toUpperCase(), endUser: cleanName(raw.endUser), name: cleanName(raw.name), changes: [] as UpdateChange[] };
     const fail = (messages: string[]) => {
       counts.errors += 1;
@@ -335,7 +337,7 @@ async function allowed(db: Db, claimed: Actor) {
 export async function previewProjectUpdate(db: PrismaClient, claimedActor: Actor, input: { bytes: Uint8Array; mapping: unknown }): Promise<UpdatePreviewResult> {
   const actor = await allowed(db, claimedActor);
   if (!actor) return { ok: false, code: "FORBIDDEN", message: FORBIDDEN };
-  const result = await prepare(db, actor, input.bytes, input.mapping);
+  const result = await prepareUpdate(db, actor, input.bytes, input.mapping);
   if (!result.ok) return result;
   return { ok: true, summary: summarise(result.prepared) };
 }
@@ -364,7 +366,7 @@ export async function commitProjectUpdate(db: PrismaClient, claimedActor: Actor,
         // One import or update at a time, and no project written by anyone else between the check and the write.
         await tx.$executeRaw`LOCK TABLE projects IN SHARE ROW EXCLUSIVE MODE`;
 
-        const result = await prepare(tx, actor, input.bytes, input.mapping);
+        const result = await prepareUpdate(tx, actor, input.bytes, input.mapping);
         if (!result.ok) throw new Abort(result);
         const { prepared } = result;
         const summary = summarise(prepared);
@@ -377,91 +379,7 @@ export async function commitProjectUpdate(db: PrismaClient, claimedActor: Actor,
           throw new Abort({ ok: false, code: "NEEDS_CONFIRMATION", message: `Nama berikut belum ada dan akan dibuat: ${added.join(", ")}. Periksa penulisannya, lalu konfirmasi.`, summary });
         }
 
-        const codes: string[] = [];
-        for (const plan of prepared.planned) {
-          const project = await tx.project.findUniqueOrThrow({ where: { id: plan.projectId } });
-          if (plan.commercialChanges.length > 0) await writeCommercialChanges(tx, actor.id, project, plan.submitted, plan.commercialChanges);
-
-          const { applied } = plan;
-          const data: Prisma.ProjectUncheckedUpdateInput = {};
-          const log: { field: string; from: string | null; to: string | null }[] = [];
-          if (applied.endUser) {
-            data.endUserCompany = applied.endUser.name;
-            data.customerId = await ensureCustomer(tx, applied.endUser.name);
-            log.push({ field: "endUserCompany", from: project.endUserCompany, to: applied.endUser.name });
-          }
-          if (applied.name !== undefined) {
-            data.name = applied.name;
-            log.push({ field: "name", from: project.name, to: applied.name });
-          }
-          if (applied.description !== undefined) {
-            data.description = applied.description;
-            log.push({ field: "description", from: project.description, to: applied.description });
-          }
-          if (applied.salesOwner) {
-            data.salesOwnerId = applied.salesOwner.id;
-            const shown = plan.report.changes.find((change) => change.label === fieldLabel("salesOwner"));
-            log.push({ field: "salesOwner", from: shown?.from ?? null, to: applied.salesOwner.label });
-          }
-          if (applied.principals) {
-            const before = plan.report.changes.find((change) => change.label === fieldLabel("principal"))?.from ?? null;
-            const ids: string[] = [];
-            for (const name of applied.principals) ids.push(await ensurePrincipal(tx, name));
-            await tx.projectPrincipal.deleteMany({ where: { projectId: project.id } });
-            if (ids.length > 0) await tx.projectPrincipal.createMany({ data: ids.map((principalId, position) => ({ projectId: project.id, principalId, position })) });
-            data.principalId = ids[0] ?? null;
-            log.push({ field: "principal", from: before, to: applied.principals.join("; ") });
-          }
-          if (applied.solution) {
-            data.solutionCategoryId = await ensureSolutionCategory(tx, applied.solution);
-            log.push({ field: "solution", from: plan.report.changes.find((change) => change.label === fieldLabel("solution"))?.from ?? null, to: applied.solution });
-          }
-          if (applied.technicalPic) {
-            data.soaPicId = applied.technicalPic.id;
-            log.push({ field: "technicalPic", from: plan.report.changes.find((change) => change.label === fieldLabel("technicalPic"))?.from ?? null, to: applied.technicalPic.name });
-          }
-          if (applied.industry) {
-            // The customer carries the industry (the new customer, when the end user changes in the same row); a project without one keeps its own.
-            const customerId = applied.industry.customerId ?? (data.customerId as string | null | undefined) ?? null;
-            const before = plan.report.changes.find((change) => change.label === "Industry")?.from ?? null;
-            if (customerId) {
-              await tx.customer.update({ where: { id: customerId }, data: { industry: applied.industry.name } });
-              await tx.auditEvent.create({ data: { actorId: actor.id, action: "customer.industry_set", entityType: "customer", entityId: customerId, before: { industry: before }, after: { industry: applied.industry.name, file: fileName } } });
-            } else data.industry = applied.industry.name;
-            log.push({ field: "industry", from: before, to: applied.industry.name });
-          }
-          if (applied.location !== undefined) {
-            data.location = applied.location;
-            log.push({ field: "location", from: project.location, to: applied.location });
-          }
-
-          if (log.length > 0) {
-            await tx.project.update({ where: { id: project.id }, data });
-            const now = new Date();
-            await tx.projectChange.createMany({ data: log.map((change) => ({ projectId: project.id, changedById: actor.id, field: change.field, fromValue: change.from, toValue: change.to, changedAt: now })) });
-            await tx.auditEvent.create({
-              data: {
-                actorId: actor.id,
-                action: "project.bulk_updated",
-                entityType: "project",
-                entityId: project.id,
-                before: Object.fromEntries(log.map((change) => [change.field, change.from])) as Prisma.InputJsonValue,
-                after: { ...Object.fromEntries(log.map((change) => [change.field, change.to])), file: fileName } as Prisma.InputJsonValue,
-              },
-            });
-          }
-          if (applied.salesOwner) {
-            await notify(tx, {
-              actorId: actor.id,
-              recipientIds: [applied.salesOwner.id, ...(plan.oldSalesOwnerId ? [plan.oldSalesOwnerId] : [])],
-              kind: "project.reassigned",
-              title: `${project.code} has new owners`,
-              body: `${applied.endUser?.name ?? project.endUserCompany}: Sales PIC ${plan.report.changes.find((change) => change.label === fieldLabel("salesOwner"))?.from ?? "none"} → ${applied.salesOwner.label}`,
-              href: `/projects/${project.code}`,
-            });
-          }
-          codes.push(project.code);
-        }
+        const codes = await writeUpdates(tx, actor, prepared, fileName);
 
         await tx.auditEvent.create({
           data: {
@@ -480,4 +398,97 @@ export async function commitProjectUpdate(db: PrismaClient, claimedActor: Actor,
     if (error instanceof Abort) return error.result;
     return { ok: false, code: "FAILED", message: "Pembaruan gagal, jadi tidak ada proyek yang berubah." };
   }
+}
+
+/**
+ * Applies the planned updates, inside the caller's transaction: each changed project gets its change-log rows and an audit event, a new
+ * Sales owner is told, and customers, principals and solutions are found or created. Returns the codes of the projects it went through.
+ */
+export async function writeUpdates(tx: Prisma.TransactionClient, actor: { id: string; role: Role }, prepared: Pick<Prepared, "planned">, fileName: string): Promise<string[]> {
+  const codes: string[] = [];
+  for (const plan of prepared.planned) {
+    const project = await tx.project.findUniqueOrThrow({ where: { id: plan.projectId } });
+    if (plan.commercialChanges.length > 0) await writeCommercialChanges(tx, actor.id, project, plan.submitted, plan.commercialChanges);
+
+    const { applied } = plan;
+    const data: Prisma.ProjectUncheckedUpdateInput = {};
+    const log: { field: string; from: string | null; to: string | null }[] = [];
+    if (applied.endUser) {
+      data.endUserCompany = applied.endUser.name;
+      data.customerId = await ensureCustomer(tx, applied.endUser.name);
+      log.push({ field: "endUserCompany", from: project.endUserCompany, to: applied.endUser.name });
+    }
+    if (applied.name !== undefined) {
+      data.name = applied.name;
+      log.push({ field: "name", from: project.name, to: applied.name });
+    }
+    if (applied.description !== undefined) {
+      data.description = applied.description;
+      log.push({ field: "description", from: project.description, to: applied.description });
+    }
+    if (applied.salesOwner) {
+      data.salesOwnerId = applied.salesOwner.id;
+      const shown = plan.report.changes.find((change) => change.label === fieldLabel("salesOwner"));
+      log.push({ field: "salesOwner", from: shown?.from ?? null, to: applied.salesOwner.label });
+    }
+    if (applied.principals) {
+      const before = plan.report.changes.find((change) => change.label === fieldLabel("principal"))?.from ?? null;
+      const ids: string[] = [];
+      for (const name of applied.principals) ids.push(await ensurePrincipal(tx, name));
+      await tx.projectPrincipal.deleteMany({ where: { projectId: project.id } });
+      if (ids.length > 0) await tx.projectPrincipal.createMany({ data: ids.map((principalId, position) => ({ projectId: project.id, principalId, position })) });
+      data.principalId = ids[0] ?? null;
+      log.push({ field: "principal", from: before, to: applied.principals.join("; ") });
+    }
+    if (applied.solution) {
+      data.solutionCategoryId = await ensureSolutionCategory(tx, applied.solution);
+      log.push({ field: "solution", from: plan.report.changes.find((change) => change.label === fieldLabel("solution"))?.from ?? null, to: applied.solution });
+    }
+    if (applied.technicalPic) {
+      data.soaPicId = applied.technicalPic.id;
+      log.push({ field: "technicalPic", from: plan.report.changes.find((change) => change.label === fieldLabel("technicalPic"))?.from ?? null, to: applied.technicalPic.name });
+    }
+    if (applied.industry) {
+      // The customer carries the industry (the new customer, when the end user changes in the same row); a project without one keeps its own.
+      const customerId = applied.industry.customerId ?? (data.customerId as string | null | undefined) ?? null;
+      const before = plan.report.changes.find((change) => change.label === "Industry")?.from ?? null;
+      if (customerId) {
+        await tx.customer.update({ where: { id: customerId }, data: { industry: applied.industry.name } });
+        await tx.auditEvent.create({ data: { actorId: actor.id, action: "customer.industry_set", entityType: "customer", entityId: customerId, before: { industry: before }, after: { industry: applied.industry.name, file: fileName } } });
+      } else data.industry = applied.industry.name;
+      log.push({ field: "industry", from: before, to: applied.industry.name });
+    }
+    if (applied.location !== undefined) {
+      data.location = applied.location;
+      log.push({ field: "location", from: project.location, to: applied.location });
+    }
+
+    if (log.length > 0) {
+      await tx.project.update({ where: { id: project.id }, data });
+      const now = new Date();
+      await tx.projectChange.createMany({ data: log.map((change) => ({ projectId: project.id, changedById: actor.id, field: change.field, fromValue: change.from, toValue: change.to, changedAt: now })) });
+      await tx.auditEvent.create({
+        data: {
+          actorId: actor.id,
+          action: "project.bulk_updated",
+          entityType: "project",
+          entityId: project.id,
+          before: Object.fromEntries(log.map((change) => [change.field, change.from])) as Prisma.InputJsonValue,
+          after: { ...Object.fromEntries(log.map((change) => [change.field, change.to])), file: fileName } as Prisma.InputJsonValue,
+        },
+      });
+    }
+    if (applied.salesOwner) {
+      await notify(tx, {
+        actorId: actor.id,
+        recipientIds: [applied.salesOwner.id, ...(plan.oldSalesOwnerId ? [plan.oldSalesOwnerId] : [])],
+        kind: "project.reassigned",
+        title: `${project.code} has new owners`,
+        body: `${applied.endUser?.name ?? project.endUserCompany}: Sales PIC ${plan.report.changes.find((change) => change.label === fieldLabel("salesOwner"))?.from ?? "none"} → ${applied.salesOwner.label}`,
+        href: `/projects/${project.code}`,
+      });
+    }
+    codes.push(project.code);
+  }
+  return codes;
 }

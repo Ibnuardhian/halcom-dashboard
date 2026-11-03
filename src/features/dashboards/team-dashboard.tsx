@@ -9,11 +9,12 @@ import { REQUEST_STATUS_LABELS } from "@/domain/requests/status";
 import { HANDOFFS_PATH, PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
-import { getTeamDashboard } from "@/server/dashboards/metrics";
+import { getTeamDashboard, listOverdueRequests } from "@/server/dashboards/metrics";
 import { getPipelineAnalytics } from "@/server/projects/analytics";
 import { CollapsibleSection } from "./collapsible-section";
 import { ProjectMixCharts } from "./pipeline-charts";
 import { DashboardHeader } from "./dashboard-header";
+import { formatDay } from "./format";
 import { StatTile } from "./stat-tile";
 
 const COPY = {
@@ -39,7 +40,7 @@ const COPY = {
  * (src/domain/requests/metrics.ts holds the definitions) and links to the filtered list behind it.
  */
 export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; team: "SOA" | "PURCHASING" }) {
-  const { metrics, summary, awaitingHandoff } = await getTeamDashboard(getDb(), viewer, team);
+  const [{ metrics, summary, awaitingHandoff }, overdue] = await Promise.all([getTeamDashboard(getDb(), viewer, team), team === "PURCHASING" ? listOverdueRequests(getDb(), viewer, team) : Promise.resolve([])]);
   const copy = COPY[team];
   const to = (query: string) => `${copy.base}${query}`;
   const measured = metrics.slaMet + metrics.slaLate;
@@ -79,6 +80,61 @@ export async function TeamDashboard({ viewer, team }: { viewer: SessionUser; tea
           />
         </ChartCard>
       </section>
+
+      {team === "PURCHASING" ? (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>Request overdue</h2>
+            </CardTitle>
+            <CardDescription>
+              Request yang melewati batas SLA: yang masih terbuka, dan yang selesai terlambat dalam {METRICS_WINDOW_DAYS} hari terakhir. Overdue dihitung dalam hari kerja; catatan diisi Purchasing saat request diselesaikan.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {overdue.length === 0 ? (
+              <p role="status" className="py-4 text-center text-sm text-muted-foreground">
+                Tidak ada request overdue.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>PIC</TableHead>
+                    <TableHead>Request in</TableHead>
+                    <TableHead className="text-right">Overdue (hari)</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {overdue.map((row) => (
+                    <TableRow key={row.code}>
+                      <TableCell className="max-w-48 truncate">{row.customer}</TableCell>
+                      <TableCell className="max-w-56">
+                        <Link href={`/request/${row.code}`} className="block truncate text-primary underline-offset-4 hover:underline">
+                          {row.project}
+                        </Link>
+                        <span className="font-mono text-xs text-muted-foreground">{row.code}</span>
+                      </TableCell>
+                      <TableCell>{row.pic ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDay(row.requestIn)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        <span className="font-medium text-destructive">{row.overdueDays}</span>
+                        <span className="block text-[11px] text-muted-foreground">{row.completed ? "selesai terlambat" : "masih terbuka"}</span>
+                      </TableCell>
+                      <TableCell className="max-w-72 whitespace-normal">
+                        {row.note ? <span className="line-clamp-3 text-sm">{row.note}</span> : <span className="text-muted-foreground">{row.completed ? "Tanpa catatan" : "Belum ada"}</span>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <section aria-label={`${copy.noun} requests now`} className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label={`Open ${copy.noun} requests`} value={metrics.open} href={to("status=open")} note="Belum Completed atau Cancelled" />

@@ -394,6 +394,8 @@ model Request {
   flowStoppedAt   DateTime?     @map("flow_stopped_at") @db.Timestamptz(3)
   flowStoppedById String?       @map("flow_stopped_by_id") @db.Uuid
   flowStoppedNote String?       @map("flow_stopped_note")
+  // Why a Purchasing request (RFQ or PO) was completed after its SLA deadline; set when it is moved to Completed while overdue.
+  overdueNote     String?       @map("overdue_note")
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 

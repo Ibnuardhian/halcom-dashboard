@@ -9,7 +9,7 @@ import { weightedValue } from "@/domain/projects/pipeline";
 import { salesSideName, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
 import { PROGRESS_LABELS, PROGRESS_PERCENT, TRACK_STATUS_LABELS, type ProjectProgress, type TrackStatus } from "@/domain/projects/progress";
 import { deadlineState } from "@/domain/requests/metrics";
-import { slaOf, type Sla, type SlaState } from "@/domain/requests/sla";
+import { overdueWorkingDays, slaOf, type Sla, type SlaState } from "@/domain/requests/sla";
 import { OWNING_ROLE, REQUEST_TYPES, type RequestType } from "@/domain/requests/types";
 import { getTeamSettings } from "@/server/settings/team-settings";
 
@@ -410,6 +410,10 @@ export type RequestRow = {
   sla: Sla;
   /** Sales decided not to continue to the next step after this request. */
   flowStopped: boolean;
+  /** Why a Purchasing request was completed after its deadline; null when it was not late. */
+  overdueNote: string | null;
+  /** Working days past the SLA deadline: until now for an open request, until completion for one completed late; null when not late. */
+  overdueDays: number | null;
 };
 
 export type RequestFilter = {
@@ -489,6 +493,8 @@ function findWithRelations(db: PrismaClient, args: { where: ReturnType<typeof re
 }
 
 function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeof getTeamSettings>>, now: Date): RequestRow {
+  const range = settings[OWNING_ROLE[request.type] as "SOA" | "PURCHASING"].sla;
+  const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range, now });
   return {
     id: request.id,
     code: request.code,
@@ -506,14 +512,9 @@ function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeo
     requiredBy: request.requiredBy,
     createdAt: request.createdAt,
     flowStopped: request.flowStoppedAt !== null,
-    sla: slaOf({
-      createdAt: request.createdAt,
-      status: request.status,
-      completedAt: request.completedAt,
-      history: request.statusHistory,
-      range: settings[OWNING_ROLE[request.type] as "SOA" | "PURCHASING"].sla,
-      now,
-    }),
+    overdueNote: request.overdueNote,
+    overdueDays: sla.state === "overdue" ? overdueWorkingDays(sla.dueAt, now) : sla.state === "late" && request.completedAt ? overdueWorkingDays(sla.dueAt, request.completedAt) : null,
+    sla,
   };
 }
 
