@@ -105,9 +105,8 @@ test.describe("projects and requests", () => {
 
     await page.getByLabel("End-user company").fill(COMPANY);
     await page.getByLabel("Project name").fill("One form demo");
-    await page.getByLabel("Estimated PO value").fill("2.000.000.000");
     await expect(page.getByRole("radio", { name: "Percent" })).toHaveCount(0); // the margin is a number only
-    await page.getByLabel("Target margin (amount)").fill("250.000.000");
+    await page.getByLabel("Gross Profit").fill("250.000.000");
     await page.getByText(/^BOQ: /).click();
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
@@ -118,7 +117,7 @@ test.describe("projects and requests", () => {
 
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
-    await expect(page.getByLabel("Target margin (amount)")).toHaveValue(/^250\.?000\.?000$/);
+    await expect(page.getByLabel("Gross Profit")).toHaveValue(/^250\.?000\.?000$/);
   });
 
   test("a date can be cleared with a button that shows only while it has a value", async ({ page }) => {
@@ -186,27 +185,26 @@ test.describe("projects and requests", () => {
     await expect(page.getByRole("list", { name: "Change log" })).toContainText("Quote released");
   });
 
-  test("Sales set a target margin on their own project, the change is logged, and SOA cannot edit it", async ({ page, browser }) => {
+  test("Sales set a Gross Profit on their own project, the change is logged, and SOA cannot edit it", async ({ page, browser }) => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Margin demo");
 
     const commercial = page.locator("#commercial");
-    await commercial.getByLabel("Estimated PO value").fill("1000000");
     await commercial.getByLabel("Progress").selectOption({ label: "60% - Negotiate" });
     await commercial.getByLabel("Status").selectOption({ label: "On Hold" });
     await commercial.getByLabel("Quote released").fill("01/10/2026");
     await expect(commercial.getByLabel(/Probability/)).toHaveCount(0); // the probability comes from Progress
-    await commercial.getByLabel("Target margin (amount)").fill("150000");
+    await commercial.getByLabel("Gross Profit").fill("150000");
     await page.getByRole("button", { name: "Save commercial details" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
 
     await page.reload();
-    await expect(page.locator("#commercial").getByLabel("Target margin (amount)")).toHaveValue("150.000");
+    await expect(page.locator("#commercial").getByLabel("Gross Profit")).toHaveValue("150.000");
     await expect(page.locator("#commercial").getByLabel("Progress")).toHaveValue("NEGOTIATE");
-    await expect(page.getByText("Estimated gross profit", { exact: true }).locator("..")).toContainText("150.000");
+    await expect(page.getByText(/^Gross Profit \(/).locator("..")).toContainText("150.000");
     await page.goto("/dashboard/sales");
     await expect(page.getByRole("link", { name: "Margin demo" }).first()).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Estimated Gross Profit" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Gross Profit" })).toBeVisible();
     await expect(page.getByText(projectCode).first()).toBeVisible();
     await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Charts" }).click(); // the table is the default view
     await expect(page).toHaveURL(/view=charts/);
@@ -290,7 +288,7 @@ test.describe("projects and requests", () => {
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
     await commercial.getByLabel("Final PO value").fill("400");
-    await commercial.getByLabel("Target margin (amount)").fill("40"); // 10% of 400
+    await commercial.getByLabel("Gross Profit").fill("40"); // 10% of 400
     await commercial.getByLabel("Won date").fill(`${year}-02-10`);
     await page.getByRole("button", { name: "Save commercial details" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
@@ -337,7 +335,7 @@ test.describe("projects and requests", () => {
     await page.goto("/dashboard/sales");
     const tiles = page.getByRole("region", { name: "Pipeline numbers" });
 
-    for (const [name, show] of [["Open pipeline", "pipeline"], ["Estimated gross profit", "margin"], ["Won", "won"]] as const) {
+    for (const [name, show] of [["Open pipeline", "pipeline"], ["Gross Profit", "margin"], ["Won", "won"]] as const) {
       await expect(async () => {
         await page.goto("/dashboard/sales");
         await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();

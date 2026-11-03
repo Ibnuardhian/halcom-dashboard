@@ -446,7 +446,7 @@ test.describe("a project from another source (Other)", () => {
     await soa.getByLabel("Project source").selectOption("OTHER");
     await expect(soa.getByRole("combobox", { name: /Sales PIC/ })).toHaveCount(0);
     await expect(soa.getByLabel("Sales name *")).toBeVisible();
-    await expect(soa.getByLabel("Estimated PO value")).toHaveCount(0);
+    await expect(soa.getByLabel("Gross Profit")).toHaveCount(0);
     await expect(soa.getByLabel("Progress")).toHaveCount(0);
 
     await expect(async () => {
@@ -481,7 +481,7 @@ test.describe("a project from another source (Other)", () => {
     // Any salesperson can work on a project whose sales is Other (its commercial form is there), but only SOA set or change its source.
     const sales = await asRole(browser, "SALES");
     await sales.goto(projectUrl);
-    await expect(sales.locator("#commercial").getByLabel("Estimated PO value")).toBeVisible();
+    await expect(sales.locator("#commercial").getByLabel("Gross Profit")).toBeVisible();
     await expect(sales.getByRole("heading", { name: "Project source" })).toHaveCount(0);
     await expect(sales.getByRole("button", { name: "Save source" })).toHaveCount(0);
 
@@ -508,7 +508,7 @@ test.describe("a project from another source (Other)", () => {
     await expect(page.getByLabel("Sales PIC")).toHaveValue("Satrio");
     await expect(page.getByLabel("Sales PIC")).toBeDisabled();
     await expect(page.getByLabel("Sales name *")).toHaveCount(0);
-    await expect(page.getByLabel("Estimated PO value")).toBeVisible();
+    await expect(page.getByLabel("Gross Profit")).toBeVisible();
 
     await expect(async () => {
       await page.getByLabel("End-user company").fill(company);

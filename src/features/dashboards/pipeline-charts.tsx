@@ -42,7 +42,7 @@ export function PipelineTiles({ analytics, scope = "all" }: { analytics: Pipelin
         href={to("quoted")}
         note={`${conversion.atPropose} dari ${conversion.open} open project (Propose+)`}
       />
-      <StatTile label="Estimated gross profit" value={formatCompact(totals.openTargetMargin)} href={to("margin")} note={`${totals.openWithMargin} dari ${totals.open} open project punya target margin`} />
+      <StatTile label="Gross Profit" value={formatCompact(totals.openTargetMargin)} href={to("margin")} note={`${totals.openWithMargin} dari ${totals.open} open project punya target margin`} />
       <StatTile label="Won" value={formatCompact(totals.wonValue)} href={to("won")} note={`${totals.wonCount} proyek`} />
     </section>
   );

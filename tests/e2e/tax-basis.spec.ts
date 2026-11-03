@@ -16,8 +16,8 @@ test("a superadmin sets whether the value and the margin include PPN; the projec
   // Sales and Admin cannot change the setting.
   await expectNotFound(sales, "/admin/settings/ppn", "Basis PPN");
   await sales.goto(path);
-  await expect(sales.getByText("Estimated PO value (incl. PPN)")).toBeVisible();
-  await expect(sales.getByText("Estimated gross profit (excl. PPN)")).toBeVisible();
+  await expect(sales.getByText("Final value (incl. PPN)")).toBeVisible();
+  await expect(sales.getByText("Gross Profit (excl. PPN)")).toBeVisible();
 
   const root = await (await browser.newContext()).newPage();
   await signIn(root, "SUPERADMIN");
@@ -25,20 +25,20 @@ test("a superadmin sets whether the value and the margin include PPN; the projec
     await root.goto("/admin/settings/ppn");
     await expect(async () => {
       await root.getByLabel("Estimated PO value dan Final value").selectOption(valueBasis);
-      await root.getByLabel("Target margin dan Estimated gross profit").selectOption(marginBasis);
+      await root.getByLabel("Gross Profit").selectOption(marginBasis);
       await root.getByRole("button", { name: "Simpan" }).click();
       await expect(root.getByText(message)).toBeVisible({ timeout: 8000 });
     }).toPass({ timeout: 45_000 });
   };
   await choose("0", "0", /Tersimpan\.|Tidak ada perubahan\./);
   await sales.reload();
-  await expect(sales.getByText("Estimated PO value (excl. PPN)")).toBeVisible();
-  await expect(sales.getByText("Estimated gross profit (excl. PPN)")).toBeVisible();
+  await expect(sales.getByText("Final value (excl. PPN)")).toBeVisible();
+  await expect(sales.getByText("Gross Profit (excl. PPN)")).toBeVisible();
 
   // Back to the default: value with PPN, margin without.
   await choose("1", "0", /Tersimpan\.|Tidak ada perubahan\./);
   await sales.reload();
-  await expect(sales.getByText("Estimated PO value (incl. PPN)")).toBeVisible();
+  await expect(sales.getByText("Final value (incl. PPN)")).toBeVisible();
   await root.context().close();
   await sales.context().close();
 });

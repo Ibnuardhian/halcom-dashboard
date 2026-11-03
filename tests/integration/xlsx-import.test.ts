@@ -13,7 +13,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-const HEADERS = ["End user", "Project", "Project ID", "Sales PIC", "Source", "External sales name", "Progress", "Status", "Estimated PO value", "Principals", "Solution", "Industry", "Target closing", "Quote released"];
+const HEADERS = ["End user", "Project", "Project ID", "Sales PIC", "Source", "External sales name", "Progress", "Status", "Gross Profit", "Principals", "Solution", "Industry", "Target closing", "Quote released"];
 type Row = (string | number | null)[];
 
 /** A sheet as a .xlsx file, with the mapping the page would suggest from its headers. */
@@ -40,11 +40,11 @@ describe("project import from an Excel sheet", () => {
     const before = await db.project.count();
 
     const { bytes, mapping } = sheet([
-      good("a", { Progress: "30% - Propose", "Estimated PO value": 1500000, Principals: `Alpha ${tag}; Beta ${tag}`, "Target closing": "31/12/2026" }),
+      good("a", { Progress: "30% - Propose", "Gross Profit": 150000, Principals: `Alpha ${tag}; Beta ${tag}`, "Target closing": "31/12/2026" }),
       good("a"), // the same end user and project twice in the file
       good("old"), // already in the database
       good("code", { "Project ID": existing.value.code }), // Project ID taken
-      good("bad", { Progress: "maybe", "Estimated PO value": "-1", "Sales PIC": "Nobody At All" }),
+      good("bad", { Progress: "maybe", "Gross Profit": "-1", "Sales PIC": "Nobody At All" }),
       good("ok2", { "Sales PIC": owner.name === "Test SALES" ? owner.email.toUpperCase() : owner.email }), // an email in any case
     ]);
 
@@ -57,7 +57,7 @@ describe("project import from an Excel sheet", () => {
     expect(byRow.get(3)?.messages[0]).toContain("baris 2 berkas ini"); // sheet row 3 is data row 2
     expect(byRow.get(4)).toMatchObject({ status: "duplicate", messages: [expect.stringContaining(existing.value.code)] });
     expect(byRow.get(5)).toMatchObject({ status: "duplicate", messages: [expect.stringContaining("sudah ada")] });
-    expect(byRow.get(6)).toMatchObject({ status: "error", messages: expect.arrayContaining([expect.stringContaining('Progress "maybe"'), expect.stringContaining("Estimated PO value")]) });
+    expect(byRow.get(6)).toMatchObject({ status: "error", messages: expect.arrayContaining([expect.stringContaining('Progress "maybe"'), expect.stringContaining("Gross Profit")]) });
     expect(result.summary.newPrincipals.sort()).toEqual([`Alpha ${tag}`, `Beta ${tag}`]);
     await expect(db.project.count()).resolves.toBe(before); // a preview writes nothing
     await expect(db.principal.count({ where: { nameKey: { endsWith: tag } } })).resolves.toBe(0);
@@ -70,7 +70,7 @@ describe("project import from an Excel sheet", () => {
       good("one", {
         Progress: "30% - Propose",
         Status: "On Hold",
-        "Estimated PO value": 2500000,
+        "Gross Profit": 250000,
         Principals: `Alpha ${tag}; Beta ${tag}; alpha ${tag}`, // Alpha twice
         Solution: `Sol ${tag}`,
         Industry: "Banking",
@@ -96,7 +96,7 @@ describe("project import from an Excel sheet", () => {
     });
     // The industry is the customer's, taken from the list.
     expect(one.customer?.industry).toBe("Banking");
-    expect(one.estimatedValue?.toNumber()).toBe(2500000);
+    expect(one.targetMarginValue?.toNumber()).toBe(250000);
     expect(one.targetDate?.toISOString().slice(0, 10)).toBe("2026-12-31");
     expect(one.quoteReleasedAt?.toISOString().slice(0, 10)).toBe("2026-03-05");
     expect(one.principals.map((link) => link.principal.name)).toEqual([`Alpha ${tag}`, `Beta ${tag}`]); // once each, in order

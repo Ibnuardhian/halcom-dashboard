@@ -52,7 +52,7 @@ export type ProjectRow = {
 
 /**
  * The lists behind the pipeline tiles: open projects, open projects with an estimated value (the open pipeline),
- * open projects with a value and a target margin (the estimated gross profit) and Closed Won projects.
+ * open projects with a Gross Profit and Closed Won projects.
  */
 export const PROJECT_SHOWS = ["open", "pipeline", "weighted", "quoted", "margin", "won"] as const;
 export type ProjectShow = (typeof PROJECT_SHOWS)[number];
@@ -61,7 +61,7 @@ export const PROJECT_SHOW_LABELS: Record<ProjectShow, string> = {
   pipeline: "Open pipeline (open projects with an estimated value)",
   weighted: "Weighted pipeline (open projects with an estimated value)",
   quoted: "Open projects at Propose or beyond (the numerator of Pipeline Conversion)",
-  margin: "Estimated gross profit (open projects with a value and a target margin)",
+  margin: "Gross Profit (open projects with a Gross Profit)",
   won: "Won projects",
 };
 
@@ -96,8 +96,8 @@ function showWhere(show: ProjectShow | undefined) {
       return {
         progress: { notIn: ["CLOSED_WON", "CLOSED_LOST"] as ProjectProgress[] },
         trackStatus: { not: "DONE" as TrackStatus },
-        estimatedValue: { not: null },
-        OR: [{ targetMargin: { not: null } }, { targetMarginValue: { not: null } }],
+        // A Gross Profit amount counts on its own; a percentage (older projects) only with a value to take it of.
+        OR: [{ targetMarginValue: { not: null } }, { targetMargin: { not: null }, estimatedValue: { not: null } }],
       };
     case "won":
       return { progress: "CLOSED_WON" as ProjectProgress };

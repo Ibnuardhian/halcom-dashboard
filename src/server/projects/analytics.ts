@@ -286,6 +286,6 @@ export async function listPipelineProjects(db: PrismaClient, viewer: Viewer, sal
       isOpen: isOpenProject(row.progress, row.trackStatus),
     };
   });
-  const rank = (row: PipelineProjectRow) => (!row.isOpen ? 2 : row.estimatedValue !== null && row.estimatedGrossProfit === null ? 0 : 1);
-  return mapped.sort((a, b) => rank(a) - rank(b) || (b.estimatedValue ?? -1) - (a.estimatedValue ?? -1) || a.code.localeCompare(b.code));
+  const rank = (row: PipelineProjectRow) => (!row.isOpen ? 2 : row.estimatedGrossProfit === null ? 0 : 1);
+  return mapped.sort((a, b) => rank(a) - rank(b) || (b.estimatedGrossProfit ?? -1) - (a.estimatedGrossProfit ?? -1) || a.code.localeCompare(b.code));
 }

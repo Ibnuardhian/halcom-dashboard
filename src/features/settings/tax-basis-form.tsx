@@ -22,7 +22,7 @@ export function TaxBasisForm({ basis }: { basis: TaxBasis }) {
         </NativeSelect>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="tax-margin">Target margin dan Estimated gross profit</Label>
+        <Label htmlFor="tax-margin">Gross Profit</Label>
         <NativeSelect id="tax-margin" name="marginIncludesTax" defaultValue={basis.marginIncludesTax ? "1" : "0"}>
           <option value="0">Exclude PPN</option>
           <option value="1">Include PPN</option>

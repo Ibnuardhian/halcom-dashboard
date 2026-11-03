@@ -16,7 +16,6 @@ import { PROGRESS_OPTION_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATU
 import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ProjectSourceType } from "@/domain/projects/source";
 import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/domain/requests/types";
 import { MarginInput } from "@/features/projects/margin-input";
-import { MoneyInput } from "@/features/projects/money-input";
 import type { PicOption } from "@/domain/pics/teams";
 import { assignPicAction, createProjectAction, createRequestAction, handOverAction, requestRevisionAction, setPhaseAction, setRequestDatesAction } from "./actions";
 
@@ -151,9 +150,6 @@ export function ProjectForm({ submissionKey, defaultType = "", scope = SALES_SCO
                 </option>
               ))}
             </NativeSelect>
-          </Field>
-          <Field id="project-value" label="Estimated PO value" hint="Opsional. Titik ditambahkan otomatis saat Anda mengetik, contoh 1.200.000.000.">
-            <MoneyInput id="project-value" name="estimatedValue" />
           </Field>
           <MarginInput id="project-margin" />
         </>

@@ -128,7 +128,7 @@ describe("targetMarginAmount", () => {
   });
 
   it("labels the new fields in the change log", () => {
-    expect(fieldLabel("targetMargin")).toBe("Target margin (%)");
+    expect(fieldLabel("targetMargin")).toBe("Gross Profit (%)");
     expect(fieldLabel("unknown_old_field")).toBe("unknown_old_field");
   });
 });

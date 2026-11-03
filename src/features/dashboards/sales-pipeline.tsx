@@ -44,13 +44,13 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
     getPipelineGrowth(db, viewer, { granularity: "monthly", salesOwnerId: ownerId }),
   ]);
   const scope = ownerId ? "mine" : "all";
-  const needMargin = projects.filter((p) => p.isOpen && p.estimatedValue !== null && p.estimatedGrossProfit === null);
+  const needMargin = projects.filter((p) => p.isOpen && p.estimatedGrossProfit === null);
   // "mine" keeps a salesperson's drill-down to the requests on their own projects; an admin sees everyone's.
   const mineQuery = ownerId ? "&mine=1" : "";
 
   return (
     <>
-      <DashboardHeader title="Sales pipeline" summary="Proyek, target margin, dan request BOQ, RFQ serta PO Anda dalam satu tempat." />
+      <DashboardHeader title="Sales pipeline" summary="Proyek, gross profit, dan request BOQ, RFQ serta PO Anda dalam satu tempat." />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Link href={`${PROJECTS_PATH}/new`} className={buttonVariants()}>
@@ -67,10 +67,10 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
         <Card className="mb-6 border-amber-500/40">
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>Set a target margin</h2>
+              <h2>Set a Gross Profit</h2>
             </CardTitle>
             <CardDescription>
-              {needMargin.length} open project Anda punya nilai tetapi belum punya target margin.
+              {needMargin.length} open project Anda belum punya Gross Profit.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -111,7 +111,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
           <CardTitle className="text-base">
             <h2>{ownerId ? "My projects" : "Projects"}</h2>
           </CardTitle>
-          <CardDescription>Open project di atas. Klik project untuk mengubah progress, status, nilai, atau target margin.</CardDescription>
+          <CardDescription>Open project di atas. Klik project untuk mengubah progress, status, atau Gross Profit.</CardDescription>
         </CardHeader>
         <CardContent>
           {projects.length === 0 ? (
@@ -128,8 +128,7 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
                   <TableHead className="hidden lg:table-cell">Quote Released</TableHead>
                   <TableHead>Account Name</TableHead>
                   <TableHead>Project Title</TableHead>
-                  <TableHead className="text-right">Estimated PO Value</TableHead>
-                  <TableHead className="text-right">Estimated Gross Profit</TableHead>
+                  <TableHead className="text-right">Gross Profit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -150,16 +149,15 @@ export async function SalesPipeline({ viewer, view }: { viewer: SessionUser; vie
                       </Link>
                       <span className="font-mono text-[11px] text-muted-foreground">{p.code}</span>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatAmount(p.estimatedValue)}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {p.estimatedGrossProfit !== null ? (
                         <>
                           {formatAmount(p.estimatedGrossProfit)}
                           <span className="block text-[11px] text-muted-foreground">{formatPercent(p.targetMargin)}</span>
                         </>
-                      ) : p.estimatedValue !== null && p.isOpen ? (
+                      ) : p.isOpen ? (
                         <Link href={`${PROJECTS_PATH}/${p.code}#commercial`} className="text-primary underline-offset-4 hover:underline">
-                          Set margin
+                          Set Gross Profit
                         </Link>
                       ) : (
                         "–"

@@ -31,7 +31,7 @@ export function importScope(role: Role): ImportScope {
 const ALWAYS: readonly ImportFieldKey[] = ["endUser", "name", "code", "description", "currentAction", "nextAction", "lastUpdated"];
 const GROUPS: Record<Exclude<keyof ImportScope, "identity" | "description" | "place">, readonly ImportFieldKey[]> = {
   owner: ["salesPic", "source", "externalSourceName"],
-  commercial: ["progress", "status", "estimatedValue", "targetMarginAmount", "targetMarginPercent", "quoteReleasedAt", "targetDate"],
+  commercial: ["progress", "status", "targetMarginAmount", "quoteReleasedAt", "targetDate"],
   technical: ["principals", "solution", "technicalPic"],
 };
 
