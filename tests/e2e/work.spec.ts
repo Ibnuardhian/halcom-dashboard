@@ -335,7 +335,7 @@ test.describe("projects and requests", () => {
     await page.goto("/dashboard/sales");
     const tiles = page.getByRole("region", { name: "Pipeline numbers" });
 
-    for (const [name, show] of [["Open pipeline", "pipeline"], ["Gross Profit", "margin"], ["Won", "won"]] as const) {
+    for (const [name, show] of [["Open Gross Profit", "margin"], ["Weighted Gross Profit", "margin"], ["Won Gross Profit", "won"]] as const) {
       await expect(async () => {
         await page.goto("/dashboard/sales");
         await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();
@@ -460,7 +460,7 @@ test.describe("projects and requests", () => {
     await signIn(page, "FINANCE");
     await page.goto("/dashboard");
 
-    for (const title of ["Pipeline by progress", "Projects by principal", "Value by principal", "Solution mix", "Value by industry", "Pipeline conversion"]) {
+    for (const title of ["Pipeline by progress", "Projects by principal", "Gross Profit by principal", "Solution mix", "Gross Profit by industry", "Pipeline conversion"]) {
       await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
     }
   });

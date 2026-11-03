@@ -877,3 +877,12 @@ When a salesperson (role Sales, with the permission to add projects from a sheet
 - The repository moves from a personal account to the company GitHub organization, and the workflows use no personal tokens.
 
 Not yet built: the Hostinger files, the backup job, the download button, CI and the organization move. `deployment/VERCEL.md` describes the earlier plan with Neon as the primary and is to be retired once the VPS is live.
+
+## D-066: The pipeline charts and tiles are in Gross Profit (2026-11-03, settles the open point of D-064; numbered D-066 because D-065 is the deployment decision)
+
+The money measure of the pipeline is the Gross Profit of a project, not its Estimated PO value. A project's Gross Profit is the amount entered; an older project whose margin was entered as a percentage keeps counting through its stored value. A project without a Gross Profit adds to the counts but not to the money.
+
+- **Tiles (Sales pipeline, Overview, Finance):** Open Gross Profit, Weighted Gross Profit (times the probability of the project's Progress) and Won Gross Profit replace Open pipeline, the old Gross Profit tile and Won. The first two open the list of open projects with a Gross Profit; the third opens the won projects.
+- **Charts:** the Sales funnel, Pipeline by progress, Gross Profit by principal and Gross Profit by industry add up Gross Profit. The charts that count projects (by principal, solution, status, location, conversion) are as before.
+- **Won** is the Gross Profit of Closed Won projects (the amount; for an older percentage margin, of the final value).
+- Revenue in the target tracking is still the final value (revenue targets are not in Gross Profit); its Gross Profit rows follow D-064.

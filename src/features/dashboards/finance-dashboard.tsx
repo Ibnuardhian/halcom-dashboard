@@ -79,7 +79,7 @@ export async function FinanceDashboard({ viewer }: { viewer: SessionUser }) {
         </CardContent>
       </Card>
       <p className="mb-6 text-xs text-muted-foreground">
-        Won value {formatCompact(analytics.totals.wonValue)} across {analytics.totals.wonCount} project{analytics.totals.wonCount === 1 ? "" : "s"}.{" "}
+        Won Gross Profit {formatCompact(analytics.totals.wonValue)} across {analytics.totals.wonCount} project{analytics.totals.wonCount === 1 ? "" : "s"}.{" "}
         <Link href={CROSSCHECK_PATH} className={buttonVariants({ variant: "link", size: "sm" })}>
           Financial crosscheck
         </Link>

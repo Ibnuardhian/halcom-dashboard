@@ -23,7 +23,7 @@ describe("a project with a Gross Profit and no Estimated PO value", () => {
     if (!withProfit.ok || !without.ok) throw new Error("setup failed");
 
     const analytics = await getPipelineAnalytics(db, viewer, { salesOwnerId: sales.id });
-    expect(analytics.totals).toMatchObject({ open: 2, openValue: 0, openTargetMargin: 250000000, openWithMargin: 1 });
+    expect(analytics.totals).toMatchObject({ open: 2, openValue: 250000000, openWeighted: 12500000, openTargetMargin: 250000000, openWithMargin: 1 });
 
     const list = await searchProjects(db, viewer, { show: "margin", search: `GP ${tag}` }, { pageSize: 25 });
     expect(list.rows.map((row) => row.code)).toEqual([withProfit.value.code]);

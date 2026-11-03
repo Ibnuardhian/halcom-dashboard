@@ -25,7 +25,7 @@ const valueItems = (slices: Slice[], pick: (s: Slice) => number, href?: SliceHre
     .filter((s) => pick(s) > 0)
     .map((s) => ({ key: s.key, label: s.label, value: pick(s), display: formatCompact(pick(s)), note: `${s.count} proyek`, neutral: isNeutral(s), href: href?.(s) ?? null }));
 
-/** The headline numbers of the pipeline. Money is the sum of estimated PO values as entered. Pipeline conversion is the share of open projects at Propose or beyond. */
+/** The headline numbers of the pipeline. Money is the sum of the Gross Profit of the projects (weighted: times the probability of their Progress). Pipeline conversion is the share of open projects at Propose or beyond. */
 export function PipelineTiles({ analytics, scope = "all" }: { analytics: PipelineAnalytics; scope?: "all" | "mine" }) {
   const { totals } = analytics;
   // Today's open projects that have reached the quotation step; not a historical conversion rate (see src/domain/projects/growth.ts).
@@ -35,15 +35,15 @@ export function PipelineTiles({ analytics, scope = "all" }: { analytics: Pipelin
   return (
     <section aria-label="Pipeline numbers" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
       <StatTile label={scope === "mine" ? "My open projects" : "Open projects"} value={totals.open} href={to("open")} note={`dari ${totals.projects} proyek`} />
-      <StatTile label="Open pipeline" value={formatCompact(totals.openValue)} href={to("pipeline")} note={`${formatAmount(totals.openValue)} estimasi`} />
+      <StatTile label="Open Gross Profit" value={formatCompact(totals.openValue)} href={to("margin")} note={`${formatAmount(totals.openValue)} dari ${totals.openWithMargin} open project`} />
       <StatTile
         label="Pipeline conversion"
         value={conversion.percent === null ? "N/A" : `${conversion.percent}%`}
         href={to("quoted")}
         note={`${conversion.atPropose} dari ${conversion.open} open project (Propose+)`}
       />
-      <StatTile label="Gross Profit" value={formatCompact(totals.openTargetMargin)} href={to("margin")} note={`${totals.openWithMargin} dari ${totals.open} open project punya target margin`} />
-      <StatTile label="Won" value={formatCompact(totals.wonValue)} href={to("won")} note={`${totals.wonCount} proyek`} />
+      <StatTile label="Weighted Gross Profit" value={formatCompact(totals.openWeighted)} href={to("margin")} note={`Gross Profit × probabilitas tahap, ${totals.openWithMargin} dari ${totals.open} open project`} />
+      <StatTile label="Won Gross Profit" value={formatCompact(totals.wonValue)} href={to("won")} note={`${totals.wonCount} proyek`} />
     </section>
   );
 }
@@ -62,10 +62,10 @@ export function PipelineCharts({ analytics, scope = "all", customerLinks = true 
   const principal = by("principal");
   return (
     <section aria-label="Pipeline charts" className="mb-6 grid gap-4 lg:grid-cols-2">
-      <ChartCard title="Sales funnel" description="Funnel Proyek & Estimasi Nilai (Tanpa Closed Lost)">
+      <ChartCard title="Sales funnel" description="Funnel Proyek & Gross Profit (Tanpa Closed Lost)">
         <FunnelChart items={buildFunnel(analytics.byProgress).map((s) => ({ key: s.key, label: s.label, count: s.count, display: formatCompact(s.value), href: to({ reached: s.key }) }))} />
       </ChartCard>
-      <ChartCard title="Pipeline by progress" description="Estimasi Nilai PO per Tahap Progres.">
+      <ChartCard title="Pipeline by progress" description="Gross Profit per Tahap Progres.">
         <ColumnChart items={analytics.byProgress.map((s) => ({ key: s.key, label: PROGRESS_NAMES[s.key as ProjectProgress], value: s.value, display: formatCompact(s.value), note: `${s.count}`, href: to({ progress: s.key as ProjectProgress }) }))} />
       </ChartCard>
       {own ? (
@@ -77,7 +77,7 @@ export function PipelineCharts({ analytics, scope = "all", customerLinks = true 
           <ChartCard title="Projects by principal" description="Project per principal. Project multi-principal dihitung di tiap principal.">
             <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
           </ChartCard>
-          <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
+          <ChartCard title="Gross Profit by principal" description="Gross Profit per Brand (Hitung Ganda Multi-Principal)">
             <BarList items={valueItems(analytics.byPrincipal, (s) => s.value, principal)} />
           </ChartCard>
           <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
@@ -98,7 +98,7 @@ export function PipelineCharts({ analytics, scope = "all", customerLinks = true 
               emptyText="Belum ada lokasi yang diisi."
             />
           </ChartCard>
-          <ChartCard title="Value by industry" description="Estimated value per industri customer.">
+          <ChartCard title="Gross Profit by industry" description="Gross Profit per industri customer.">
             <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />
           </ChartCard>
           <ChartCard
@@ -148,13 +148,13 @@ export function ProjectMixCharts({ analytics }: { analytics: PipelineAnalytics }
       <ChartCard title="Projects by principal" description="Project per principal. Project multi-principal dihitung di tiap principal.">
         <DonutChart items={countItems(analytics.byPrincipalCount, principal)} />
       </ChartCard>
-      <ChartCard title="Value by principal" description="Estimasi Nilai per Brand (Hitung Ganda Multi-Principal)">
+      <ChartCard title="Gross Profit by principal" description="Gross Profit per Brand (Hitung Ganda Multi-Principal)">
         <BarList items={valueItems(analytics.byPrincipal, (s) => s.value, principal)} />
       </ChartCard>
       <ChartCard title="Solution mix" description="Porsi proyek per solution category.">
         <DonutChart items={countItems(analytics.bySolution, by("solution"))} />
       </ChartCard>
-      <ChartCard title="Value by industry" description="Estimated value per industri customer.">
+      <ChartCard title="Gross Profit by industry" description="Gross Profit per industri customer.">
         <BarList items={valueItems(analytics.byIndustry, (s) => s.value, by("industry"))} color={2} />
       </ChartCard>
     </section>

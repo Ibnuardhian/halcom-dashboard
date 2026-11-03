@@ -26,7 +26,7 @@ const NEEDS_MARGIN_SHOWN = 12;
 
 /**
  * The one place a salesperson works from. Every number is the signed-in salesperson's own (an administrator sees all). Sales
- * performance comes first (pipeline value, weighted value, margin, won, the project charts and table); the BOQ, RFQ and PO requests on
+ * performance comes first (open, weighted and won Gross Profit, the project charts and table); the BOQ, RFQ and PO requests on
  * their projects come below, in two sections that open and close.
  * Targets have their own page (Sales targets) and are not repeated here.
  */

@@ -35,7 +35,7 @@ test.describe("Sales pipeline: KPI cards and Pipeline Growth", () => {
   test("shows Pipeline conversion instead of Weighted pipeline, and the three groups with their colours", async ({ page }) => {
     await open(page);
     const tiles = page.getByRole("region", { name: "Pipeline numbers" });
-    for (const label of ["Open projects", "Open pipeline", "Pipeline conversion", "Gross Profit", "Won"]) {
+    for (const label of ["Open projects", "Open Gross Profit", "Pipeline conversion", "Weighted Gross Profit", "Won Gross Profit"]) {
       await expect(tiles.getByText(label, { exact: false }).first()).toBeVisible();
     }
     await expect(tiles.getByText("Weighted pipeline")).toHaveCount(0);

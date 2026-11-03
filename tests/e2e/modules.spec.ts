@@ -264,7 +264,7 @@ test.describe("dashboards use the stored requests", () => {
       if (role === "SOA") {
         // Projects lead on the SOA dashboard; the BOQ requests sit below them.
         await expect(page.getByRole("region", { name: "Open projects" }).getByText("Open projects", { exact: true })).toBeVisible();
-        for (const title of ["PIC Workload", "Projects by principal", "Value by principal", "Solution mix", "Value by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
+        for (const title of ["PIC Workload", "Projects by principal", "Gross Profit by principal", "Solution mix", "Gross Profit by industry"]) await expect(page.getByText(title, { exact: true })).toBeVisible();
         const order = await page.getByText(/^(PIC Workload|BOQ by status)$/).allTextContents();
         expect(order).toEqual(["PIC Workload", "BOQ by status"]);
       }
