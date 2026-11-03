@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { checkImportRow, checkMapping, projectIdentity, rowToRaw, type ColumnMapping, type ImportRow } from "@/domain/projects/import";
+import { checkImportRow, checkMapping, projectIdentity, rowToRaw, type ColumnMapping, type ImportRow, type RawImportRow } from "@/domain/projects/import";
 import { cleanName, nameKey } from "@/domain/projects/pipeline";
 import { PROGRESS_LABELS, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { SOURCE_LABELS } from "@/domain/projects/source";
@@ -53,9 +53,9 @@ export type CommitResult =
   | { ok: true; summary: ImportSummary; created: number; codes: string[]; skippedDuplicates: number; skippedInvalid: number }
   | { ok: false; code: "FORBIDDEN" | "INVALID_FILE" | "INVALID_MAPPING" | "HAS_ERRORS" | "NOTHING_TO_IMPORT" | "FAILED"; message: string; summary?: ImportSummary };
 
-type PreparedRow = { sheetRow: number; row: ImportRow; ownerId: string | null; ownerLabel: string | null };
+export type PreparedRow = { sheetRow: number; row: ImportRow; ownerId: string | null; ownerLabel: string | null };
 
-type Prepared = {
+export type Prepared = {
   sheet: SheetRows;
   ready: PreparedRow[];
   reports: ImportRowReport[];
@@ -65,7 +65,8 @@ type Prepared = {
 };
 
 /** Reads the file and the mapping and checks every row against the data: owners, duplicates, master data. Writes nothing. */
-async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mappingInput: unknown): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
+/** `only` leaves out the rows it refuses: they are not checked, counted or reported (the sync import hands those rows to the update). */
+export async function prepareNew(db: Db, actor: { role: Role }, bytes: Uint8Array, mappingInput: unknown, only?: (raw: RawImportRow) => boolean): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
   const read = readXlsx(bytes);
   if (!read.ok) return { ok: false, code: "INVALID_FILE", message: read.message };
   const checked = checkMapping(mappingInput, read.sheet.headers.length);
@@ -98,6 +99,7 @@ async function prepare(db: Db, actor: { role: Role }, bytes: Uint8Array, mapping
   read.sheet.rows.forEach((cells, index) => {
     const sheetRow = read.sheet.rowNumbers[index]!;
     const raw = rowToRaw(cells, mapping);
+    if (only && !only(raw)) return;
     const label = { endUser: cleanName(raw.endUser), name: cleanName(raw.name) };
     const result = checkImportRow(raw);
     if (!result.ok) {
@@ -184,7 +186,7 @@ export async function previewProjectImport(db: PrismaClient, claimedActor: Actor
   if (!can(claimedActor.role, "projects.import")) return { ok: false, code: "FORBIDDEN", message: FORBIDDEN };
   const actor = await db.user.findUnique({ where: { id: claimedActor.id }, select: { role: true, isActive: true } });
   if (!actor?.isActive || !can(actor.role, "projects.import")) return { ok: false, code: "FORBIDDEN", message: FORBIDDEN };
-  const prepared = await prepare(db, actor, input.bytes, input.mapping);
+  const prepared = await prepareNew(db, actor, input.bytes, input.mapping);
   if (!prepared.ok) return prepared;
   return { ok: true, summary: summarise(prepared.prepared) };
 }
@@ -216,7 +218,7 @@ export async function commitProjectImport(
         // One import at a time, and no project written by anyone else between the check and the insert.
         await tx.$executeRaw`LOCK TABLE projects IN SHARE ROW EXCLUSIVE MODE`;
 
-        const result = await prepare(tx, actor, input.bytes, input.mapping);
+        const result = await prepareNew(tx, actor, input.bytes, input.mapping);
         if (!result.ok) throw new Abort(result);
         const { prepared } = result;
         const summary = summarise(prepared);
@@ -225,98 +227,7 @@ export async function commitProjectImport(
         }
         if (prepared.ready.length === 0) throw new Abort({ ok: false, code: "NOTHING_TO_IMPORT", message: "Tidak ada proyek baru untuk diimpor dari sheet ini.", summary });
 
-        // Explicit Project IDs first: the counter moves past them, so the numbers given to the other rows can never collide.
-        const explicit = prepared.ready.map((entry) => entry.row.code).filter((code): code is string => code !== null).map((code) => Number(code.slice(9)));
-        if (explicit.length > 0) {
-          const highest = Math.max(...explicit);
-          await tx.$executeRaw`
-            INSERT INTO code_counters (scope, last_value) VALUES (${COUNTER_SCOPE}, ${highest})
-            ON CONFLICT (scope) DO UPDATE SET last_value = GREATEST(code_counters.last_value, EXCLUDED.last_value)`;
-        }
-
-        const principalIds = new Map<string, string>();
-        const solutionIds = new Map<string, string>();
-        const findOrCreate = async (kind: "principal" | "solution", name: string): Promise<string> => {
-          const key = nameKey(name);
-          const cache = kind === "principal" ? principalIds : solutionIds;
-          const cached = cache.get(key);
-          if (cached) return cached;
-          const existing = kind === "principal" ? await tx.principal.findUnique({ where: { nameKey: key }, select: { id: true } }) : await tx.solutionCategory.findUnique({ where: { nameKey: key }, select: { id: true } });
-          let id = existing?.id;
-          if (!id) {
-            if (!can(actor.role, "masterdata.manage")) throw new Error(`${kind} ${name} cannot be created by this account`);
-            const data = { name: cleanName(name), nameKey: key };
-            const created = kind === "principal" ? await tx.principal.create({ data, select: { id: true } }) : await tx.solutionCategory.create({ data, select: { id: true } });
-            id = created.id;
-            await tx.auditEvent.create({ data: { actorId: actor.id, action: `${kind}.created`, entityType: kind, entityId: id, after: { name: cleanName(name), via: "import" } } });
-          }
-          cache.set(key, id);
-          return id;
-        };
-
-        const codes: string[] = [];
-        for (const [position, { row, ownerId }] of prepared.ready.entries()) {
-          const code = row.code ?? (await nextProjectCode(tx));
-          const customerId = await ensureCustomer(tx, row.endUser);
-          const ids = [];
-          for (const name of row.principals) ids.push(await findOrCreate("principal", name));
-          const solutionCategoryId = row.solution ? await findOrCreate("solution", row.solution) : null;
-          const project = await tx.project.create({
-            data: {
-              code,
-              endUserCompany: row.endUser,
-              name: row.name,
-              description: row.description,
-              sourceType: row.sourceType,
-              salesOwnerId: row.sourceType === "INTERNAL_SALES" ? ownerId : null,
-              externalSourceName: row.sourceType === "OTHER" ? row.externalSourceName : null,
-              progress: row.progress,
-              trackStatus: row.trackStatus,
-              estimatedValue: row.estimatedValue,
-              targetMargin: row.targetMarginPercent,
-              targetMarginValue: row.targetMarginAmount,
-              quoteReleasedAt: row.quoteReleasedAt ? new Date(`${row.quoteReleasedAt}T00:00:00Z`) : null,
-              targetDate: row.targetDate ? new Date(`${row.targetDate}T00:00:00Z`) : null,
-              customerId,
-              principalId: ids[0] ?? null,
-              solutionCategoryId,
-              location: row.location,
-              currentAction: row.currentAction,
-              nextAction: row.nextAction,
-              importedFrom: fileName,
-            },
-            select: { id: true },
-          });
-          if (ids.length > 0) await tx.projectPrincipal.createMany({ data: ids.map((principalId, position) => ({ projectId: project.id, principalId, position })) });
-          // The industry is the customer's: a customer with none takes the sheet's, when it is on the list.
-          if (row.industry) {
-            const listed = await tx.industry.findUnique({ where: { nameKey: nameKey(row.industry) } });
-            if (listed) await tx.customer.updateMany({ where: { id: customerId, industry: null }, data: { industry: listed.name } });
-          }
-          const feed = [
-            { kind: "CURRENT" as const, body: row.currentAction },
-            { kind: "NEXT" as const, body: row.nextAction },
-          ].filter((entry): entry is { kind: "CURRENT" | "NEXT"; body: string } => entry.body !== null);
-          if (feed.length > 0) await tx.projectAction.createMany({ data: feed.map((entry) => ({ projectId: project.id, authorId: actor.id, ...entry })) });
-          await tx.auditEvent.create({
-            data: {
-              actorId: actor.id,
-              action: "project.imported",
-              entityType: "project",
-              entityId: project.id,
-              after: {
-                code,
-                file: fileName,
-                sourceType: row.sourceType,
-                progress: PROGRESS_LABELS[row.progress],
-                status: TRACK_STATUS_LABELS[row.trackStatus],
-                source: SOURCE_LABELS[row.sourceType],
-              },
-            },
-          });
-          codes.push(code);
-          await input.afterRow?.(position);
-        }
+        const codes = await writeNewProjects(tx, actor, prepared, fileName, input.afterRow);
 
         await tx.auditEvent.create({
           data: {
@@ -337,4 +248,110 @@ export async function commitProjectImport(
     const taken = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
     return { ok: false, code: "FAILED", message: taken ? "Ada Project ID di sheet yang terpakai saat mengimpor, jadi tidak ada yang diimpor. Coba lagi." : "Impor gagal, jadi tidak ada yang diimpor. Tidak ada data yang berubah." };
   }
+}
+
+/**
+ * Writes the ready rows as new projects, inside the caller's transaction: customers, principals and solutions are found or created, each
+ * project gets its audit event, and the Project ID counter is moved past any explicit ID first. Returns the codes in row order.
+ */
+export async function writeNewProjects(
+  tx: Prisma.TransactionClient,
+  actor: { id: string; role: Role },
+  prepared: Pick<Prepared, "ready">,
+  fileName: string,
+  afterRow?: (index: number) => void | Promise<void>,
+): Promise<string[]> {
+  // Explicit Project IDs first: the counter moves past them, so the numbers given to the other rows can never collide.
+  const explicit = prepared.ready.map((entry) => entry.row.code).filter((code): code is string => code !== null).map((code) => Number(code.slice(9)));
+  if (explicit.length > 0) {
+    const highest = Math.max(...explicit);
+    await tx.$executeRaw`
+      INSERT INTO code_counters (scope, last_value) VALUES (${COUNTER_SCOPE}, ${highest})
+      ON CONFLICT (scope) DO UPDATE SET last_value = GREATEST(code_counters.last_value, EXCLUDED.last_value)`;
+  }
+
+  const principalIds = new Map<string, string>();
+  const solutionIds = new Map<string, string>();
+  const findOrCreate = async (kind: "principal" | "solution", name: string): Promise<string> => {
+    const key = nameKey(name);
+    const cache = kind === "principal" ? principalIds : solutionIds;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const existing = kind === "principal" ? await tx.principal.findUnique({ where: { nameKey: key }, select: { id: true } }) : await tx.solutionCategory.findUnique({ where: { nameKey: key }, select: { id: true } });
+    let id = existing?.id;
+    if (!id) {
+      if (!can(actor.role, "masterdata.manage")) throw new Error(`${kind} ${name} cannot be created by this account`);
+      const data = { name: cleanName(name), nameKey: key };
+      const created = kind === "principal" ? await tx.principal.create({ data, select: { id: true } }) : await tx.solutionCategory.create({ data, select: { id: true } });
+      id = created.id;
+      await tx.auditEvent.create({ data: { actorId: actor.id, action: `${kind}.created`, entityType: kind, entityId: id, after: { name: cleanName(name), via: "import" } } });
+    }
+    cache.set(key, id);
+    return id;
+  };
+
+  const codes: string[] = [];
+  for (const [position, { row, ownerId }] of prepared.ready.entries()) {
+    const code = row.code ?? (await nextProjectCode(tx));
+    const customerId = await ensureCustomer(tx, row.endUser);
+    const ids = [];
+    for (const name of row.principals) ids.push(await findOrCreate("principal", name));
+    const solutionCategoryId = row.solution ? await findOrCreate("solution", row.solution) : null;
+    const project = await tx.project.create({
+      data: {
+        code,
+        endUserCompany: row.endUser,
+        name: row.name,
+        description: row.description,
+        sourceType: row.sourceType,
+        salesOwnerId: row.sourceType === "INTERNAL_SALES" ? ownerId : null,
+        externalSourceName: row.sourceType === "OTHER" ? row.externalSourceName : null,
+        progress: row.progress,
+        trackStatus: row.trackStatus,
+        estimatedValue: row.estimatedValue,
+        targetMargin: row.targetMarginPercent,
+        targetMarginValue: row.targetMarginAmount,
+        quoteReleasedAt: row.quoteReleasedAt ? new Date(`${row.quoteReleasedAt}T00:00:00Z`) : null,
+        targetDate: row.targetDate ? new Date(`${row.targetDate}T00:00:00Z`) : null,
+        customerId,
+        principalId: ids[0] ?? null,
+        solutionCategoryId,
+        location: row.location,
+        currentAction: row.currentAction,
+        nextAction: row.nextAction,
+        importedFrom: fileName,
+      },
+      select: { id: true },
+    });
+    if (ids.length > 0) await tx.projectPrincipal.createMany({ data: ids.map((principalId, position) => ({ projectId: project.id, principalId, position })) });
+    // The industry is the customer's: a customer with none takes the sheet's, when it is on the list.
+    if (row.industry) {
+      const listed = await tx.industry.findUnique({ where: { nameKey: nameKey(row.industry) } });
+      if (listed) await tx.customer.updateMany({ where: { id: customerId, industry: null }, data: { industry: listed.name } });
+    }
+    const feed = [
+      { kind: "CURRENT" as const, body: row.currentAction },
+      { kind: "NEXT" as const, body: row.nextAction },
+    ].filter((entry): entry is { kind: "CURRENT" | "NEXT"; body: string } => entry.body !== null);
+    if (feed.length > 0) await tx.projectAction.createMany({ data: feed.map((entry) => ({ projectId: project.id, authorId: actor.id, ...entry })) });
+    await tx.auditEvent.create({
+      data: {
+        actorId: actor.id,
+        action: "project.imported",
+        entityType: "project",
+        entityId: project.id,
+        after: {
+          code,
+          file: fileName,
+          sourceType: row.sourceType,
+          progress: PROGRESS_LABELS[row.progress],
+          status: TRACK_STATUS_LABELS[row.trackStatus],
+          source: SOURCE_LABELS[row.sourceType],
+        },
+      },
+    });
+    codes.push(code);
+    await afterRow?.(position);
+  }
+  return codes;
 }

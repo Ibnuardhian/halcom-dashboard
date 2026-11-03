@@ -172,3 +172,19 @@ describe("projectIdentity", () => {
     expect(projectIdentity("PT Maju", "CCTV")).not.toBe(projectIdentity("PT Maju", "CCTV 2"));
   });
 });
+
+describe("suggestMapping finds columns by name, wherever they are", () => {
+  it("reads Project ID in column A and End user in column C, however the names are written", () => {
+    const headers = ["ProjectID", "Nama Project", "End_User *", "Remarks", "Estimated PO Value", "target-closing"];
+    const mapping = suggestMapping(headers);
+    expect(mapping).toMatchObject({ code: 0, name: 1, endUser: 2, estimatedValue: 4, targetDate: 5 });
+    // A column the importer does not know is left alone, and every field without a column is null.
+    expect(Object.values(mapping)).not.toContain(3);
+    expect(mapping.progress).toBeNull();
+  });
+
+  it("gives a column to one field only", () => {
+    const mapping = suggestMapping(["Target margin (%)", "Target margin (amount)"]);
+    expect(mapping).toMatchObject({ targetMarginPercent: 0, targetMarginAmount: 1 });
+  });
+});
