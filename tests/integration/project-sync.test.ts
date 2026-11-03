@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { getDb } from "@/lib/db";
 import { suggestMapping } from "@/domain/projects/import";
 import { toXlsx } from "@/server/export/xlsx";
+import { prepareNew } from "@/server/import/xlsx-projects";
 import { commitProjectSync, previewProjectSync } from "@/server/import/xlsx-projects-sync";
 import { createProject } from "@/server/requests/service";
 import { makeUser } from "./helpers";
@@ -122,6 +123,24 @@ describe("one upload that adds and updates projects", () => {
     expect(result.summary.rows.find((r) => r.status === "error")?.messages[0]).toContain("tidak boleh menambah project baru");
     const done = await commitProjectSync(db, seller, { bytes, mapping, fileName: "sales.xlsx", mode: "skip-invalid", confirmNew: true });
     expect(done).toMatchObject({ ok: true, created: [], updated: [expect.objectContaining({ code: existing.code })] });
+  });
+
+  it("gives a salesperson's new rows their own account as Sales PIC, whether the cell is empty or names someone else", async () => {
+    const { owner, tag, row } = await setup();
+    const other = await makeUser("SALES");
+    const empty = row("mine", { "Sales PIC": "" });
+    const named = row("named", { "Sales PIC": other.email });
+    const asOther = row("other-source", { "Sales PIC": "", Source: "Other" });
+    const headers = [...HEADERS];
+    const withSource = (cells: Row) => [...cells, cells === asOther ? "Other" : null];
+    const bytes = toXlsx("Pipeline", [...headers, "Source"], [withSource(empty), withSource(named), withSource(asOther)]);
+    const prepared = await prepareNew(db, { id: owner.id, role: "SALES" }, bytes, suggestMapping([...headers, "Source"]));
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    // The two internal rows are ready and owned by the signed-in salesperson; the Other row still needs its external sales name.
+    expect(prepared.prepared.ready.map((entry) => entry.ownerId)).toEqual([owner.id, owner.id]);
+    expect(prepared.prepared.reports.filter((report) => report.status === "error")).toHaveLength(1);
+    void tag;
   });
 
   it("treats every row as new when the sheet has no Project ID column", async () => {

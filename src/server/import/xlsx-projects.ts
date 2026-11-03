@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
-import { checkImportRow, checkMapping, projectIdentity, rowToRaw, type ColumnMapping, type ImportRow, type RawImportRow } from "@/domain/projects/import";
+import { checkImportRow, checkMapping, isOtherSource, projectIdentity, rowToRaw, type ColumnMapping, type ImportRow, type RawImportRow } from "@/domain/projects/import";
 import { cleanName, nameKey } from "@/domain/projects/pipeline";
 import { PROGRESS_LABELS, TRACK_STATUS_LABELS } from "@/domain/projects/progress";
 import { SOURCE_LABELS } from "@/domain/projects/source";
@@ -66,7 +66,7 @@ export type Prepared = {
 
 /** Reads the file and the mapping and checks every row against the data: owners, duplicates, master data. Writes nothing. */
 /** `only` leaves out the rows it refuses: they are not checked, counted or reported (the sync import hands those rows to the update). */
-export async function prepareNew(db: Db, actor: { role: Role }, bytes: Uint8Array, mappingInput: unknown, only?: (raw: RawImportRow) => boolean): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
+export async function prepareNew(db: Db, actor: { id: string; role: Role }, bytes: Uint8Array, mappingInput: unknown, only?: (raw: RawImportRow) => boolean): Promise<{ ok: true; prepared: Prepared } | { ok: false; code: "INVALID_FILE" | "INVALID_MAPPING"; message: string }> {
   const read = readXlsx(bytes);
   if (!read.ok) return { ok: false, code: "INVALID_FILE", message: read.message };
   const checked = checkMapping(mappingInput, read.sheet.headers.length);
@@ -98,7 +98,10 @@ export async function prepareNew(db: Db, actor: { role: Role }, bytes: Uint8Arra
 
   read.sheet.rows.forEach((cells, index) => {
     const sheetRow = read.sheet.rowNumbers[index]!;
-    const raw = rowToRaw(cells, mapping);
+    // A salesperson owns what they add: the Sales PIC cell is their own account, whatever it says (empty or another name).
+    const own = actor.role === "SALES" ? salespeople.find((person) => person.id === actor.id) : undefined;
+    const cellsRaw = rowToRaw(cells, mapping);
+    const raw = own && !isOtherSource(cellsRaw.source) ? { ...cellsRaw, salesPic: own.email } : cellsRaw;
     if (only && !only(raw)) return;
     const label = { endUser: cleanName(raw.endUser), name: cleanName(raw.name) };
     const result = checkImportRow(raw);
@@ -184,7 +187,7 @@ const FORBIDDEN = "Anda tidak diizinkan mengimpor proyek.";
 /** Checks a sheet and reports what an import would do: which rows are ready, which are duplicates, which have problems. Writes nothing. */
 export async function previewProjectImport(db: PrismaClient, claimedActor: Actor, input: { bytes: Uint8Array; mapping: unknown }): Promise<PreviewResult> {
   if (!can(claimedActor.role, "projects.import")) return { ok: false, code: "FORBIDDEN", message: FORBIDDEN };
-  const actor = await db.user.findUnique({ where: { id: claimedActor.id }, select: { role: true, isActive: true } });
+  const actor = await db.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
   if (!actor?.isActive || !can(actor.role, "projects.import")) return { ok: false, code: "FORBIDDEN", message: FORBIDDEN };
   const prepared = await prepareNew(db, actor, input.bytes, input.mapping);
   if (!prepared.ok) return prepared;
