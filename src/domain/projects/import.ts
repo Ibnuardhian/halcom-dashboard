@@ -44,7 +44,7 @@ export const IMPORT_FIELDS: readonly ImportField[] = [
   { key: "name", label: "Project name", required: true, synonyms: ["project", "project name", "nama project", "nama proyek", "project title", "title", "opportunity"] },
   { key: "code", label: "Project ID", required: false, hint: "Bentuk HIT-PROJ-001. Kosong: project baru dengan nomor berikutnya. Terisi dan sudah ada: project itu diperbarui.", synonyms: ["project id", "id project", "project code", "kode project", "no project", "id", "code", "no"] },
   { key: "description", label: "Description", required: false, synonyms: ["description", "details", "scope", "notes"] },
-  { key: "salesPic", label: "Sales PIC", required: false, hint: "Email atau nama persis salesperson yang aktif. Wajib untuk Internal Sales.", synonyms: ["sales pic", "sales", "salesperson", "sales person", "pic sales", "owner", "sales name"] },
+  { key: "salesPic", label: "Sales PIC", required: false, hint: "Email atau nama persis salesperson yang aktif. Wajib untuk Internal Sales; untuk Sales yang mengunggah, otomatis akun yang sedang masuk.", synonyms: ["sales pic", "sales", "salesperson", "sales person", "pic sales", "owner", "sales name"] },
   { key: "source", label: "Project source", required: false, hint: "Internal Sales (bawaan) atau Other.", synonyms: ["project source", "source", "source type"] },
   { key: "externalSourceName", label: "External sales name", required: false, hint: "Wajib bila source-nya Other.", synonyms: ["external sales name", "external source", "external sales", "external company", "sales company"] },
   { key: "progress", label: "Progress", required: false, hint: "Misalnya 30% - Propose, Propose, atau PROPOSE. Kosong: Qualify.", synonyms: ["progress", "stage", "pipeline stage"] },
@@ -202,6 +202,11 @@ const LIMITS = { endUser: 120, name: 120, description: 2000, name120: 120, indus
  * Reads and checks one row without the database: required fields, lengths, the lists (progress, status, source), numbers, dates
  * and the rules between fields. Every problem of the row is reported together, so one pass shows everything to fix.
  */
+/** Whether the Project source cell of a sheet says Other (and not Internal Sales, which an empty cell also means). */
+export function isOtherSource(text: string): boolean {
+  return ["other", "external", "othersource"].includes(squash(text));
+}
+
 export function checkImportRow(raw: RawImportRow): RowCheck {
   const errors: string[] = [];
   const text = (value: string, label: string, max: number): string | null => {
@@ -229,7 +234,7 @@ export function checkImportRow(raw: RawImportRow): RowCheck {
   if (raw.source !== "") {
     const wanted = squash(raw.source);
     if (["internalsales", "internal", "sales"].includes(wanted)) sourceType = "INTERNAL_SALES";
-    else if (["other", "external", "othersource"].includes(wanted)) sourceType = "OTHER";
+    else if (isOtherSource(raw.source)) sourceType = "OTHER";
     else errors.push(`Project source "${raw.source}" harus Internal Sales atau Other.`);
   }
   const salesPic = text(raw.salesPic, "Sales PIC", 200);
