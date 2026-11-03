@@ -108,7 +108,7 @@ describe("createBackup", () => {
 
   it("reports a missing folder instead of throwing", async () => {
     const missing = path.join(dir, "does-not-exist");
-    expect(await listBackups(missing)).toMatchObject({ ok: false, error: expect.stringContaining("not mounted") });
+    expect(await listBackups(missing)).toMatchObject({ ok: false, error: expect.stringContaining("belum di-mount") });
     expect(pgEnvFromUrl("postgresql://u:pw@h/db")).toMatchObject({ PGPORT: "5432" });
   });
 });
