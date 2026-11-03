@@ -2,6 +2,12 @@ import { strToU8, zipSync } from "fflate";
 
 type Cell = string | number | null;
 
+/** A pick list on a column, from row 2 down to `lastRow`: Excel offers the choices and refuses anything else. Choices must not contain a comma. */
+export type Dropdown = { column: number; list: readonly string[]; title: string };
+
+/** Rows below the data that still get the pick list, so rows added at the bottom of the sheet have it too (the import reads at most 5,000). */
+const DROPDOWN_LAST_ROW = 5001;
+
 export const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /** XML 1.0 cannot carry most control characters, even escaped; drop them, then escape what XML reserves. */
@@ -41,7 +47,7 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
  * (so they sum) and everything else as text. Text is stored as plain strings, never as formulas, so a value starting with
  * "=" is shown as text and cannot run anything when the file is opened.
  */
-export function toXlsx(sheetName: string, headers: readonly string[], rows: readonly (readonly Cell[])[]): Uint8Array {
+export function toXlsx(sheetName: string, headers: readonly string[], rows: readonly (readonly Cell[])[], dropdowns: readonly Dropdown[] = []): Uint8Array {
   const text = (ref: string, value: string, style: number) =>
     `<c r="${ref}" t="inlineStr"${style ? ` s="${style}"` : ""}><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`;
   const cellXml = (value: Cell, row: number, col: number) => {
@@ -61,6 +67,14 @@ export function toXlsx(sheetName: string, headers: readonly string[], rows: read
     ...rows.map((row, index) => `<row r="${index + 2}">${row.map((value, col) => cellXml(value, index + 2, col)).join("")}</row>`),
   ].join("");
 
+  const validations = dropdowns.map(({ column, list, title }) => {
+    if (list.some((item) => item.includes(",") || item.includes('"'))) throw new Error(`Pick list ${title} has a choice with a comma or a quote`);
+    const formula = list.join(",");
+    // Excel cuts an inline list at 255 characters.
+    if (formula.length > 255) throw new Error(`Pick list ${title} is longer than 255 characters`);
+    const range = `${columnName(column)}2:${columnName(column)}${Math.max(DROPDOWN_LAST_ROW, rows.length + 1)}`;
+    return `<dataValidation type="list" allowBlank="1" showErrorMessage="1" errorTitle="${escapeXml(title)}" error="${escapeXml(`Pilih salah satu pilihan ${title} dari daftar.`)}" sqref="${range}"><formula1>"${escapeXml(formula)}"</formula1></dataValidation>`;
+  });
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <dimension ref="A1:${lastColumn}${rows.length + 1}"/>
@@ -68,6 +82,7 @@ export function toXlsx(sheetName: string, headers: readonly string[], rows: read
 <cols>${widths.map((width, col) => `<col min="${col + 1}" max="${col + 1}" width="${width}" customWidth="1"/>`).join("")}</cols>
 <sheetData>${sheetRows}</sheetData>
 <autoFilter ref="A1:${lastColumn}${rows.length + 1}"/>
+${validations.length > 0 ? `<dataValidations count="${validations.length}">${validations.join("")}</dataValidations>` : ""}
 </worksheet>`;
 
   const name = escapeXml(sheetName.replace(/[\\/?*[\]:]/g, " ").slice(0, 31) || "Sheet1");

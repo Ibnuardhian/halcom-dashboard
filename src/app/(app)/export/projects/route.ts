@@ -1,5 +1,5 @@
 import { chooseColumns } from "@/domain/projects/export";
-import { IMPORT_FIELD_KEYS, importRowOf, templateHeaders } from "@/domain/projects/import";
+import { IMPORT_FIELD_KEYS, importRowOf, sheetDropdowns, templateHeaders } from "@/domain/projects/import";
 import { importScope, scopedFieldKeys } from "@/domain/projects/import-scope";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
     const keys = scopedFieldKeys(importScope(viewer.role), IMPORT_FIELD_KEYS);
     const projects = await listProjectsForExport(db, viewer, viewer.role === "SALES" ? viewer.id : undefined);
     await db.auditEvent.create({ data: { actorId: viewer.id, action: "export.projects", entityType: "export", entityId: "projects", after: { template: "import", rows: projects.length, format: "xlsx", columns: keys.length } } });
-    return new Response(Buffer.from(toXlsx("Projects", templateHeaders(keys), projects.map((project) => importRowOf(project, keys)))), {
+    return new Response(Buffer.from(toXlsx("Projects", templateHeaders(keys), projects.map((project) => importRowOf(project, keys)), sheetDropdowns(keys))), {
       headers: {
         "content-type": XLSX_CONTENT_TYPE,
         "content-disposition": `attachment; filename="halcom-projects-import-format-${new Date().toISOString().slice(0, 10)}.xlsx"`,

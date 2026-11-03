@@ -368,3 +368,19 @@ export function importRowOf(project: ExportProject, keys: readonly ImportFieldKe
   };
   return IMPORT_FIELD_KEYS.filter((key) => keys.includes(key)).map((key) => cells[key]);
 }
+
+/** A drop-down in a column of the sheet: the position of the column in the header row and the choices it offers, in order. */
+export type SheetDropdown = { column: number; list: readonly string[]; title: string };
+
+/**
+ * The columns of the template and the export that offer a pick list (Progress from 5% up to Closed Lost, Status), so a value is chosen and not
+ * typed. The texts are the ones the export writes and the import reads. `keys` are the columns the sheet has, as for `templateHeaders`.
+ */
+export function sheetDropdowns(keys: readonly ImportFieldKey[] = IMPORT_FIELD_KEYS): SheetDropdown[] {
+  const lists: Partial<Record<ImportFieldKey, { list: readonly string[]; title: string }>> = {
+    progress: { list: PROJECT_PROGRESSES.map((progress) => PROGRESS_LABELS[progress]), title: "Progress" },
+    status: { list: TRACK_STATUSES.map((status) => TRACK_STATUS_LABELS[status]), title: "Status" },
+  };
+  const columns = IMPORT_FIELDS.filter((field) => keys.includes(field.key));
+  return columns.flatMap((field, column) => (lists[field.key] ? [{ column, ...lists[field.key]! }] : []));
+}
