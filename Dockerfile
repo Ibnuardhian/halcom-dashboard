@@ -35,6 +35,9 @@ CMD ["npm", "run", "dev"]
 
 FROM tooling AS deps
 COPY package.json package-lock.json .npmrc ./
+# `npm ci` runs the postinstall script (prisma generate), which needs the schema and the Prisma config.
+COPY prisma/schema.prisma ./prisma/schema.prisma
+COPY prisma7.config.ts ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM deps AS builder

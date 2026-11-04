@@ -1,8 +1,8 @@
 name: Deploy to Hostinger
 
-# Builds the two images (app and migrator) in GitHub, pushes them to GHCR, and runs deploy/deploy.sh on the VPS over SSH.
+# Sends the chosen commit to the VPS over SSH (git archive, so the VPS needs no GitHub token) and runs deploy/deploy-vps.sh there:
+# build the images, dump the database, migrate, restart the app, check its health, roll back the image if it is not healthy.
 # Started by hand only, and the `production` environment holds it until a reviewer approves.
-# No personal token is used: GHCR takes the job's own GITHUB_TOKEN, and the VPS logs in to GHCR with that same short-lived token.
 
 on:
   workflow_dispatch:
@@ -20,70 +20,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  image:
-    name: Build and push images
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      tag: ${{ steps.names.outputs.tag }}
-      app_image: ${{ steps.names.outputs.app_image }}
-      migrate_image: ${{ steps.names.outputs.migrate_image }}
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          ref: ${{ inputs.ref }}
-      - name: Image names
-        id: names
-        run: |
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          repo="${GITHUB_REPOSITORY#*/}"
-          repo="${repo,,}"
-          {
-            echo "tag=$(git rev-parse --short=12 HEAD)"
-            echo "app_image=ghcr.io/${owner}/${repo}"
-            echo "migrate_image=ghcr.io/${owner}/${repo}-migrate"
-          } >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push the app image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: .
-          target: runner
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.names.outputs.app_image }}:${{ steps.names.outputs.tag }}
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=gha,scope=app
-          cache-to: type=gha,scope=app,mode=max
-      - name: Build and push the migrator image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: .
-          target: migrator
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.names.outputs.migrate_image }}:${{ steps.names.outputs.tag }}
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=gha,scope=migrate
-          cache-to: type=gha,scope=migrate,mode=max
-
   deploy:
     name: Deploy on the VPS
-    needs: image
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     environment: production
-    permissions:
-      contents: read
-      packages: read
     env:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
@@ -111,18 +52,11 @@ jobs:
             echo "  IdentitiesOnly yes"
             echo "  StrictHostKeyChecking yes"
           } > ~/.ssh/config
-      - name: Copy the compose file and the deploy script
-        run: scp compose.prod.yaml deploy/deploy.sh vps:/opt/halcom/
-      - name: Let the VPS pull the private images (token lives for this job only)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: printf '%s' "$GH_TOKEN" | ssh vps "docker login ghcr.io -u github-actions --password-stdin"
+      - name: Copy the source, the compose file and the script
+        run: |
+          git archive --format=tar.gz HEAD | ssh vps "rm -rf /opt/halcom/src && mkdir -p /opt/halcom/src && tar -xz -C /opt/halcom/src"
+          scp deploy/compose.hostinger.yaml deploy/deploy-vps.sh vps:/opt/halcom/
       - name: Run the deploy script
-        env:
-          APP_IMAGE: ${{ needs.image.outputs.app_image }}
-          MIGRATE_IMAGE: ${{ needs.image.outputs.migrate_image }}
-          IMAGE_TAG: ${{ needs.image.outputs.tag }}
-        run: ssh vps "APP_IMAGE='${APP_IMAGE}' MIGRATE_IMAGE='${MIGRATE_IMAGE}' IMAGE_TAG='${IMAGE_TAG}' bash /opt/halcom/deploy.sh"
-      - name: Forget the registry login on the VPS
-        if: always()
-        run: ssh vps "docker logout ghcr.io" || true
+        run: |
+          tag="$(git rev-parse --short=12 HEAD)"
+          ssh vps "IMAGE_TAG='${tag}' bash /opt/halcom/deploy-vps.sh"

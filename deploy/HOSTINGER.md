@@ -1,3 +1,5 @@
+> **Jalur alternatif (GHCR, `compose.prod.yaml`, `deploy.sh`) sudah tidak dipakai.** Server yang berjalan memakai `compose.hostinger.yaml` dan workflow `Deploy to Hostinger` yang mengirim kode lewat SSH; lihat [HOSTINGER-DOCKER-MANAGER.md](HOSTINGER-DOCKER-MANAGER.md). Dokumen ini hanya referensi bila nanti pindah ke GHCR.
+
 # Deploy to the Hostinger VPS (runbook)
 
 Satu VPS, dua container (`app` dan `db`), Caddy di host untuk HTTPS. Image dibangun di GitHub Actions dan ditarik dari GHCR. Keputusan: D-065.
