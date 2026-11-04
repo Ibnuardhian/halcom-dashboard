@@ -229,8 +229,8 @@ describe("email text from the team template", () => {
 });
 
 describe("email templates", () => {
-  it("both default templates are valid", () => {
-    for (const team of ["SOA", "PURCHASING"] as const) {
+  it("every default template is valid, including the Sales one for the PO (HITPO)", () => {
+    for (const team of ["SOA", "PURCHASING", "SALES"] as const) {
       expect(validateTemplate(DEFAULT_TEMPLATES[team].subject, DEFAULT_TEMPLATES[team].body)).toEqual([]);
     }
   });

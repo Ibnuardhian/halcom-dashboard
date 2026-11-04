@@ -369,7 +369,10 @@ test.describe("projects and requests", () => {
       await form.getByRole("button", { name: "Simpan email SOA" }).click();
       await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
     }).toPass();
-    await expect(root.getByText("Pratinjau dengan data contoh").first()).toBeVisible();
+    // The preview opens in a modal, for every template including the Sales one (HITPO).
+    await root.getByRole("button", { name: "Pratinjau Sales (HITPO)" }).click();
+    await expect(root.getByRole("dialog").getByText("Memakai data contoh")).toBeVisible();
+    await expect(root.getByRole("dialog").getByText(/Mohon konfirmasi setelah PO diproses/)).toBeVisible();
     await root.context().close();
   });
 

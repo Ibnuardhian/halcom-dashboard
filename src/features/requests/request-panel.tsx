@@ -41,13 +41,15 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
   const mayRevise = can(viewer.role, "requests.revise") && request.type === "BOQ" && request.status === "COMPLETED" && (viewer.role !== "SALES" || ownsProject);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
+  // The PO is written by Sales to Purchasing (HITPO), so it has a template of its own; the other types use their receiving team's.
+  const emailSetting = request.type === "PO" ? await getTeamSetting(getDb(), "SALES") : setting;
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
   // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
   const people = can(viewer.role, "requests.edit-dates") ? await requesterChoices(request) : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
-    ? buildRequestEmail(request, { subject: setting.emailSubject, body: setting.emailBody, sla: setting.sla, dueAt: sla.dueAt, to: setting.emailTo, cc: setting.emailCc })
+    ? buildRequestEmail(request, { subject: emailSetting.emailSubject, body: emailSetting.emailBody, sla: setting.sla, dueAt: sla.dueAt, to: emailSetting.emailTo, cc: emailSetting.emailCc })
     : null;
 
   return (

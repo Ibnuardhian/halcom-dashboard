@@ -42,14 +42,14 @@ export function TeamEmailForm({ role, label, subject, body, emailTo, emailCc }: 
       <input type="hidden" name="role" value={role} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${role}-to`}>Kirim ke (To)</Label>
+          <Label htmlFor={`${role}-to`}>To</Label>
           <Input id={`${role}-to`} name="emailTo" defaultValue={emailTo} maxLength={2000} autoComplete="off" placeholder={`contoh: ${role === "SOA" ? "soa" : "purchasing"}@halcominovasi.co.id`} />
-          <span className="text-xs text-muted-foreground">Pisahkan beberapa alamat dengan koma atau titik koma. Kosong: memakai pengaturan server (EMAIL_TO_HIT*).</span>
+          <span className="text-xs text-muted-foreground">Pisahkan alamat dengan koma. Kosong: memakai pengaturan server (EMAIL_TO_HIT*).</span>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${role}-cc`}>Tembusan (CC)</Label>
+          <Label htmlFor={`${role}-cc`}>Cc</Label>
           <Input id={`${role}-cc`} name="emailCc" defaultValue={emailCc} maxLength={2000} autoComplete="off" placeholder="contoh: manajer@halcominovasi.co.id" />
-          <span className="text-xs text-muted-foreground">Alamat yang sudah ada di To tidak diulang di CC. Dipakai bila To diisi.</span>
+          <span className="text-xs text-muted-foreground">Alamat yang sudah ada di To tidak diulang di Cc.</span>
         </div>
       </div>
       <div className="flex flex-col gap-1.5">

@@ -51,6 +51,19 @@ describe("saveTeamSetting", () => {
     expect(await getTeamSetting(db, "PURCHASING")).toMatchObject({ sla: { minDays: 3, maxDays: 3 }, emailBody: "Purchasing: {{request_id}}" });
   });
 
+  it("keeps a template of its own for the Sales PO email (HITPO), apart from Purchasing", async () => {
+    const root = await makeUser("SUPERADMIN");
+    await saveTeamSetting(db, actor(root), { role: "PURCHASING", emailSubject: "[{{request_id}}] RFQ", emailBody: "RFQ: {{request_id}}", emailTo: "buy@halcom.example" });
+    expect(await getTeamSetting(db, "SALES")).toMatchObject({ isDefault: true, emailBody: DEFAULT_TEMPLATES.SALES.body });
+
+    expect(await saveTeamSetting(db, actor(root), { role: "SALES", emailSubject: "[{{request_id}}] PO", emailBody: "PO: {{request_id}}", emailTo: "buy@halcom.example" })).toMatchObject({ ok: true });
+    expect(await getTeamSetting(db, "SALES")).toMatchObject({ isDefault: false, emailSubject: "[{{request_id}}] PO", emailBody: "PO: {{request_id}}", emailTo: "buy@halcom.example" });
+    expect(await getTeamSetting(db, "PURCHASING")).toMatchObject({ emailBody: "RFQ: {{request_id}}" });
+
+    expect(await saveTeamSetting(db, actor(root), { role: "SALES", restoreDefaults: true })).toMatchObject({ ok: true });
+    expect(await getTeamSetting(db, "SALES")).toMatchObject({ emailBody: DEFAULT_TEMPLATES.SALES.body });
+  });
+
   it("refuses everyone but the superadmin, an SLA outside 1 to 3 days, and a bad template", async () => {
     const root = await makeUser("SUPERADMIN");
     for (const role of ["ADMIN", "SALES", "SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
@@ -59,13 +72,13 @@ describe("saveTeamSetting", () => {
     }
     expect(await saveTeamSetting(db, actor(root), { ...valid, emailSubject: "No id here" })).toMatchObject({ ok: false, message: expect.stringContaining("{{request_id}}") });
     expect(await saveTeamSetting(db, actor(root), { ...valid, emailBody: "Hello {{nobody}}" })).toMatchObject({ ok: false, message: expect.stringContaining("{{nobody}}") });
-    expect(await saveTeamSetting(db, actor(root), { ...valid, role: "SALES" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await saveTeamSetting(db, actor(root), { ...valid, role: "FINANCE" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });
 
-  it("the database refuses a role other than SOA or Purchasing and an SLA outside 1 to 7 days or running backwards", async () => {
+  it("the database refuses a role other than SOA, Purchasing or Sales and an SLA outside 1 to 7 days or running backwards", async () => {
     const data = { slaMinDays: 2, slaDays: 3, emailSubject: "s", emailBody: "b" };
     await expect(db.teamSetting.create({ data: { role: "SOA", ...data, slaMinDays: 4 } })).rejects.toThrow(/team_settings_sla_range_chk/);
-    await expect(db.teamSetting.create({ data: { role: "SALES", ...data } })).rejects.toThrow(/team_settings_role_chk/);
+    await expect(db.teamSetting.create({ data: { role: "FINANCE", ...data } })).rejects.toThrow(/team_settings_role_chk/);
     await expect(db.teamSetting.upsert({ where: { role: "SOA" }, create: { role: "SOA", ...data }, update: { slaDays: 8 } })).rejects.toThrow(/team_settings_sla_range_chk/);
   });
 });

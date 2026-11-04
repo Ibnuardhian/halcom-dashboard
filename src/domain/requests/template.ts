@@ -95,13 +95,37 @@ const DEFAULT_BODY = [
   "{{requested_by}}",
 ].join("\n");
 
-/** What each team's email looks like until the superadmin changes it. */
-export const DEFAULT_TEMPLATES: Record<"SOA" | "PURCHASING", TeamTemplate> = {
-  SOA: { subject: "{{type_tag}} {{end_user}} - {{project_name}} [{{request_id}}]", body: DEFAULT_BODY, sla: DEFAULT_SLA },
-  PURCHASING: { subject: "{{type_tag}} {{end_user}} - {{project_name}} [{{request_id}}]", body: DEFAULT_BODY, sla: DEFAULT_SLA },
+/** The PO is written by Sales to Purchasing (HITPO): it asks for a confirmation, not for an answer by a due date. */
+const PO_BODY = [
+  "Dear {{team}},",
+  "",
+  "{{ask}}",
+  "{{details}}",
+  "",
+  "Project   : {{project_name}}",
+  "Needed by : {{needed_by}}",
+  "Sumber    : {{source_request}}",
+  "",
+  "Mohon konfirmasi setelah PO diproses, dan pertahankan {{request_id}} di subjek.",
+  "{{link}}",
+  "",
+  "Terima kasih,",
+  "{{requested_by}}",
+].join("\n");
+
+const SUBJECT = "{{type_tag}} {{end_user}} - {{project_name}} [{{request_id}}]";
+
+/**
+ * What each template looks like until the superadmin changes it. SOA and Purchasing are the receiving teams (BOQ; RFQ). SALES is the
+ * HITPO template: the PO that Sales write to Purchasing. Its SLA is not used: a PO is timed by the Purchasing SLA.
+ */
+export const DEFAULT_TEMPLATES: Record<TemplateTeam, TeamTemplate> = {
+  SOA: { subject: SUBJECT, body: DEFAULT_BODY, sla: DEFAULT_SLA },
+  PURCHASING: { subject: SUBJECT, body: DEFAULT_BODY, sla: DEFAULT_SLA },
+  SALES: { subject: SUBJECT, body: PO_BODY, sla: DEFAULT_SLA },
 };
 
-export const TEMPLATE_TEAMS = ["SOA", "PURCHASING"] as const;
+export const TEMPLATE_TEAMS = ["SOA", "PURCHASING", "SALES"] as const;
 export type TemplateTeam = (typeof TEMPLATE_TEAMS)[number];
 
 /** Sample values for the preview on the settings page. */

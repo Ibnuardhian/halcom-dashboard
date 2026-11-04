@@ -13,7 +13,7 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   await expect(page.getByRole("heading", { level: 1, name: "SLA" })).toBeVisible();
   await expect(page.getByLabel(/^SLA tim SOA/)).toBeVisible();
   await expect(page.getByLabel(/^SLA tim Purchasing/)).toBeVisible();
-  await expect(page.getByLabel("Kirim ke (To)")).toHaveCount(0);
+  await expect(page.getByLabel("To", { exact: true })).toHaveCount(0);
 
   // Email page: recipients and template of each team, no SLA boxes. The old per-team addresses lead to their section.
   await page.goto("/admin/settings/purchasing");
@@ -27,21 +27,21 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   const to = `purch-${stamp}@halcominovasi.co.id`;
   const cc = `boss-${stamp}@halcominovasi.co.id`;
   await expect(async () => {
-    await purchasing.getByLabel("Kirim ke (To)").fill("bukan alamat");
+    await purchasing.getByLabel("To", { exact: true }).fill("bukan alamat");
     await purchasing.getByRole("button", { name: "Simpan email Purchasing" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Alamat email tidak valid" })).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 45_000 });
 
-  await purchasing.getByLabel("Kirim ke (To)").fill(to);
-  await purchasing.getByLabel("Tembusan (CC)").fill(`${to}, ${cc}`);
+  await purchasing.getByLabel("To", { exact: true }).fill(to);
+  await purchasing.getByLabel("Cc", { exact: true }).fill(`${to}, ${cc}`);
   await purchasing.getByRole("button", { name: "Simpan email Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Tersimpan" })).toBeVisible();
   // The boxes keep what was saved; the address already in To is not repeated in CC.
-  await expect(purchasing.getByLabel("Kirim ke (To)")).toHaveValue(to);
-  await expect(purchasing.getByLabel("Tembusan (CC)")).toHaveValue(cc);
+  await expect(purchasing.getByLabel("To", { exact: true })).toHaveValue(to);
+  await expect(purchasing.getByLabel("Cc", { exact: true })).toHaveValue(cc);
   await page.reload();
-  await expect(purchasing.getByLabel("Kirim ke (To)")).toHaveValue(to);
-  await expect(soa.getByLabel("Kirim ke (To)")).not.toHaveValue(to);
+  await expect(purchasing.getByLabel("To", { exact: true })).toHaveValue(to);
+  await expect(soa.getByLabel("To", { exact: true })).not.toHaveValue(to);
 
   // Saving the SLA leaves the recipients alone.
   await page.goto("/admin/settings/sla");
@@ -54,10 +54,10 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   await page.getByRole("button", { name: "Simpan SLA Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Tersimpan|Tidak ada perubahan/ })).toBeVisible();
   await page.goto("/admin/settings/email");
-  await expect(page.locator("#purchasing").getByLabel("Kirim ke (To)")).toHaveValue(to);
+  await expect(page.locator("#purchasing").getByLabel("To", { exact: true })).toHaveValue(to);
 
-  await purchasing.getByLabel("Kirim ke (To)").fill("");
-  await purchasing.getByLabel("Tembusan (CC)").fill("");
+  await purchasing.getByLabel("To", { exact: true }).fill("");
+  await purchasing.getByLabel("Cc", { exact: true }).fill("");
   await purchasing.getByRole("button", { name: "Simpan email Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Tersimpan" })).toBeVisible();
 });
