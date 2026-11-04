@@ -195,8 +195,10 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         {folded ? null : inColumn.length === 0 ? (
           <p className="px-1 pb-2 text-xs text-muted-foreground">None.</p>
         ) : (
-          // Completed is the long column, so its cards sit in two columns instead of one tall stack.
-          <ul className={cn("gap-2", status === "COMPLETED" ? "grid sm:grid-cols-2" : "flex flex-col")}>{inColumn.map(renderCard)}</ul>
+          // Completed is the long column, so its cards sit in two columns instead of one tall stack. Each column scrolls inside itself, so the page stays short.
+          <ul tabIndex={0} aria-label={`Kartu ${REQUEST_STATUS_LABELS[status]}`} className={cn("max-h-[calc(100svh-16rem)] min-h-24 gap-2 overflow-y-auto pr-1", status === "COMPLETED" ? "grid sm:grid-cols-2" : "flex flex-col")}>
+            {inColumn.map(renderCard)}
+          </ul>
         )}
       </section>
     );

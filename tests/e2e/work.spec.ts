@@ -42,6 +42,14 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
  * Drags a request's card to a column of its board: the only place SOA and Purchasing change a status. The page is searched for the
  * request code so its card is on the board whatever else is there. A cancellation (or reopening) asks for a reason first.
  */
+/** Revision and Cancelled are folded until opened; a card dropped there is not shown until then. */
+async function openColumn(page: Page, column: string): Promise<void> {
+  const section = page.locator(`[data-column="${column}"]`);
+  await section.waitFor(); // the page may still be loading after a reload
+  const toggle = section.getByRole("button", { expanded: false });
+  if (await toggle.count()) await toggle.click();
+}
+
 async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, column: string, reason?: string): Promise<void> {
   await expect(async () => {
     await page.goto(`/requests/${type.toLowerCase()}?view=board&q=${code}`);
@@ -56,12 +64,14 @@ async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, co
       await page.getByRole("dialog").getByLabel("Reason").fill(reason, { timeout: 3000 });
       await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Reopen request)$/ }).click({ timeout: 3000 });
     }
+    await openColumn(page, column);
     await expect(target.locator(`[data-request="${code}"]`)).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
   // The card moves at once; the board says so when the server has saved it. Only then is it safe to reload.
   await expect(page.getByRole("status").filter({ hasText: `${code} is now` })).toBeVisible({ timeout: 15_000 });
   // It stays there after a reload: the move was saved, not only shown.
   await page.reload();
+  await openColumn(page, column);
   await expect(page.locator(`[data-column="${column}"] [data-request="${code}"]`)).toBeVisible();
 }
 
@@ -685,11 +695,11 @@ test.describe("projects and requests", () => {
     await moveCard(soa, "BOQ", boq, "COMPLETED");
     await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
     await expect(soa.getByRole("dialog")).toHaveCount(0);
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}?request=${boq}#requests`);
     await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
     await moveCard(soa, "BOQ", boq, "COMPLETED");
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     // The project page holds both requests; the history belongs to the BOQ that is open.
     const boqPanel = soa.locator(`li#request-${boq}`);
     await boqPanel.getByText(/^Status history/).click();
@@ -724,11 +734,12 @@ test.describe("projects and requests", () => {
     await expect(soa.locator(`[data-column="SUBMITTED"] [data-request="${boq}"]`)).toBeVisible();
 
     await moveCard(soa, "BOQ", boq, "CANCELLED", "Customer cancelled the tender");
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await soa.getByText(/^Status history/).click(); // the history is collapsed at the end of the page
     await expect(soa.getByRole("cell", { name: "Customer cancelled the tender" })).toBeVisible();
     // Cancelled is final: the card cannot be dragged on.
     await soa.goto(`/requests/boq?view=board&q=${boq}`);
+    await openColumn(soa, "CANCELLED");
     await expect(soa.locator(`[data-column="CANCELLED"] [data-request="${boq}"]`)).toHaveAttribute("draggable", "false");
     await soa.context().close();
   });

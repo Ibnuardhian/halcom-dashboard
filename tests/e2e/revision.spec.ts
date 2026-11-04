@@ -80,6 +80,7 @@ test("Sales send a completed BOQ back for a revision: it goes straight to Revisi
   await expect(item).toContainText("Add four more cameras at the gate");
   await expect(item.locator("div[data-slot='card']")).toHaveClass(/border-destructive/);
   await page.goto(`/requests/boq?view=board&q=${code}`);
+  await page.locator('[data-column="REVISION"]').getByRole("button", { expanded: false }).click(); // folded until opened
   await expect(page.locator(`[data-column="REVISION"] [data-request="${code}"]`)).toBeVisible();
 });
 
