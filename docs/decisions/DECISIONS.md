@@ -911,3 +911,7 @@ A template a superadmin has already saved is not changed; "restore defaults" on 
 ## D-070: The email preview and the draft are in Indonesian (2026-11-04)
 
 **Asked by the owner.** The email panel (labels Kepada, Cc, Subjek, Isi email; the buttons "Buka di Outlook (MailTo)", "Unduh draf Outlook (.eml)", "Salin"; the notices) and the text of the draft are in Indonesian: the greeting names "Tim SOA" / "Tim Purchasing", the ask line and the next action are Indonesian, dates use Indonesian month abbreviations (Mei, Agu, Okt, Des), a missing date reads "Belum ditentukan", and a source BOQ reads "(selesai)". The template editor's examples follow. `{{summary}}` is the request title, which is the project name (D-059); the default text does not use it because it only repeats the project name. It stays a valid variable so a template saved earlier that contains it still renders.
+
+## D-071: Board cards are listed newest status first (2026-11-04)
+
+**Asked by the owner.** In every column of the request board (BOQ, RFQ, PO and the combined view) the cards are ordered by when they last moved into their current status, newest on top. `RequestRow.statusChangedAt` is the latest status-history step into the current status (the creation for a request never moved; a reopened request counts from the reopening). A card dropped on a column goes to its top at once. The folded Revision and Cancelled columns and the two-column Completed column of D-061 are unchanged.

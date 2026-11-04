@@ -47,13 +47,12 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
   const accepts = (card: RequestRow | null, to: RequestStatus) => card !== null && movable[card.type] && allowedTransitions(card.status, card.type).includes(to);
 
   function move(card: RequestRow, to: RequestStatus, why?: string) {
-    const before = card.status;
-    setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: to } : row)));
+    setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: to, statusChangedAt: new Date() } : row)));
     setMessage(null);
     startTransition(async () => {
       const result = await moveRequestAction(card.id, to, why);
       if (!result.ok) {
-        setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: before } : row)));
+        setCards((current) => current.map((row) => (row.id === card.id ? card : row)));
         setMessage({ ok: false, text: result.message });
         return;
       }
@@ -160,7 +159,8 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
 
   /** One column. Revision and Cancelled are folded: only their name and number show until opened, and a card can still be dropped on them. */
   function renderColumn(status: RequestStatus) {
-    const inColumn = cards.filter((row) => columnOf(row.status) === status);
+    // Newest status change on top, in every column.
+    const inColumn = cards.filter((row) => columnOf(row.status) === status).sort((a, b) => +new Date(b.statusChangedAt) - +new Date(a.statusChangedAt));
     const droppable = accepts(dragging, status);
     const folded = FOLDED.has(status) && !opened.has(status);
     return (

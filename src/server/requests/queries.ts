@@ -406,6 +406,8 @@ export type RequestRow = {
   assigneeName: string | null;
   requiredBy: Date | null;
   createdAt: Date;
+  /** When the request last moved into its current status; the board lists the newest first. */
+  statusChangedAt: Date;
   /** When the owning team should have answered by, and where the request stands against it. */
   sla: Sla;
   /** Sales decided not to continue to the next step after this request. */
@@ -511,6 +513,8 @@ function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeo
     assigneeName: request.pic?.name ?? null,
     requiredBy: request.requiredBy,
     createdAt: request.createdAt,
+    // The latest move into the current status (a reopened request counts from the reopening); a request never moved dates from its creation.
+    statusChangedAt: request.statusHistory.reduce((latest, step) => (step.toStatus === request.status && step.changedAt > latest ? step.changedAt : latest), request.createdAt),
     flowStopped: request.flowStoppedAt !== null,
     overdueNote: request.overdueNote,
     overdueDays: sla.state === "overdue" ? overdueWorkingDays(sla.dueAt, now) : sla.state === "late" && request.completedAt ? overdueWorkingDays(sla.dueAt, request.completedAt) : null,
