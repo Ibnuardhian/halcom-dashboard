@@ -41,6 +41,7 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   await expect(purchasing.getByLabel("Cc", { exact: true })).toHaveValue(cc);
   await page.reload();
   await expect(purchasing.getByLabel("To", { exact: true })).toHaveValue(to);
+  await page.getByRole("tab", { name: "SOA (BOQ)" }).click();
   await expect(soa.getByLabel("To", { exact: true })).not.toHaveValue(to);
 
   // Saving the SLA leaves the recipients alone.
@@ -54,6 +55,7 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   await page.getByRole("button", { name: "Simpan SLA Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Tersimpan|Tidak ada perubahan/ })).toBeVisible();
   await page.goto("/admin/settings/email");
+  await page.getByRole("tab", { name: "Purchasing (RFQ)" }).click(); // the SOA tab opens first
   await expect(page.locator("#purchasing").getByLabel("To", { exact: true })).toHaveValue(to);
 
   await purchasing.getByLabel("To", { exact: true }).fill("");
