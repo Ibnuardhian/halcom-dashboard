@@ -33,7 +33,8 @@ test("a superadmin changes a user's e-mail, who then signs in with it; an admin 
   await expect(async () => {
     await form.getByLabel(`Email for ${email}`).fill(next);
     await form.getByRole("button", { name: "Change email" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Email diubah." })).toBeVisible({ timeout: 4000 });
+    // The saved address is in the table; the status line can already be gone when the list is rebuilt.
+    await expect(page.getByRole("cell", { name: next, exact: true })).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
   await expect(page.getByRole("cell", { name: next, exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: email, exact: true })).toHaveCount(0);

@@ -156,7 +156,7 @@ test.describe("projects and requests", () => {
 
   test("Propose (30%) means the quotation was submitted: its date is filled in, stays editable, and can be cleared", async ({ page }) => {
     test.setTimeout(150_000);
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    const today = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta" }).format(new Date());
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Propose demo");
     const commercial = page.locator("#commercial");
@@ -192,6 +192,7 @@ test.describe("projects and requests", () => {
     await save();
     await page.goto(`/projects/${projectCode}`);
     await expect(quote).toHaveValue("");
+    await page.goto(`/projects/${projectCode}#technical`); // the change log is on the Technical tab
     await expect(page.getByRole("list", { name: "Change log" })).toContainText("Quote released");
   });
 
@@ -202,11 +203,11 @@ test.describe("projects and requests", () => {
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "60% - Negotiate" });
     await commercial.getByLabel("Status").selectOption({ label: "On Hold" });
-    await commercial.getByLabel("Quote released").fill("01/10/2026");
+    await commercial.getByLabel("Quote released", { exact: true }).fill("01/10/2026");
     await expect(commercial.getByLabel(/Probability/)).toHaveCount(0); // the probability comes from Progress
     await commercial.getByLabel("Gross Profit").fill("150000");
     await page.getByRole("button", { name: "Save commercial details" }).click();
-    await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /Disimpan dan dicatat/ })).toBeVisible();
 
     await page.reload();
     await expect(page.locator("#commercial").getByLabel("Gross Profit")).toHaveValue("150.000");
@@ -223,7 +224,7 @@ test.describe("projects and requests", () => {
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/projects/${projectCode}`);
-    await expect(soa.getByRole("heading", { level: 2, name: "Commercial" })).toBeVisible();
+    await expect(soa.getByRole("tab", { name: "Commercial", exact: true })).toBeVisible();
     await expect(soa.getByRole("button", { name: "Save commercial details" })).toHaveCount(0);
     await soa.context().close();
   });
@@ -299,9 +300,9 @@ test.describe("projects and requests", () => {
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
     await commercial.getByLabel("Final PO value").fill("400");
     await commercial.getByLabel("Gross Profit").fill("40"); // 10% of 400
-    await commercial.getByLabel("Won date").fill(`${year}-02-10`);
+    await commercial.getByLabel("Won date", { exact: true }).fill(`10/02/${year}`);
     await page.getByRole("button", { name: "Save commercial details" }).click();
-    await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /Disimpan dan dicatat/ })).toBeVisible();
 
     await page.goto(`/targets?year=${year}`);
     await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
@@ -351,7 +352,7 @@ test.describe("projects and requests", () => {
         await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();
         await expect(page).toHaveURL(new RegExp(`/projects\\?show=${show}&mine=1$`), { timeout: 3000 });
       }).toPass();
-      await expect(page.getByRole("status")).toContainText("yours");
+      await expect(page.getByRole("status").first()).toContainText("yours");
     }
   });
 
@@ -388,7 +389,7 @@ test.describe("projects and requests", () => {
       chosen = options[options.length - 1]!;
       await soa.selectOption(chosen);
       await root.getByRole("button", { name: "Move project" }).click();
-      await expect(root.getByRole("status").filter({ hasText: /was moved/ })).toBeVisible({ timeout: 1500 });
+      await expect(root.getByRole("status").filter({ hasText: /Project dipindahkan/ })).toBeVisible({ timeout: 1500 });
     }).toPass();
     // The box keeps the PIC that was saved (React clears a form after its action, so it must be rebuilt from the new value).
     await expect(soa).toHaveValue(chosen);
@@ -479,8 +480,8 @@ test.describe("projects and requests", () => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Pipeline demo");
 
-    for (const heading of ["Overview", "Technical", "Activity", "Requests"]) {
-      await expect(page.getByRole("heading", { level: 2, name: heading, exact: true })).toBeVisible();
+    for (const tab of ["Commercial", "Technical", "Activity", "Requests"]) {
+      await expect(page.getByRole("tab", { name: tab, exact: true })).toBeVisible();
     }
     await expect(page.getByText("5% - Qualify").first()).toBeVisible(); // a new project starts at the first step
     await expect(page.locator("#overview").getByText("Sales PIC", { exact: true })).toBeVisible();
@@ -535,12 +536,15 @@ test.describe("projects and requests", () => {
     await expect(latest).not.toContainText("Held the kickoff meeting");
     await expect(soa.getByRole("list", { name: "Latest next action" })).toContainText("Send the BOQ to the distributor");
 
-    // The technical form is there too, and there is no way to edit commercial fields.
+    // The technical form is there too (on its own tab), and there is no way to edit commercial fields.
+    await soa.getByRole("tab", { name: "Technical", exact: true }).click();
     await expect(soa.getByRole("button", { name: "Save technical details" })).toBeVisible();
     await expect(soa.getByLabel(/Estimated value|Probability|Final value/)).toHaveCount(0);
 
     // Sales sees the same project and feed, with no way to post.
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#activity`);
+    await page.reload(); // only the hash changed, so the page still shows the feed from before SOA posted
+    await expect(page.getByRole("list", { name: "Update feed" })).toBeVisible(); // the Activity tab is open before anything is counted
     await expect(page.getByRole("button", { name: "Post update" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Save technical details" })).toHaveCount(0);
     await expect(page.getByRole("list", { name: "Update feed" }).getByRole("listitem")).toHaveCount(4);
@@ -705,11 +709,12 @@ test.describe("projects and requests", () => {
     await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
     await moveCard(soa, "BOQ", boq, "COMPLETED");
-    await soa.goto(`/projects/${projectCode}#requests`);
+    await soa.goto(`/projects/${projectCode}?request=${boq}#requests`);
     // The project page holds both requests; the history belongs to the BOQ that is open.
     const boqPanel = soa.locator(`li#request-${boq}`);
-    await boqPanel.getByText(/^Status history/).click();
-    await expect(boqPanel.getByRole("table").getByRole("cell", { name: "Revision" }).first()).toBeVisible();
+    const history = boqPanel.locator("details").filter({ hasText: /^Status history/ });
+    if ((await history.getAttribute("open")) === null) await history.getByText(/^Status history/).click();
+    await expect(history.getByRole("cell", { name: "Completed → Revision" })).toBeVisible();
 
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);
@@ -819,7 +824,7 @@ test.describe("superadmin modules", () => {
 
     await page.getByRole("button", { name: "Create backup now" }).click();
 
-    await expect(page.getByRole("status").filter({ hasText: /Backup written: halcom-\d{8}-\d{6}Z\.dump/ })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("status").filter({ hasText: /Backup tersimpan: halcom-\d{8}-\d{6}Z\.dump/ })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("cell", { name: /^halcom-\d{8}-\d{6}Z\.dump$/ }).first()).toBeVisible();
 
     await page.goto("/admin/audit");
