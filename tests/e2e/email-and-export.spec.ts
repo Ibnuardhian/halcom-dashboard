@@ -234,7 +234,7 @@ test("the email draft of a request opens by itself after Continue (?email=1) and
   await expect(email).toBeVisible({ timeout: 30_000 });
   await expect(page).not.toHaveURL(/email=1/);
   const download = page.waitForEvent("download");
-  await email.getByRole("button", { name: "Download Outlook draft (.eml)" }).click();
+  await email.getByRole("button", { name: "Unduh draf Outlook (.eml)" }).click();
   const file = await download;
   expect(file.suggestedFilename()).toMatch(/\.eml$/);
   expect(readFileSync((await file.path())!, "utf8")).toContain("X-Unsent: 1");

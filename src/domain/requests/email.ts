@@ -8,7 +8,7 @@ import { REQUEST_TYPE_LABELS, SUBJECT_TAGS, type RequestType } from "./types";
  * configuration and are passed in.
  */
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"] as const;
 
 const RECIPIENT_TEXT = z.email();
 
@@ -20,19 +20,19 @@ export function singleLine(value: string): string {
 /** What the team is asked to do and what it should do next, by type of request: the {{ask}} and {{next_action}} variables. */
 export const INTENT: Record<RequestType, { team: string; ask: string; next: string }> = {
   BOQ: {
-    team: "SOA team",
+    team: "Tim SOA",
     ask: "Mohon dibuatkan BOQ / solusi teknis untuk kebutuhan berikut.",
-    next: "Review the request, ask Sales for any missing information, then prepare and complete the BOQ.",
+    next: "Tinjau request, tanyakan ke Sales bila ada yang kurang, lalu siapkan dan selesaikan BOQ.",
   },
   RFQ: {
-    team: "Purchasing team",
+    team: "Tim Purchasing",
     ask: "Mohon diberikan informasi Cost / harga item untuk kebutuhan berikut.",
-    next: "Review the specification and return the quotation or item pricing.",
+    next: "Tinjau spesifikasi, lalu kirimkan quotation atau harga item.",
   },
   PO: {
-    team: "Purchasing team",
+    team: "Tim Purchasing",
     ask: "Mohon diproses pembelian / PO untuk kebutuhan berikut.",
-    next: "Review the specification and process the purchase.",
+    next: "Tinjau spesifikasi, lalu proses pembelian.",
   },
 };
 
@@ -59,7 +59,7 @@ export type BodyInput = {
 
 export function formatDateText(isoDate: string | null): string {
   const match = isoDate ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate) : null;
-  if (!match) return "Not specified";
+  if (!match) return "Belum ditentukan";
   return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1] ?? match[2]} ${match[1]}`;
 }
 
@@ -86,7 +86,7 @@ export function templateValues(input: BodyInput): TemplateValues {
     needed_by: formatDateText(input.requiredBy),
     sla_days: input.sla,
     due_date: formatDateText(input.dueDate),
-    source_request: input.sourceCode ? `${input.sourceCode} (completed)` : "",
+    source_request: input.sourceCode ? `${input.sourceCode} (selesai)` : "",
     link: input.link,
   };
 }
@@ -125,10 +125,10 @@ export function resolveRecipients(type: RequestType, env: Env): RecipientsResult
   const cc = parseRecipients(env[`EMAIL_CC_${tag}`]);
   if (to.invalid.length > 0 || cc.invalid.length > 0) {
     const bad = [...to.invalid, ...cc.invalid].join(", ");
-    return { ok: false, error: `EMAIL_TO_${tag} / EMAIL_CC_${tag} contain invalid addresses: ${bad}.` };
+    return { ok: false, error: `EMAIL_TO_${tag} / EMAIL_CC_${tag} berisi alamat yang tidak valid: ${bad}.` };
   }
   if (to.addresses.length === 0) {
-    return { ok: false, error: `EMAIL_TO_${tag} is not configured, so the recipients cannot be shown.` };
+    return { ok: false, error: `EMAIL_TO_${tag} is belum diatur, jadi penerima tidak bisa ditampilkan.` };
   }
   // An address in To is not repeated in Cc.
   const toKeys = new Set(to.addresses.map((a) => a.toLowerCase()));

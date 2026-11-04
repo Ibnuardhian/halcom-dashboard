@@ -25,9 +25,9 @@ function CopyButton({ text, label, disabled }: { text: string; label: string; di
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={copy} aria-label={`Copy ${label}`}>
+    <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={copy} aria-label={`Salin ${label}`}>
       {state === "copied" ? <Check aria-hidden data-icon="inline-start" /> : <Copy aria-hidden data-icon="inline-start" />}
-      {state === "copied" ? "Copied" : state === "failed" ? "Select and copy" : "Copy"}
+      {state === "copied" ? "Tersalin" : state === "failed" ? "Pilih lalu salin" : "Salin"}
     </Button>
   );
 }
@@ -98,23 +98,23 @@ export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigu
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Open a ready draft in your mail program, or copy each field into a new Outlook message. This application does not send email: you
-        review the draft and send it yourself.
+        Buka draf siap pakai di program email Anda, atau salin tiap bagian ke pesan baru di Outlook. Aplikasi ini tidak mengirim email: Anda
+        memeriksa draf lalu mengirimnya sendiri.
       </p>
       <div className="flex flex-col items-start gap-2">
         <div className="flex flex-wrap gap-2">
-          <a href={mailto.href} className={buttonVariants()} aria-label="Open this email in Outlook (MailTo)">
+          <a href={mailto.href} className={buttonVariants()} aria-label="Buka email ini di Outlook (MailTo)">
             <Mail aria-hidden data-icon="inline-start" />
-            Open in Outlook (MailTo)
+            Buka di Outlook (MailTo)
           </a>
           <Button type="button" variant="outline" onClick={() => downloadDraft({ to: to ?? [], cc, subject, body })}>
             <Download aria-hidden data-icon="inline-start" />
-            Download Outlook draft (.eml)
+            Unduh draf Outlook (.eml)
           </Button>
         </div>
         {!mailto.bodyIncluded ? (
           <p role="status" className="text-xs text-muted-foreground">
-            Teksnya terlalu panjang untuk tautan MailTo, jadi draf itu hanya berisi penerima dan subject. Unduh draf .eml (isinya lengkap, dibuka di Outlook), atau salin teks di bawah.
+            Teksnya terlalu panjang untuk tautan MailTo, jadi draf itu hanya berisi penerima dan subjek. Unduh draf .eml (isinya lengkap, dibuka di Outlook), atau salin teks di bawah.
           </p>
         ) : null}
         {!to ? <p className="text-xs text-muted-foreground">Draf tanpa penerima karena belum diatur.</p> : null}
@@ -122,19 +122,19 @@ export function EmailPanel({ to, cc, recipientsError, subject, body, linkConfigu
       {hint ? <p className="rounded-md border border-accent-foreground/20 bg-accent px-3 py-2 text-sm text-accent-foreground">{hint}</p> : null}
       {recipientsError ? (
         <p role="alert" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
-          Recipients are not available: {recipientsError} Ask an administrator to fix the server configuration; the subject and text below can
-          still be used.
+          Penerima tidak tersedia: {recipientsError} Minta administrator memperbaiki konfigurasi server; subjek dan isi email di bawah
+          tetap bisa dipakai.
         </p>
       ) : null}
       {!linkConfigured ? (
         <p role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
-          APP_BASE_URL is not configured, so the text has no link to this request.
+          APP_BASE_URL belum diatur, jadi isi email tidak memuat tautan ke request ini.
         </p>
       ) : null}
-      <CopyField id={`${base}-to`} label="To" value={(to ?? []).join("; ")} missing={to ? undefined : "(not configured)"} />
+      <CopyField id={`${base}-to`} label="Kepada" value={(to ?? []).join("; ")} missing={to ? undefined : "(belum diatur)"} />
       <CopyField id={`${base}-cc`} label="Cc" value={cc.join("; ")} />
-      <CopyField id={`${base}-subject`} label="Subject" value={subject} />
-      <CopyField id={`${base}-body`} label="Text" value={body} multiline />
+      <CopyField id={`${base}-subject`} label="Subjek" value={subject} />
+      <CopyField id={`${base}-body`} label="Isi email" value={body} multiline />
     </div>
   );
 }
