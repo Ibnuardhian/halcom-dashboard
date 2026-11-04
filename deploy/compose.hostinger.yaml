@@ -1,5 +1,6 @@
 # Stack for Hostinger "Docker Manager" (hPanel > VPS > Docker Manager > Compose > paste this file, or give its raw URL).
-# Interim route: the images are built on the VPS from the Git repository, so no registry or GitHub Actions is needed.
+# Interim route: the two images are built once on the VPS over SSH (commands in deploy/HOSTINGER-DOCKER-MANAGER.md), because Docker Manager
+# could not build from a private Git URL. This file only uses those local images: no `build`, no registry, no token.
 # Set the variables listed in deploy/HOSTINGER-DOCKER-MANAGER.md in the environment box of Docker Manager.
 #
 # One stack: db (PostgreSQL), migrate (runs once, before the app), app, and caddy (HTTPS for DOMAIN, certificate automatic).
@@ -12,10 +13,6 @@ x-logging: &logging
   options:
     max-size: "10m"
     max-file: "5"
-
-x-build-source: &build-source
-  # A private repository needs a read-only token: GIT_TOKEN. Use a fine-grained token with "Contents: read" on this repository only.
-  context: https://x-access-token:${GIT_TOKEN:?Set GIT_TOKEN (read-only GitHub token)}@github.com/halcom-solutions/halcom-dashboard.git#${GIT_REF:-main}
 
 services:
   db:
@@ -38,10 +35,8 @@ services:
     logging: *logging
 
   migrate:
-    build:
-      <<: *build-source
-      target: migrator
     image: halcom-dashboard-migrate:hostinger
+    pull_policy: never
     restart: "no"
     environment:
       APP_ENV: production
@@ -53,10 +48,8 @@ services:
     logging: *logging
 
   app:
-    build:
-      <<: *build-source
-      target: runner
     image: halcom-dashboard-app:hostinger
+    pull_policy: never
     restart: unless-stopped
     init: true
     environment:

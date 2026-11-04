@@ -1,6 +1,6 @@
 # Deploy lewat Docker Manager Hostinger (jalur sementara)
 
-Tujuan: aplikasi bisa dibuka lewat domain dengan HTTPS. Image dibangun di VPS dari repositori GitHub, tanpa GHCR dan tanpa GitHub Actions.
+Tujuan: aplikasi bisa dibuka lewat domain dengan HTTPS. Image dibangun sekali di VPS lewat SSH (Docker Manager tidak bisa build dari URL Git privat), lalu compose hanya memakai image itu. Tanpa GHCR dan tanpa GitHub Actions.
 Jalur penuh (backup sebelum migrasi, health check, rollback) tetap di [HOSTINGER.md](HOSTINGER.md).
 
 ## Sebelum mulai
@@ -10,6 +10,22 @@ Jalur penuh (backup sebelum migrasi, health check, rollback) tetap di [HOSTINGER
    (Untuk repositori organization, owner org mungkin harus menyetujui token.)
 3. Branch yang berisi berkas ini harus sudah di GitHub (`development`).
 
+## Bangun image lewat SSH (sebelum Docker Manager)
+
+Masuk SSH ke VPS sebagai `deploy` (user ini harus anggota grup `docker`; jika `docker ps` ditolak, tambahkan sebagai root: `usermod -aG docker deploy`, lalu login ulang). Token dibaca tanpa tampil dan tidak tersimpan:
+
+```bash
+read -rs -p "GitHub token: " GIT_TOKEN; echo
+git clone --depth 1 -b development "https://x-access-token:${GIT_TOKEN}@github.com/halcom-solutions/halcom-dashboard.git" ~/halcom-src
+cd ~/halcom-src && unset GIT_TOKEN
+docker build --target migrator -t halcom-dashboard-migrate:hostinger .
+docker build --target runner -t halcom-dashboard-app:hostinger .
+cd ~ && rm -rf ~/halcom-src
+docker images | grep halcom-dashboard
+```
+
+Untuk memperbarui versi, ulangi blok ini lalu deploy ulang di Docker Manager.
+
 ## Di hPanel → VPS → Docker Manager → Compose
 
 Isi YAML dengan `deploy/compose.hostinger.yaml` (tempel isinya, atau URL raw-nya), lalu isi variabel:
@@ -17,14 +33,12 @@ Isi YAML dengan `deploy/compose.hostinger.yaml` (tempel isinya, atau URL raw-nya
 | Variabel | Isi |
 |---|---|
 | `DOMAIN` | mis. `halcom.example.com` (tanpa `https://`) |
-| `GIT_TOKEN` | token baca-saja di atas |
-| `GIT_REF` | `development` (bawaan `main`) |
 | `POSTGRES_USER` | `halcom` |
 | `POSTGRES_PASSWORD` | acak, hanya `A-Za-z0-9-_.~` (`openssl rand -hex 24`) |
 | `POSTGRES_DB` | `halcom` |
 | `EMAIL_TO_*`, `EMAIL_CC_*` | opsional |
 
-Deploy. Build pertama beberapa menit. Urutan: `db` sehat → `migrate` jalan sekali → `app` → `caddy`.
+Deploy. Urutan: `db` sehat → `migrate` jalan sekali → `app` → `caddy`.
 Caddy menerbitkan sertifikat saat pertama diakses; kalau DNS belum benar, lihat lognya (`caddy`).
 
 ## Akun pertama
@@ -35,6 +49,6 @@ Database baru kosong dan image produksi tidak memuat `db:bootstrap-superadmin`. 
 
 - Tidak ada backup otomatis sebelum migrasi dan tidak ada rollback. Ambil dump manual sebelum memperbarui:
   `docker exec <container db> pg_dump -U halcom -Fc halcom > pra-update.dump`.
-- Memperbarui: di Docker Manager bangun ulang proyek (build tanpa cache bila perlu). Migrasi baru ikut jalan lewat `migrate`.
-- `GIT_TOKEN` terlihat di pengaturan proyek dan riwayat build. Cabut tokennya bila pindah ke jalur GHCR.
+- Memperbarui: bangun ulang image lewat SSH, lalu deploy ulang proyek. Migrasi baru ikut jalan lewat `migrate`.
+- Token GitHub hanya dipakai saat `git clone` di SSH; cabut setelah image jadi.
 - Jangan jalankan jalur ini bersamaan dengan `compose.prod.yaml` di VPS yang sama (nama proyek dan port sama).
