@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "@/components/ui/toast";
 import { APP_NAME } from "@/config/app";
 import { THEME_INIT_SCRIPT } from "@/features/theme/theme";
 import "./globals.css";
@@ -31,7 +32,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       {/* suppressHydrationWarning: browser extensions add attributes to <body> (for example cz-shortcut-listen) before React hydrates. */}
-      <body suppressHydrationWarning className="min-h-full flex flex-col">{children}</body>
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
+        {children}
+        {/* Every page, the sign-in and password pages too, shows the result of a form as a toast. */}
+        <Toaster />
+      </body>
     </html>
   );
 }

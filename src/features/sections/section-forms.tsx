@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { createPhaseAction, createSectionAction, saveSectionValuesAction, updatePhaseAction, updateSectionAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 export type SectionRecord = { id: string; label: string; kind: "TEXT" | "CHOICE"; options: string[]; isActive: boolean };
 export type PhaseRecord = { key: string; label: string; isActive: boolean };
@@ -149,8 +150,8 @@ export function ProjectSectionsForm({ projectId, projectCode, sections, values }
       </div>
       <FormStatus state={state} />
       <div>
-        <Button aria-label="Save extra sections" type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+        <Button type="submit" disabled={pending}>
+          <SaveText what="extra sections" pending={pending} />
         </Button>
       </div>
     </form>

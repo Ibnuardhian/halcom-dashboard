@@ -154,7 +154,7 @@ test.describe("SOA technical sections", () => {
     await soa.getByRole("textbox", { name: "Requirement" }).fill(`Need ${id} racks`);
     await soa.getByRole("textbox", { name: "Technical notes" }).fill(`Note ${id}`);
     await soa.getByRole("button", { name: "Save technical details" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: /saved|updated/i }).first()).toBeVisible();
+    await expect(soa.getByRole("status").filter({ hasText: /Disimpan dan dicatat|Tidak ada perubahan/ }).first()).toBeVisible();
     await soa.reload();
     await expect(soa.getByRole("textbox", { name: "Requirement" })).toHaveValue(`Need ${id} racks`);
 

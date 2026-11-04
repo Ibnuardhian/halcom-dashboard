@@ -12,6 +12,7 @@ import { PROGRESS_OPTION_LABELS, PROJECT_PROGRESSES, TRACK_STATUSES, TRACK_STATU
 import { updateCommercialDetailsAction } from "./actions";
 import { MarginInput } from "./margin-input";
 import { MoneyInput } from "./money-input";
+import { SaveText } from "@/components/ui/save-text";
 
 type Values = Record<CommercialField, string>;
 
@@ -75,8 +76,8 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
       <div className="flex flex-col gap-2 sm:col-span-2">
         <FormStatus state={state} />
         <div>
-          <Button aria-label="Save commercial details" type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save"}
+          <Button type="submit" disabled={pending}>
+            <SaveText what="commercial details" pending={pending} />
           </Button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { EXTERNAL_SOURCE_LABELS, SOURCE_FIELD_LIMITS, SOURCE_LABELS, type ExternalSource } from "@/domain/projects/source";
 import { updateProjectSourceAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 type Person = { id: string; name: string };
 
@@ -63,8 +64,8 @@ export function SourceForm({ projectId, projectCode, values, salesPeople }: { pr
       <div className="flex flex-col gap-2 sm:col-span-2">
         <FormStatus state={state} />
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" aria-label={adopt ? undefined : "Save source"} disabled={pending}>
-            {pending ? "Saving…" : adopt ? "Hand over to Sales" : "Save"}
+          <Button type="submit" disabled={pending}>
+            {adopt ? (pending ? "Saving…" : "Hand over to Sales") : <SaveText what="source" pending={pending} />}
           </Button>
           {salesPeople.length > 0 ? (
             <Button type="button" variant="outline" onClick={() => setAdopt((value) => !value)}>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { mergeCustomersAction, renameCustomerAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 /**
  * Superadmin, inside the customer window: correct the name of a customer, or merge it into another one that is the same company written
@@ -26,8 +27,8 @@ export function CustomerAdmin({ customer, others }: { customer: { id: string; na
         <Label htmlFor={`rename-${customer.id}`}>Ubah nama customer</Label>
         <div className="flex gap-2">
           <Input id={`rename-${customer.id}`} name="name" defaultValue={customer.name} maxLength={120} required autoComplete="off" />
-          <Button aria-label="Save customer name" type="submit" variant="outline" disabled={renaming}>
-            {renaming ? "Saving…" : "Save"}
+          <Button type="submit" variant="outline" disabled={renaming}>
+            <SaveText what="customer name" pending={renaming} />
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">Dipakai untuk typo. Nama baru tampil di {customer.projects} project customer ini.</p>

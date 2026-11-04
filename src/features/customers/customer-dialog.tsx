@@ -8,6 +8,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { saveCustomerIndustryAction } from "./actions";
 import { CustomerAdmin } from "./customer-admin";
+import { SaveText } from "@/components/ui/save-text";
 
 /**
  * The customer's name as a button that opens a window with the customer's details to fill in (the industry). The industry box suggests
@@ -95,8 +96,8 @@ export function CustomerDialog({
               {canEdit ? "Cancel" : "Close"}
             </button>
             {canEdit ? (
-              <Button aria-label="Save industry" type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save"}
+              <Button type="submit" disabled={pending}>
+                <SaveText what="industry" pending={pending} />
               </Button>
             ) : null}
           </div>

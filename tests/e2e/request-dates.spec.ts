@@ -46,7 +46,7 @@ test.describe("a superadmin sets the dates of a request by hand", () => {
     await expect(async () => {
       await page.getByLabel("Created *").fill("01/09/2026");
       await page.getByRole("button", { name: "Save dates" }).click();
-      await expect(page.getByText(`The dates of ${requestCode} were saved.`)).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(`Tanggal ${requestCode} tersimpan.`)).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 60_000 });
     // The requester can be corrected on the same card; a confirmation window comes first because the request code follows the new person.
     const requester = page.getByLabel("Requested by", { exact: true });

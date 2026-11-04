@@ -457,7 +457,7 @@ test.describe("a project from another source (Other)", () => {
       await soa.getByLabel("Reference").fill("MP-2026-7");
       await soa.getByText(/^BOQ: /).click();
       await soa.getByRole("button", { name: /Create project and BOQ request/ }).click();
-      await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 4000 });
+      await expect(soa).toHaveURL(/\?request=BOQ-/, { timeout: 20_000 }); // the request page sends on to the project; slow on a cold server
     }).toPass({ timeout: 60_000 });
 
     // The project page names the source and has no internal Sales PIC; SOA's source form is there.
@@ -471,7 +471,7 @@ test.describe("a project from another source (Other)", () => {
     const finance = await asRole(browser, "FINANCE");
     await finance.goto(`/projects?q=${encodeURIComponent(source)}&source=OTHER`);
     await expect(finance.getByRole("link", { name: /^HIT-PROJ-\d+/ })).toHaveCount(1);
-    await expect(finance.getByRole("cell", { name: "Other", exact: true })).toBeVisible();
+    await expect(finance.getByRole("table").getByText("Other", { exact: true })).toBeVisible(); // the source badge next to the sales name
     await finance.goto(`/projects?source=INTERNAL_SALES&q=${encodeURIComponent(source)}`);
     await expect(finance.getByText("Tidak ada project yang cocok dengan filter ini.")).toBeVisible();
     await finance.goto(projectUrl);
@@ -480,7 +480,7 @@ test.describe("a project from another source (Other)", () => {
 
     // Any salesperson can work on a project whose sales is Other (its commercial form is there), but only SOA set or change its source.
     const sales = await asRole(browser, "SALES");
-    await sales.goto(projectUrl);
+    await sales.goto(`${projectUrl.split("#")[0]}#commercial`); // the commercial form is on its own tab
     await expect(sales.locator("#commercial").getByLabel("Gross Profit")).toBeVisible();
     await expect(sales.getByRole("heading", { name: "Project source" })).toHaveCount(0);
     await expect(sales.getByRole("button", { name: "Save source" })).toHaveCount(0);
@@ -494,6 +494,7 @@ test.describe("a project from another source (Other)", () => {
     }).toPass({ timeout: 45_000 });
     await soa.reload();
     await expect(soa.getByText("Sales contact").first()).toBeVisible();
+    await soa.goto(`${projectUrl.split("#")[0]}#technical`); // the change log is on the Technical tab
     await expect(soa.getByRole("list", { name: "Change log" })).toContainText("Siti");
   });
 

@@ -719,8 +719,11 @@ test.describe("projects and requests", () => {
     // The project page holds both requests; the history belongs to the BOQ that is open.
     const boqPanel = soa.locator(`li#request-${boq}`);
     const history = boqPanel.locator("details").filter({ hasText: /^Status history/ });
-    if ((await history.getAttribute("open")) === null) await history.getByText(/^Status history/).click();
-    await expect(history.getByRole("cell", { name: "Completed → Revision" })).toBeVisible();
+    // A click before the page is interactive can be lost, so the history is opened until its rows show.
+    await expect(async () => {
+      if ((await history.getAttribute("open")) === null) await history.getByText(/^Status history/).click();
+      await expect(history.getByRole("cell", { name: "Completed → Revision" })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
 
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);

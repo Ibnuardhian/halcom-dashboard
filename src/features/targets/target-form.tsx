@@ -8,6 +8,7 @@ import { MoneyInput } from "@/features/projects/money-input";
 import { QUARTERS, QUARTER_MONTHS } from "@/domain/targets/quarters";
 import type { StoredTargets } from "@/server/targets/service";
 import { saveTargetsAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 /** The salesperson's own gross-profit target for each quarter of a year. A blank box means no target. */
 export function TargetForm({ year, values, formKey }: { year: number; values: StoredTargets; formKey: string }) {
@@ -35,8 +36,8 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
       <p className="text-xs text-muted-foreground">Jumlah dalam IDR; titik ditambahkan saat Anda mengetik. Kosongkan kolom jika tidak ada target. Setiap penyimpanan masuk ke audit log.</p>
       <FormStatus state={state} />
       <div>
-        <Button aria-label={`Save my ${year} targets`} type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+        <Button type="submit" disabled={pending}>
+          <SaveText what={`my ${year} targets`} pending={pending} />
         </Button>
       </div>
     </form>

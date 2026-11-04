@@ -7,6 +7,7 @@ import { FormStatus, type FormState } from "@/components/ui/form-status";
 import { cellKey } from "@/domain/access/permission-catalog";
 import type { Role } from "@/domain/access/roles";
 import { savePermissionsAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 export type MatrixCategory = {
   id: string;
@@ -140,8 +141,8 @@ export function PermissionMatrix({ categories, roles, granted, changed, locked, 
       {editable ? (
         <div className="flex flex-col gap-2">
           <div>
-            <Button aria-label="Save permissions" type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save"}
+            <Button type="submit" disabled={pending}>
+              <SaveText what="permissions" pending={pending} />
             </Button>
           </div>
           <FormStatus state={state} />

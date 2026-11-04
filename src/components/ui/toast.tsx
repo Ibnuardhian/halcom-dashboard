@@ -27,7 +27,8 @@ export function toast(message: string, ok: boolean, source?: object) {
     seen.add(source);
   }
   const id = nextId++;
-  toasts = [...toasts.slice(-2), { id, ok, message }];
+  // The same message again (several saves in a row) replaces the one on screen instead of stacking.
+  toasts = [...toasts.filter((item) => item.message !== message).slice(-2), { id, ok, message }];
   emit();
   setTimeout(() => dismissToast(id), Math.min(9000, 3500 + message.length * 40));
 }

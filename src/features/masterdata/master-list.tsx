@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { deleteIndustryAction, renameIndustryAction } from "@/features/customers/actions";
 import { deleteMasterRecordAction, renameMasterRecordAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 export type MasterListKind = "principal" | "solution" | "industry";
 export type MasterListItem = { id: string; name: string; count: number };
@@ -136,8 +137,8 @@ function EditRecord({ kind, item }: { kind: MasterListKind; item: MasterListItem
             <Label htmlFor={`${id}-name`}>Nama</Label>
             <div className="flex gap-2">
               <Input id={`${id}-name`} name="name" defaultValue={item.name} maxLength={120} required autoComplete="off" />
-              <Button aria-label="Save name" type="submit" disabled={renaming}>
-                {renaming ? "Saving…" : "Save"}
+              <Button type="submit" disabled={renaming}>
+                <SaveText what="name" pending={renaming} />
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">Nama berubah di semua {unit} yang memakainya. Nama harus unik, tanpa membedakan huruf besar kecil dan spasi.</p>

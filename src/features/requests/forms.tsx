@@ -18,6 +18,7 @@ import { OWNING_TEAM_LABELS, REQUEST_TYPE_LABELS, type RequestType } from "@/dom
 import { MarginInput } from "@/features/projects/margin-input";
 import type { PicOption } from "@/domain/pics/teams";
 import { assignPicAction, createProjectAction, createRequestAction, handOverAction, requestRevisionAction, setPhaseAction, setRequestDatesAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -435,8 +436,8 @@ export function AssignPicForm({ requestId, current, pics, teamLabel }: { request
           ))}
         </NativeSelect>
       </Field>
-      <Button aria-label="Save PIC" type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
+      <Button type="submit" disabled={pending}>
+        <SaveText what="PIC" pending={pending} />
       </Button>
       <div className="sm:col-span-2">
         <FormStatus state={state} />
@@ -462,8 +463,8 @@ export function PhaseForm({ projectId, current, phases }: { projectId: string; c
           ))}
         </NativeSelect>
       </Field>
-      <Button aria-label="Save phase" type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
+      <Button type="submit" disabled={pending}>
+        <SaveText what="phase" pending={pending} />
       </Button>
       <div className="sm:col-span-2">
         <FormStatus state={state} />
@@ -532,8 +533,8 @@ export function RequestDatesForm({ requestId, code, createdAt, completedAt, canC
       <FormStatus state={state} />
       <div>
         {/* A change of requester asks first: it can change the request code. */}
-        <Button aria-label="Save dates" type="button" disabled={pending} onClick={() => (changesRequester ? dialog.current?.showModal() : form.current?.requestSubmit())}>
-          {pending ? "Saving…" : "Save"}
+        <Button type="button" disabled={pending} onClick={() => (changesRequester ? dialog.current?.showModal() : form.current?.requestSubmit())}>
+          <SaveText what="dates" pending={pending} />
         </Button>
       </div>
     </form>
