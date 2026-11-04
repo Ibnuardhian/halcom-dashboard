@@ -890,3 +890,24 @@ The money measure of the pipeline is the Gross Profit of a project, not its Esti
 ## D-067: Estimated PO value and Weighted value are no longer shown on the project page (2026-11-03)
 
 The project page, like the forms and the dashboards, no longer shows the Estimated PO value or the Weighted value, even for an older project that has them stored (the data is kept, and still feeds a percentage of an older project). The page shows Progress, Status, Probability, Gross Profit, the Final value, and the dates.
+
+## D-068: Backups run every day and are kept for one month; Neon stays live until the VPS is live (2026-11-03)
+
+**Decided by the owner**, as detail to D-065.
+
+- **Daily:** an automatic backup once a night on the Hostinger VPS (a systemd timer, not the Backups page button).
+- **Retention:** one month (30 days). The nightly job deletes dumps older than that; the application itself still never deletes a file. This replaces the 7 daily, 4 weekly, 6 monthly idea in the security checklist.
+- **Neon now and later:** until the application is live on the VPS, the Neon database stays the live (primary) database, as today. After the cut-over, Neon stops being live and becomes the backup copy that the nightly dump is restored into (D-065). Vercel keeps using its own database until then and is retired or turned into a demo afterwards; it must not share the Neon database that receives the restore.
+- **Until then** the live version on Vercel has no backup button (the Backups page says so); its backup is Neon's point-in-time restore.
+
+Not yet built: the timer, the cleanup of old dumps, the restore into Neon and the alert (checklist section 8).
+
+## D-069: Shorter default email text; Weighted Gross Profit tile removed (2026-11-03)
+
+**Asked by the owner.** The default email body for SOA and Purchasing is short: greeting, one line of what is asked (now in Indonesian, for example "Mohon diberikan informasi Cost / harga item untuk kebutuhan berikut."), End user, Project, Needed by, Source BOQ (left out when empty), Detail, one line asking for a reply before the due date with the Request ID kept in the subject, the link, and the thanks. Request ID, Project ID, request type, requester team, the SLA days and the next action are no longer in the default text (the Request ID stays in the subject and in the reply line). All variables remain available to the template editor.
+
+A template a superadmin has already saved is not changed; "restore defaults" on `/admin/settings/email` loads the new text. The Weighted Gross Profit tile is removed from the pipeline tiles (four tiles remain); the weighted figure is still computed in the analytics but not shown.
+
+## D-070: The email preview and the draft are in Indonesian (2026-11-04)
+
+**Asked by the owner.** The email panel (labels Kepada, Cc, Subjek, Isi email; the buttons "Buka di Outlook (MailTo)", "Unduh draf Outlook (.eml)", "Salin"; the notices) and the text of the draft are in Indonesian: the greeting names "Tim SOA" / "Tim Purchasing", the ask line and the next action are Indonesian, dates use Indonesian month abbreviations (Mei, Agu, Okt, Des), a missing date reads "Belum ditentukan", and a source BOQ reads "(selesai)". The template editor's examples follow. `{{summary}}` is the request title, which is the project name (D-059); the default text does not use it because it only repeats the project name. It stays a valid variable so a template saved earlier that contains it still renders.

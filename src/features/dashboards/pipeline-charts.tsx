@@ -33,7 +33,7 @@ export function PipelineTiles({ analytics, scope = "all" }: { analytics: Pipelin
   // Each tile opens the Projects list with the same filter; a salesperson's tiles keep to their own projects.
   const to = (show: string) => `${PROJECTS_PATH}?show=${show}${scope === "mine" ? "&mine=1" : ""}`;
   return (
-    <section aria-label="Pipeline numbers" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <section aria-label="Pipeline numbers" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatTile label={scope === "mine" ? "My open projects" : "Open projects"} value={totals.open} href={to("open")} note={`dari ${totals.projects} proyek`} />
       <StatTile label="Open Gross Profit" value={formatCompact(totals.openValue)} href={to("margin")} note={`${formatAmount(totals.openValue)} dari ${totals.openWithMargin} open project`} />
       <StatTile
@@ -42,7 +42,6 @@ export function PipelineTiles({ analytics, scope = "all" }: { analytics: Pipelin
         href={to("quoted")}
         note={`${conversion.atPropose} dari ${conversion.open} open project (Propose+)`}
       />
-      <StatTile label="Weighted Gross Profit" value={formatCompact(totals.openWeighted)} href={to("margin")} note={`Gross Profit × probabilitas tahap, ${totals.openWithMargin} dari ${totals.open} open project`} />
       <StatTile label="Won Gross Profit" value={formatCompact(totals.wonValue)} href={to("won")} note={`${totals.wonCount} proyek`} />
     </section>
   );

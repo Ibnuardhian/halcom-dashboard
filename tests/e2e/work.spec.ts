@@ -81,19 +81,17 @@ test.describe("projects and requests", () => {
 
     expect(code).toMatch(/^BOQ-S[A-Z]*-\d{2}\d{4,}$/); // one letter of sales@example.invalid, more only if another person holds it
     await expect(page.locator(`li#request-${code} > details[open]`)).toBeVisible(); // the new request is open on its project page
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("BOQ", "CCTV AI"));
-    await expect(page.getByLabel("To", { exact: true })).toHaveValue("soa-group@example.invalid");
+    await expect(page.getByLabel("Subjek", { exact: true })).toHaveValue(subjectPattern("BOQ", "CCTV AI"));
+    await expect(page.getByLabel("Kepada", { exact: true })).toHaveValue("soa-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("soa-cc@example.invalid");
-    const body = await page.getByLabel("Text", { exact: true }).inputValue();
-    expect(body).toContain(`Request ID   : ${code}`);
-    expect(body).toContain(`Project ID   : ${projectCode}`);
-    expect(body).toContain("Dear SOA team,");
-    expect(body).toMatch(/Reply by     : \d+ \w+ \d{4} \(SLA [\d-]+ working days\)/);
-    expect(body).toContain(`keep the Request ID ${code} in the subject`);
+    const body = await page.getByLabel("Isi email", { exact: true }).inputValue();
+    expect(body).toContain(`pertahankan ${code} di subjek`);
+    expect(body).toContain("Dear Tim SOA,");
+    expect(body).toMatch(/Mohon balas sebelum \d+ \w+ \d{4}/);
     await expect(page.getByText(/^SLA \([\d-]+ working days\)$/)).toBeVisible();
     expect(body).toContain(`/request/${code}`);
-    await page.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
-    await expect(page.getByText("does not send email")).toBeVisible();
+    await page.getByRole("button", { name: /^Email \[HIT/ }).click(); // the email text is in a modal
+    await expect(page.getByText("tidak mengirim email")).toBeVisible();
   });
 
   test("Sales fill one form for the project and its BOQ, and land on the request with the email text", async ({ page }) => {
@@ -111,9 +109,9 @@ test.describe("projects and requests", () => {
     await page.getByRole("button", { name: "Create project and BOQ request" }).click();
 
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=BOQ-S[A-Z]*-\d{2}\d{4,}/);
-    const subject = await page.getByLabel("Subject", { exact: true }).inputValue();
+    const subject = await page.getByLabel("Subjek", { exact: true }).inputValue();
     expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
-    const projectCode = (await page.getByLabel("Text", { exact: true }).inputValue()).match(/Project ID\s+: (HIT-PROJ-\d+)/)![1]!;
+    const projectCode = page.url().match(/HIT-PROJ-\d+/)![0];
 
     await page.goto(`/projects/${projectCode}`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
@@ -228,8 +226,8 @@ test.describe("projects and requests", () => {
     await page.getByRole("button", { name: "Create project and RFQ request" }).click();
 
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-S[A-Z]*-\d{2}\d{4,}/);
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "RFQ routing demo"));
-    await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
+    await expect(page.getByLabel("Subjek", { exact: true })).toHaveValue(subjectPattern("RFQ", "RFQ routing demo"));
+    await expect(page.getByLabel("Kepada", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     const requestUrl = page.url();
 
     const soa = await asRole(browser, "SOA");
@@ -245,15 +243,15 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "MailTo demo");
     await createRequest(page, projectCode, "BOQ");
 
-    await page.getByRole("button", { name: /Send email/ }).click(); // the email text is in a modal
-    const href = await page.getByRole("link", { name: /Open this email in Outlook/ }).getAttribute("href");
+    await page.getByRole("button", { name: /^Email \[HIT/ }).click(); // the email text is in a modal
+    const href = await page.getByRole("link", { name: /Buka email ini di Outlook/ }).getAttribute("href");
 
     expect(href).toMatch(/^mailto:soa-group@example\.invalid\?/);
     const url = new URL(href!);
     expect(url.searchParams.get("cc")).toBe("soa-cc@example.invalid");
     expect(url.searchParams.get("subject")).toMatch(subjectPattern("BOQ", "MailTo demo"));
-    expect(url.searchParams.get("body")).toContain("Dear SOA team,");
-    expect(url.searchParams.get("body")).toContain(`Project ID   : ${projectCode}`);
+    expect(url.searchParams.get("body")).toContain("Dear Tim SOA,");
+    expect(url.searchParams.get("body")).toContain("MailTo demo");
   });
 
   test("a request notifies the owning team, and SOA's phase notifies Sales", async ({ page, browser }) => {
@@ -335,7 +333,7 @@ test.describe("projects and requests", () => {
     await page.goto("/dashboard/sales");
     const tiles = page.getByRole("region", { name: "Pipeline numbers" });
 
-    for (const [name, show] of [["Open Gross Profit", "margin"], ["Weighted Gross Profit", "margin"], ["Won Gross Profit", "won"]] as const) {
+    for (const [name, show] of [["Open Gross Profit", "margin"], ["Won Gross Profit", "won"]] as const) {
       await expect(async () => {
         await page.goto("/dashboard/sales");
         await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();
@@ -569,8 +567,8 @@ test.describe("projects and requests", () => {
     const projectCode = await createProject(page, "Access control");
 
     const rfq = await createRequest(page, projectCode, "RFQ");
-    await expect(page.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Access control"));
-    await expect(page.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
+    await expect(page.getByLabel("Subjek", { exact: true })).toHaveValue(subjectPattern("RFQ", "Access control"));
+    await expect(page.getByLabel("Kepada", { exact: true })).toHaveValue("purchasing-group@example.invalid");
     await expect(page.getByLabel("Cc", { exact: true })).toHaveValue("");
 
     expect(rfq).toMatch(/^RFQ-S[A-Z]*-/);
@@ -602,13 +600,13 @@ test.describe("projects and requests", () => {
     // The project page holds the BOQ and the RFQ; the RFQ is the open one, and its email text is what is checked.
     const rfqPanel = soa.locator(`li#request-${rfq}`);
     const email = soa.getByRole("dialog"); // the email draft opens by itself after "Continue to RFQ"
-    await expect(email.getByLabel("Subject", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
+    await expect(email.getByLabel("Subjek", { exact: true })).toHaveValue(subjectPattern("RFQ", "Handover demo"));
     await expect(soa).not.toHaveURL(/email=1/); // dropped, so a reload does not open it again
     const download = soa.waitForEvent("download");
-    await email.getByRole("button", { name: "Download Outlook draft (.eml)" }).click();
+    await email.getByRole("button", { name: "Unduh draf Outlook (.eml)" }).click();
     expect((await download).suggestedFilename()).toMatch(/\.eml$/);
-    await expect(email.getByLabel("To", { exact: true })).toHaveValue("purchasing-group@example.invalid");
-    expect(await email.getByLabel("Text", { exact: true }).inputValue()).toContain(`Source BOQ   : ${boq} (completed)`);
+    await expect(email.getByLabel("Kepada", { exact: true })).toHaveValue("purchasing-group@example.invalid");
+    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain(`Source BOQ : ${boq} (selesai)`);
     await expect(soa.getByText("Balas di dalam thread email [HITBOQ] asli")).toBeVisible();
     await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
@@ -624,13 +622,13 @@ test.describe("projects and requests", () => {
     await expect(purchasing.getByText("Status saat ini In progress.")).toBeVisible();
     await moveCard(purchasing, "RFQ", rfq, "COMPLETED");
     await purchasing.goto(`/request/${rfq}`);
-    await expect(purchasing.getByLabel("Subject", { exact: true })).toHaveCount(0); // Purchasing does not send these emails
+    await expect(purchasing.getByLabel("Subjek", { exact: true })).toHaveCount(0); // Purchasing does not send these emails
 
     const finance = await asRole(browser, "FINANCE");
     await finance.goto(`/request/${rfq}`);
     await expect(finance.locator(`li#request-${rfq} > details[open]`)).toBeVisible();
     await expect(finance.getByText(/dragging this request/)).toHaveCount(0); // Finance only reads
-    await expect(finance.getByLabel("Subject", { exact: true })).toHaveCount(0);
+    await expect(finance.getByLabel("Subjek", { exact: true })).toHaveCount(0);
     await soa.context().close();
     await purchasing.context().close();
     await finance.context().close();

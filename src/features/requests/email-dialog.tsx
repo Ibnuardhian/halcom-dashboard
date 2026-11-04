@@ -9,7 +9,7 @@ type EmailPanelProps = React.ComponentProps<typeof EmailPanel>;
 
 /**
  * The email text of a request, in a modal that opens from a button: the page stays short, and the text is there when a mail has
- * to be sent. The content is the same copy-and-paste panel as before (To, Cc, subject, text, and the Outlook draft button).
+ * to be sent. The content is the same copy-and-paste panel as before (Kepada, Cc, subjek, isi email, dan tombol draf Outlook).
  */
 export function EmailDialog({ tag, autoOpen, ...panel }: EmailPanelProps & { tag: string; autoOpen?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -26,7 +26,7 @@ export function EmailDialog({ tag, autoOpen, ...panel }: EmailPanelProps & { tag
     <>
       <Button type="button" variant="outline" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
         <Mail aria-hidden data-icon="inline-start" />
-        Send email {tag}
+        Email {tag}
       </Button>
       <dialog
         ref={dialog}
@@ -40,11 +40,11 @@ export function EmailDialog({ tag, autoOpen, ...panel }: EmailPanelProps & { tag
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 id={titleId} className="text-base font-semibold">
-                Email text {tag}
+                Isi email {tag}
               </h2>
               <p className="text-sm text-muted-foreground">Subjek, penerima, dan isi email request ini. Buka draf di Outlook, atau salin tiap bagian.</p>
             </div>
-            <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => dialog.current?.close()}>
+            <Button type="button" variant="ghost" size="icon" aria-label="Tutup" onClick={() => dialog.current?.close()}>
               <X aria-hidden />
             </Button>
           </div>

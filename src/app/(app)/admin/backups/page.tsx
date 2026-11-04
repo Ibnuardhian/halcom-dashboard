@@ -45,8 +45,9 @@ async function Backups() {
               <BackupForm />
             ) : (
               <p role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
-                This deployment cannot write backups: it runs without <code>pg_dump</code> and without a disk that outlives a request. The database
-                provider keeps the backups instead (with Neon: point-in-time restore and branches). See docs/deployment/VERCEL.md.
+                Versi live ini berjalan di Vercel, yang tidak punya <code>pg_dump</code> maupun disk permanen, jadi tombol backup tidak tersedia
+                di sini. Cadangan dipegang Neon (point-in-time restore dan branch). Untuk file dump, jalankan Backups dari aplikasi di komputer
+                lokal; lihat deployment/VERCEL.md.
               </p>
             )}
             <p className="text-xs text-muted-foreground">
@@ -64,7 +65,11 @@ async function Backups() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!state.ok ? (
+            {!supported ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                Tidak ada folder cadangan di deployment ini.
+              </p>
+            ) : !state.ok ? (
               <p role="alert" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
                 {state.error}
               </p>

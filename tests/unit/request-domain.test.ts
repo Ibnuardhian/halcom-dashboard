@@ -194,33 +194,30 @@ describe("email text from the team template", () => {
 
   it("puts the request ID, project, SLA and link in the default text, and asks for the ID in the reply", () => {
     const text = body();
-    expect(text).toContain("Request ID   : RFQ-IA-260001");
-    expect(text).toContain("Project ID   : HIT-PROJ-260004");
-    expect(text).toContain("End user     : PT ABC");
-    expect(text).toContain("Needed by    : 5 Nov 2026");
-    expect(text).toContain("Reply by     : 2 Nov 2026 (SLA 2-3 working days)");
-    expect(text).toContain("Dear Purchasing team,");
-    expect(text).toContain("Request link: http://localhost:3000/request/RFQ-IA-260001");
-    expect(text).toContain("keep the Request ID RFQ-IA-260001 in the subject");
+    expect(text).toContain("End user   : PT ABC");
+    expect(text).toContain("Needed by  : 5 Nov 2026");
+    expect(text).toContain("Mohon balas sebelum 2 Nov 2026 dan pertahankan RFQ-IA-260001 di subjek.");
+    expect(text).toContain("Dear Tim Purchasing,");
+    expect(text).toContain("http://localhost:3000/request/RFQ-IA-260001");
     expect(text).not.toContain("Source BOQ");
   });
 
   it("addresses SOA for a BOQ and names the source BOQ on a handover", () => {
-    expect(body({ ...base, type: "BOQ", code: "BOQ-IA-260001" })).toContain("Dear SOA team,");
-    expect(body({ ...base, sourceCode: "BOQ-IA-260001" })).toContain("Source BOQ   : BOQ-IA-260001 (completed)");
+    expect(body({ ...base, type: "BOQ", code: "BOQ-IA-260001" })).toContain("Dear Tim SOA,");
+    expect(body({ ...base, sourceCode: "BOQ-IA-260001" })).toContain("Source BOQ : BOQ-IA-260001 (selesai)");
   });
 
   it("states a missing date and empty details plainly", () => {
     const text = body({ ...base, requiredBy: null, description: "  " });
-    expect(text).toContain("Needed by    : Not specified");
-    expect(text).toContain("Details\n-\n");
+    expect(text).toContain("Needed by  : Belum ditentukan");
+    expect(text).toContain("Detail:\n-\n");
   });
 
   it("formats dates without locale surprises", () => {
     expect(formatDateText("2026-01-09")).toBe("9 Jan 2026");
-    expect(formatDateText("2026-12-31")).toBe("31 Dec 2026");
-    expect(formatDateText(null)).toBe("Not specified");
-    expect(formatDateText("not a date")).toBe("Not specified");
+    expect(formatDateText("2026-12-31")).toBe("31 Des 2026");
+    expect(formatDateText(null)).toBe("Belum ditentukan");
+    expect(formatDateText("not a date")).toBe("Belum ditentukan");
   });
 });
 
