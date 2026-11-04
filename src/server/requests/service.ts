@@ -276,7 +276,7 @@ export async function handOverToPurchasing(
   const parsed = handoverSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
   if (!can(claimedActor.role, "requests.handover") && claimedActor.role !== "SALES") return fail("FORBIDDEN");
-  const { sourceId, targetType } = parsed.data;
+  const { sourceId, targetType, note } = parsed.data;
 
   const existing = () =>
     db.request.findUnique({
@@ -314,7 +314,8 @@ export async function handOverToPurchasing(
           status: "IN_PROGRESS",
           projectId: source.projectId,
           title: source.title,
-          description: source.description,
+          // The optional note of the person who continues goes under the details, so it reaches the email text and the request page.
+          description: note ? `${source.description}\n\nCatatan: ${note}`.trim() : source.description,
           requiredBy: source.requiredBy,
           requesterId: actor.id,
           sourceRequestId: source.id,

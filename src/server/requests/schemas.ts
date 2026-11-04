@@ -88,6 +88,7 @@ export const phaseSchema = z.object({
 export const handoverSchema = z.object({
   sourceId: z.uuid(),
   targetType: z.enum(HANDOVER_TYPES, "Pilih RFQ atau PO."),
+  note: optionalText(500),
 });
 
 export const stopFlowSchema = z.object({ sourceId: z.uuid(), note: optionalText(500) });

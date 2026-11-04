@@ -915,3 +915,11 @@ A template a superadmin has already saved is not changed; "restore defaults" on 
 ## D-071: Board cards are listed newest status first (2026-11-04)
 
 **Asked by the owner.** In every column of the request board (BOQ, RFQ, PO and the combined view) the cards are ordered by when they last moved into their current status, newest on top. `RequestRow.statusChangedAt` is the latest status-history step into the current status (the creation for a request never moved; a reopened request counts from the reopening). A card dropped on a column goes to its top at once. The folded Revision and Cancelled columns and the two-column Completed column of D-061 are unchanged.
+
+## D-072: Continuing a request asks for a confirmation with an optional note; per-type email drafts (BOQ, RFQ, HITPO); board columns scroll (2026-11-04)
+
+**Asked by the owner.**
+
+- **Confirmation on Continue.** "Continue to RFQ" (after a BOQ) and "Continue to PO" (after an RFQ) open a modal with an optional Notes field and a confirm button. The note (at most 500 characters) is added under the details of the new request as `Catatan: ...`, so it shows on the request page and in the email text with no change to the template. No migration: the note is part of the description, not a new column. "Do not continue" keeps its own note field (the reason).
+- **Drafts per type.** The default text for BOQ, RFQ and PO is the same short body, with the ask line in each type's words and the end user in it: BOQ "Mohon dibuatkan BOQ / solusi teknis untuk kebutuhan {end user} dengan detail:", RFQ "Mohon diberikan informasi Cost untuk kebutuhan {end user} dengan detail:", PO (HITPO, Sales to Purchasing) "Mohon diproses pembelian (PO) untuk kebutuhan {end user} dengan detail:". The details follow the ask line directly, then Project, Needed by and Sumber (the BOQ or RFQ it was continued from), the reply line and the thanks. The templates stay per team (SOA, Purchasing): a separate saved template for the PO would need a third template; not built, say so if it is wanted.
+- **Board.** Each column scrolls inside itself (at most the height of the screen minus the header), so the page stays short.

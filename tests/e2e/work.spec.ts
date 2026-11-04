@@ -54,6 +54,8 @@ async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, co
   await expect(async () => {
     await page.goto(`/requests/${type.toLowerCase()}?view=board&q=${code}`);
   }).toPass({ timeout: 30_000 });
+  // The card may sit in a folded column (a BOQ in Revision): open them before looking for it.
+  for (const folded of ["REVISION", "CANCELLED"]) if (await page.locator(`[data-column="${folded}"]`).count()) await openColumn(page, folded);
   const card = page.locator(`[data-request="${code}"]`);
   await expect(card).toBeVisible();
   const target = page.locator(`[data-column="${column}"]`);
@@ -604,6 +606,8 @@ test.describe("projects and requests", () => {
 
     await soa.goto(`/projects/${projectCode}#requests`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
+    await soa.getByRole("dialog").getByLabel("Notes (opsional)").fill("Mohon prioritas minggu ini"); // the confirmation, with an optional note
+    await soa.getByRole("dialog").getByRole("button", { name: "Lanjutkan ke RFQ" }).click();
     await expect(soa).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
     const rfq = new URL(soa.url()).searchParams.get("request")!;
 
@@ -616,7 +620,8 @@ test.describe("projects and requests", () => {
     await email.getByRole("button", { name: "Unduh draf Outlook (.eml)" }).click();
     expect((await download).suggestedFilename()).toMatch(/\.eml$/);
     await expect(email.getByLabel("Kepada", { exact: true })).toHaveValue("purchasing-group@example.invalid");
-    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain(`Source BOQ : ${boq} (selesai)`);
+    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain(`Sumber    : ${boq} (selesai)`);
+    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain("Catatan: Mohon prioritas minggu ini");
     await expect(soa.getByText("Balas di dalam thread email [HITBOQ] asli")).toBeVisible();
     await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
@@ -661,11 +666,11 @@ test.describe("projects and requests", () => {
     await page.goto(`/request/${boq}`);
     await expect(page.getByRole("heading", { name: "What happens next?" })).toBeVisible();
     await expect(async () => {
-      await page.getByLabel("Note (optional)").fill("Customer postponed");
+      await page.getByLabel("Alasan tidak dilanjutkan (opsional)").fill("Customer postponed");
       await page.getByRole("button", { name: "Do not continue" }).click();
-      await expect(page.getByRole("status").filter({ hasText: "does not continue" })).toBeVisible({ timeout: 2500 });
+      await expect(page.getByRole("status").filter({ hasText: "tidak dilanjutkan" })).toBeVisible({ timeout: 2500 });
     }).toPass({ timeout: 40_000 });
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("Not continuing");
     await page.goto("/dashboard/sales");
     // Decided, so this BOQ is no longer listed (other BOQs of the shared Sales account may be).
@@ -676,9 +681,10 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("Tidak dilanjutkan: diputuskan oleh")).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Lanjutkan ke RFQ" }).click({ timeout: 3000 });
       await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
     }).toPass({ timeout: 40_000 });
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQDone");
     await soa.context().close();
   });
