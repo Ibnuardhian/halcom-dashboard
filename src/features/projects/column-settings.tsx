@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
 import { PROJECT_COLUMNS, type ProjectColumnKey } from "@/domain/projects/table-columns";
 import { saveProjectColumnsAction } from "@/features/settings/actions";
+import { SaveText } from "@/components/ui/save-text";
 
 /** The Superadmin's button above the Projects table: opens a window to choose which columns the table shows, for everyone. */
 export function ColumnSettings({ shown }: { shown: readonly ProjectColumnKey[] }) {
@@ -50,7 +51,7 @@ export function ColumnSettings({ shown }: { shown: readonly ProjectColumnKey[] }
               Tutup
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Menyimpan…" : "Simpan"}
+              <SaveText what="columns" pending={saving} />
             </Button>
           </div>
         </form>

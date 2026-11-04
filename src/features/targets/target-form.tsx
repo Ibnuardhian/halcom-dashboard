@@ -8,6 +8,7 @@ import { MoneyInput } from "@/features/projects/money-input";
 import { QUARTERS, QUARTER_MONTHS } from "@/domain/targets/quarters";
 import type { StoredTargets } from "@/server/targets/service";
 import { saveTargetsAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 /** The salesperson's own gross-profit target for each quarter of a year. A blank box means no target. */
 export function TargetForm({ year, values, formKey }: { year: number; values: StoredTargets; formKey: string }) {
@@ -36,7 +37,7 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : `Save my ${year} targets`}
+          <SaveText what={`my ${year} targets`} pending={pending} />
         </Button>
       </div>
     </form>

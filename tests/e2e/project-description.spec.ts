@@ -21,7 +21,7 @@ test("Sales change the description of their project, Admin may too, and SOA only
   const text = `Scope of work ${Date.now()}`;
   await expect(async () => {
     await sales.locator("textarea[id^=description-HIT]").fill(text);
-    await sales.getByRole("button", { name: "Simpan deskripsi" }).click();
+    await sales.getByRole("button", { name: "Save description" }).click();
     await expect(sales.getByText("Deskripsi disimpan dan dicatat di change log.")).toBeVisible({ timeout: 8000 });
   }).toPass({ timeout: 45_000 });
   await sales.reload();
@@ -36,6 +36,6 @@ test("Sales change the description of their project, Admin may too, and SOA only
   const soa = await as("SOA");
   await soa.goto(path);
   await expect(soa.getByText(text).first()).toBeVisible();
-  await expect(soa.getByRole("button", { name: "Simpan deskripsi" })).toHaveCount(0);
+  await expect(soa.getByRole("button", { name: "Save description" })).toHaveCount(0);
   await soa.context().close();
 });

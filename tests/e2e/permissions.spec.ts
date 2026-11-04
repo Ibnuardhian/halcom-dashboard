@@ -72,7 +72,7 @@ test.describe("permission editor", () => {
     await signIn(page, "ADMIN");
     await openEditor(page);
 
-    await expect(page.getByText("Only a superadmin can change these.")).toBeVisible();
+    await expect(page.getByText("Hanya Superadmin yang bisa mengubahnya.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save permissions" })).toHaveCount(0);
     await expect(page.locator("input[type=checkbox]")).toHaveCount(0);
     await expect(page.getByRole("row", { name: /finance\.crosscheck\.view/ })).toBeVisible();

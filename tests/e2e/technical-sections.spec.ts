@@ -55,7 +55,7 @@ test("an Admin adds a technical section and an SOA phase, and SOA fills the sect
   const box = page.getByLabel(section, { exact: true });
   await expect(async () => {
     await box.fill("Form sent to the customer");
-    await page.getByRole("button", { name: "Simpan bagian tambahan" }).click();
+    await page.getByRole("button", { name: "Save extra sections" }).click();
     await expect(page.getByText("Disimpan dan dicatat di change log.")).toBeVisible({ timeout: 8000 });
   }).toPass({ timeout: 60_000 });
   await page.reload();

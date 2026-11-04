@@ -134,3 +134,25 @@ export function resolveRecipients(type: RequestType, env: Env): RecipientsResult
   const toKeys = new Set(to.addresses.map((a) => a.toLowerCase()));
   return { ok: true, to: to.addresses, cc: cc.addresses.filter((a) => !toKeys.has(a.toLowerCase())) };
 }
+
+/** Sample values for the template preview on the settings page, for one type of request: its own code, tag, ask and source. */
+export function sampleValues(type: RequestType): TemplateValues {
+  const source: Record<RequestType, string | null> = { BOQ: null, RFQ: "BOQ-S-260001", PO: "RFQ-S-260001" };
+  const code = `${type}-S-260001`;
+  return templateValues({
+    type,
+    code,
+    projectCode: "HIT-PROJ-004",
+    endUserCompany: "PT ABC",
+    projectName: "CCTV AI",
+    title: "CCTV AI",
+    description: "Brand/Type : Hikvision DS-2CD\nQty : 40 Pcs",
+    requiredBy: "2026-11-05",
+    requesterName: "Ibnu Ardhian",
+    requesterTeam: "Sales",
+    sourceCode: source[type],
+    link: `http://localhost:3000/request/${code}`,
+    sla: "2-3",
+    dueDate: "2026-10-22",
+  });
+}

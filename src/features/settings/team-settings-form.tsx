@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SLA_MAX_DAYS } from "@/domain/requests/sla";
 import { BODY_MAX_LENGTH, SUBJECT_MAX_LENGTH, type TemplateTeam } from "@/domain/requests/template";
 import { saveTeamSettingAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 /** SLA satu tim: hanya rentang hari, tanpa menyentuh penerima dan template email. */
 export function TeamSlaForm({ role, label, sla }: { role: TemplateTeam; label: string; sla: string }) {
@@ -27,7 +28,7 @@ export function TeamSlaForm({ role, label, sla }: { role: TemplateTeam; label: s
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : `Simpan SLA ${label}`}
+          <SaveText what={`SLA ${label}`} pending={pending} />
         </Button>
       </div>
     </form>
@@ -63,7 +64,7 @@ export function TeamEmailForm({ role, label, subject, body, emailTo, emailCc }: 
       <FormStatus state={state} />
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : `Simpan email ${label}`}
+          <SaveText what={`email ${label}`} pending={pending} />
         </Button>
         <Button type="submit" name="restoreDefaults" value="1" variant="outline" formNoValidate disabled={pending}>
           Kembalikan template bawaan

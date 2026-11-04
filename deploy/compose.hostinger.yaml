@@ -1,0 +1,105 @@
+# Stack for Hostinger "Docker Manager" (hPanel > VPS > Docker Manager > Compose > paste this file, or give its raw URL).
+# Interim route: the images are built on the VPS from the Git repository, so no registry or GitHub Actions is needed.
+# Set the variables listed in deploy/HOSTINGER-DOCKER-MANAGER.md in the environment box of Docker Manager.
+#
+# One stack: db (PostgreSQL), migrate (runs once, before the app), app, and caddy (HTTPS for DOMAIN, certificate automatic).
+# Ports 80 and 443 must be free on the VPS and the A record of DOMAIN must already point to it.
+
+name: halcom-dashboard-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-build-source: &build-source
+  # A private repository needs a read-only token: GIT_TOKEN. Use a fine-grained token with "Contents: read" on this repository only.
+  context: https://x-access-token:${GIT_TOKEN:?Set GIT_TOKEN (read-only GitHub token)}@github.com/halcom-solutions/halcom-dashboard.git#${GIT_REF:-main}
+
+services:
+  db:
+    image: postgres:18.6-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  migrate:
+    build:
+      <<: *build-source
+      target: migrator
+    image: halcom-dashboard-migrate:hostinger
+    restart: "no"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  app:
+    build:
+      <<: *build-source
+      target: runner
+    image: halcom-dashboard-app:hostinger
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_BASE_URL: https://${DOMAIN:?Set DOMAIN (for example halcom.example.com)}
+      BACKUP_DIR: /backups
+      EMAIL_TO_HITBOQ: ${EMAIL_TO_HITBOQ:-}
+      EMAIL_CC_HITBOQ: ${EMAIL_CC_HITBOQ:-}
+      EMAIL_TO_HITRFQ: ${EMAIL_TO_HITRFQ:-}
+      EMAIL_CC_HITRFQ: ${EMAIL_CC_HITRFQ:-}
+      EMAIL_TO_HITPO: ${EMAIL_TO_HITPO:-}
+      EMAIL_CC_HITPO: ${EMAIL_CC_HITPO:-}
+    volumes:
+      # A named volume keeps the ownership of /backups from the image (user node), so no host folder has to be prepared.
+      - backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    # Reverse proxy with automatic HTTPS. It sets X-Forwarded-For to the real client address, which the sign-in throttle reads.
+    command: caddy reverse-proxy --from ${DOMAIN} --to app:3000
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+volumes:
+  postgres_data:
+  backups:
+  caddy_data:
+  caddy_config:

@@ -119,7 +119,7 @@ test.describe("SOA master data: Principal and Solution", () => {
     const dialog = soa.locator("dialog[open]"); // its title follows the name once renamed
     await expect(dialog.getByRole("button", { name: /^Hapus/ })).toBeDisabled(); // in use
     await dialog.getByLabel("Nama", { exact: true }).fill(`Video Surveillance ${id}`);
-    await dialog.getByRole("button", { name: "Simpan" }).click();
+    await dialog.getByRole("button", { name: "Save name" }).click();
     await expect(dialog.getByRole("status")).toBeVisible({ timeout: 8000 });
     await dialog.getByRole("button", { name: "Tutup" }).click();
     await soa.getByLabel("Cari Solution").fill(`Video Surveillance ${id}`);
@@ -154,7 +154,7 @@ test.describe("SOA technical sections", () => {
     await soa.getByRole("textbox", { name: "Requirement" }).fill(`Need ${id} racks`);
     await soa.getByRole("textbox", { name: "Technical notes" }).fill(`Note ${id}`);
     await soa.getByRole("button", { name: "Save technical details" }).click();
-    await expect(soa.getByRole("status").filter({ hasText: /saved|updated/i }).first()).toBeVisible();
+    await expect(soa.getByRole("status").filter({ hasText: /Disimpan dan dicatat|Tidak ada perubahan/ }).first()).toBeVisible();
     await soa.reload();
     await expect(soa.getByRole("textbox", { name: "Requirement" })).toHaveValue(`Need ${id} racks`);
 

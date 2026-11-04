@@ -26,7 +26,7 @@ test("a superadmin sets whether the value and the margin include PPN; the projec
     await expect(async () => {
       await root.getByLabel("Estimated PO value dan Final value").selectOption(valueBasis);
       await root.getByLabel("Gross Profit").selectOption(marginBasis);
-      await root.getByRole("button", { name: "Simpan" }).click();
+      await root.getByRole("button", { name: "Save PPN basis" }).click();
       await expect(root.getByText(message)).toBeVisible({ timeout: 8000 });
     }).toPass({ timeout: 45_000 });
   };

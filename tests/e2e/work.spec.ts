@@ -363,12 +363,12 @@ test.describe("projects and requests", () => {
     const root = await asRole(browser, "SUPERADMIN");
     await root.goto("/admin/settings/email");
     await expect(root.getByRole("heading", { level: 1, name: "Email" })).toBeVisible();
-    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan email SOA" }) });
+    const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Save email SOA" }) });
     await expect(async () => {
       // Without the Request ID in the subject or the text, the template is refused.
       await form.getByLabel("Subjek email").fill("A subject without the id");
       await form.getByLabel("Isi email").fill("A text without the id either");
-      await form.getByRole("button", { name: "Simpan email SOA" }).click();
+      await form.getByRole("button", { name: "Save email SOA" }).click();
       await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
     }).toPass();
     // Each template has its own tab; the preview opens in a modal, for every template including the Sales one (HITPO).
@@ -417,7 +417,7 @@ test.describe("projects and requests", () => {
     const box = soa.getByLabel("Nama project");
     await expect(async () => {
       await box.fill("Old name fixed");
-      await soa.getByRole("button", { name: "Ubah nama" }).click();
+      await soa.getByRole("button", { name: "Save project name" }).click();
       await expect(soa.getByRole("status").filter({ hasText: "Nama project diubah" })).toBeVisible({ timeout: 1500 });
     }).toPass();
     await expect(box).toHaveValue("Old name fixed");
@@ -719,8 +719,11 @@ test.describe("projects and requests", () => {
     // The project page holds both requests; the history belongs to the BOQ that is open.
     const boqPanel = soa.locator(`li#request-${boq}`);
     const history = boqPanel.locator("details").filter({ hasText: /^Status history/ });
-    if ((await history.getAttribute("open")) === null) await history.getByText(/^Status history/).click();
-    await expect(history.getByRole("cell", { name: "Completed → Revision" })).toBeVisible();
+    // A click before the page is interactive can be lost, so the history is opened until its rows show.
+    await expect(async () => {
+      if ((await history.getAttribute("open")) === null) await history.getByText(/^Status history/).click();
+      await expect(history.getByRole("cell", { name: "Completed → Revision" })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
 
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);

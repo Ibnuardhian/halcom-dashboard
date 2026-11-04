@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ROLE_LABELS, type Role } from "@/domain/access/roles";
+import { SaveText } from "@/components/ui/save-text";
 import {
   changeEmailAction,
   changeRoleAction,
@@ -130,7 +131,7 @@ export function ChangeEmailForm({ userId, email }: { userId: string; email: stri
       <div className="flex gap-2">
         <Input name="email" type="email" required maxLength={254} defaultValue={email} autoComplete="off" aria-label={`Email for ${email}`} className="w-56" />
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
-          Change email
+          <SaveText what={`email for ${email}`} />
         </Button>
       </div>
       <Status state={state} />

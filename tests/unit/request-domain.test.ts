@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CODE_PREFIX_PATTERN, codeScope, formatCode, nameLetters, pickCodePrefix, PROJECT_CODE_WIDTH, twoDigitYear } from "@/domain/requests/codes";
 import { canContinueFlow } from "@/domain/requests/access";
 import { flowSteps } from "@/domain/requests/flow";
-import { formatDateText, parseRecipients, resolveRecipients, singleLine, templateValues } from "@/domain/requests/email";
+import { formatDateText, parseRecipients, resolveRecipients, sampleValues, singleLine, templateValues } from "@/domain/requests/email";
 import { buildRequestEmail } from "@/server/requests/email";
 import { addWorkingDays, formatSlaRange, isValidSlaRange, parseSlaRange, slaOf, waitingMs } from "@/domain/requests/sla";
 import { DEFAULT_TEMPLATES, renderBody, renderSubject, validateTemplate, variablesIn } from "@/domain/requests/template";
@@ -229,6 +229,15 @@ describe("email text from the team template", () => {
 });
 
 describe("email templates", () => {
+  it("previews each template with sample data of its own type: the HITPO one with a PO code, tag, ask and RFQ source", () => {
+    const po = sampleValues("PO");
+    expect(renderSubject(DEFAULT_TEMPLATES.SALES.subject, po)).toBe("[HITPO] PT ABC - CCTV AI [PO-S-260001]");
+    expect(renderBody(DEFAULT_TEMPLATES.SALES.body, po)).toContain("Mohon diproses pembelian (PO) untuk kebutuhan PT ABC");
+    expect(renderBody(DEFAULT_TEMPLATES.SALES.body, po)).toContain("Sumber    : RFQ-S-260001 (selesai)");
+    expect(renderSubject(DEFAULT_TEMPLATES.SOA.subject, sampleValues("BOQ"))).toBe("[HITBOQ] PT ABC - CCTV AI [BOQ-S-260001]");
+    expect(renderBody(DEFAULT_TEMPLATES.SOA.body, sampleValues("BOQ"))).not.toContain("Sumber");
+  });
+
   it("every default template is valid, including the Sales one for the PO (HITPO)", () => {
     for (const team of ["SOA", "PURCHASING", "SALES"] as const) {
       expect(validateTemplate(DEFAULT_TEMPLATES[team].subject, DEFAULT_TEMPLATES[team].body)).toEqual([]);

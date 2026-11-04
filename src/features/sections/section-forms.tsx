@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { createPhaseAction, createSectionAction, saveSectionValuesAction, updatePhaseAction, updateSectionAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 export type SectionRecord = { id: string; label: string; kind: "TEXT" | "CHOICE"; options: string[]; isActive: boolean };
 export type PhaseRecord = { key: string; label: string; isActive: boolean };
@@ -61,7 +62,7 @@ export function SectionRow({ section }: { section: SectionRecord }) {
             <input type="checkbox" name="isActive" defaultChecked={section.isActive} /> Dipakai
           </label>
           <Button type="submit" variant="outline" size="sm" disabled={pending}>
-            Simpan
+            Save
           </Button>
         </div>
         {section.kind === "CHOICE" ? (
@@ -102,7 +103,7 @@ export function PhaseRow({ phase }: { phase: PhaseRecord }) {
           <input type="checkbox" name="isActive" defaultChecked={phase.isActive} /> Dipakai
         </label>
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
-          Simpan
+          Save
         </Button>
         <div className="basis-full">
           <FormStatus state={state} />
@@ -150,7 +151,7 @@ export function ProjectSectionsForm({ projectId, projectCode, sections, values }
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : "Simpan bagian tambahan"}
+          <SaveText what="extra sections" pending={pending} />
         </Button>
       </div>
     </form>

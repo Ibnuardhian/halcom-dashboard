@@ -54,7 +54,7 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
     await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
   }).toPass({ timeout: 45_000 });
   const code = new URL(page.url()).searchParams.get("request")!;
-  await expect(page.getByText("Quote forty PoE switches").first()).toBeVisible();
+  await expect(page.getByText("48-port, managed.").first()).toBeVisible(); // the details; the title is the project name (no Summary field)
   await signOut(page);
 
   // The Sales PIC was told, and the RFQ is in their Request center (requests are counted by the project's owner).
@@ -70,5 +70,5 @@ test("Purchasing cannot raise a BOQ or a PO, or a project", async ({ page }) => 
   await page.goto("/requests/new");
   await expect(page.getByLabel("Request type").locator("option")).toHaveText(["RFQ: RFQ request"]);
   await page.goto("/projects/new");
-  await expect(page.getByText("This page could not be found.")).toBeVisible();
+  await expect(page.getByText("Halaman tidak ditemukan")).toBeVisible();
 });

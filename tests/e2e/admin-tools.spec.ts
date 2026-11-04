@@ -120,14 +120,14 @@ test.describe("PICs for SOA and Purchasing", () => {
     await expect(async () => {
       await form.getByLabel("PIC").selectOption({ label: `Adityo ${id}` });
       await form.getByRole("button", { name: "Save PIC" }).click();
-      await expect(form.getByText("PIC saved.")).toBeVisible({ timeout: 4000 });
+      await expect(soa.getByRole("status").filter({ hasText: "PIC saved." })).toBeVisible({ timeout: 4000 }); // a toast
     }).toPass({ timeout: 30_000 });
     await soa.reload();
     await expect(soa.locator("dl").getByText(`Adityo ${id}`)).toBeVisible();
     await expect(async () => {
       await form.getByLabel("PIC").selectOption({ label: `Ibnu ${id}` });
       await form.getByRole("button", { name: "Save PIC" }).click();
-      await expect(form.getByText("PIC saved.")).toBeVisible({ timeout: 4000 });
+      await expect(soa.getByRole("status").filter({ hasText: "PIC saved." })).toBeVisible({ timeout: 4000 }); // a toast
     }).toPass({ timeout: 30_000 });
 
     // The workload on the SOA dashboard counts the PIC, not the shared login.
@@ -139,12 +139,16 @@ test.describe("PICs for SOA and Purchasing", () => {
     await admin.goto("/admin/pics");
     await expect(async () => {
       await soaCard.getByRole("button", { name: `Deactivate Adityo ${id}` }).click();
-      await expect(soaCard.getByText("Deactivated.")).toBeVisible({ timeout: 4000 });
+      await expect(admin.getByRole("status").filter({ hasText: "Deactivated." })).toBeVisible({ timeout: 4000 }); // a toast
     }).toPass({ timeout: 30_000 });
     await soa.goto(`/request/${boq}`);
     await expect(soa.getByLabel("PIC").locator("option", { hasText: `Adityo ${id}` })).toHaveCount(0);
-    await soa.getByText(/PIC history/).click();
-    await expect(soa.getByRole("cell", { name: new RegExp(`Unassigned → Adityo ${id}`) })).toBeVisible();
+    // The history is folded; a click before the page is interactive can be lost, so it is opened until its rows show.
+    const history = soa.locator("details").filter({ hasText: /^PIC history/ });
+    await expect(async () => {
+      if ((await history.getAttribute("open")) === null) await history.getByText(/^PIC history/).click();
+      await expect(soa.getByRole("cell", { name: new RegExp(`Unassigned → Adityo ${id}`) })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20_000 });
     await expect(soa.getByRole("cell", { name: new RegExp(`Adityo ${id} → Ibnu ${id}`) })).toBeVisible();
     await soa.context().close();
     await admin.context().close();

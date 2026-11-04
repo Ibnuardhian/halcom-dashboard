@@ -46,7 +46,7 @@ test("a Superadmin corrects a customer name and merges two spellings of one comp
     await page.getByRole("button", { name: typo }).click();
     const dialog = page.getByTestId("customer-dialog");
     await dialog.getByLabel("Ubah nama customer").fill(fixed);
-    await dialog.getByRole("button", { name: "Ubah nama" }).click();
+    await dialog.getByRole("button", { name: "Save customer name" }).click();
     await page.waitForTimeout(2500);
     await page.goto(`/customers?q=${encodeURIComponent(fixed)}`);
     await expect(page.getByRole("button", { name: fixed })).toHaveCount(1, { timeout: 3000 });

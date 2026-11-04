@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PROJECT_EDITABLE_FIELDS, type ProjectEditableField } from "@/domain/projects/fields";
 import { removeTechnicalSectionAction, updateProjectDetailsAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 type Values = Partial<Record<ProjectEditableField, string | null>>;
 
@@ -119,7 +120,7 @@ export function ProjectFieldsForm({
           <FormStatus state={state} />
           <div>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : submitLabel}
+              <SaveText what={submitLabel.replace(/^Save /, "")} pending={pending} />
             </Button>
           </div>
         </div>

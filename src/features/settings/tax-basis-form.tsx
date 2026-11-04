@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { TaxBasis } from "@/domain/projects/tax-basis";
 import { saveTaxBasisAction } from "./actions";
+import { SaveText } from "@/components/ui/save-text";
 
 /** Superadmin: does the Estimated PO value include PPN, does the margin, and what is the rate. */
 export function TaxBasisForm({ basis }: { basis: TaxBasis }) {
@@ -35,7 +36,7 @@ export function TaxBasisForm({ basis }: { basis: TaxBasis }) {
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : "Simpan"}
+          <SaveText what="PPN basis" pending={pending} />
         </Button>
       </div>
     </form>

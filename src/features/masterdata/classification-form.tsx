@@ -7,6 +7,7 @@ import type { MasterOption } from "@/domain/projects/master-data";
 import { setProjectMasterDataAction } from "./actions";
 import { MasterDataMultiSelect } from "./master-data-multi-select";
 import { MasterDataSelect } from "./master-data-select";
+import { SaveText } from "@/components/ui/save-text";
 
 /** SOA classify a project with one or more Principals and a Solution, each chosen from its own searchable list (or created with the explicit button). */
 export function ClassificationForm({
@@ -38,7 +39,7 @@ export function ClassificationForm({
       <FormStatus state={state} />
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save classification"}
+          <SaveText what="classification" pending={pending} />
         </Button>
       </div>
     </form>
