@@ -2,6 +2,7 @@
 #   docker compose -f compose.prod.yaml build
 #   docker compose -f compose.prod.yaml run --rm migrate   # explicit, reviewed step
 #   docker compose -f compose.prod.yaml up -d
+# On the Hostinger VPS the images come from GHCR and deploy/deploy.sh runs these steps (see deploy/HOSTINGER.md).
 #
 # Migrations never run on app start. The project name differs from development
 # so production volumes can never be mixed with development data.
@@ -36,6 +37,8 @@ services:
     logging: *logging
 
   migrate:
+    # The VPS pulls this image from GHCR (the deploy workflow builds it); `build` is for a local test of the production stack.
+    image: ${MIGRATE_IMAGE:-halcom-dashboard-migrate}:${IMAGE_TAG:-local}
     build:
       context: .
       target: migrator
@@ -50,6 +53,7 @@ services:
     logging: *logging
 
   app:
+    image: ${APP_IMAGE:-halcom-dashboard-app}:${IMAGE_TAG:-local}
     build:
       context: .
       target: runner

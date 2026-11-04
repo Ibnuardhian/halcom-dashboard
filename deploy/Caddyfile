@@ -1,0 +1,27 @@
+# Caddy on the VPS host (not a container). Install once, then:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   (replace the domain first)
+#   sudo systemctl reload caddy
+# Caddy gets and renews the HTTPS certificate by itself. Port 3000 stays on 127.0.0.1, so everything from outside comes through here.
+# By default Caddy does not trust an X-Forwarded-For sent by the client and sets it to the real address, which the sign-in throttle reads.
+
+halcom.example.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:3000
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}
