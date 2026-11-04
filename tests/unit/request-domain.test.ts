@@ -194,23 +194,30 @@ describe("email text from the team template", () => {
 
   it("puts the request ID, project, SLA and link in the default text, and asks for the ID in the reply", () => {
     const text = body();
-    expect(text).toContain("End user   : PT ABC");
-    expect(text).toContain("Needed by  : 5 Nov 2026");
+    expect(text).toContain("Mohon diberikan informasi Cost untuk kebutuhan PT ABC dengan detail:");
+    expect(text).toContain("Needed by : 5 Nov 2026");
     expect(text).toContain("Mohon balas sebelum 2 Nov 2026 dan pertahankan RFQ-IA-260001 di subjek.");
     expect(text).toContain("Dear Tim Purchasing,");
     expect(text).toContain("http://localhost:3000/request/RFQ-IA-260001");
-    expect(text).not.toContain("Source BOQ");
+    expect(text).not.toContain("Sumber");
+  });
+
+  it("words the ask for a PO on its own, with the end user, and carries the notes that sit in the details", () => {
+    const text = body({ ...base, type: "PO", code: "PO-IA-260001", sourceCode: "RFQ-IA-260001", description: "Brand/Type : Aruba 6300\n\nCatatan: kirim minggu ini" });
+    expect(text).toContain("Mohon diproses pembelian (PO) untuk kebutuhan PT ABC dengan detail:\nBrand/Type : Aruba 6300");
+    expect(text).toContain("Catatan: kirim minggu ini");
+    expect(text).toContain("Sumber    : RFQ-IA-260001 (selesai)");
   });
 
   it("addresses SOA for a BOQ and names the source BOQ on a handover", () => {
     expect(body({ ...base, type: "BOQ", code: "BOQ-IA-260001" })).toContain("Dear Tim SOA,");
-    expect(body({ ...base, sourceCode: "BOQ-IA-260001" })).toContain("Source BOQ : BOQ-IA-260001 (selesai)");
+    expect(body({ ...base, sourceCode: "BOQ-IA-260001" })).toContain("Sumber    : BOQ-IA-260001 (selesai)");
   });
 
   it("states a missing date and empty details plainly", () => {
     const text = body({ ...base, requiredBy: null, description: "  " });
-    expect(text).toContain("Needed by  : Belum ditentukan");
-    expect(text).toContain("Detail:\n-\n");
+    expect(text).toContain("Needed by : Belum ditentukan");
+    expect(text).toContain("dengan detail:\n-\n");
   });
 
   it("formats dates without locale surprises", () => {
@@ -222,14 +229,16 @@ describe("email text from the team template", () => {
 });
 
 describe("email templates", () => {
-  it("both default templates are valid", () => {
-    for (const team of ["SOA", "PURCHASING"] as const) {
+  it("every default template is valid, including the Sales one for the PO (HITPO)", () => {
+    for (const team of ["SOA", "PURCHASING", "SALES"] as const) {
       expect(validateTemplate(DEFAULT_TEMPLATES[team].subject, DEFAULT_TEMPLATES[team].body)).toEqual([]);
     }
   });
 
   it("refuses a subject without the Request ID, unknown variables, and empty or too long text", () => {
-    expect(validateTemplate("Request for you", "Hello {{request_id}}")).toEqual(["Subjek wajib memuat {{request_id}}, supaya balasan membawa Request ID."]);
+    // The Request ID may be in the subject or in the text, but it has to be somewhere.
+    expect(validateTemplate("Request for you", "Hello {{request_id}}")).toEqual([]);
+    expect(validateTemplate("Request for you", "Hello {{team}}")).toEqual(["Tulis {{request_id}} di subjek atau di isi email, supaya balasan bisa dicocokkan dengan request-nya."]);
     expect(validateTemplate("[{{request_id}}]", "Hi {{customer}} and {{ nope }}")).toEqual(["Variabel tidak dikenal: {{customer}}, {{nope}}."]);
     expect(validateTemplate("", "").length).toBe(3);
     expect(validateTemplate("{{request_id}}", "x".repeat(4001))).toEqual(["Isi email paling banyak 4000 karakter."]);

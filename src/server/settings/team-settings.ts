@@ -46,8 +46,8 @@ export async function getTeamSetting(db: PrismaClient | Prisma.TransactionClient
 
 /** Both teams' settings, by role. */
 export async function getTeamSettings(db: PrismaClient): Promise<Record<TemplateTeam, TeamSetting>> {
-  const [soa, purchasing] = await Promise.all([getTeamSetting(db, "SOA"), getTeamSetting(db, "PURCHASING")]);
-  return { SOA: soa, PURCHASING: purchasing };
+  const [soa, purchasing, sales] = await Promise.all([getTeamSetting(db, "SOA"), getTeamSetting(db, "PURCHASING"), getTeamSetting(db, "SALES")]);
+  return { SOA: soa, PURCHASING: purchasing, SALES: sales };
 }
 
 /** Every part is optional: the SLA page sends only the SLA, the Email page only the recipients and the template; what is not sent stays as it is. */

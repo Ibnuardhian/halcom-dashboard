@@ -47,13 +47,12 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
   const accepts = (card: RequestRow | null, to: RequestStatus) => card !== null && movable[card.type] && allowedTransitions(card.status, card.type).includes(to);
 
   function move(card: RequestRow, to: RequestStatus, why?: string) {
-    const before = card.status;
-    setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: to } : row)));
+    setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: to, statusChangedAt: new Date() } : row)));
     setMessage(null);
     startTransition(async () => {
       const result = await moveRequestAction(card.id, to, why);
       if (!result.ok) {
-        setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: before } : row)));
+        setCards((current) => current.map((row) => (row.id === card.id ? card : row)));
         setMessage({ ok: false, text: result.message });
         return;
       }
@@ -160,7 +159,8 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
 
   /** One column. Revision and Cancelled are folded: only their name and number show until opened, and a card can still be dropped on them. */
   function renderColumn(status: RequestStatus) {
-    const inColumn = cards.filter((row) => columnOf(row.status) === status);
+    // Newest status change on top, in every column.
+    const inColumn = cards.filter((row) => columnOf(row.status) === status).sort((a, b) => +new Date(b.statusChangedAt) - +new Date(a.statusChangedAt));
     const droppable = accepts(dragging, status);
     const folded = FOLDED.has(status) && !opened.has(status);
     return (
@@ -195,8 +195,10 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         {folded ? null : inColumn.length === 0 ? (
           <p className="px-1 pb-2 text-xs text-muted-foreground">None.</p>
         ) : (
-          // Completed is the long column, so its cards sit in two columns instead of one tall stack.
-          <ul className={cn("gap-2", status === "COMPLETED" ? "grid sm:grid-cols-2" : "flex flex-col")}>{inColumn.map(renderCard)}</ul>
+          // Completed is the long column, so its cards sit in two columns instead of one tall stack. Each column scrolls inside itself, so the page stays short.
+          <ul tabIndex={0} aria-label={`Kartu ${REQUEST_STATUS_LABELS[status]}`} className={cn("max-h-[calc(100svh-16rem)] min-h-24 gap-2 overflow-y-auto pr-1", status === "COMPLETED" ? "grid sm:grid-cols-2" : "flex flex-col")}>
+            {inColumn.map(renderCard)}
+          </ul>
         )}
       </section>
     );

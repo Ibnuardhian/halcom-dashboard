@@ -5,6 +5,7 @@ import { can } from "@/domain/access/permissions";
 import { renderBody, renderSubject, SAMPLE_VALUES, TEMPLATE_VARIABLES } from "@/domain/requests/template";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatDay } from "@/features/dashboards/format";
+import { EmailPreview } from "@/features/settings/email-preview";
 import { TeamEmailForm } from "@/features/settings/team-settings-form";
 import { getDb } from "@/lib/db";
 import { requirePermission } from "@/server/auth/current-user";
@@ -18,10 +19,11 @@ export default function EmailPage() {
   );
 }
 
-/** One page for every team: the To / Cc and the email template Sales send it. Each team is a section with its own anchor (`#soa`, `#purchasing`). */
+/** One page for every template: the To / Cc and the email text. Each is a section with its own anchor (`#soa`, `#purchasing`, `#sales`). */
 const TEAMS = [
-  { id: "soa", role: "SOA", label: "SOA", note: "Menerima request BOQ." },
-  { id: "purchasing", role: "PURCHASING", label: "Purchasing", note: "Menerima request RFQ dan PO." },
+  { id: "soa", role: "SOA", label: "SOA", note: "Email BOQ dari Sales ke SOA." },
+  { id: "purchasing", role: "PURCHASING", label: "Purchasing", note: "Email RFQ dari Sales ke Purchasing." },
+  { id: "sales", role: "SALES", label: "Sales (HITPO)", note: "Email PO dari Sales ke Purchasing. Isi To dengan alamat Purchasing." },
 ] as const;
 
 async function EmailSettings() {
@@ -34,7 +36,7 @@ async function EmailSettings() {
     <>
       <DashboardHeader
         title="Email"
-        summary={`Penerima (To/CC) dan template email dari Sales untuk semua tim. Batas waktu jawaban ada di halaman SLA. Aplikasi mengisi template dan membuka draf di klien email Anda.${mayEdit ? "" : " Hanya Superadmin yang bisa mengubahnya."}`}
+        summary={`Penerima dan teks email untuk BOQ, RFQ, dan PO (HITPO). Batas waktu jawaban ada di halaman SLA.${mayEdit ? "" : " Hanya Superadmin yang bisa mengubahnya."}`}
       />
 
       <Card className="mb-6">
@@ -43,8 +45,8 @@ async function EmailSettings() {
             <h2>Variabel</h2>
           </CardTitle>
           <CardDescription>
-            Tulis variabel di antara dua kurung kurawal, misalnya <code>{"{{request_id}}"}</code>. Subjek wajib memuat <code>{"{{request_id}}"}</code>: balasan email mempertahankan subjek, dan itulah cara SOA dan
-            Purchasing menjawab dengan Request ID. Baris yang memakai variabel kosong untuk request (misalnya BOQ asal) tidak ditampilkan.
+            Tulis variabel di antara dua kurung kurawal, misalnya <code>{"{{request_id}}"}</code>. <code>{"{{request_id}}"}</code> wajib ada di subjek atau di isi email, supaya balasan bisa dicocokkan dengan request-nya. Di subjek lebih aman, karena balasan membawa subjek.
+            Baris yang variabelnya kosong tidak ditampilkan, misalnya baris Sumber pada request yang bukan lanjutan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -105,12 +107,7 @@ async function EmailSettings() {
                   </dl>
                 )}
                 <div className="border-t pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">Pratinjau dengan data contoh</h3>
-                  <p className="mb-2 font-mono text-xs break-words">
-                    <span className="text-muted-foreground">Subjek: </span>
-                    {renderSubject(setting.emailSubject, SAMPLE_VALUES)}
-                  </p>
-                  <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 text-xs whitespace-pre-wrap">{renderBody(setting.emailBody, SAMPLE_VALUES)}</pre>
+                  <EmailPreview label={team.label} subject={renderSubject(setting.emailSubject, SAMPLE_VALUES)} body={renderBody(setting.emailBody, SAMPLE_VALUES)} />
                 </div>
               </CardContent>
             </Card>

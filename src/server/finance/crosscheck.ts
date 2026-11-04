@@ -50,14 +50,14 @@ export async function listCrosscheck(db: PrismaClient, viewer: Viewer, filter: C
               { endUserCompany: { contains: search, mode: "insensitive" } },
               { name: { contains: search, mode: "insensitive" } },
               { externalSourceName: { contains: search, mode: "insensitive" } },
-              { requests: { some: { code: { contains: search, mode: "insensitive" } } } },
+              { requests: { some: { deletedAt: null, code: { contains: search, mode: "insensitive" } } } },
             ],
           }
         : {}),
     },
     include: {
       salesOwner: { select: { name: true } },
-      requests: { where: { type: { in: ["RFQ", "PO"] } }, select: { code: true, type: true, status: true }, orderBy: { createdAt: "asc" } },
+      requests: { where: { deletedAt: null, type: { in: ["RFQ", "PO"] } }, select: { code: true, type: true, status: true }, orderBy: { createdAt: "asc" } },
     },
   });
   const audit = await db.auditEvent.groupBy({

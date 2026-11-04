@@ -18,20 +18,20 @@ export function singleLine(value: string): string {
 }
 
 /** What the team is asked to do and what it should do next, by type of request: the {{ask}} and {{next_action}} variables. */
-export const INTENT: Record<RequestType, { team: string; ask: string; next: string }> = {
+export const INTENT: Record<RequestType, { team: string; ask: (endUser: string) => string; next: string }> = {
   BOQ: {
     team: "Tim SOA",
-    ask: "Mohon dibuatkan BOQ / solusi teknis untuk kebutuhan berikut.",
+    ask: (endUser) => `Mohon dibuatkan BOQ / solusi teknis untuk kebutuhan ${endUser} dengan detail:`,
     next: "Tinjau request, tanyakan ke Sales bila ada yang kurang, lalu siapkan dan selesaikan BOQ.",
   },
   RFQ: {
     team: "Tim Purchasing",
-    ask: "Mohon diberikan informasi Cost / harga item untuk kebutuhan berikut.",
+    ask: (endUser) => `Mohon diberikan informasi Cost untuk kebutuhan ${endUser} dengan detail:`,
     next: "Tinjau spesifikasi, lalu kirimkan quotation atau harga item.",
   },
   PO: {
     team: "Tim Purchasing",
-    ask: "Mohon diproses pembelian / PO untuk kebutuhan berikut.",
+    ask: (endUser) => `Mohon diproses pembelian (PO) untuk kebutuhan ${endUser} dengan detail:`,
     next: "Tinjau spesifikasi, lalu proses pembelian.",
   },
 };
@@ -74,7 +74,7 @@ export function templateValues(input: BodyInput): TemplateValues {
     request_type: REQUEST_TYPE_LABELS[input.type],
     type_tag: SUBJECT_TAGS[input.type],
     team: intent.team,
-    ask: intent.ask,
+    ask: intent.ask(singleLine(input.endUserCompany)),
     next_action: intent.next,
     project_id: input.projectCode,
     end_user: singleLine(input.endUserCompany),

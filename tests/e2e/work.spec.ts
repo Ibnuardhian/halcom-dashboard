@@ -42,10 +42,20 @@ async function createRequest(page: Page, projectCode: string, type: "BOQ" | "RFQ
  * Drags a request's card to a column of its board: the only place SOA and Purchasing change a status. The page is searched for the
  * request code so its card is on the board whatever else is there. A cancellation (or reopening) asks for a reason first.
  */
+/** Revision and Cancelled are folded until opened; a card dropped there is not shown until then. */
+async function openColumn(page: Page, column: string): Promise<void> {
+  const section = page.locator(`[data-column="${column}"]`);
+  await section.waitFor(); // the page may still be loading after a reload
+  const toggle = section.getByRole("button", { expanded: false });
+  if (await toggle.count()) await toggle.click();
+}
+
 async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, column: string, reason?: string): Promise<void> {
   await expect(async () => {
     await page.goto(`/requests/${type.toLowerCase()}?view=board&q=${code}`);
   }).toPass({ timeout: 30_000 });
+  // The card may sit in a folded column (a BOQ in Revision): open them before looking for it.
+  for (const folded of ["REVISION", "CANCELLED"]) if (await page.locator(`[data-column="${folded}"]`).count()) await openColumn(page, folded);
   const card = page.locator(`[data-request="${code}"]`);
   await expect(card).toBeVisible();
   const target = page.locator(`[data-column="${column}"]`);
@@ -56,12 +66,14 @@ async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, co
       await page.getByRole("dialog").getByLabel("Reason").fill(reason, { timeout: 3000 });
       await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Reopen request)$/ }).click({ timeout: 3000 });
     }
+    await openColumn(page, column);
     await expect(target.locator(`[data-request="${code}"]`)).toBeVisible({ timeout: 4000 });
   }).toPass({ timeout: 45_000 });
   // The card moves at once; the board says so when the server has saved it. Only then is it safe to reload.
   await expect(page.getByRole("status").filter({ hasText: `${code} is now` })).toBeVisible({ timeout: 15_000 });
   // It stays there after a reload: the move was saved, not only shown.
   await page.reload();
+  await openColumn(page, column);
   await expect(page.locator(`[data-column="${column}"] [data-request="${code}"]`)).toBeVisible();
 }
 
@@ -113,7 +125,7 @@ test.describe("projects and requests", () => {
     expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
     const projectCode = page.url().match(/HIT-PROJ-\d+/)![0];
 
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
     await expect(page.getByLabel("Gross Profit")).toHaveValue(/^250\.?000\.?000$/);
   });
@@ -144,7 +156,7 @@ test.describe("projects and requests", () => {
 
   test("Propose (30%) means the quotation was submitted: its date is filled in, stays editable, and can be cleared", async ({ page }) => {
     test.setTimeout(150_000);
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    const today = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta" }).format(new Date());
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Propose demo");
     const commercial = page.locator("#commercial");
@@ -180,6 +192,7 @@ test.describe("projects and requests", () => {
     await save();
     await page.goto(`/projects/${projectCode}`);
     await expect(quote).toHaveValue("");
+    await page.goto(`/projects/${projectCode}#technical`); // the change log is on the Technical tab
     await expect(page.getByRole("list", { name: "Change log" })).toContainText("Quote released");
   });
 
@@ -190,11 +203,11 @@ test.describe("projects and requests", () => {
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "60% - Negotiate" });
     await commercial.getByLabel("Status").selectOption({ label: "On Hold" });
-    await commercial.getByLabel("Quote released").fill("01/10/2026");
+    await commercial.getByLabel("Quote released", { exact: true }).fill("01/10/2026");
     await expect(commercial.getByLabel(/Probability/)).toHaveCount(0); // the probability comes from Progress
     await commercial.getByLabel("Gross Profit").fill("150000");
     await page.getByRole("button", { name: "Save commercial details" }).click();
-    await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /Disimpan dan dicatat/ })).toBeVisible();
 
     await page.reload();
     await expect(page.locator("#commercial").getByLabel("Gross Profit")).toHaveValue("150.000");
@@ -211,7 +224,7 @@ test.describe("projects and requests", () => {
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/projects/${projectCode}`);
-    await expect(soa.getByRole("heading", { level: 2, name: "Commercial" })).toBeVisible();
+    await expect(soa.getByRole("tab", { name: "Commercial", exact: true })).toBeVisible();
     await expect(soa.getByRole("button", { name: "Save commercial details" })).toHaveCount(0);
     await soa.context().close();
   });
@@ -287,9 +300,9 @@ test.describe("projects and requests", () => {
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
     await commercial.getByLabel("Final PO value").fill("400");
     await commercial.getByLabel("Gross Profit").fill("40"); // 10% of 400
-    await commercial.getByLabel("Won date").fill(`${year}-02-10`);
+    await commercial.getByLabel("Won date", { exact: true }).fill(`10/02/${year}`);
     await page.getByRole("button", { name: "Save commercial details" }).click();
-    await expect(page.getByRole("status").filter({ hasText: /Saved and logged/ })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /Disimpan dan dicatat/ })).toBeVisible();
 
     await page.goto(`/targets?year=${year}`);
     await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
@@ -339,7 +352,7 @@ test.describe("projects and requests", () => {
         await tiles.getByRole("link", { name: new RegExp(`^${name}`, "i") }).click();
         await expect(page).toHaveURL(new RegExp(`/projects\\?show=${show}&mine=1$`), { timeout: 3000 });
       }).toPass();
-      await expect(page.getByRole("status")).toContainText("yours");
+      await expect(page.getByRole("status").first()).toContainText("yours");
     }
   });
 
@@ -352,11 +365,16 @@ test.describe("projects and requests", () => {
     await expect(root.getByRole("heading", { level: 1, name: "Email" })).toBeVisible();
     const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan email SOA" }) });
     await expect(async () => {
+      // Without the Request ID in the subject or the text, the template is refused.
       await form.getByLabel("Subjek email").fill("A subject without the id");
+      await form.getByLabel("Isi email").fill("A text without the id either");
       await form.getByRole("button", { name: "Simpan email SOA" }).click();
       await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
     }).toPass();
-    await expect(root.getByText("Pratinjau dengan data contoh").first()).toBeVisible();
+    // The preview opens in a modal, for every template including the Sales one (HITPO).
+    await root.getByRole("button", { name: "Pratinjau Sales (HITPO)" }).click();
+    await expect(root.getByRole("dialog").getByText("Memakai data contoh")).toBeVisible();
+    await expect(root.getByRole("dialog").getByText(/Mohon konfirmasi setelah PO diproses/)).toBeVisible();
     await root.context().close();
   });
 
@@ -376,7 +394,7 @@ test.describe("projects and requests", () => {
       chosen = options[options.length - 1]!;
       await soa.selectOption(chosen);
       await root.getByRole("button", { name: "Move project" }).click();
-      await expect(root.getByRole("status").filter({ hasText: /was moved/ })).toBeVisible({ timeout: 1500 });
+      await expect(root.getByRole("status").filter({ hasText: /Project dipindahkan/ })).toBeVisible({ timeout: 1500 });
     }).toPass();
     // The box keeps the PIC that was saved (React clears a form after its action, so it must be rebuilt from the new value).
     await expect(soa).toHaveValue(chosen);
@@ -467,8 +485,8 @@ test.describe("projects and requests", () => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Pipeline demo");
 
-    for (const heading of ["Overview", "Technical", "Activity", "Requests"]) {
-      await expect(page.getByRole("heading", { level: 2, name: heading, exact: true })).toBeVisible();
+    for (const tab of ["Commercial", "Technical", "Activity", "Requests"]) {
+      await expect(page.getByRole("tab", { name: tab, exact: true })).toBeVisible();
     }
     await expect(page.getByText("5% - Qualify").first()).toBeVisible(); // a new project starts at the first step
     await expect(page.locator("#overview").getByText("Sales PIC", { exact: true })).toBeVisible();
@@ -523,12 +541,15 @@ test.describe("projects and requests", () => {
     await expect(latest).not.toContainText("Held the kickoff meeting");
     await expect(soa.getByRole("list", { name: "Latest next action" })).toContainText("Send the BOQ to the distributor");
 
-    // The technical form is there too, and there is no way to edit commercial fields.
+    // The technical form is there too (on its own tab), and there is no way to edit commercial fields.
+    await soa.getByRole("tab", { name: "Technical", exact: true }).click();
     await expect(soa.getByRole("button", { name: "Save technical details" })).toBeVisible();
     await expect(soa.getByLabel(/Estimated value|Probability|Final value/)).toHaveCount(0);
 
     // Sales sees the same project and feed, with no way to post.
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#activity`);
+    await page.reload(); // only the hash changed, so the page still shows the feed from before SOA posted
+    await expect(page.getByRole("list", { name: "Update feed" })).toBeVisible(); // the Activity tab is open before anything is counted
     await expect(page.getByRole("button", { name: "Post update" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Save technical details" })).toHaveCount(0);
     await expect(page.getByRole("list", { name: "Update feed" }).getByRole("listitem")).toHaveCount(4);
@@ -587,13 +608,15 @@ test.describe("projects and requests", () => {
     const boq = await createRequest(page, projectCode, "BOQ");
 
     const soa = await asRole(browser, "SOA");
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await expect(soa.getByRole("button", { name: "Continue to RFQ" })).toHaveCount(0); // not completed yet
     await moveCard(soa, "BOQ", boq, "IN_PROGRESS");
     await moveCard(soa, "BOQ", boq, "COMPLETED");
 
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
+    await soa.getByRole("dialog").getByLabel("Notes (opsional)").fill("Mohon prioritas minggu ini"); // the confirmation, with an optional note
+    await soa.getByRole("dialog").getByRole("button", { name: "Lanjutkan ke RFQ" }).click();
     await expect(soa).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
     const rfq = new URL(soa.url()).searchParams.get("request")!;
 
@@ -606,12 +629,13 @@ test.describe("projects and requests", () => {
     await email.getByRole("button", { name: "Unduh draf Outlook (.eml)" }).click();
     expect((await download).suggestedFilename()).toMatch(/\.eml$/);
     await expect(email.getByLabel("Kepada", { exact: true })).toHaveValue("purchasing-group@example.invalid");
-    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain(`Source BOQ : ${boq} (selesai)`);
+    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain(`Sumber    : ${boq} (selesai)`);
+    expect(await email.getByLabel("Isi email", { exact: true }).inputValue()).toContain("Catatan: Mohon prioritas minggu ini");
     await expect(soa.getByText("Balas di dalam thread email [HITBOQ] asli")).toBeVisible();
     await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
     // The BOQ now lists its RFQ, and the next-step buttons are gone: it has been continued.
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await expect(soa.getByRole("link", { name: rfq }).first()).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0);
 
@@ -651,11 +675,11 @@ test.describe("projects and requests", () => {
     await page.goto(`/request/${boq}`);
     await expect(page.getByRole("heading", { name: "What happens next?" })).toBeVisible();
     await expect(async () => {
-      await page.getByLabel("Note (optional)").fill("Customer postponed");
+      await page.getByLabel("Alasan tidak dilanjutkan (opsional)").fill("Customer postponed");
       await page.getByRole("button", { name: "Do not continue" }).click();
-      await expect(page.getByRole("status").filter({ hasText: "does not continue" })).toBeVisible({ timeout: 2500 });
+      await expect(page.getByRole("status").filter({ hasText: "tidak dilanjutkan" })).toBeVisible({ timeout: 2500 });
     }).toPass({ timeout: 40_000 });
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("Not continuing");
     await page.goto("/dashboard/sales");
     // Decided, so this BOQ is no longer listed (other BOQs of the shared Sales account may be).
@@ -666,9 +690,10 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("Tidak dilanjutkan: diputuskan oleh")).toBeVisible();
     await expect(async () => {
       await page.getByRole("button", { name: "Continue to RFQ anyway" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Lanjutkan ke RFQ" }).click({ timeout: 3000 });
       await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/, { timeout: 15_000 });
     }).toPass({ timeout: 40_000 });
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("list", { name: "Flow of this project" })).toContainText("BOQDone");
     await soa.context().close();
   });
@@ -685,15 +710,16 @@ test.describe("projects and requests", () => {
     await moveCard(soa, "BOQ", boq, "COMPLETED");
     await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
     await expect(soa.getByRole("dialog")).toHaveCount(0);
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}?request=${boq}#requests`);
     await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
     await moveCard(soa, "BOQ", boq, "COMPLETED");
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}?request=${boq}#requests`);
     // The project page holds both requests; the history belongs to the BOQ that is open.
     const boqPanel = soa.locator(`li#request-${boq}`);
-    await boqPanel.getByText(/^Status history/).click();
-    await expect(boqPanel.getByRole("table").getByRole("cell", { name: "Revision" }).first()).toBeVisible();
+    const history = boqPanel.locator("details").filter({ hasText: /^Status history/ });
+    if ((await history.getAttribute("open")) === null) await history.getByText(/^Status history/).click();
+    await expect(history.getByRole("cell", { name: "Completed → Revision" })).toBeVisible();
 
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);
@@ -724,11 +750,12 @@ test.describe("projects and requests", () => {
     await expect(soa.locator(`[data-column="SUBMITTED"] [data-request="${boq}"]`)).toBeVisible();
 
     await moveCard(soa, "BOQ", boq, "CANCELLED", "Customer cancelled the tender");
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await soa.getByText(/^Status history/).click(); // the history is collapsed at the end of the page
     await expect(soa.getByRole("cell", { name: "Customer cancelled the tender" })).toBeVisible();
     // Cancelled is final: the card cannot be dragged on.
     await soa.goto(`/requests/boq?view=board&q=${boq}`);
+    await openColumn(soa, "CANCELLED");
     await expect(soa.locator(`[data-column="CANCELLED"] [data-request="${boq}"]`)).toHaveAttribute("draggable", "false");
     await soa.context().close();
   });
@@ -795,6 +822,27 @@ test.describe("access to the work modules", () => {
 });
 
 test.describe("superadmin modules", () => {
+  test("superadmin deletes a request after typing its code; Sales see no delete button", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Delete request demo");
+    const boq = await createRequest(page, projectCode, "BOQ");
+    await page.goto(`/request/${boq}`);
+    await expect(page.getByRole("button", { name: "Hapus request" })).toHaveCount(0);
+
+    const root = await asRole(browser, "SUPERADMIN");
+    await root.goto(`/request/${boq}`);
+    await expect(async () => {
+      await root.getByRole("button", { name: "Hapus request" }).click();
+      await expect(root.getByRole("dialog", { name: `Hapus ${boq}?` })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30_000 });
+    const dialog = root.getByRole("dialog", { name: `Hapus ${boq}?` });
+    await dialog.getByLabel(`Ketik ${boq} untuk konfirmasi`).fill(boq);
+    await dialog.getByRole("button", { name: "Hapus request" }).click();
+    await expect(root).toHaveURL(new RegExp(`/projects/${projectCode}#requests$`));
+    await expect(root.getByRole("link", { name: boq })).toHaveCount(0);
+    await root.context().close();
+  });
+
   test("superadmin creates a backup in the host folder and sees it listed and audited", async ({ page }) => {
     await signIn(page, "SUPERADMIN");
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Backups" }).click();
@@ -802,7 +850,7 @@ test.describe("superadmin modules", () => {
 
     await page.getByRole("button", { name: "Create backup now" }).click();
 
-    await expect(page.getByRole("status").filter({ hasText: /Backup written: halcom-\d{8}-\d{6}Z\.dump/ })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("status").filter({ hasText: /Backup tersimpan: halcom-\d{8}-\d{6}Z\.dump/ })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("cell", { name: /^halcom-\d{8}-\d{6}Z\.dump$/ }).first()).toBeVisible();
 
     await page.goto("/admin/audit");

@@ -148,7 +148,7 @@ const PROJECT_SORT_KEY_SELECT = {
   createdAt: true,
   updatedAt: true,
   actions: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
-  requests: { orderBy: { updatedAt: "desc" }, take: 1, select: { updatedAt: true } },
+  requests: { where: { deletedAt: null }, orderBy: { updatedAt: "desc" }, take: 1, select: { updatedAt: true } },
   changes: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
 } as const;
 type ProjectSortKey = Prisma.ProjectGetPayload<{ select: typeof PROJECT_SORT_KEY_SELECT }>;
@@ -262,7 +262,7 @@ const PROJECT_ROW_INCLUDE = {
   principal: { select: { name: true } },
   principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
   solutionCategory: { select: { name: true } },
-  requests: { select: { status: true, updatedAt: true }, orderBy: { updatedAt: "desc" } },
+  requests: { where: { deletedAt: null }, select: { status: true, updatedAt: true }, orderBy: { updatedAt: "desc" } },
   actions: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
   changes: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
 } as const;
@@ -406,6 +406,8 @@ export type RequestRow = {
   assigneeName: string | null;
   requiredBy: Date | null;
   createdAt: Date;
+  /** When the request last moved into its current status; the board lists the newest first. */
+  statusChangedAt: Date;
   /** When the owning team should have answered by, and where the request stands against it. */
   sla: Sla;
   /** Sales decided not to continue to the next step after this request. */
@@ -460,6 +462,7 @@ const escapeLike = (text: string) => text.replace(/[\\%_]/g, (char) => "\\" + ch
 function requestWhere(filter: RequestFilter) {
   const q = filter.q?.trim() ? escapeLike(filter.q.trim()) : undefined;
   return {
+    deletedAt: null,
     project: { deletedAt: null, salesOwnerId: filter.projectOwnerId },
     picId: filter.assignee === undefined ? undefined : filter.assignee === "none" ? null : filter.assignee,
     type: filter.type ?? (filter.types ? { in: [...filter.types] } : undefined),
@@ -511,6 +514,8 @@ function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeo
     assigneeName: request.pic?.name ?? null,
     requiredBy: request.requiredBy,
     createdAt: request.createdAt,
+    // The latest move into the current status (a reopened request counts from the reopening); a request never moved dates from its creation.
+    statusChangedAt: request.statusHistory.reduce((latest, step) => (step.toStatus === request.status && step.changedAt > latest ? step.changedAt : latest), request.createdAt),
     flowStopped: request.flowStoppedAt !== null,
     overdueNote: request.overdueNote,
     overdueDays: sla.state === "overdue" ? overdueWorkingDays(sla.dueAt, now) : sla.state === "late" && request.completedAt ? overdueWorkingDays(sla.dueAt, request.completedAt) : null,
@@ -611,7 +616,7 @@ export async function getProjectByCode(db: PrismaClient, viewer: Viewer, code: s
 /** True when the project has a completed RFQ, which a PO needs. */
 export async function hasCompletedRfq(db: PrismaClient, viewer: Viewer, projectId: string): Promise<boolean> {
   assertPermitted(can(viewer.role, "requests.view"));
-  return (await db.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED" } })) > 0;
+  return (await db.request.count({ where: { projectId, type: "RFQ", status: "COMPLETED", deletedAt: null } })) > 0;
 }
 
 export type DecisionRow = { code: string; type: RequestType; title: string; projectCode: string; endUserCompany: string; projectName: string; completedAt: Date | null };
@@ -628,6 +633,7 @@ export async function listPendingDecisions(db: PrismaClient, viewer: Viewer, own
       status: "COMPLETED",
       flowStoppedAt: null,
       handovers: { none: {} },
+      deletedAt: null,
       project: { deletedAt: null, ...(ownerId ? { salesOwnerId: ownerId } : {}) },
     },
     orderBy: { completedAt: "asc" },
@@ -643,7 +649,7 @@ export type HandoverRow = { code: string; type: RequestType; status: RequestStat
 export async function listRecentHandovers(db: PrismaClient, viewer: Viewer, limit = 20): Promise<HandoverRow[]> {
   assertPermitted(can(viewer.role, "requests.view"));
   const rows = await db.request.findMany({
-    where: { sourceRequestId: { not: null }, project: { deletedAt: null } },
+    where: { sourceRequestId: { not: null }, deletedAt: null, project: { deletedAt: null } },
     orderBy: { createdAt: "desc" },
     take: limit,
     include: { source: { select: { code: true } }, project: { select: { code: true, endUserCompany: true, name: true } }, requester: { select: { name: true } } },
@@ -675,13 +681,13 @@ const REQUEST_DETAIL = {
 
 export async function getRequestByCode(db: PrismaClient, viewer: Viewer, code: string) {
   assertPermitted(can(viewer.role, "requests.view"));
-  return db.request.findUnique({ where: { code, project: { deletedAt: null } }, include: REQUEST_DETAIL });
+  return db.request.findFirst({ where: { code, deletedAt: null, project: { deletedAt: null } }, include: REQUEST_DETAIL });
 }
 
 /** Every request of a project with the detail the request panel shows, in the order of the flow (BOQ, RFQ, PO), then by age. */
 export async function listProjectRequestDetails(db: PrismaClient, viewer: Viewer, projectId: string) {
   assertPermitted(can(viewer.role, "requests.view"));
-  const rows = await db.request.findMany({ where: { projectId, project: { deletedAt: null } }, include: REQUEST_DETAIL, orderBy: { createdAt: "asc" } });
+  const rows = await db.request.findMany({ where: { projectId, deletedAt: null, project: { deletedAt: null } }, include: REQUEST_DETAIL, orderBy: { createdAt: "asc" } });
   const order = (type: RequestType) => REQUEST_TYPES.indexOf(type);
   return rows.sort((a, b) => order(a.type) - order(b.type) || a.createdAt.getTime() - b.createdAt.getTime());
 }
@@ -704,8 +710,8 @@ export async function getWorkStats(db: PrismaClient, viewer: Viewer, projectOwne
   const projectWhere = { deletedAt: null, ...(projectOwnerId ? { salesOwnerId: projectOwnerId } : {}) };
   const [projectsActive, groups, unassignedOpen] = await Promise.all([
     db.project.count({ where: { trackStatus: "ON_TRACK", ...projectWhere } }),
-    db.request.groupBy({ by: ["type", "status"], where: { project: projectWhere }, _count: { _all: true } }),
-    db.request.count({ where: { project: projectWhere, picId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
+    db.request.groupBy({ by: ["type", "status"], where: { deletedAt: null, project: projectWhere }, _count: { _all: true } }),
+    db.request.count({ where: { deletedAt: null, project: projectWhere, picId: null, status: { in: REQUEST_STATUSES.filter(isOpen) } } }),
   ]);
   const zero = () => Object.fromEntries(REQUEST_STATUSES.map((status) => [status, 0])) as Record<RequestStatus, number>;
   const statusCounts = Object.fromEntries(REQUEST_TYPES.map((type) => [type, zero()])) as WorkStats["statusCounts"];

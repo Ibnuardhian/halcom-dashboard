@@ -27,7 +27,7 @@ const SELECT = {
 
 async function load(db: PrismaClient, scope: { type?: RequestType; types?: readonly RequestType[]; ownerId?: string }): Promise<(MetricRequest & { type: RequestType })[]> {
   const rows = await db.request.findMany({
-    where: { type: scope.type ?? (scope.types ? { in: [...scope.types] } : undefined), project: { deletedAt: null, salesOwnerId: scope.ownerId } },
+    where: { type: scope.type ?? (scope.types ? { in: [...scope.types] } : undefined), deletedAt: null, project: { deletedAt: null, salesOwnerId: scope.ownerId } },
     select: SELECT,
   });
   return rows.map((row) => ({
@@ -76,7 +76,7 @@ export async function getTechnicalReport(db: PrismaClient, viewer: Viewer, now: 
 
 /** Completed BOQs that were neither continued as an RFQ nor marked "do not continue". */
 export function countAwaitingHandoff(db: PrismaClient): Promise<number> {
-  return db.request.count({ where: { type: "BOQ", status: "COMPLETED", flowStoppedAt: null, handovers: { none: {} }, project: { deletedAt: null } } });
+  return db.request.count({ where: { type: "BOQ", status: "COMPLETED", flowStoppedAt: null, deletedAt: null, handovers: { none: { deletedAt: null } }, project: { deletedAt: null } } });
 }
 
 /** The request picture of the projects one salesperson owns, or of every project when `ownerId` is omitted. */
@@ -110,6 +110,7 @@ export async function listOverdueRequests(db: PrismaClient, viewer: Viewer, team
     db.request.findMany({
       where: {
         type: { in: [...TEAM_TYPES[team]] },
+        deletedAt: null,
         project: { deletedAt: null },
         OR: [{ status: { in: ["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"] } }, { status: "COMPLETED", completedAt: { gte: since } }],
       },

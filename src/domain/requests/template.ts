@@ -10,7 +10,7 @@ export const TEMPLATE_VARIABLES = [
   { name: "request_type", label: "Jenis request", example: "RFQ (Request for Quotation)" },
   { name: "type_tag", label: "Tag subjek untuk jenis request", example: "[HITRFQ]" },
   { name: "team", label: "Tim penerima", example: "Tim Purchasing" },
-  { name: "ask", label: "Yang diminta dari tim", example: "Mohon diberikan informasi Cost / harga item …" },
+  { name: "ask", label: "Yang diminta dari tim", example: "Mohon diberikan informasi Cost untuk kebutuhan PT ABC dengan detail:" },
   { name: "next_action", label: "Tindakan berikutnya yang diharapkan", example: "Tinjau spesifikasi, lalu kirimkan quotation …" },
   { name: "project_id", label: "Project ID", example: "HIT-PROJ-004" },
   { name: "end_user", label: "Perusahaan end user", example: "PT ABC" },
@@ -41,8 +41,9 @@ export function variablesIn(template: string): string[] {
 }
 
 /**
- * What is wrong with a template, in words. The subject must carry the Request ID: a reply keeps the subject, so that is
- * how SOA and Purchasing answer with the ID. Unknown variables would reach the mail as literal braces, so they are refused.
+ * What is wrong with a template, in words. The Request ID must be in the subject or the text, so a reply can be matched to its
+ * request; the subject is the safer place (a reply keeps it), but the text is allowed. Unknown variables would reach the mail as
+ * literal braces, so they are refused.
  */
 export function validateTemplate(subject: string, body: string): string[] {
   const problems: string[] = [];
@@ -52,7 +53,9 @@ export function validateTemplate(subject: string, body: string): string[] {
   if (body.length > BODY_MAX_LENGTH) problems.push(`Isi email paling banyak ${BODY_MAX_LENGTH} karakter.`);
   const unknown = [...variablesIn(subject), ...variablesIn(body)].filter((name) => !KNOWN.has(name));
   if (unknown.length > 0) problems.push(`Variabel tidak dikenal: ${[...new Set(unknown)].map((name) => `{{${name}}}`).join(", ")}.`);
-  if (!variablesIn(subject).includes("request_id")) problems.push("Subjek wajib memuat {{request_id}}, supaya balasan membawa Request ID.");
+  if (!variablesIn(subject).includes("request_id") && !variablesIn(body).includes("request_id")) {
+    problems.push("Tulis {{request_id}} di subjek atau di isi email, supaya balasan bisa dicocokkan dengan request-nya.");
+  }
   return problems;
 }
 
@@ -82,14 +85,11 @@ const DEFAULT_BODY = [
   "Dear {{team}},",
   "",
   "{{ask}}",
-  "",
-  "End user   : {{end_user}}",
-  "Project    : {{project_name}}",
-  "Needed by  : {{needed_by}}",
-  "Source BOQ : {{source_request}}",
-  "",
-  "Detail:",
   "{{details}}",
+  "",
+  "Project   : {{project_name}}",
+  "Needed by : {{needed_by}}",
+  "Sumber    : {{source_request}}",
   "",
   "Mohon balas sebelum {{due_date}} dan pertahankan {{request_id}} di subjek.",
   "{{link}}",
@@ -98,13 +98,37 @@ const DEFAULT_BODY = [
   "{{requested_by}}",
 ].join("\n");
 
-/** What each team's email looks like until the superadmin changes it. */
-export const DEFAULT_TEMPLATES: Record<"SOA" | "PURCHASING", TeamTemplate> = {
-  SOA: { subject: "{{type_tag}} {{end_user}} - {{project_name}} [{{request_id}}]", body: DEFAULT_BODY, sla: DEFAULT_SLA },
-  PURCHASING: { subject: "{{type_tag}} {{end_user}} - {{project_name}} [{{request_id}}]", body: DEFAULT_BODY, sla: DEFAULT_SLA },
+/** The PO is written by Sales to Purchasing (HITPO): it asks for a confirmation, not for an answer by a due date. */
+const PO_BODY = [
+  "Dear {{team}},",
+  "",
+  "{{ask}}",
+  "{{details}}",
+  "",
+  "Project   : {{project_name}}",
+  "Needed by : {{needed_by}}",
+  "Sumber    : {{source_request}}",
+  "",
+  "Mohon konfirmasi setelah PO diproses, dan pertahankan {{request_id}} di subjek.",
+  "{{link}}",
+  "",
+  "Terima kasih,",
+  "{{requested_by}}",
+].join("\n");
+
+const SUBJECT = "{{type_tag}} {{end_user}} - {{project_name}} [{{request_id}}]";
+
+/**
+ * What each template looks like until the superadmin changes it. SOA and Purchasing are the receiving teams (BOQ; RFQ). SALES is the
+ * HITPO template: the PO that Sales write to Purchasing. Its SLA is not used: a PO is timed by the Purchasing SLA.
+ */
+export const DEFAULT_TEMPLATES: Record<TemplateTeam, TeamTemplate> = {
+  SOA: { subject: SUBJECT, body: DEFAULT_BODY, sla: DEFAULT_SLA },
+  PURCHASING: { subject: SUBJECT, body: DEFAULT_BODY, sla: DEFAULT_SLA },
+  SALES: { subject: SUBJECT, body: PO_BODY, sla: DEFAULT_SLA },
 };
 
-export const TEMPLATE_TEAMS = ["SOA", "PURCHASING"] as const;
+export const TEMPLATE_TEAMS = ["SOA", "PURCHASING", "SALES"] as const;
 export type TemplateTeam = (typeof TEMPLATE_TEAMS)[number];
 
 /** Sample values for the preview on the settings page. */

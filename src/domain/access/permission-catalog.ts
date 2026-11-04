@@ -72,6 +72,7 @@ export const PERMISSION_CATALOG: Record<Permission, Entry> = {
   "requests.create": { category: "request-workflow", label: "Raise requests", description: "Ajukan request BOQ, RFQ, atau PO untuk sebuah project." },
   "requests.create.external": { category: "request-workflow", label: "Raise requests for external projects", description: "Ajukan request pada project dengan source Other." },
   "requests.create.rfq": { category: "request-workflow", label: "Raise RFQ requests", description: "Ajukan request RFQ (hanya RFQ) untuk project yang ada, misalnya oleh Purchasing atas nama Sales PIC dan SOA PIC project." },
+  "requests.delete": { category: "request-workflow", label: "Delete requests", description: "Hapus request BOQ, RFQ, atau PO (disembunyikan dari semua daftar, riwayatnya tetap di audit log)." },
   "requests.edit-dates": { category: "request-workflow", label: "Correct request dates", description: "Atur tanggal request dibuat dan selesai secara manual, untuk tiket yang terlambat diinput atau salah catat. Hanya Superadmin yang bisa memegangnya; tiap perubahan masuk audit log." },
   "requests.revise": { category: "request-workflow", label: "Request a revision", description: "Kembalikan BOQ yang selesai ke SOA untuk perubahan dari customer: request langsung masuk tahap Revision dan SOA diberi tahu (Sales pada project miliknya)." },
   "requests.email": { category: "request-workflow", label: "Request email text", description: "Salin teks email request untuk dikirim ke tim." },

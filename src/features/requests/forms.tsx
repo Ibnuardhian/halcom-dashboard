@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormStatus, type FormState } from "@/components/ui/form-status";
 import { DateInput } from "@/components/ui/date-input";
@@ -345,30 +345,73 @@ export function RequestForm({
   );
 }
 
-/** SOA picks RFQ or PO explicitly; a completed BOQ never implies a purchase (brief §6.1). */
-/** What follows a completed BOQ or RFQ: continue to the next step (RFQ after a BOQ, PO after an RFQ), or record that it does not continue. */
+/**
+ * What follows a completed BOQ or RFQ: continue to the next step (RFQ after a BOQ, PO after an RFQ), or record that it does not
+ * continue. SOA picks the step explicitly; a completed BOQ never implies a purchase (brief §6.1). Continuing asks for a confirmation
+ * first, with an optional note that is added to the details of the new request and so reaches its email text.
+ */
 export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: string; nextType: RequestType; hasDecision: boolean }) {
-  const [state, formAction, pending] = useActionState<FormState, FormData>(handOverAction, null);
+  const [continued, continueAction, continuing] = useActionState<FormState, FormData>(handOverAction, null);
+  const [stopped, stopAction, stopping] = useActionState<FormState, FormData>(handOverAction, null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <input type="hidden" name="sourceId" value={sourceId} />
-      <input type="hidden" name="targetType" value={nextType} />
-      <Field id={`next-note-${sourceId}`} label="Note (optional)" hint={`Kept with the decision. Say why when you do not continue to ${nextType}.`}>
-        <Input id={`next-note-${sourceId}`} name="note" maxLength={500} />
-      </Field>
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" name="decision" value="continue" disabled={pending}>
+        <Button type="button" aria-haspopup="dialog" disabled={continuing || stopping} onClick={() => dialog.current?.showModal()}>
           {hasDecision ? `Continue to ${nextType} anyway` : `Continue to ${nextType}`}
         </Button>
-        {hasDecision ? null : (
-          <Button type="submit" name="decision" value="stop" variant="outline" disabled={pending}>
-            Do not continue
-          </Button>
-        )}
       </div>
-      <FormStatus state={state} />
-    </form>
+      {hasDecision ? null : (
+        <form action={stopAction} className="flex flex-col gap-3">
+          <input type="hidden" name="sourceId" value={sourceId} />
+          <input type="hidden" name="targetType" value={nextType} />
+          <Field id={`next-note-${sourceId}`} label="Alasan tidak dilanjutkan (opsional)" hint={`Disimpan bersama keputusan. Tulis alasannya bila tidak dilanjutkan ke ${nextType}.`}>
+            <Input id={`next-note-${sourceId}`} name="note" maxLength={500} />
+          </Field>
+          <div>
+            <Button type="submit" name="decision" value="stop" variant="outline" disabled={stopping}>
+              Do not continue
+            </Button>
+          </div>
+        </form>
+      )}
+      {/* Outside the form: the form goes away once the decision is saved, and the confirmation must stay. */}
+      <FormStatus state={stopped} />
+      <dialog
+        ref={dialog}
+        aria-labelledby={titleId}
+        className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl border bg-popover p-0 text-popover-foreground shadow-xl backdrop:bg-black/50"
+        onClick={(event) => {
+          if (event.target === dialog.current) dialog.current?.close();
+        }}
+      >
+        <form action={continueAction} className="flex flex-col gap-4 p-5">
+          <input type="hidden" name="sourceId" value={sourceId} />
+          <input type="hidden" name="targetType" value={nextType} />
+          <input type="hidden" name="decision" value="continue" />
+          <div>
+            <h2 id={titleId} className="text-base font-semibold">
+              Lanjutkan ke {nextType}?
+            </h2>
+            <p className="text-sm text-muted-foreground">Request {nextType} baru dibuat di project yang sama. Catatan di bawah bersifat opsional: ditambahkan ke detail dan ikut masuk ke isi email.</p>
+          </div>
+          <Field id={`continue-note-${sourceId}`} label="Notes (opsional)">
+            <Textarea id={`continue-note-${sourceId}`} name="note" maxLength={500} className="min-h-24" />
+          </Field>
+          <FormStatus state={continued} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={continuing}>
+              {continuing ? "Memproses…" : `Lanjutkan ke ${nextType}`}
+            </Button>
+          </div>
+        </form>
+      </dialog>
+    </div>
   );
 }
 

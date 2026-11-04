@@ -911,3 +911,32 @@ A template a superadmin has already saved is not changed; "restore defaults" on 
 ## D-070: The email preview and the draft are in Indonesian (2026-11-04)
 
 **Asked by the owner.** The email panel (labels Kepada, Cc, Subjek, Isi email; the buttons "Buka di Outlook (MailTo)", "Unduh draf Outlook (.eml)", "Salin"; the notices) and the text of the draft are in Indonesian: the greeting names "Tim SOA" / "Tim Purchasing", the ask line and the next action are Indonesian, dates use Indonesian month abbreviations (Mei, Agu, Okt, Des), a missing date reads "Belum ditentukan", and a source BOQ reads "(selesai)". The template editor's examples follow. `{{summary}}` is the request title, which is the project name (D-059); the default text does not use it because it only repeats the project name. It stays a valid variable so a template saved earlier that contains it still renders.
+
+## D-071: Board cards are listed newest status first (2026-11-04)
+
+**Asked by the owner.** In every column of the request board (BOQ, RFQ, PO and the combined view) the cards are ordered by when they last moved into their current status, newest on top. `RequestRow.statusChangedAt` is the latest status-history step into the current status (the creation for a request never moved; a reopened request counts from the reopening). A card dropped on a column goes to its top at once. The folded Revision and Cancelled columns and the two-column Completed column of D-061 are unchanged.
+
+## D-072: Continuing a request asks for a confirmation with an optional note; per-type email drafts (BOQ, RFQ, HITPO); board columns scroll (2026-11-04)
+
+**Asked by the owner.**
+
+- **Confirmation on Continue.** "Continue to RFQ" (after a BOQ) and "Continue to PO" (after an RFQ) open a modal with an optional Notes field and a confirm button. The note (at most 500 characters) is added under the details of the new request as `Catatan: ...`, so it shows on the request page and in the email text with no change to the template. No migration: the note is part of the description, not a new column. "Do not continue" keeps its own note field (the reason).
+- **Drafts per type.** The default text for BOQ, RFQ and PO is the same short body, with the ask line in each type's words and the end user in it: BOQ "Mohon dibuatkan BOQ / solusi teknis untuk kebutuhan {end user} dengan detail:", RFQ "Mohon diberikan informasi Cost untuk kebutuhan {end user} dengan detail:", PO (HITPO, Sales to Purchasing) "Mohon diproses pembelian (PO) untuk kebutuhan {end user} dengan detail:". The details follow the ask line directly, then Project, Needed by and Sumber (the BOQ or RFQ it was continued from), the reply line and the thanks. The templates stay per team (SOA, Purchasing): a separate saved template for the PO would need a third template; not built, say so if it is wanted.
+- **Board.** Each column scrolls inside itself (at most the height of the screen minus the header), so the page stays short.
+
+## D-073: A separate email template for the PO (HITPO), written by Sales; the preview is a modal (2026-11-04)
+
+**Asked by the owner.** HITPO is the PO that Sales send to Purchasing, so it has its own editable template, apart from the Purchasing one (RFQ). It is a third row of `team_settings` with role `SALES` (the SLA of that row is not used: a PO is timed by the Purchasing SLA). The Email page has a third section, "Tim Sales (HITPO)", with To, Cc, subject and text; leave To empty and the server setting `EMAIL_TO_HITPO` applies. A PO's email panel reads this template; a BOQ reads SOA's and an RFQ reads Purchasing's, as before. The default text asks Purchasing to confirm once the PO is processed (no reply-by date).
+
+**Migration `20261107100000_team_settings_sales_template`:** the CHECK on `team_settings.role` allowed only SOA and PURCHASING and now allows SALES. It is applied to the local and test databases. **Neon needs `db:migrate:deploy` before this code reaches `main`**, or saving the HITPO template fails there (reading it falls back to the default, so nothing else breaks).
+
+The preview of each template (filled with sample data) is no longer a long block under the form: a "Pratinjau" button opens it in a modal. The copy on the Email page is shorter and plainer (labels To and Cc, one line of hint each).
+
+## D-074: A superadmin deletes a BOQ, RFQ or PO request; the Request ID may sit in the subject or the text (2026-11-04)
+
+**Asked by the owner.**
+
+- **Delete a request (superadmin only, permission `requests.delete`, superadmin-only guard).** The request page ends with a "Hapus request" button; a modal asks for the request code. The status history is append-only (the database refuses DELETE), so the request is soft-deleted: `requests.deleted_at` and `deleted_by_id` (migration `20261108100000_request_soft_delete`). A deleted request is left out of every list, board, count, dashboard, export, finance crosscheck, PIC workload and email, and any change to it is refused as not found. A request that was continued (a BOQ with its RFQ, an RFQ with its PO) can be deleted only after its continuation. A deleted continuation lets go of its source (`source_request_id` is cleared), so the BOQ or RFQ can be continued again. The audit event `request.deleted` keeps the code, type, status, project, title, details and source. There is no restore button; a restore is a manual database step.
+- **`{{request_id}}` in the subject or the text.** A template is accepted when the Request ID is in the subject or in the text (before: the subject only). The subject is still the safer place, since a reply keeps it; the Email page says so.
+
+**Neon needs `db:migrate:deploy` before this code reaches `main`** (with `20261107100000_team_settings_sales_template` of D-073).
