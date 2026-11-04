@@ -140,8 +140,8 @@ export function PermissionMatrix({ categories, roles, granted, changed, locked, 
       {editable ? (
         <div className="flex flex-col gap-2">
           <div>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save permissions"}
+            <Button aria-label="Save permissions" type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save"}
             </Button>
           </div>
           <FormStatus state={state} />

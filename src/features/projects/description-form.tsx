@@ -17,8 +17,8 @@ export function DescriptionForm({ projectId, projectCode, description }: { proje
       <Label htmlFor={`description-${projectCode}`}>Description</Label>
       <Textarea id={`description-${projectCode}`} name="description" defaultValue={description ?? ""} maxLength={2000} rows={4} />
       <div className="flex items-center gap-3">
-        <Button type="submit" variant="outline" disabled={pending}>
-          {pending ? "Menyimpan…" : "Simpan deskripsi"}
+        <Button aria-label="Save description" type="submit" variant="outline" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
         <FormStatus state={state} />
       </div>

@@ -17,8 +17,8 @@ export function RenameProjectForm({ projectId, projectCode, name }: { projectId:
       <Label htmlFor={`rename-${projectCode}`}>Nama project</Label>
       <div className="flex gap-2">
         <Input id={`rename-${projectCode}`} name="name" defaultValue={name} maxLength={160} required autoComplete="off" />
-        <Button type="submit" variant="outline" disabled={pending}>
-          {pending ? "Menyimpan…" : "Ubah nama"}
+        <Button aria-label="Save project name" type="submit" variant="outline" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
       <FormStatus state={state} />

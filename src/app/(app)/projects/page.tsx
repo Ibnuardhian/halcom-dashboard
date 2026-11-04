@@ -15,6 +15,7 @@ import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { PROJECTS_PATH } from "@/features/navigation/links";
 import { formatDay } from "@/features/dashboards/format";
 import { ColumnSettings } from "@/features/projects/column-settings";
+import { ProjectCards } from "@/features/projects/project-cards";
 import { ProjectRow } from "@/features/projects/project-row";
 import { ImportDialog } from "@/features/projects/import-dialog";
 import { ProgressBadge, TrackStatusBadge } from "@/features/requests/status-badges";
@@ -227,7 +228,12 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           {filtered ? "Tidak ada project yang cocok dengan filter ini." : "Belum ada project."}
         </p>
       ) : (
-        <div className="@container">
+        <>
+        {/* A phone gets cards; a wider screen gets the table. */}
+        <div className="md:hidden">
+          <ProjectCards projects={projects} showing={showing} />
+        </div>
+        <div className="@container hidden md:block">
         <Table topScroll>
           <TableHeader>
             <TableRow>
@@ -290,6 +296,7 @@ async function Projects({ searchParams }: Pick<PageProps<"/projects">, "searchPa
           </TableBody>
         </Table>
         </div>
+        </>
       )}
       {result.total > 0 ? (
         <nav aria-label="Pages" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">

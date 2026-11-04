@@ -40,7 +40,7 @@ test("a superadmin chooses the columns of the Projects table for everyone, and t
       await expect(root.getByRole("dialog", { name: "Kolom tabel Projects" })).toBeVisible({ timeout: 3000 });
     }).toPass({ timeout: 30_000 });
     await root.getByLabel("Last updated").setChecked(checked);
-    await root.getByRole("button", { name: "Simpan" }).click();
+    await root.getByRole("button", { name: "Save columns" }).click();
     await expect(root.getByText(/Tersimpan\. Semua pengguna melihat kolom ini\.|Tidak ada perubahan\./)).toBeVisible({ timeout: 30_000 });
     await root.getByRole("button", { name: "Tutup" }).click();
   };
@@ -93,4 +93,18 @@ test("clicking anywhere on a project row opens the project, and an Other project
   // The click lands on the project name cell, not on the Project ID link.
   await row.getByText(name).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${code}$`));
+});
+
+test("on a phone the Projects list is a column of cards, with the status as a coloured dot named for screen readers", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, "SALES");
+  await page.goto("/projects");
+  const cards = page.getByRole("list", { name: "Projects" });
+  await expect(cards).toBeVisible();
+  await expect(page.getByRole("table")).toBeHidden();
+  const first = cards.getByRole("listitem").first().getByRole("link");
+  await expect(first).toContainText(/HIT-PROJ-\d+/);
+  await expect(first).toContainText(/On Track|On Hold|Done|Block/); // the dot's name
+  await first.click();
+  await expect(page).toHaveURL(/\/projects\/HIT-PROJ-\d+/);
 });

@@ -75,8 +75,8 @@ export function CommercialForm({ projectId, projectCode, values, formKey }: { pr
       <div className="flex flex-col gap-2 sm:col-span-2">
         <FormStatus state={state} />
         <div>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save commercial details"}
+          <Button aria-label="Save commercial details" type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Save"}
           </Button>
         </div>
       </div>

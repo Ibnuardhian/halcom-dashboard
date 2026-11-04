@@ -246,8 +246,8 @@ test.describe("each role sees its own modules", () => {
 
     await page.goto("/admin/settings/email");
     await expect(page.getByRole("heading", { level: 1, name: "Email" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Simpan / })).toHaveCount(0);
-    await expect(page.getByText("hanya Superadmin yang mengubahnya")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Save / })).toHaveCount(0);
+    await expect(page.getByText("Hanya Superadmin yang bisa mengubahnya")).toBeVisible();
   });
 });
 

@@ -118,8 +118,8 @@ export function ProjectFieldsForm({
           <FormStatus state={removal} />
           <FormStatus state={state} />
           <div>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : submitLabel}
+            <Button aria-label={submitLabel} type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save"}
             </Button>
           </div>
         </div>

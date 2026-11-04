@@ -35,8 +35,8 @@ export function TargetForm({ year, values, formKey }: { year: number; values: St
       <p className="text-xs text-muted-foreground">Jumlah dalam IDR; titik ditambahkan saat Anda mengetik. Kosongkan kolom jika tidak ada target. Setiap penyimpanan masuk ke audit log.</p>
       <FormStatus state={state} />
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : `Save my ${year} targets`}
+        <Button aria-label={`Save my ${year} targets`} type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>

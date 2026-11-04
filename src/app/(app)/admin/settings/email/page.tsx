@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { PageFallback } from "@/components/app-shell/page-fallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { can } from "@/domain/access/permissions";
-import { renderBody, renderSubject, SAMPLE_VALUES, TEMPLATE_VARIABLES } from "@/domain/requests/template";
+import { sampleValues } from "@/domain/requests/email";
+import { renderBody, renderSubject, TEMPLATE_VARIABLES } from "@/domain/requests/template";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatDay } from "@/features/dashboards/format";
 import { ProjectTabs } from "@/features/projects/project-tabs";
@@ -22,9 +23,9 @@ export default function EmailPage() {
 
 /** One tab per template (To / Cc and the email text), and one for the variables. `#soa`, `#purchasing`, `#sales` open their tab. */
 const TEAMS = [
-  { id: "soa", role: "SOA", label: "SOA", tab: "SOA (BOQ)", note: "Email BOQ dari Sales ke SOA." },
-  { id: "purchasing", role: "PURCHASING", label: "Purchasing", tab: "Purchasing (RFQ)", note: "Email RFQ dari Sales ke Purchasing." },
-  { id: "sales", role: "SALES", label: "Sales (HITPO)", tab: "Sales (HITPO)", note: "Email PO dari Sales ke Purchasing. Isi To dengan alamat Purchasing." },
+  { id: "soa", role: "SOA", type: "BOQ", label: "SOA", tab: "SOA (BOQ)", note: "Email BOQ dari Sales ke SOA." },
+  { id: "purchasing", role: "PURCHASING", type: "RFQ", label: "Purchasing", tab: "Purchasing (RFQ)", note: "Email RFQ dari Sales ke Purchasing." },
+  { id: "sales", role: "SALES", type: "PO", label: "Sales (HITPO)", tab: "Sales (HITPO)", note: "Email PO dari Sales ke Purchasing. Isi To dengan alamat Purchasing." },
 ] as const;
 
 async function EmailSettings() {
@@ -66,7 +67,7 @@ async function EmailSettings() {
                 </dl>
               )}
               <div className="flex flex-wrap items-center gap-3 border-t pt-4">
-                <EmailPreview label={team.label} subject={renderSubject(setting.emailSubject, SAMPLE_VALUES)} body={renderBody(setting.emailBody, SAMPLE_VALUES)} />
+                <EmailPreview label={team.label} subject={renderSubject(setting.emailSubject, sampleValues(team.type))} body={renderBody(setting.emailBody, sampleValues(team.type))} />
                 <span className="text-xs text-muted-foreground">Daftar variabel ada di tab Variabel.</span>
               </div>
             </CardContent>

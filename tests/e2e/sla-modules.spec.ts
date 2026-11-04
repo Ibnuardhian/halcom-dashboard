@@ -28,13 +28,13 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   const cc = `boss-${stamp}@halcominovasi.co.id`;
   await expect(async () => {
     await purchasing.getByLabel("To", { exact: true }).fill("bukan alamat");
-    await purchasing.getByRole("button", { name: "Simpan email Purchasing" }).click();
+    await purchasing.getByRole("button", { name: "Save email Purchasing" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Alamat email tidak valid" })).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 45_000 });
 
   await purchasing.getByLabel("To", { exact: true }).fill(to);
   await purchasing.getByLabel("Cc", { exact: true }).fill(`${to}, ${cc}`);
-  await purchasing.getByRole("button", { name: "Simpan email Purchasing" }).click();
+  await purchasing.getByRole("button", { name: "Save email Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Tersimpan" })).toBeVisible();
   // The boxes keep what was saved; the address already in To is not repeated in CC.
   await expect(purchasing.getByLabel("To", { exact: true })).toHaveValue(to);
@@ -49,10 +49,10 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
   const sla = page.getByLabel(/^SLA tim Purchasing/);
   const before = await sla.inputValue();
   await sla.fill("1-4");
-  await page.getByRole("button", { name: "Simpan SLA Purchasing" }).click();
+  await page.getByRole("button", { name: "Save SLA Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Tersimpan|Tidak ada perubahan/ })).toBeVisible();
   await sla.fill(before);
-  await page.getByRole("button", { name: "Simpan SLA Purchasing" }).click();
+  await page.getByRole("button", { name: "Save SLA Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: /Tersimpan|Tidak ada perubahan/ })).toBeVisible();
   await page.goto("/admin/settings/email");
   await page.getByRole("tab", { name: "Purchasing (RFQ)" }).click(); // the SOA tab opens first
@@ -60,6 +60,6 @@ test("Email and SLA are two pages for every team, and the superadmin sets where 
 
   await purchasing.getByLabel("To", { exact: true }).fill("");
   await purchasing.getByLabel("Cc", { exact: true }).fill("");
-  await purchasing.getByRole("button", { name: "Simpan email Purchasing" }).click();
+  await purchasing.getByRole("button", { name: "Save email Purchasing" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Tersimpan" })).toBeVisible();
 });

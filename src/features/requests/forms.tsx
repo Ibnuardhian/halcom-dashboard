@@ -435,8 +435,8 @@ export function AssignPicForm({ requestId, current, pics, teamLabel }: { request
           ))}
         </NativeSelect>
       </Field>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save PIC"}
+      <Button aria-label="Save PIC" type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save"}
       </Button>
       <div className="sm:col-span-2">
         <FormStatus state={state} />
@@ -462,8 +462,8 @@ export function PhaseForm({ projectId, current, phases }: { projectId: string; c
           ))}
         </NativeSelect>
       </Field>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save phase"}
+      <Button aria-label="Save phase" type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save"}
       </Button>
       <div className="sm:col-span-2">
         <FormStatus state={state} />
@@ -532,8 +532,8 @@ export function RequestDatesForm({ requestId, code, createdAt, completedAt, canC
       <FormStatus state={state} />
       <div>
         {/* A change of requester asks first: it can change the request code. */}
-        <Button type="button" disabled={pending} onClick={() => (changesRequester ? dialog.current?.showModal() : form.current?.requestSubmit())}>
-          {pending ? "Saving…" : "Save dates"}
+        <Button aria-label="Save dates" type="button" disabled={pending} onClick={() => (changesRequester ? dialog.current?.showModal() : form.current?.requestSubmit())}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>

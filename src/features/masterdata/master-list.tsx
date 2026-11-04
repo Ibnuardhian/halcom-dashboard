@@ -136,8 +136,8 @@ function EditRecord({ kind, item }: { kind: MasterListKind; item: MasterListItem
             <Label htmlFor={`${id}-name`}>Nama</Label>
             <div className="flex gap-2">
               <Input id={`${id}-name`} name="name" defaultValue={item.name} maxLength={120} required autoComplete="off" />
-              <Button type="submit" disabled={renaming}>
-                {renaming ? "Menyimpan…" : "Simpan"}
+              <Button aria-label="Save name" type="submit" disabled={renaming}>
+                {renaming ? "Saving…" : "Save"}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">Nama berubah di semua {unit} yang memakainya. Nama harus unik, tanpa membedakan huruf besar kecil dan spasi.</p>

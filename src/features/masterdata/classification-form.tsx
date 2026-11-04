@@ -37,8 +37,8 @@ export function ClassificationForm({
       </div>
       <FormStatus state={state} />
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save classification"}
+        <Button aria-label="Save classification" type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>

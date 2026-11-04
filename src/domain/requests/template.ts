@@ -131,5 +131,3 @@ export const DEFAULT_TEMPLATES: Record<TemplateTeam, TeamTemplate> = {
 export const TEMPLATE_TEAMS = ["SOA", "PURCHASING", "SALES"] as const;
 export type TemplateTeam = (typeof TEMPLATE_TEAMS)[number];
 
-/** Sample values for the preview on the settings page. */
-export const SAMPLE_VALUES: TemplateValues = Object.fromEntries(TEMPLATE_VARIABLES.map((variable) => [variable.name, variable.example])) as TemplateValues;

@@ -61,7 +61,7 @@ export function SectionRow({ section }: { section: SectionRecord }) {
             <input type="checkbox" name="isActive" defaultChecked={section.isActive} /> Dipakai
           </label>
           <Button type="submit" variant="outline" size="sm" disabled={pending}>
-            Simpan
+            Save
           </Button>
         </div>
         {section.kind === "CHOICE" ? (
@@ -102,7 +102,7 @@ export function PhaseRow({ phase }: { phase: PhaseRecord }) {
           <input type="checkbox" name="isActive" defaultChecked={phase.isActive} /> Dipakai
         </label>
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
-          Simpan
+          Save
         </Button>
         <div className="basis-full">
           <FormStatus state={state} />
@@ -149,8 +149,8 @@ export function ProjectSectionsForm({ projectId, projectCode, sections, values }
       </div>
       <FormStatus state={state} />
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : "Simpan bagian tambahan"}
+        <Button aria-label="Save extra sections" type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>

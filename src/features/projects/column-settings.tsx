@@ -49,8 +49,8 @@ export function ColumnSettings({ shown }: { shown: readonly ProjectColumnKey[] }
             <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>
               Tutup
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Menyimpan…" : "Simpan"}
+            <Button aria-label="Save columns" type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
             </Button>
           </div>
         </form>

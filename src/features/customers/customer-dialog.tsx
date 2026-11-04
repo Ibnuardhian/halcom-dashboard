@@ -95,8 +95,8 @@ export function CustomerDialog({
               {canEdit ? "Cancel" : "Close"}
             </button>
             {canEdit ? (
-              <Button type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save industry"}
+              <Button aria-label="Save industry" type="submit" disabled={pending}>
+                {pending ? "Saving…" : "Save"}
               </Button>
             ) : null}
           </div>

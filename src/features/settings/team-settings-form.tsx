@@ -26,8 +26,8 @@ export function TeamSlaForm({ role, label, sla }: { role: TemplateTeam; label: s
       </div>
       <FormStatus state={state} />
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : `Simpan SLA ${label}`}
+        <Button aria-label={`Save SLA ${label}`} type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>
@@ -62,8 +62,8 @@ export function TeamEmailForm({ role, label, subject, body, emailTo, emailCc }: 
       </div>
       <FormStatus state={state} />
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : `Simpan email ${label}`}
+        <Button aria-label={`Save email ${label}`} type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
         <Button type="submit" name="restoreDefaults" value="1" variant="outline" formNoValidate disabled={pending}>
           Kembalikan template bawaan

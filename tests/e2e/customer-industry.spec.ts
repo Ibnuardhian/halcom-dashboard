@@ -102,7 +102,7 @@ test("an admin edits the list of industries, and Sales then find the new one in 
   const edit = page.locator("dialog[open]");
   await expect(edit.getByRole("button", { name: `Hapus ${name}` })).toBeDisabled();
   await edit.getByLabel("Nama", { exact: true }).fill(renamed);
-  await edit.getByRole("button", { name: "Simpan" }).click();
+  await edit.getByRole("button", { name: "Save name" }).click();
   await expect(edit.getByRole("status").filter({ hasText: "ikut berubah" })).toBeVisible({ timeout: 8000 });
   await sales.goto(`/customers?q=${encodeURIComponent(company)}`);
   await expect(sales.getByRole("row", { name: new RegExp(company) })).toContainText(renamed);

@@ -26,8 +26,8 @@ export function CustomerAdmin({ customer, others }: { customer: { id: string; na
         <Label htmlFor={`rename-${customer.id}`}>Ubah nama customer</Label>
         <div className="flex gap-2">
           <Input id={`rename-${customer.id}`} name="name" defaultValue={customer.name} maxLength={120} required autoComplete="off" />
-          <Button type="submit" variant="outline" disabled={renaming}>
-            {renaming ? "Menyimpan…" : "Ubah nama"}
+          <Button aria-label="Save customer name" type="submit" variant="outline" disabled={renaming}>
+            {renaming ? "Saving…" : "Save"}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">Dipakai untuk typo. Nama baru tampil di {customer.projects} project customer ini.</p>

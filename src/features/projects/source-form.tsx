@@ -63,8 +63,8 @@ export function SourceForm({ projectId, projectCode, values, salesPeople }: { pr
       <div className="flex flex-col gap-2 sm:col-span-2">
         <FormStatus state={state} />
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : adopt ? "Hand over to Sales" : "Save source"}
+          <Button type="submit" aria-label={adopt ? undefined : "Save source"} disabled={pending}>
+            {pending ? "Saving…" : adopt ? "Hand over to Sales" : "Save"}
           </Button>
           {salesPeople.length > 0 ? (
             <Button type="button" variant="outline" onClick={() => setAdopt((value) => !value)}>

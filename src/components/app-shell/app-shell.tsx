@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Toaster } from "@/components/ui/toast";
 import { Bell, BookOpen, ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { APP_NAME, APP_TAGLINE } from "@/config/app";
@@ -151,6 +152,7 @@ export function AppShell({ sections, user, accountHref, controls, notifications,
           {children}
         </main>
       </div>
+      <Toaster />
     </div>
   );
 }

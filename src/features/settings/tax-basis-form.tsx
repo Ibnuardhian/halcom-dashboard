@@ -34,8 +34,8 @@ export function TaxBasisForm({ basis }: { basis: TaxBasis }) {
       </div>
       <FormStatus state={state} />
       <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Menyimpan…" : "Simpan"}
+        <Button aria-label="Save PPN basis" type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>
