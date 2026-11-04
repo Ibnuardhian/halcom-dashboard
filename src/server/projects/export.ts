@@ -27,7 +27,7 @@ export async function listProjectsForExport(db: PrismaClient, viewer: Viewer, on
       principal: { select: { name: true } },
       principals: { orderBy: { position: "asc" }, select: { principal: { select: { name: true } } } },
       solutionCategory: { select: { name: true } },
-      requests: { select: { status: true } },
+      requests: { where: { deletedAt: null }, select: { status: true } },
     },
   });
   return rows

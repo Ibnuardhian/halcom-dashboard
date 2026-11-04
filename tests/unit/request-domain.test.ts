@@ -236,7 +236,9 @@ describe("email templates", () => {
   });
 
   it("refuses a subject without the Request ID, unknown variables, and empty or too long text", () => {
-    expect(validateTemplate("Request for you", "Hello {{request_id}}")).toEqual(["Subjek wajib memuat {{request_id}}, supaya balasan membawa Request ID."]);
+    // The Request ID may be in the subject or in the text, but it has to be somewhere.
+    expect(validateTemplate("Request for you", "Hello {{request_id}}")).toEqual([]);
+    expect(validateTemplate("Request for you", "Hello {{team}}")).toEqual(["Tulis {{request_id}} di subjek atau di isi email, supaya balasan bisa dicocokkan dengan request-nya."]);
     expect(validateTemplate("[{{request_id}}]", "Hi {{customer}} and {{ nope }}")).toEqual(["Variabel tidak dikenal: {{customer}}, {{nope}}."]);
     expect(validateTemplate("", "").length).toBe(3);
     expect(validateTemplate("{{request_id}}", "x".repeat(4001))).toEqual(["Isi email paling banyak 4000 karakter."]);

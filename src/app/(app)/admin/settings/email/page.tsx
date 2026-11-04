@@ -45,7 +45,7 @@ async function EmailSettings() {
             <h2>Variabel</h2>
           </CardTitle>
           <CardDescription>
-            Tulis variabel di antara dua kurung kurawal, misalnya <code>{"{{request_id}}"}</code>. Subjek harus memuat <code>{"{{request_id}}"}</code>, karena balasan email membawa subjek dan dari situ Request ID terbaca.
+            Tulis variabel di antara dua kurung kurawal, misalnya <code>{"{{request_id}}"}</code>. <code>{"{{request_id}}"}</code> wajib ada di subjek atau di isi email, supaya balasan bisa dicocokkan dengan request-nya. Di subjek lebih aman, karena balasan membawa subjek.
             Baris yang variabelnya kosong tidak ditampilkan, misalnya baris Sumber pada request yang bukan lanjutan.
           </CardDescription>
         </CardHeader>

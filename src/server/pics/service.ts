@@ -36,7 +36,7 @@ export async function listPics(db: PrismaClient, viewer: Actor): Promise<PicReco
   if (!can(viewer.role, "pics.manage")) throw new Error("Forbidden: missing permission for this query.");
   const rows = await db.pic.findMany({
     orderBy: [{ team: "asc" }, { isActive: "desc" }, { name: "asc" }],
-    select: { id: true, team: true, name: true, isActive: true, requests: { select: { status: true } } },
+    select: { id: true, team: true, name: true, isActive: true, requests: { where: { deletedAt: null }, select: { status: true } } },
   });
   return rows.map((row) => ({
     id: row.id,
@@ -150,7 +150,7 @@ export async function assignRequestPic(db: PrismaClient, claimedActor: Actor, in
     if (!actor) return fail("FORBIDDEN", FORBIDDEN);
     await tx.$executeRaw`SELECT id FROM requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const request = await tx.request.findUnique({ where: { id: requestId }, include: { project: { select: { deletedAt: true } }, pic: { select: { name: true } } } });
-    if (!request || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
+    if (!request || request.deletedAt || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (!can(actor.role, workPermission(request.type))) return fail("FORBIDDEN", FORBIDDEN);
     if (wanted === request.picId) return { ok: true, value: { code: request.code, picId: request.picId } };
 
@@ -177,7 +177,7 @@ export type PicAssignmentRow = { id: string; fromName: string | null; toName: st
 export async function listPicAssignments(db: PrismaClient, viewer: Actor, requestId: string): Promise<PicAssignmentRow[]> {
   if (!can(viewer.role, "requests.view")) throw new Error("Forbidden: missing permission for this query.");
   const rows = await db.requestPicAssignment.findMany({
-    where: { requestId, request: { project: { deletedAt: null } } },
+    where: { requestId, request: { deletedAt: null, project: { deletedAt: null } } },
     orderBy: [{ changedAt: "asc" }, { id: "asc" }],
     select: { id: true, changedAt: true, fromPic: { select: { name: true } }, toPic: { select: { name: true } }, changedBy: { select: { name: true } } },
   });

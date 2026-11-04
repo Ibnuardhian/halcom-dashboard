@@ -931,3 +931,12 @@ A template a superadmin has already saved is not changed; "restore defaults" on 
 **Migration `20261107100000_team_settings_sales_template`:** the CHECK on `team_settings.role` allowed only SOA and PURCHASING and now allows SALES. It is applied to the local and test databases. **Neon needs `db:migrate:deploy` before this code reaches `main`**, or saving the HITPO template fails there (reading it falls back to the default, so nothing else breaks).
 
 The preview of each template (filled with sample data) is no longer a long block under the form: a "Pratinjau" button opens it in a modal. The copy on the Email page is shorter and plainer (labels To and Cc, one line of hint each).
+
+## D-074: A superadmin deletes a BOQ, RFQ or PO request; the Request ID may sit in the subject or the text (2026-11-04)
+
+**Asked by the owner.**
+
+- **Delete a request (superadmin only, permission `requests.delete`, superadmin-only guard).** The request page ends with a "Hapus request" button; a modal asks for the request code. The status history is append-only (the database refuses DELETE), so the request is soft-deleted: `requests.deleted_at` and `deleted_by_id` (migration `20261108100000_request_soft_delete`). A deleted request is left out of every list, board, count, dashboard, export, finance crosscheck, PIC workload and email, and any change to it is refused as not found. A request that was continued (a BOQ with its RFQ, an RFQ with its PO) can be deleted only after its continuation. A deleted continuation lets go of its source (`source_request_id` is cleared), so the BOQ or RFQ can be continued again. The audit event `request.deleted` keeps the code, type, status, project, title, details and source. There is no restore button; a restore is a manual database step.
+- **`{{request_id}}` in the subject or the text.** A template is accepted when the Request ID is in the subject or in the text (before: the subject only). The subject is still the safer place, since a reply keeps it; the Email page says so.
+
+**Neon needs `db:migrate:deploy` before this code reaches `main`** (with `20261107100000_team_settings_sales_template` of D-073).

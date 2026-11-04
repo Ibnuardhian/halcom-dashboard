@@ -42,7 +42,7 @@ export async function usersWithRole(tx: Tx, ...roles: Role[]): Promise<string[]>
 export async function projectAudience(tx: Tx, projectId: string): Promise<string[]> {
   const project = await tx.project.findUnique({
     where: { id: projectId },
-    select: { salesOwnerId: true, technicalPicId: true, purchasingPicId: true, requests: { select: { type: true, status: true } } },
+    select: { salesOwnerId: true, technicalPicId: true, purchasingPicId: true, requests: { where: { deletedAt: null }, select: { type: true, status: true } } },
   });
   if (!project) return [];
   const ids = new Set<string>();

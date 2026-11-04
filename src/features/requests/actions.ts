@@ -8,6 +8,7 @@ import { PROJECTS_PATH, REQUESTS_PATH } from "@/features/navigation/links";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
 import { assignRequestPic } from "@/server/pics/service";
+import { deleteRequest } from "@/server/requests/delete";
 import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, requestRevision, setRequestDates, setProjectPhase, stopFlow } from "@/server/requests/service";
 
 // Each action checks the sign-in (and, where one permission fits, that permission) on the server;
@@ -151,4 +152,15 @@ export async function requestRevisionAction(_previous: FormState, formData: Form
   revalidatePath(REQUESTS_PATH);
   revalidatePath("/notifications");
   return { ok: true, message: `${result.value.code} is now in Revision. SOA has been told.` };
+}
+
+/** A superadmin deletes a request (hidden, history kept). The service re-checks the permission and the typed code, then the project page opens. */
+export async function deleteRequestAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const result = await deleteRequest(getDb(), { id: user.id, role: user.role }, { requestId: text(formData, "requestId"), confirmCode: text(formData, "confirmCode") ?? "" });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath(REQUESTS_PATH);
+  revalidatePath(PROJECTS_PATH);
+  revalidatePath("/dashboard", "layout");
+  redirect(`${PROJECTS_PATH}/${result.projectCode}#requests`);
 }

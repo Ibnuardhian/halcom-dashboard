@@ -16,6 +16,7 @@ import { type RequestDetail } from "@/server/requests/queries";
 import { getTeamSetting } from "@/server/settings/team-settings";
 import { listAssignablePics, listPicAssignments } from "@/server/pics/service";
 import { picTeamOf, PIC_TEAM_LABELS } from "@/domain/pics/teams";
+import { DeleteRequest } from "./delete-request";
 import { EmailDialog } from "./email-dialog";
 import { Fact } from "./fact";
 import { jakartaDay } from "@/domain/requests/metrics";
@@ -296,6 +297,13 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
           </Table>
         </div>
       </details>
+
+      {can(viewer.role, "requests.delete") ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4">
+          <p className="text-sm text-muted-foreground">Superadmin: hapus request ini. Riwayatnya tetap ada di audit log.</p>
+          <DeleteRequest requestId={request.id} requestCode={request.code} />
+        </div>
+      ) : null}
     </div>
   );
 }

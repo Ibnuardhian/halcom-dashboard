@@ -41,8 +41,9 @@ export function variablesIn(template: string): string[] {
 }
 
 /**
- * What is wrong with a template, in words. The subject must carry the Request ID: a reply keeps the subject, so that is
- * how SOA and Purchasing answer with the ID. Unknown variables would reach the mail as literal braces, so they are refused.
+ * What is wrong with a template, in words. The Request ID must be in the subject or the text, so a reply can be matched to its
+ * request; the subject is the safer place (a reply keeps it), but the text is allowed. Unknown variables would reach the mail as
+ * literal braces, so they are refused.
  */
 export function validateTemplate(subject: string, body: string): string[] {
   const problems: string[] = [];
@@ -52,7 +53,9 @@ export function validateTemplate(subject: string, body: string): string[] {
   if (body.length > BODY_MAX_LENGTH) problems.push(`Isi email paling banyak ${BODY_MAX_LENGTH} karakter.`);
   const unknown = [...variablesIn(subject), ...variablesIn(body)].filter((name) => !KNOWN.has(name));
   if (unknown.length > 0) problems.push(`Variabel tidak dikenal: ${[...new Set(unknown)].map((name) => `{{${name}}}`).join(", ")}.`);
-  if (!variablesIn(subject).includes("request_id")) problems.push("Subjek wajib memuat {{request_id}}, supaya balasan membawa Request ID.");
+  if (!variablesIn(subject).includes("request_id") && !variablesIn(body).includes("request_id")) {
+    problems.push("Tulis {{request_id}} di subjek atau di isi email, supaya balasan bisa dicocokkan dengan request-nya.");
+  }
   return problems;
 }
 

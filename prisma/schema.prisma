@@ -46,6 +46,7 @@ model User {
   ownedProjects     Project[]              @relation("ProjectSalesOwner")
   requestsCreated   Request[]              @relation("RequestRequester")
   flowStopped       Request[]              @relation("RequestFlowStoppedBy")
+  requestsDeleted   Request[]              @relation("RequestDeletedBy")
   statusChanges     RequestStatusHistory[]
   picAssignments    RequestPicAssignment[] @relation("AssignmentChangedBy")
   technicalProjects Project[]              @relation("ProjectTechnicalPic")
@@ -396,6 +397,9 @@ model Request {
   flowStoppedNote String?       @map("flow_stopped_note")
   // Why a Purchasing request (RFQ or PO) was completed after its SLA deadline; set when it is moved to Completed while overdue.
   overdueNote     String?       @map("overdue_note")
+  // Soft delete by a superadmin: the request is hidden everywhere; its history stays (it is append-only). Null while it is live.
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  deletedById     String?       @map("deleted_by_id") @db.Uuid
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -405,6 +409,7 @@ model Request {
   pic           Pic?                   @relation(fields: [picId], references: [id], onDelete: Restrict)
   picAssignments RequestPicAssignment[]
   flowStoppedBy User?                  @relation("RequestFlowStoppedBy", fields: [flowStoppedById], references: [id], onDelete: Restrict)
+  deletedBy     User?                  @relation("RequestDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   source        Request?               @relation("Handover", fields: [sourceRequestId], references: [id], onDelete: Restrict)
   handovers     Request[]              @relation("Handover")
   statusHistory RequestStatusHistory[]

@@ -70,7 +70,9 @@ describe("saveTeamSetting", () => {
       const user = await makeUser(role);
       expect(await saveTeamSetting(db, actor(user), valid)).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
-    expect(await saveTeamSetting(db, actor(root), { ...valid, emailSubject: "No id here" })).toMatchObject({ ok: false, message: expect.stringContaining("{{request_id}}") });
+    expect(await saveTeamSetting(db, actor(root), { ...valid, emailSubject: "No id here", emailBody: "No id here either" })).toMatchObject({ ok: false, message: expect.stringContaining("{{request_id}}") });
+    // In the text alone it is accepted.
+    expect(await saveTeamSetting(db, actor(root), { ...valid, emailSubject: "No id here" })).toMatchObject({ ok: true });
     expect(await saveTeamSetting(db, actor(root), { ...valid, emailBody: "Hello {{nobody}}" })).toMatchObject({ ok: false, message: expect.stringContaining("{{nobody}}") });
     expect(await saveTeamSetting(db, actor(root), { ...valid, role: "FINANCE" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
   });

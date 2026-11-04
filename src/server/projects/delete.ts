@@ -24,7 +24,7 @@ export async function deleteProject(db: PrismaClient, claimedActor: Actor, input
     if (!actor?.isActive || !can(actor.role, "projects.delete")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
 
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
-    const project = await tx.project.findUnique({ where: { id: projectId }, include: { requests: { select: { status: true } } } });
+    const project = await tx.project.findUnique({ where: { id: projectId }, include: { requests: { where: { deletedAt: null }, select: { status: true } } } });
     if (!project || project.deletedAt) return { ok: false, code: "NOT_FOUND", message: "Project tidak ditemukan." };
     if (confirmCode !== project.code) return { ok: false, code: "INVALID_INPUT", message: `Ketik ${project.code} untuk mengonfirmasi penghapusan.` };
 

@@ -365,7 +365,9 @@ test.describe("projects and requests", () => {
     await expect(root.getByRole("heading", { level: 1, name: "Email" })).toBeVisible();
     const form = root.locator("form").filter({ has: root.getByRole("button", { name: "Simpan email SOA" }) });
     await expect(async () => {
+      // Without the Request ID in the subject or the text, the template is refused.
       await form.getByLabel("Subjek email").fill("A subject without the id");
+      await form.getByLabel("Isi email").fill("A text without the id either");
       await form.getByRole("button", { name: "Simpan email SOA" }).click();
       await expect(root.getByRole("alert").filter({ hasText: "{{request_id}}" })).toBeVisible({ timeout: 1500 });
     }).toPass();
@@ -820,6 +822,27 @@ test.describe("access to the work modules", () => {
 });
 
 test.describe("superadmin modules", () => {
+  test("superadmin deletes a request after typing its code; Sales see no delete button", async ({ page, browser }) => {
+    await signIn(page, "SALES");
+    const projectCode = await createProject(page, "Delete request demo");
+    const boq = await createRequest(page, projectCode, "BOQ");
+    await page.goto(`/request/${boq}`);
+    await expect(page.getByRole("button", { name: "Hapus request" })).toHaveCount(0);
+
+    const root = await asRole(browser, "SUPERADMIN");
+    await root.goto(`/request/${boq}`);
+    await expect(async () => {
+      await root.getByRole("button", { name: "Hapus request" }).click();
+      await expect(root.getByRole("dialog", { name: `Hapus ${boq}?` })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30_000 });
+    const dialog = root.getByRole("dialog", { name: `Hapus ${boq}?` });
+    await dialog.getByLabel(`Ketik ${boq} untuk konfirmasi`).fill(boq);
+    await dialog.getByRole("button", { name: "Hapus request" }).click();
+    await expect(root).toHaveURL(new RegExp(`/projects/${projectCode}#requests$`));
+    await expect(root.getByRole("link", { name: boq })).toHaveCount(0);
+    await root.context().close();
+  });
+
   test("superadmin creates a backup in the host folder and sees it listed and audited", async ({ page }) => {
     await signIn(page, "SUPERADMIN");
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Backups" }).click();
