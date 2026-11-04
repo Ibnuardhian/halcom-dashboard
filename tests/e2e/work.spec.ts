@@ -113,7 +113,7 @@ test.describe("projects and requests", () => {
     expect(subject).toMatch(subjectPattern("BOQ", "One form demo"));
     const projectCode = page.url().match(/HIT-PROJ-\d+/)![0];
 
-    await page.goto(`/projects/${projectCode}`);
+    await page.goto(`/projects/${projectCode}#requests`);
     await expect(page.getByRole("list", { name: "Flow of this project" }).getByRole("link", { name: /^BOQ-S/ })).toBeVisible();
     await expect(page.getByLabel("Gross Profit")).toHaveValue(/^250\.?000\.?000$/);
   });
@@ -587,12 +587,12 @@ test.describe("projects and requests", () => {
     const boq = await createRequest(page, projectCode, "BOQ");
 
     const soa = await asRole(browser, "SOA");
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await expect(soa.getByRole("button", { name: "Continue to RFQ" })).toHaveCount(0); // not completed yet
     await moveCard(soa, "BOQ", boq, "IN_PROGRESS");
     await moveCard(soa, "BOQ", boq, "COMPLETED");
 
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await soa.getByRole("button", { name: "Continue to RFQ" }).click();
     await expect(soa).toHaveURL(/\/projects\/HIT-PROJ-\d+\?request=RFQ-[A-Z0-9]+-\d{6,}/);
     const rfq = new URL(soa.url()).searchParams.get("request")!;
@@ -611,7 +611,7 @@ test.describe("projects and requests", () => {
     await expect(rfqPanel.getByRole("link", { name: boq })).toBeVisible(); // the RFQ names the BOQ it came from
 
     // The BOQ now lists its RFQ, and the next-step buttons are gone: it has been continued.
-    await soa.goto(`/projects/${projectCode}#technical`);
+    await soa.goto(`/projects/${projectCode}#requests`);
     await expect(soa.getByRole("link", { name: rfq }).first()).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0);
 
