@@ -89,6 +89,8 @@ export const handoverSchema = z.object({
   sourceId: z.uuid(),
   targetType: z.enum(HANDOVER_TYPES, "Pilih RFQ atau PO."),
   note: optionalText(500),
+  /** The Needed by of the new request; it is not copied from the source, whose date belongs to the earlier step. */
+  requiredBy: optionalDate,
 });
 
 export const stopFlowSchema = z.object({ sourceId: z.uuid(), note: optionalText(500) });

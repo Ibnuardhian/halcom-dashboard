@@ -940,3 +940,10 @@ The preview of each template (filled with sample data) is no longer a long block
 - **`{{request_id}}` in the subject or the text.** A template is accepted when the Request ID is in the subject or in the text (before: the subject only). The subject is still the safer place, since a reply keeps it; the Email page says so.
 
 **Neon needs `db:migrate:deploy` before this code reaches `main`** (with `20261107100000_team_settings_sales_template` of D-073).
+
+## D-075: A continued request has its own Needed by; the Email settings page is tabbed (2026-11-04)
+
+**Asked by the owner.**
+
+- **Needed by and SLA of a continued request.** Continuing a BOQ to an RFQ or an RFQ to a PO no longer copies the earlier request's Needed by: that date belonged to the earlier step (example: an RFQ needed by 2 Nov gave its PO the same 2 Nov). The confirmation modal has an optional Needed by for the new request. The SLA was already counted from the new request's own creation (an RFQ raised on 2 Nov and completed on 3 Nov, continued to a PO on 4 Nov: the PO's SLA of 3 working days runs from 4 Nov); a test now pins that. Requests continued before this change keep the date they copied.
+- **Email settings in tabs.** The Email page has one tab per template (SOA (BOQ), Purchasing (RFQ), Sales (HITPO)) and one for the variables, with the same tab component as the project page, so one form is on screen at a time. `#soa`, `#purchasing` and `#sales` open their tab.

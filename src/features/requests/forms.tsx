@@ -400,6 +400,9 @@ export function NextStepForm({ sourceId, nextType, hasDecision }: { sourceId: st
           <Field id={`continue-note-${sourceId}`} label="Notes (opsional)">
             <Textarea id={`continue-note-${sourceId}`} name="note" maxLength={500} className="min-h-24" />
           </Field>
+          <Field id={`continue-needed-${sourceId}`} label="Needed by (opsional)" hint={`Tanggal ${nextType} ini dibutuhkan. Tidak diambil dari request sebelumnya. SLA dihitung dari hari ${nextType} dibuat.`}>
+            <DateInput id={`continue-needed-${sourceId}`} name="requiredBy" label="Needed by" />
+          </Field>
           <FormStatus state={continued} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => dialog.current?.close()}>

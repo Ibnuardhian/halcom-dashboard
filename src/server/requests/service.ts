@@ -276,7 +276,7 @@ export async function handOverToPurchasing(
   const parsed = handoverSchema.safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message);
   if (!can(claimedActor.role, "requests.handover") && claimedActor.role !== "SALES") return fail("FORBIDDEN");
-  const { sourceId, targetType, note } = parsed.data;
+  const { sourceId, targetType, note, requiredBy } = parsed.data;
 
   const existing = () =>
     db.request.findUnique({
@@ -316,7 +316,8 @@ export async function handOverToPurchasing(
           title: source.title,
           // The optional note of the person who continues goes under the details, so it reaches the email text and the request page.
           description: note ? `${source.description}\n\nCatatan: ${note}`.trim() : source.description,
-          requiredBy: source.requiredBy,
+          // Its own Needed by (or none): the date of the BOQ or RFQ was for that step. The SLA counts from this request's creation.
+          requiredBy,
           requesterId: actor.id,
           sourceRequestId: source.id,
         },

@@ -99,6 +99,7 @@ export async function handOverAction(_previous: FormState, formData: FormData): 
     sourceId: text(formData, "sourceId"),
     targetType: text(formData, "targetType"),
     note: text(formData, "note"),
+    requiredBy: text(formData, "requiredBy"),
   });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(REQUESTS_PATH);
