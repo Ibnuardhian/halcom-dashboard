@@ -75,3 +75,36 @@ POSTGRES_DB=halcom
 Sekali di GitHub: Settings → Environments → `production` (Required reviewers), dengan secret `VPS_HOST`, `VPS_USER` (`deploy`), `VPS_PORT` (opsional), `VPS_SSH_KEY` (kunci privat khusus CI), `VPS_KNOWN_HOSTS` (hasil `ssh-keyscan -t ed25519 IP`, cocokkan sidik jarinya).
 
 Skrip berhenti bila volume `halcom-dashboard_postgres_data` tidak ada, supaya tidak membuat database kosong. Cek namanya dulu: `docker volume ls | grep postgres`.
+
+## Data dari Neon ke VPS, perpindahan, dan cadangan malam (`db-sync.sh`)
+
+Skrip `deploy/db-sync.sh` ikut disalin ke `/opt/halcom` oleh workflow deploy. Rahasianya di `/opt/halcom/neon.env` (`chmod 600`, pemilik `deploy`, tidak masuk repo):
+
+```
+NEON_URL=postgresql://...direct-bukan-pooler...?sslmode=require
+NEON_BACKUP_URL=postgresql://...database-Neon-yang-lain...?sslmode=require
+```
+
+`NEON_BACKUP_URL` harus database Neon **terpisah** dari database yang sedang dipakai aplikasi lama (buat database baru di Neon, mis. `halcom_backup`). Skrip menolak jika nilainya sama dengan `NEON_URL`.
+
+| Tahap | Perintah | Efek |
+|---|---|---|
+| Sebelum pindah | `db-sync.sh neon-to-vps` (cron malam) | Menimpa database VPS dengan salinan Neon, menjalankan migrasi yang belum ada di Neon, lalu menyalakan `app`. Sebelum menimpa, database VPS disimpan di `sync/vps-before-*.dump`. |
+| Malam pindah | `db-sync.sh cutover` | Salinan terakhir, lalu membuat `/opt/halcom/CUTOVER_DONE`. Hentikan dulu pemakaian aplikasi lama. |
+| Sesudah pindah | `db-sync.sh vps-to-neon` (cron malam) | Cadangan malam VPS ke database cadangan di Neon. Dump 7 terbaru tersimpan di `sync/`. |
+
+Pengaman: `neon-to-vps` dan `cutover` menolak berjalan setelah `CUTOVER_DONE` ada, dan `vps-to-neon` menolak berjalan sebelum `CUTOVER_DONE` ada. Jadi arahnya tidak bisa tertukar. Selama tahap pertama, **jangan pakai aplikasi di VPS untuk memasukkan data**: setiap malam datanya ditimpa dari Neon.
+
+Cron untuk user `deploy` (`crontab -e`). Tahap pertama:
+
+```
+0 2 * * * /opt/halcom/db-sync.sh neon-to-vps >> /opt/halcom/sync/cron.log 2>&1
+```
+
+Setelah `cutover`, ganti barisnya dengan:
+
+```
+30 2 * * * /opt/halcom/db-sync.sh vps-to-neon >> /opt/halcom/sync/cron.log 2>&1
+```
+
+Uji sekali dengan tangan sebelum dijadwalkan: `/opt/halcom/db-sync.sh neon-to-vps`.
