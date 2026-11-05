@@ -2,5 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["sin1"],
-  "github": { "silent": true }
+  "github": { "silent": true },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "destination": "https://srv2127418.hstgr.cloud/:path*",
+      "permanent": false
+    }
+  ]
 }
