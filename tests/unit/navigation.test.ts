@@ -26,6 +26,7 @@ function permissionFor(href: string): Permission {
   if (href.startsWith("/admin/settings")) return "settings.view";
   if (href === "/admin/master-data") return "masterdata.manage";
   if (href === "/admin/pics") return "pics.manage";
+  if (href === "/admin/lockouts") return "logins.manage";
   throw new Error(`No permission mapped for ${href}`);
 }
 
@@ -101,7 +102,7 @@ describe("navLinksFor", () => {
   it("shows superadmin everything", () => {
     const hrefs = hrefsFor("SUPERADMIN");
 
-    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings/email", "/admin/settings/sla", "/admin/master-data", "/admin/pics"]) {
+    for (const expected of ["/dashboard/superadmin", "/projects", "/projects/new", "/requests/new", "/handoffs", "/finance/crosscheck", "/reports/technical", "/admin/users", "/admin/permissions", "/admin/audit", "/admin/backups", "/admin/system", "/admin/settings/email", "/admin/settings/sla", "/admin/master-data", "/admin/pics", "/admin/lockouts"]) {
       expect(hrefs).toContain(expected);
     }
     // Admin and Superadmin share one Admin dashboard (D-032): the menu offers it once, under the user's own address.

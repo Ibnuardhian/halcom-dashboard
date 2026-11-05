@@ -22,6 +22,7 @@ import {
   Library,
   Scale,
   Timer,
+  LockKeyhole,
   UserRoundCheck,
   Users,
   type LucideIcon,
@@ -50,6 +51,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   sla: Timer,
   masterdata: Library,
   pics: UserRoundCheck,
+  lockouts: LockKeyhole,
   crosscheck: Scale,
 };
 
