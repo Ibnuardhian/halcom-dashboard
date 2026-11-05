@@ -85,7 +85,7 @@ NEON_URL=postgresql://...direct-bukan-pooler...?sslmode=require
 NEON_BACKUP_URL=postgresql://...database-Neon-yang-lain...?sslmode=require
 ```
 
-`NEON_BACKUP_URL` harus database Neon **terpisah** dari database yang sedang dipakai aplikasi lama (buat database baru di Neon, mis. `halcom_backup`). Skrip menolak jika nilainya sama dengan `NEON_URL`.
+`NEON_BACKUP_URL` boleh sama dengan `NEON_URL` (database Neon yang dulu dipakai aplikasi Vercel), karena setelah cutover tidak ada lagi yang menulis ke sana. `vps-to-neon` **menimpa** database itu setiap kali berjalan dan baru boleh berjalan setelah `CUTOVER_DONE` ada.
 
 | Tahap | Perintah | Efek |
 |---|---|---|

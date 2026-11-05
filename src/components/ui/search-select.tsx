@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 /**
  * A searchable drop-down over a fixed list of `{ id, name }` options: type to filter, pick with the mouse, the arrow keys and Enter, or Tab (which takes the highlighted match).
  * The chosen id is submitted in a hidden field called `name`; nothing can be created here (see MasterDataSelect for that). With
- * `required`, the form cannot be submitted until an option is chosen.
+ * `required`, the form cannot be submitted until an option is chosen. Pass `value` and `onChange` to control the choice from outside (an empty
+ * string is "nothing chosen"), or `defaultValue` to start with one.
  */
 export function SearchSelect({
   id,
@@ -17,6 +18,9 @@ export function SearchSelect({
   options,
   required = false,
   placeholder = "Search",
+  value,
+  defaultValue = "",
+  onChange,
 }: {
   id: string;
   name: string;
@@ -25,9 +29,13 @@ export function SearchSelect({
   options: readonly MasterOption[];
   required?: boolean;
   placeholder?: string;
+  value?: string;
+  defaultValue?: string;
+  onChange?: (id: string) => void;
 }) {
   const listId = useId();
-  const [selectedId, setSelectedId] = useState("");
+  const [innerId, setInnerId] = useState(defaultValue);
+  const selectedId = value ?? innerId;
   const [typed, setTyped] = useState("");
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
@@ -37,7 +45,8 @@ export function SearchSelect({
   const shown = editing ? typed : (selected?.name ?? "");
 
   function choose(option: MasterOption | null) {
-    setSelectedId(option?.id ?? "");
+    setInnerId(option?.id ?? "");
+    onChange?.(option?.id ?? "");
     setEditing(false);
     setTyped("");
     setOpen(false);
