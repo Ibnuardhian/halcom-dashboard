@@ -34,8 +34,8 @@ export function PicRow({ id, name, isActive, openRequests, totalRequests }: { id
         <form action={rename} className="flex min-w-0 flex-1 items-center gap-2">
           <input type="hidden" name="id" value={id} />
           <Input name="name" defaultValue={name} maxLength={PIC_NAME_MAX_LENGTH} required aria-label={`Name of ${name}`} className="max-w-sm" />
-          <Button type="submit" variant="outline" size="sm" disabled={renaming}>
-            Rename
+          <Button type="submit" size="sm" disabled={renaming}>
+            Save
           </Button>
         </form>
         <span className="text-xs text-muted-foreground">

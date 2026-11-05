@@ -61,7 +61,7 @@ export function SectionRow({ section }: { section: SectionRecord }) {
           <label className="flex items-center gap-1.5 text-sm">
             <input type="checkbox" name="isActive" defaultChecked={section.isActive} /> Dipakai
           </label>
-          <Button type="submit" variant="outline" size="sm" disabled={pending}>
+          <Button type="submit" size="sm" disabled={pending}>
             Save
           </Button>
         </div>
@@ -102,7 +102,7 @@ export function PhaseRow({ phase }: { phase: PhaseRecord }) {
         <label className="flex items-center gap-1.5 text-sm">
           <input type="checkbox" name="isActive" defaultChecked={phase.isActive} /> Dipakai
         </label>
-        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending}>
           Save
         </Button>
         <div className="basis-full">

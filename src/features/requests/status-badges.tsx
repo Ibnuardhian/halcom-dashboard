@@ -56,7 +56,7 @@ export function ProgressBadge({ progress }: { progress: ProjectProgress }) {
 export function TrackStatusBadge({ status }: { status: TrackStatus }) {
   const attention = status === "BLOCK" || status === "ON_HOLD";
   return (
-    <Badge variant={attention ? "secondary" : status === "DONE" ? "outline" : "default"} className={cn("whitespace-nowrap", attention && "bg-warning text-warning-foreground")}>
+    <Badge variant={attention ? "secondary" : "default"} className={cn("whitespace-nowrap", attention && "bg-warning text-warning-foreground", status === "DONE" && "bg-success text-white dark:text-gray-900")}>
       {TRACK_STATUS_LABELS[status]}
     </Badge>
   );

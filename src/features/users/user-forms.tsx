@@ -81,7 +81,7 @@ export function RoleForm({ userId, currentRole, roles, label }: { userId: string
         <select name="role" defaultValue={currentRole} aria-label={`Role for ${label}`} className={SELECT_CLASS}>
           <RoleOptions roles={roles} />
         </select>
-        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending}>
           Save
         </Button>
       </div>
@@ -130,7 +130,7 @@ export function ChangeEmailForm({ userId, email }: { userId: string; email: stri
       <input type="hidden" name="userId" value={userId} />
       <div className="flex gap-2">
         <Input name="email" type="email" required maxLength={254} defaultValue={email} autoComplete="off" aria-label={`Email for ${email}`} className="w-56" />
-        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending}>
           <SaveText what={`email for ${email}`} />
         </Button>
       </div>

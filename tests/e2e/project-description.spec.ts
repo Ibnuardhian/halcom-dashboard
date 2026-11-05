@@ -20,22 +20,25 @@ test("Sales change the description of their project, Admin may too, and SOA only
 
   const text = `Scope of work ${Date.now()}`;
   await expect(async () => {
+    if (!(await sales.getByRole("dialog").isVisible())) await sales.getByRole("button", { name: "Edit description" }).click(); // the form opens in a modal
     await sales.locator("textarea[id^=description-HIT]").fill(text);
     await sales.getByRole("button", { name: "Save description" }).click();
     await expect(sales.getByText("Deskripsi disimpan dan dicatat di change log.")).toBeVisible({ timeout: 8000 });
   }).toPass({ timeout: 45_000 });
   await sales.reload();
-  await expect(sales.locator("textarea[id^=description-HIT]")).toHaveValue(text);
+  await expect(sales.locator("p", { hasText: text }).first()).toBeVisible(); // shown as text, saved
+  await expect(sales.locator("textarea[id^=description-HIT]")).toBeHidden(); // the form is closed until Edit is pressed
   await sales.context().close();
 
   const admin = await as("ADMIN");
   await admin.goto(path);
-  await expect(admin.locator("textarea[id^=description-HIT]")).toHaveValue(text);
+  await expect(admin.locator("p", { hasText: text }).first()).toBeVisible();
+  await expect(admin.getByRole("button", { name: "Edit description" })).toBeVisible();
   await admin.context().close();
 
   const soa = await as("SOA");
   await soa.goto(path);
-  await expect(soa.getByText(text).first()).toBeVisible();
-  await expect(soa.getByRole("button", { name: "Save description" })).toHaveCount(0);
+  await expect(soa.locator("p", { hasText: text }).first()).toBeVisible();
+  await expect(soa.getByRole("button", { name: "Edit description" })).toHaveCount(0);
   await soa.context().close();
 });
