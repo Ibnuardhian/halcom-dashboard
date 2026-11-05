@@ -23,6 +23,7 @@ export type Permission =
   | "projects.import"
   | "projects.edit.source"
   | "projects.edit.technical"
+  | "projects.edit.principal"
   | "projects.rename"
   | "projects.edit.description"
   | "projects.edit.commercial"
@@ -76,6 +77,7 @@ export const ALL_PERMISSIONS: readonly Permission[] = [
   "projects.import",
   "projects.edit.source",
   "projects.edit.technical",
+  "projects.edit.principal",
   "projects.rename",
   "projects.edit.description",
   "projects.edit.commercial",
@@ -118,7 +120,7 @@ export const PERMISSION_GUARDS = {
   /** A superadmin always keeps these: they are how permissions, accounts and the superadmin's own dashboard are reached and repaired. */
   lockedForSuperadmin: ["permissions.view", "permissions.manage", "users.view", "users.manage", "users.manage-privileged", "requests.edit-dates", "customers.rename", "users.change-email", "logins.manage", "dashboard.superadmin.view"],
   /** Only a superadmin can ever hold these. They cannot be granted to another role. */
-  superadminOnly: ["permissions.manage", "users.manage-privileged", "requests.edit-dates", "requests.delete", "customers.rename", "users.change-email", "logins.manage"],
+  superadminOnly: ["permissions.manage", "users.manage-privileged", "customers.rename", "users.change-email", "logins.manage"],
 } as const satisfies Record<string, readonly Permission[]>;
 
 const LOCKED_FOR_SUPERADMIN: ReadonlySet<Permission> = new Set(PERMISSION_GUARDS.lockedForSuperadmin);
@@ -136,7 +138,7 @@ export function permissionChangeBlock(role: Role, permission: Permission, grante
 /** Every role reads projects and requests (assumption A-9: no row-level visibility policy yet). */
 const READ_WORK: readonly Permission[] = ["projects.view", "requests.view"];
 // Sales and Admin (the Superadmin holds everything) also change the description of a project.
-const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "projects.bulk-update", "projects.edit.description", "requests.create", "requests.email", "requests.revise"];
+const SALES_WORK: readonly Permission[] = ["projects.create", "projects.edit.commercial", "projects.edit.principal", "projects.import", "projects.bulk-update", "projects.edit.description", "requests.create", "requests.email", "requests.revise"];
 
 function ownDashboardPermission(role: Role): Permission {
   return `dashboard.${role.toLowerCase() as DashboardKey}.view`;
@@ -171,6 +173,10 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.edit.technical",
     "projects.rename",
     "projects.post-update",
+    // Admin also deletes (hides) projects and requests and corrects the dates of a request, like the Superadmin.
+    "projects.delete",
+    "requests.delete",
+    "requests.edit-dates",
     "masterdata.manage",
     "sections.manage",
     "industries.manage",
@@ -197,6 +203,7 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "projects.edit.source",
     "requests.create.external",
     "projects.edit.technical",
+    "projects.edit.principal",
     "projects.rename",
     "projects.post-update",
     "masterdata.manage",
@@ -211,6 +218,9 @@ const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
     "requests.work.purchasing",
     // Purchasing raises an RFQ for an existing project (it is also shown to the project's Sales and SOA PICs); never a BOQ or a PO.
     "requests.create.rfq",
+    // Purchasing fills in the Principal of a project from the Excel sheet (only that column), like SOA and Sales.
+    "projects.edit.principal",
+    "projects.bulk-update",
   ]),
   // Finance reads: values, quotation and PO references, audit history. Nothing here lets Finance change a project or a request.
   FINANCE: new Set<Permission>(["dashboard.shared.view", ownDashboardPermission("FINANCE"), "finance.crosscheck.view", ...READ_WORK]),

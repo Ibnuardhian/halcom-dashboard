@@ -231,11 +231,11 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await expect(soa.getByText(/32 baris di .Pipeline.: 30 project baru, 0 diperbarui/)).toBeVisible();
     await expect(soa.getByRole("cell", { name: "Duplikat (dilewati)" })).toBeVisible();
     await expect(soa.getByRole("cell", { name: /Progress "maybe"/ })).toBeVisible();
-    await expect(soa.getByText(`Principals: E2E Brand ${id}, E2E Second ${id}`)).toBeVisible();
+    // A Principal that does not exist yet is only announced: it is created on save, with no confirmation to tick.
+    await expect(soa.getByText(new RegExp(`dibuat otomatis saat disimpan: E2E Brand ${id}, E2E Second ${id}`))).toBeVisible();
     // All or nothing is the default, and it refuses while a row has a problem; new names must be confirmed.
     await expect(soa.getByRole("button", { name: /^Simpan 30 baru/ })).toBeDisabled();
     await soa.getByLabel("Simpan baris yang valid dan lewati baris yang bermasalah").check();
-    await soa.getByLabel("Ejaannya benar, buat nama-nama ini").check();
     await soa.getByRole("button", { name: "Simpan 30 baru dan 0 diperbarui" }).click();
     await expect(soa.getByRole("heading", { name: "Selesai" })).toBeVisible({ timeout: 60_000 });
     await expect(soa.getByText(/30 project baru, 0 diperbarui, 0 tidak berubah, 1 dilewati, 1 bermasalah tidak disimpan/)).toBeVisible();

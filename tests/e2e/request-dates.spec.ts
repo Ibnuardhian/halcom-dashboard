@@ -28,14 +28,19 @@ async function createBoq(page: Page, projectCode: string): Promise<string> {
   return new URL(page.url()).searchParams.get("request")!;
 }
 
-test.describe("a superadmin sets the dates of a request by hand", () => {
-  test("only the superadmin sees the form, and the saved dates are shown again", async ({ page }) => {
+test.describe("a superadmin or an admin sets the dates of a request by hand", () => {
+  test("only the superadmin and the admin see the form, and the saved dates are shown again", async ({ page }) => {
     test.setTimeout(180_000);
     await signIn(page, "SALES");
     const requestCode = await createBoq(page, await createProject(page, `Dates ${Date.now()}`));
     await page.goto(`/request/${requestCode}`);
     await expect(page.getByText(/^Status history/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Correct the dates" })).toHaveCount(0);
+    await signOut(page);
+
+    await signIn(page, "ADMIN");
+    await page.goto(`/request/${requestCode}`);
+    await expect(page.getByRole("heading", { name: "Correct the dates" })).toBeVisible();
     await signOut(page);
 
     await signIn(page, "SUPERADMIN");

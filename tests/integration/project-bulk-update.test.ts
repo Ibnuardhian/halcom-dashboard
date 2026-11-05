@@ -42,12 +42,13 @@ async function setup() {
 }
 
 describe("bulk update of projects from an Excel sheet", () => {
-  it("is for those who hold the permission: Superadmin, Admin, SOA and Sales, not Purchasing or Finance", async () => {
+  it("is for those who hold the permission: Superadmin, Admin, SOA, Sales and Purchasing (its Principals column), not Finance", async () => {
     const { admin, as, file, exported } = await setup();
     const [purchasing, finance] = await Promise.all([makeUser("PURCHASING"), makeUser("FINANCE")]);
     const input = file(await exported());
-    for (const user of [purchasing, finance]) expect(await previewProjectUpdate(db, as(user), input)).toMatchObject({ ok: false, code: "FORBIDDEN" });
-    expect(await commitProjectUpdate(db, as(purchasing), { ...input, fileName: "x.xlsx", confirmNew: true })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(await previewProjectUpdate(db, as(finance), input)).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(await commitProjectUpdate(db, as(finance), { ...input, fileName: "x.xlsx", confirmNew: true })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(await previewProjectUpdate(db, as(purchasing), input)).toMatchObject({ ok: true });
     expect(await previewProjectUpdate(db, as(admin), input)).toMatchObject({ ok: true });
   });
 
@@ -161,11 +162,15 @@ describe("each role updates only its part of the sheet", () => {
   }
   const actor = (user: { id: string; role: Role }) => ({ id: user.id, role: user.role });
 
-  it("gives Sales the commercial columns and SOA the technical ones, and keeps the money from SOA", () => {
+  it("gives Sales the commercial columns and SOA the technical ones, Principals to both and to Purchasing, and keeps the money from SOA", () => {
     const sales = labelsOf("SALES");
     const soa = labelsOf("SOA");
     expect(sales).toEqual(expect.arrayContaining(["Progress", "Gross Profit", "Industry", "Location"]));
-    expect(sales).not.toEqual(expect.arrayContaining(["Principals"]));
+    expect(sales).toEqual(expect.arrayContaining(["Principals"]));
+    expect(sales).not.toEqual(expect.arrayContaining(["Solution", "Technical PIC (SOA)"]));
+    const purchasing = labelsOf("PURCHASING");
+    expect(purchasing).toEqual(expect.arrayContaining(["Principals", "Project ID", "Last updated"]));
+    for (const other of ["Progress", "Gross Profit", "Solution", "Sales PIC", "Technical PIC (SOA)"]) expect(purchasing).not.toContain(other);
     expect(soa).toEqual(expect.arrayContaining(["Principals", "Solution", "Technical PIC (SOA)", "Sales PIC", "Industry", "Location", "Project ID", "Last updated"]));
     for (const money of ["Progress", "Status", "Gross Profit", "Quote released", "Target closing"]) expect(soa).not.toContain(money);
     expect(labelsOf("ADMIN")).toEqual(templateHeaders().map((header) => header.replace(/ \*$/, "")));
@@ -184,6 +189,25 @@ describe("each role updates only its part of the sheet", () => {
     expect(JSON.stringify(refused)).toContain("kolom commercial");
   });
 
+  it("lets Sales (on their own projects) and Purchasing fill in a Principal that does not exist yet, creating it without a confirmation", async () => {
+    const { sales, newOwner, tag, code, projectId, as } = await setup();
+    const purchasing = await makeUser("PURCHASING");
+
+    const mine = await commitProjectUpdate(db, as(sales), { ...(await sheet("SALES", actor(sales), code, { Principals: `Sales Brand ${tag}` })), fileName: "p1.xlsx", confirmNew: false });
+    expect(mine).toMatchObject({ ok: true, updated: 1 });
+    expect(await db.principal.count({ where: { name: `Sales Brand ${tag}` } })).toBe(1);
+    expect((await db.projectPrincipal.findMany({ where: { projectId }, include: { principal: true } })).map((link) => link.principal.name)).toEqual([`Sales Brand ${tag}`]);
+
+    // Another salesperson's project stays off limits for Sales.
+    const notMine = await previewProjectUpdate(db, as(newOwner), await sheet("SALES", actor(newOwner), code, { Principals: `Intruder ${tag}` }));
+    expect(notMine).toMatchObject({ ok: true, summary: { errors: 1, toUpdate: 0 } });
+
+    // Purchasing fills in the same column on any project, and nothing else of the sheet.
+    const theirs = await commitProjectUpdate(db, as(purchasing), { ...(await sheet("PURCHASING", actor(purchasing), code, { Principals: `Purch Brand ${tag}` })), fileName: "p2.xlsx", confirmNew: false });
+    expect(theirs).toMatchObject({ ok: true, updated: 1 });
+    await expect(db.projectChange.count({ where: { projectId, field: "principal", toValue: { contains: `Purch Brand ${tag}` } } })).resolves.toBe(1);
+  });
+
   it("lets Sales change commercial fields of their own projects only", async () => {
     const { sales, newOwner, code, projectId, as } = await setup();
     const mine = await commitProjectUpdate(db, as(sales), { ...(await sheet("SALES", actor(sales), code, { Progress: "Propose", "Gross Profit": 700 })), fileName: "mine.xlsx", confirmNew: false });
@@ -197,14 +221,14 @@ describe("each role updates only its part of the sheet", () => {
     expect((await listProjectsForExport(db, actor(sales), sales.id)).some((entry) => entry.code === code)).toBe(true);
   });
 
-  it("refuses a technical change from Sales", async () => {
+  it("refuses a Solution change from Sales (Principals are open to them, Solution is SOA's)", async () => {
     const { sales, tag, code, as } = await setup();
     const headers = templateHeaders(KEYS("SALES"));
     const row = importRowOf((await listProjectsForExport(db, actor(sales))).find((entry) => entry.code === code)!, KEYS("SALES"));
-    const withBrand = toXlsx("Projects", [...headers, "Principals"], [[...row, `Sneaky ${tag}`]]);
-    const result = await previewProjectUpdate(db, as(sales), { bytes: withBrand, mapping: suggestMapping([...headers, "Principals"]) });
+    const withBrand = toXlsx("Projects", [...headers, "Solution"], [[...row, `Sneaky ${tag}`]]);
+    const result = await previewProjectUpdate(db, as(sales), { bytes: withBrand, mapping: suggestMapping([...headers, "Solution"]) });
     expect(result).toMatchObject({ ok: true, summary: { errors: 1, toUpdate: 0 } });
-    expect(JSON.stringify(result)).toContain("Principals, Solution atau Technical PIC");
+    expect(JSON.stringify(result)).toContain("Solution atau Technical PIC");
   });
 
   it("sets the industry on the customer, from the list, for Sales and for SOA", async () => {

@@ -45,13 +45,22 @@ describe("deleteProject", () => {
     await expect(db.auditEvent.count({ where: { action: "project.deleted", entityId: id, actorId: root.id } })).resolves.toBe(1);
   });
 
-  it("is refused for every role but the superadmin", async () => {
+  it("is refused for every role but the superadmin and the admin", async () => {
     const sales = await makeUser("SALES");
     const created = await createProject(db, { id: sales.id, role: sales.role }, { endUserCompany: "PT keep", name: "keep" });
     if (!created.ok) throw new Error(created.message);
-    for (const role of ["ADMIN", "SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
+    for (const role of ["SALES", "SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
       const user = await makeUser(role);
       expect(await deleteProject(db, { id: user.id, role: user.role }, { projectId: created.value.id, confirmCode: created.value.code })).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
+  });
+
+  it("lets an admin delete a project, which is audited under the admin", async () => {
+    const [sales, admin] = await Promise.all([makeUser("SALES"), makeUser("ADMIN")]);
+    const created = await createProject(db, { id: sales.id, role: sales.role }, { endUserCompany: "PT admin removes", name: "admin removes" });
+    if (!created.ok) throw new Error(created.message);
+
+    expect(await deleteProject(db, { id: admin.id, role: admin.role }, { projectId: created.value.id, confirmCode: created.value.code })).toMatchObject({ ok: true });
+    await expect(db.auditEvent.count({ where: { action: "project.deleted", entityId: created.value.id, actorId: admin.id } })).resolves.toBe(1);
   });
 });

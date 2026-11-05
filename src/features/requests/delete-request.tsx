@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteRequestAction } from "./actions";
 
-/** Superadmin only (the panel decides). A modal asks for the request code before anything is deleted. */
+/** Superadmin and Admin (the panel decides). A modal asks for the request code before anything is deleted. */
 export function DeleteRequest({ requestId, requestCode }: { requestId: string; requestCode: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();

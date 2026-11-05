@@ -242,7 +242,8 @@ export async function commitProjectSync(
         const toAdd = planned.fresh?.ready ?? [];
         const toChange = planned.changed?.planned ?? [];
         if (toAdd.length + toChange.length === 0) throw new Abort({ ok: false, code: "NOTHING_TO_DO", message: "Tidak ada project baru atau perubahan untuk disimpan dari sheet ini.", summary });
-        const added = [...planned.newCustomers, ...planned.newPrincipals, ...planned.newSolutions];
+        // A new Principal is created with a notice in the preview, without asking for confirmation.
+        const added = [...planned.newCustomers, ...planned.newSolutions];
         if (added.length > 0 && !input.confirmNew) {
           throw new Abort({ ok: false, code: "NEEDS_CONFIRMATION", message: `Nama berikut belum ada dan akan dibuat: ${added.join(", ")}. Periksa penulisannya, lalu konfirmasi.`, summary });
         }

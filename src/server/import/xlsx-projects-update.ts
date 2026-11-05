@@ -283,12 +283,13 @@ export async function prepareUpdate(db: Db, actor: { id: string; role: Role }, b
       [!scope.description && applied.description !== undefined, "Description"],
       [!scope.owner && Boolean(applied.salesOwner), "Sales PIC"],
       [!scope.commercial && commercialChanges.length > 0, "kolom commercial (Progress sampai Target closing)"],
-      [!scope.technical && Boolean(applied.principals || applied.solution || applied.technicalPic), "Principals, Solution atau Technical PIC"],
+      [!scope.technical && Boolean(applied.solution || applied.technicalPic), "Solution atau Technical PIC"],
+      [!scope.principal && Boolean(applied.principals), "Principals"],
       [!scope.place && Boolean(applied.industry || applied.location !== undefined), "Industry atau Location"],
     ];
     for (const [denied, name] of outside) if (denied) problems.push(`Peran Anda tidak boleh mengubah ${name}. Kosongkan atau kembalikan sel itu ke isi semula.`);
-    if (!mayCreateMaster && (applied.principals?.some((name) => !knownPrincipals.has(nameKey(name))) || (applied.solution && !knownSolutions.has(nameKey(applied.solution))))) {
-      problems.push("Principal atau solution baru hanya boleh dibuat oleh yang berhak mengelola master data.");
+    if (!mayCreateMaster && applied.solution && !knownSolutions.has(nameKey(applied.solution))) {
+      problems.push("Solution baru hanya boleh dibuat oleh yang berhak mengelola master data.");
     }
     if (problems.length > 0) return fail(problems);
     if (changes.length === 0) {
@@ -370,7 +371,8 @@ export async function commitProjectUpdate(db: PrismaClient, claimedActor: Actor,
           throw new Abort({ ok: false, code: "HAS_ERRORS", message: `${prepared.counts.errors} baris bermasalah, jadi tidak ada proyek yang diperbarui. Perbaiki di sheet, lalu coba lagi.`, summary });
         }
         if (prepared.planned.length === 0) throw new Abort({ ok: false, code: "NOTHING_TO_UPDATE", message: "Tidak ada perubahan untuk disimpan dari sheet ini.", summary });
-        const added = [...prepared.newCustomers, ...prepared.newPrincipals, ...prepared.newSolutions];
+        // A new Principal is created with a notice in the preview, without asking for confirmation.
+        const added = [...prepared.newCustomers, ...prepared.newSolutions];
         if (added.length > 0 && !input.confirmNew) {
           throw new Abort({ ok: false, code: "NEEDS_CONFIRMATION", message: `Nama berikut belum ada dan akan dibuat: ${added.join(", ")}. Periksa penulisannya, lalu konfirmasi.`, summary });
         }

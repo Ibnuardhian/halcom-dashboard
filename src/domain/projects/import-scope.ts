@@ -16,8 +16,10 @@ export type ImportScope = {
   owner: boolean;
   /** Progress to Target closing, including the money columns. Also what lets a role see the money. */
   commercial: boolean;
-  /** Principals and Solution. */
+  /** Solution and Technical PIC. */
   technical: boolean;
+  /** Principals: anyone who fills them in, not only SOA. */
+  principal: boolean;
   /** Industry (kept on the customer) and Location. */
   place: boolean;
 };
@@ -25,14 +27,15 @@ export type ImportScope = {
 export function importScope(role: Role): ImportScope {
   const commercial = can(role, "projects.edit.commercial");
   const technical = can(role, "projects.edit.technical");
-  return { identity: can(role, "projects.rename"), description: can(role, "projects.edit.description"), owner: can(role, "projects.edit.source"), commercial, technical, place: commercial || technical };
+  return { identity: can(role, "projects.rename"), description: can(role, "projects.edit.description"), owner: can(role, "projects.edit.source"), commercial, technical, principal: can(role, "projects.edit.principal"), place: commercial || technical };
 }
 
 const ALWAYS: readonly ImportFieldKey[] = ["endUser", "name", "code", "description", "currentAction", "nextAction", "lastUpdated"];
 const GROUPS: Record<Exclude<keyof ImportScope, "identity" | "description" | "place">, readonly ImportFieldKey[]> = {
   owner: ["salesPic", "source", "externalSourceName"],
   commercial: ["progress", "status", "targetMarginAmount", "quoteReleasedAt", "targetDate"],
-  technical: ["principals", "solution", "technicalPic"],
+  technical: ["solution", "technicalPic"],
+  principal: ["principals"],
 };
 
 /** The columns a role's template and export carry, in the template's order. */

@@ -493,7 +493,7 @@ export function RevisionForm({ requestId }: { requestId: string }) {
   );
 }
 
-/** A superadmin sets the creation and completion day by hand: a calendar day, no time (Jakarta). */
+/** A superadmin or an admin sets the creation and completion day by hand: a calendar day, no time (Jakarta). */
 export function RequestDatesForm({ requestId, code, createdAt, completedAt, canComplete, requesterId, people }: { requestId: string; code: string; createdAt: string; completedAt: string | null; canComplete: boolean; requesterId: string; people: { value: string; name: string; codePrefix: string | null }[] }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(setRequestDatesAction, null);
   const form = useRef<HTMLFormElement>(null);

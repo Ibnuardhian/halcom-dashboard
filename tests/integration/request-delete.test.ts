@@ -15,8 +15,8 @@ afterAll(async () => {
 
 const as = (user: { id: string; role: Role }) => ({ id: user.id, role: user.role });
 
-describe("a superadmin deletes a request", () => {
-  it("only a superadmin, only with the code typed, a continued request after its continuation, and the source can be continued again", async () => {
+describe("a superadmin or an admin deletes a request", () => {
+  it("only a superadmin or an admin, only with the code typed, a continued request after its continuation, and the source can be continued again", async () => {
     const [sales, soa, root] = await Promise.all([makeUser("SALES"), makeUser("SOA"), makeUser("SUPERADMIN")]);
     const project = await createProject(db, as(sales), { endUserCompany: `PT Delete ${randomBytes(3).toString("hex")}`, name: "Delete job" });
     if (!project.ok) throw new Error(project.message);
@@ -26,7 +26,7 @@ describe("a superadmin deletes a request", () => {
     const rfq = await handOverToPurchasing(db, as(soa), { sourceId: boq.value.id, targetType: "RFQ" });
     if (!rfq.ok) throw new Error(rfq.message);
 
-    for (const role of ["ADMIN", "SALES", "SOA", "PURCHASING"] as const) {
+    for (const role of ["SALES", "SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
       expect(await deleteRequest(db, as(await makeUser(role)), { requestId: rfq.value.id, confirmCode: rfq.value.code })).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
     expect(await deleteRequest(db, as(root), { requestId: rfq.value.id, confirmCode: "wrong" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
@@ -47,5 +47,17 @@ describe("a superadmin deletes a request", () => {
     expect((await deleteRequest(db, as(root), { requestId: again.value.id, confirmCode: again.value.code })).ok).toBe(true);
     expect((await deleteRequest(db, as(root), { requestId: boq.value.id, confirmCode: boq.value.code })).ok).toBe(true);
     expect(await listRequests(db, as(root), { projectId: project.value.id })).toEqual([]);
+  });
+
+  it("lets an admin delete a request too, with the code typed", async () => {
+    const [sales, admin] = await Promise.all([makeUser("SALES"), makeUser("ADMIN")]);
+    const project = await createProject(db, as(sales), { endUserCompany: `PT Admin Delete ${randomBytes(3).toString("hex")}`, name: "Admin delete job" });
+    if (!project.ok) throw new Error(project.message);
+    const boq = await createRequest(db, as(sales), { projectId: project.value.id, type: "BOQ", description: "Switches" });
+    if (!boq.ok) throw new Error(boq.message);
+
+    expect(await deleteRequest(db, as(admin), { requestId: boq.value.id, confirmCode: "wrong" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await deleteRequest(db, as(admin), { requestId: boq.value.id, confirmCode: boq.value.code })).toMatchObject({ ok: true, code: boq.value.code });
+    expect(await db.auditEvent.count({ where: { action: "request.deleted", entityId: boq.value.id, actorId: admin.id } })).toBe(1);
   });
 });

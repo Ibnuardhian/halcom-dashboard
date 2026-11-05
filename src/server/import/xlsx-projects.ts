@@ -129,12 +129,17 @@ export async function prepareNew(db: Db, actor: { id: string; role: Role }, byte
       else problems.push(`Sales PIC "${row.salesPic}" bukan akun Sales yang aktif.`);
     }
 
-    // Master data: a name that is not a record yet is created only by someone allowed to manage master data.
+    // Master data: a Principal that is not a record yet is simply created (the preview lists it as a notice). A new solution is created only by someone allowed to manage master data.
     const addedPrincipals = row.principals.filter((name) => !knownPrincipals.has(nameKey(name)));
     const addedSolution = row.solution && !knownSolutions.has(nameKey(row.solution)) ? row.solution : null;
     if (!mayCreateMaster) {
-      for (const name of addedPrincipals) problems.push(`Principal "${name}" belum ada, dan Anda tidak boleh membuat master data. Minta SOA atau administrator menambahkannya dulu.`);
       if (addedSolution) problems.push(`Solution "${addedSolution}" belum ada, dan Anda tidak boleh membuat master data.`);
+    }
+
+    // A salesperson adds their own projects: a project from another source and the Solution (SOA's work) are not theirs to fill in.
+    if (actor.role === "SALES") {
+      if (row.sourceType === "OTHER") problems.push("Project dari source Other didaftarkan SOA. Hapus barisnya atau ubah source-nya.");
+      if (row.solution) problems.push("Solution diisi SOA. Kosongkan sel Solution.");
     }
 
     if (problems.length > 0) {
@@ -283,7 +288,8 @@ export async function writeNewProjects(
     const existing = kind === "principal" ? await tx.principal.findUnique({ where: { nameKey: key }, select: { id: true } }) : await tx.solutionCategory.findUnique({ where: { nameKey: key }, select: { id: true } });
     let id = existing?.id;
     if (!id) {
-      if (!can(actor.role, "masterdata.manage")) throw new Error(`${kind} ${name} cannot be created by this account`);
+      // A Principal may be created by anyone who may import; only a solution needs the master data permission.
+      if (kind === "solution" && !can(actor.role, "masterdata.manage")) throw new Error(`${kind} ${name} cannot be created by this account`);
       const data = { name: cleanName(name), nameKey: key };
       const created = kind === "principal" ? await tx.principal.create({ data, select: { id: true } }) : await tx.solutionCategory.create({ data, select: { id: true } });
       id = created.id;

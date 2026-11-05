@@ -15,10 +15,16 @@ describe("what each operational role may do", () => {
 
   it("gives Purchasing the RFQ and PO work, the right to raise an RFQ, and the shared views, and no way to create projects, BOQs or POs or edit projects", () => {
     expect(sorted(permissionsFor("PURCHASING"))).toEqual(
-      ["dashboard.purchasing.view", "dashboard.shared.view", "projects.view", "requests.create.rfq", "requests.view", "requests.work.purchasing"].sort(),
+      ["dashboard.purchasing.view", "dashboard.shared.view", "projects.bulk-update", "projects.edit.principal", "projects.view", "requests.create.rfq", "requests.view", "requests.work.purchasing"].sort(),
     );
     expect(can("PURCHASING", "requests.create")).toBe(false);
     expect(can("PURCHASING", "projects.create")).toBe(false);
+  });
+
+  it("lets SOA, Sales, Purchasing and the administrators fill in Principals, and only SOA and the administrators the Solution", () => {
+    for (const role of ["SOA", "SALES", "PURCHASING", "ADMIN", "SUPERADMIN"] as const) expect(can(role, "projects.edit.principal"), role).toBe(true);
+    for (const role of ["FINANCE", "MANAGEMENT"] as const) expect(can(role, "projects.edit.principal"), role).toBe(false);
+    for (const role of ["SALES", "PURCHASING"] as const) expect(can(role, "projects.edit.technical"), role).toBe(false);
   });
 
   it("gives Sales their own targets and request-raising, but no technical, handoff or finance module", () => {
@@ -52,8 +58,8 @@ describe("what each operational role may do", () => {
 });
 
 describe("importing projects and keeping PICs", () => {
-  it("lets only SOA and the administrators import projects from a sheet", () => {
-    for (const role of ROLES) expect(can(role, "projects.import"), role).toBe(["SOA", "ADMIN", "SUPERADMIN"].includes(role));
+  it("lets SOA, Sales and the administrators add projects from a sheet", () => {
+    for (const role of ROLES) expect(can(role, "projects.import"), role).toBe(["SOA", "ADMIN", "SUPERADMIN", "SALES"].includes(role));
   });
 
   it("lets only the administrators keep the list of PICs; the teams only pick from it", () => {

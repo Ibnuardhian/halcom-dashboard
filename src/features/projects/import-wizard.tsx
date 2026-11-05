@@ -139,7 +139,7 @@ export function ImportWizard({ onClose, canCreate = true, canUpdate = false }: {
   // Columns the names did not match, as found when the file was read: they stay listed while the person gives them a field.
   const unrecognised = inspected ? inspected.headers.map((header, index) => ({ header, index })).filter(({ header, index }) => header.trim() !== "" && !usedColumns(inspected.suggested).has(index)) : [];
   const recognised = inspected ? IMPORT_FIELDS.filter((field) => inspected.suggested[field.key] !== null) : [];
-  const needsNames = summary ? summary.newCustomers.length + summary.newPrincipals.length + summary.newSolutions.length > 0 : false;
+  const needsNames = summary ? summary.newCustomers.length + summary.newSolutions.length > 0 : false;
   const attention = missingRequired.length > 0 || unrecognised.length > 0 || (mapping !== null && mapping.code === null);
 
   if (result) {
@@ -381,11 +381,10 @@ export function ImportWizard({ onClose, canCreate = true, canUpdate = false }: {
             {needsNames ? (
               <div role="alert" className="flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/5 px-3 py-2 text-sm">
                 <p>
-                  Nama berikut belum ada dan akan <strong>dibuat</strong>. Periksa ejaannya: salah ketik akan membuat customer, principal, atau solution baru.
+                  Nama berikut belum ada dan akan <strong>dibuat</strong>. Periksa ejaannya: salah ketik akan membuat customer atau solution baru.
                 </p>
                 <ul className="list-disc pl-5">
                   {summary.newCustomers.length > 0 ? <li>Customer: {summary.newCustomers.join(", ")}</li> : null}
-                  {summary.newPrincipals.length > 0 ? <li>Principals: {summary.newPrincipals.join(", ")}</li> : null}
                   {summary.newSolutions.length > 0 ? <li>Solutions: {summary.newSolutions.join(", ")}</li> : null}
                 </ul>
                 <label className="flex items-center gap-2">
@@ -393,6 +392,11 @@ export function ImportWizard({ onClose, canCreate = true, canUpdate = false }: {
                   Ejaannya benar, buat nama-nama ini
                 </label>
               </div>
+            ) : null}
+            {summary.newPrincipals.length > 0 ? (
+              <p role="status" className="rounded-md border px-3 py-2 text-sm">
+                Principal berikut belum ada dan akan <strong>dibuat otomatis</strong> saat disimpan: {summary.newPrincipals.join(", ")}. Periksa ejaannya; nama yang salah ketik bisa dirapikan nanti di Master data.
+              </p>
             ) : null}
             <SyncTable summary={summary} />
             {summary.errors > 0 ? (
