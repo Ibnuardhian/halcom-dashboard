@@ -5,12 +5,13 @@
 #                 It OVERWRITES the VPS database, so it refuses to run once /opt/halcom/CUTOVER_DONE exists.
 #   cutover       The night of the move: the same copy once more, then creates CUTOVER_DONE. After this the VPS is the source of truth
 #                 and neon-to-vps can never run again. Stop everyone from using the old application on Neon before you run it.
-#   vps-to-neon   After the move: nightly backup copy of the VPS database into a SEPARATE Neon database (NEON_BACKUP_URL).
-#                 It refuses to run before CUTOVER_DONE exists, so it can never overwrite Neon while Neon is still the live database.
+#   vps-to-neon   After the move: nightly backup copy of the VPS database into Neon (NEON_BACKUP_URL). It may be the same database as
+#                 NEON_URL, because after the move nothing else writes to it. It OVERWRITES that Neon database every run, and it refuses
+#                 to run before CUTOVER_DONE exists, so it can never overwrite Neon while Neon is still the live database.
 #
 # Secrets are in /opt/halcom/neon.env (chmod 600, never committed):
 #   NEON_URL=...          direct (not pooled) connection string of the live Neon database, ends with ?sslmode=require
-#   NEON_BACKUP_URL=...   a different Neon database that only holds the backup copy (used after the move)
+#   NEON_BACKUP_URL=...   the Neon database that receives the nightly backup (used after the move; may equal NEON_URL)
 # Dumps are kept in /opt/halcom/sync (the 7 newest of each kind).
 set -euo pipefail
 
@@ -49,7 +50,6 @@ dump_vps() { docker exec "$db" sh -c 'pg_dump -U "$POSTGRES_USER" -Fc --no-owner
 if [ "$mode" = "vps-to-neon" ]; then
   [ -f CUTOVER_DONE ] || { echo "Refusing: the move is not done (no CUTOVER_DONE). Neon is still the live database." >&2; exit 1; }
   : "${NEON_BACKUP_URL:?Set NEON_BACKUP_URL in neon.env}"
-  [ "${NEON_BACKUP_URL}" != "${NEON_URL:-}" ] || { echo "Refusing: NEON_BACKUP_URL is the same as NEON_URL." >&2; exit 1; }
   echo "== Dumping the VPS database"
   dump="sync/vps-${stamp}.dump"
   dump_vps "$dump"
