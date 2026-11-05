@@ -4,7 +4,7 @@ import type { Role } from "@/domain/access/roles";
 import { getDb } from "@/lib/db";
 import { updateCommercialDetails } from "@/server/projects/service";
 import { createProject } from "@/server/requests/service";
-import { getOwnTargets, getTargetSummary, saveSalesTargets } from "@/server/targets/service";
+import { getOwnTargets, getSalesBreakdown, getTargetSummary, getTargetYears, saveSalesTargets } from "@/server/targets/service";
 import { makeUser } from "./helpers";
 
 const db = getDb();
@@ -143,6 +143,9 @@ describe("getTargetSummary", () => {
     expect(summary.quarters[1]!.revenue).toEqual({ target: null, won: 600, forecast: 20 }); // no revenue target any more; the figures are still computed // 400 × 5% (Qualify, the starting step)
     expect(summary.quarters[1]!.grossProfit).toEqual({ target: 100, won: 120, forecast: 2 });
     expect(summary.total.revenue).toEqual({ target: null, won: 600, forecast: 20 });
+    // The open project is not part of achieved; its gross profit as entered, with no probability, is 400 × 10%.
+    expect(summary.wonCount).toBe(1);
+    expect(summary.openPipelineGp).toBe(40);
   });
 
   it("closing a project as won without a won date puts it in today's quarter", async () => {
@@ -164,5 +167,31 @@ describe("getTargetSummary", () => {
     await updateCommercialDetails(db, sales, { projectId: kept.value.id, values: { progress: "CLOSED_WON", wonDate: "2026-01-15", finalValue: "250" } });
     await expect(db.project.findUniqueOrThrow({ where: { id: kept.value.id } })).resolves.toMatchObject({ finalValue: expect.anything() });
     expect((await db.project.findUniqueOrThrow({ where: { id: kept.value.id } })).wonDate?.toISOString().slice(0, 10)).toBe("2026-01-15");
+  });
+});
+
+describe("team view and years", () => {
+  it("lists every salesperson with their target, won GP and won count, and refuses a salesperson", async () => {
+    const a = await actorOf("SALES");
+    const year = yearOf();
+    await saveSalesTargets(db, a, { year, quarters: quarters({ 1: { grossProfit: "1000" } }) });
+    const created = await createProject(db, a, { endUserCompany: `PT ${randomBytes(3).toString("hex")}`, name: "won" });
+    if (!created.ok) throw new Error(created.message);
+    await db.project.update({ where: { id: created.value.id }, data: { progress: "CLOSED_WON", estimatedValue: 500, targetMargin: 10, wonDate: new Date(`${year}-03-02T00:00:00Z`) } });
+
+    const rows = await getSalesBreakdown(db, await actorOf("ADMIN"), year);
+
+    expect(rows.find((row) => row.id === a.id)).toMatchObject({ target: 1000, won: 50, wonCount: 1 });
+    await expect(getSalesBreakdown(db, a, year)).rejects.toThrow(/Forbidden/);
+  });
+
+  it("offers the years that have a target or a won project, plus this year and the next", async () => {
+    const sales = await actorOf("SALES");
+    const year = yearOf() - 1; // the page offers 2001 to 2099
+    await saveSalesTargets(db, sales, { year, quarters: quarters({ 1: { grossProfit: "1" } }) });
+
+    const years = await getTargetYears(db, sales, { salesOwnerId: sales.id, thisYear: 2026 });
+
+    expect(years).toEqual([2026, 2027, year].sort((x, y) => x - y));
   });
 });

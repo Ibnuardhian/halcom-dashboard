@@ -34,7 +34,7 @@ function isGrowth(value: unknown): value is PipelineGrowth {
 const formatDate = (iso: string) => new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(iso));
 
 /** The width of an element, kept up to date as it is resized, so the chart can drop labels instead of overflowing on a phone. */
-function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+export function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(640);
   useEffect(() => {

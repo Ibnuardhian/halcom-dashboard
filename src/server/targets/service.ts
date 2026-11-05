@@ -58,6 +58,45 @@ export async function getOwnTargets(db: PrismaClient, viewer: Viewer, year: numb
   return result;
 }
 
+export type SalesBreakdownRow = { id: string; name: string; target: number | null; won: number; wonCount: number };
+
+/** Every salesperson's target and won gross profit for a year. Only people who see the whole team may ask (a salesperson sees only their own page). */
+export async function getSalesBreakdown(db: PrismaClient, viewer: Viewer, year: number): Promise<SalesBreakdownRow[]> {
+  if (!can(viewer.role, "projects.view") || viewer.role === "SALES") throw new Error("Forbidden: missing permission for this query.");
+  const people = await db.user.findMany({
+    where: {
+      role: "SALES",
+      OR: [
+        { isActive: true },
+        { salesTargets: { some: { year } } },
+        { ownedProjects: { some: { progress: "CLOSED_WON", deletedAt: null, wonDate: { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) } } } },
+      ],
+    },
+    select: { id: true, name: true },
+  });
+  const rows = await Promise.all(
+    people.map(async (person) => {
+      const summary = await getTargetSummary(db, viewer, { year, salesOwnerId: person.id });
+      return { id: person.id, name: person.name, target: summary.total.grossProfit.target, won: summary.total.grossProfit.won, wonCount: summary.wonCount };
+    }),
+  );
+  return rows.sort((a, b) => b.won - a.won || a.name.localeCompare(b.name));
+}
+
+/** The years worth showing: every year that has a target or a won project, plus this year and the next (where targets are set up). */
+export async function getTargetYears(db: PrismaClient, viewer: Viewer, options: { salesOwnerId?: string; thisYear: number }): Promise<number[]> {
+  if (!can(viewer.role, "projects.view")) throw new Error("Forbidden: missing permission for this query.");
+  const owner = options.salesOwnerId;
+  const [quarterYears, wonDates] = await Promise.all([
+    db.salesTarget.findMany({ where: owner ? { salesUserId: owner } : {}, select: { year: true }, distinct: ["year"] }),
+    db.project.findMany({ where: { progress: "CLOSED_WON", wonDate: { not: null }, deletedAt: null, ...(owner ? { salesOwnerId: owner } : {}) }, select: { wonDate: true }, distinct: ["wonDate"] }),
+  ]);
+  const years = new Set<number>([options.thisYear, options.thisYear + 1]);
+  for (const row of quarterYears) years.add(row.year);
+  for (const row of wonDates) years.add(row.wonDate!.getUTCFullYear());
+  return [...years].filter((y) => y >= 2001 && y <= 2099).sort((a, b) => a - b);
+}
+
 const quarterValues = z.object({ grossProfit: z.string().max(40).nullish() }).strict();
 
 const saveSchema = z.object({

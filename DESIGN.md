@@ -36,3 +36,20 @@ Dial: ENERGY 1 / RHYTHM 1 / MOTION 1
 ## Not used, on purpose
 
 Glow, glassmorphism on cards, bento grids, hero sections, animated counters, sparkle icons, "AI powered" badges, fake statistics, testimonials.
+
+## Sales targets page (gross profit, per quarter)
+
+Reading this as: a quarterly gross-profit scorecard for Sales (their own year) and management (the whole team), same dials as the rest of the app (ENERGY 1 / RHYTHM 1), except MOTION 2 on this one page for the year change.
+
+| Area | Decision | Reason |
+|---|---|---|
+| Focal point | One panel: Won GP (estimated) as the largest number, a single progress bar, then the annual target, remaining and open pipeline as a plain list | The page answers "how far are we from the target"; one number leads and the others support it, so there are no four identical tiles. |
+| Open pipeline GP | Listed apart, labeled as potential, never added to Won GP, no probability applied | Potential is not performance; mixing them would overstate achievement. |
+| Won GP label | "Won GP (estimated)" | There is no stored actual margin: the figure is project value times the target margin, so it is not called actual. |
+| Charts | Target is an outlined bar and a dashed line; achieved is a solid bar and a solid line (`--viz-1`); a red triangle marks a quarter that ended below target | Series differ by shape as well as colour. Red is used only for "behind target". |
+| Missing target | A quarter with no target shows no target bar and says "Not set"; zero is a thin line. The target line is drawn only when some quarter has a target and is never spread evenly by the page | Not set and zero are different facts; inventing a target would be a fabricated number (R-17). |
+| Year slider | Previous and next, the neighbouring years, the selected year in the primary colour with "this year / past / upcoming", and a list for direct choice | The years offered come from the data (targets, won dates) plus this year and next, not a fixed range. |
+| Motion | The content slides in 300 ms from the side the year lies on; the old content dims while loading; switched off under reduced motion | It shows which way in time the person moved, and it is the only motion on the page. |
+| Table | Quarterly figures and the team table are plain tables; the figures behind each chart are also in a table | Exact numbers and a text alternative for the charts. |
+
+Not used on this page, on purpose: gradients, glow, animated counters, a revenue tile.

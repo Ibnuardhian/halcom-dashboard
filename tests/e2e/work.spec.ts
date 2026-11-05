@@ -289,12 +289,12 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("You are all caught up.")).toBeVisible();
   });
 
-  test("Sales enter quarterly targets and see how far they have come", async ({ page }) => {
+  test("Sales enter quarterly gross profit targets and see how far they have come", async ({ page }) => {
     // The year is part of the data and the test database lives across runs, so each run uses its own year.
     const year = 2040 + Math.floor(Math.random() * 50);
     await signIn(page, "SALES");
 
-    // A project closed as won in Q1 of that year: 400 final value at a 10% margin.
+    // A project closed as won in February of that year: 400 final value at a 10% margin.
     await createProject(page, "Target demo");
     const commercial = page.locator("#commercial");
     await commercial.getByLabel("Progress").selectOption({ label: "100% - Closed Won" });
@@ -310,25 +310,57 @@ test.describe("projects and requests", () => {
       // The boxes reset when the page becomes interactive, so they are filled again on every try.
       await page.getByLabel("Q1 gross profit target").fill("100");
       await page.getByRole("button", { name: `Save my ${year} targets` }).click();
-      await expect(page.getByRole("status").filter({ hasText: "Saved targets for Q1." })).toBeVisible({ timeout: 4000 });
+      await expect(page.getByRole("status").filter({ hasText: /Saved targets for Q1|Tidak ada perubahan/ })).toBeVisible({ timeout: 8000 }); // a retry after a slow first save reports no change
     }).toPass({ timeout: 20_000 });
 
-    const card = (name: string) => page.getByRole("heading", { level: 2, name, exact: true }).locator("xpath=ancestor::*[@data-slot='card'][1]");
-    // Only gross profit is a target. Revenue stays on the scorecard as won (after the PO) and forecast, with no target and no box.
-    const revenue = card("Revenue");
-    await expect(revenue.getByRole("row", { name: /Q1/ })).toContainText("400"); // won after the PO: the final value
-    await expect(revenue.getByRole("columnheader", { name: "Target" })).toHaveCount(0);
-    await expect(page.getByText("Revenue won (after PO)").first()).toBeVisible();
-    await expect(page.getByText("Revenue forecast (weighted)")).toBeVisible();
+    // Gross profit is the only target: the annual target is the sum of the quarters, and the revenue scorecard is gone.
+    const summary = page.getByRole("region", { name: "Gross profit target tracking" });
+    await expect(summary.getByText("Annual GP target")).toBeVisible();
+    await expect(summary.locator("dd").filter({ hasText: /^100$/ }).first()).toBeVisible();
+    await expect(summary.getByText("Won GP (estimated)")).toBeVisible();
+    await expect(summary.getByText("40.0%")).toBeVisible(); // 40 of 100
+    await expect(summary.getByText("Remaining GP")).toBeVisible();
+    await expect(summary.getByText("Open pipeline GP")).toBeVisible();
+    await expect(page.getByText("Revenue won (after PO)")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "Quarterly GP Performance" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Cumulative GP Achievement" })).toBeVisible();
     await expect(page.getByLabel("Q1 revenue target")).toHaveCount(0);
-    const profit = card("Gross profit");
-    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("100"); // the target
-    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("40"); // won: 10% of 400
-    await expect(profit.getByRole("row", { name: /Q1/ })).toContainText("40%"); // 40 of 100
-    await expect(profit.getByRole("row", { name: /Q2/ })).toContainText("Not set");
 
     await page.reload(); // the saved target comes back into the form
     await expect(page.getByLabel("Q1 gross profit target")).toHaveValue("100");
+    await expect(page.getByLabel("Q2 gross profit target")).toHaveValue("");
+  });
+
+  test("the year slider moves between years with the buttons, the arrow keys and the list, and the page follows", async ({ page }) => {
+    await signIn(page, "SALES");
+    const thisYear = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric" }).format(new Date()));
+    await page.goto("/targets");
+    const slider = page.getByRole("group", { name: "Year" });
+    await expect(slider.locator("span", { hasText: new RegExp(`^${thisYear}$`) })).toBeVisible();
+    await expect(slider.getByText("this year")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Previous year/ })).toHaveAttribute("aria-disabled", "true");
+
+    await expect(async () => {
+      await page.getByRole("button", { name: `Next year, ${thisYear + 1}` }).click();
+      await expect(page).toHaveURL(new RegExp(`year=${thisYear + 1}$`), { timeout: 3000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { level: 2, name: `My ${thisYear + 1} targets` })).toBeVisible();
+    await expect(page.locator(".gp-year-content")).toHaveAttribute("data-direction", "next");
+
+    await page.getByRole("button", { name: `Previous year, ${thisYear}` }).focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(page).toHaveURL(new RegExp(`year=${thisYear}$`));
+    await expect(page.locator(".gp-year-content")).toHaveAttribute("data-direction", "prev");
+
+    await page.getByRole("button", { name: `Show ${thisYear + 1}` }).click();
+    await expect(page).toHaveURL(new RegExp(`year=${thisYear + 1}$`));
+    await expect(page.locator(".gp-year-content")).toHaveAttribute("data-direction", "next");
+
+    await page.getByLabel("Go to year").selectOption(String(thisYear));
+    await expect(page).toHaveURL(new RegExp(`year=${thisYear}$`));
+    await page.getByLabel("Go to year").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page).toHaveURL(new RegExp(`year=${thisYear + 1}$`));
   });
 
   test("the progress chart names the steps without their percentages", async ({ page }) => {
@@ -410,19 +442,21 @@ test.describe("projects and requests", () => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Old naem");
     await page.goto(`/projects/${projectCode}`);
-    await expect(page.getByLabel("Nama project")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit nama dan description" })).toHaveCount(0);
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/projects/${projectCode}`);
-    const box = soa.getByLabel("Nama project");
+    // The name is shown first; the form opens in a modal only after Edit.
+    await expect(soa.getByLabel("Nama project", { exact: true })).toBeHidden();
     await expect(async () => {
-      await box.fill("Old name fixed");
-      await soa.getByRole("button", { name: "Save project name" }).click();
-      await expect(soa.getByRole("status").filter({ hasText: "Nama project diubah" })).toBeVisible({ timeout: 1500 });
+      if (!(await soa.getByRole("dialog").isVisible())) await soa.getByRole("button", { name: "Edit nama dan description" }).click();
+      await soa.getByLabel("Nama project", { exact: true }).fill("Old name fixed");
+      await soa.getByRole("button", { name: "Save name and description" }).click();
+      await expect(soa.getByRole("status").filter({ hasText: "Tersimpan dan dicatat di change log: nama" })).toBeVisible({ timeout: 1500 });
     }).toPass();
-    await expect(box).toHaveValue("Old name fixed");
+    await expect(soa.getByText("Old name fixed").first()).toBeVisible();
     await soa.reload();
-    await expect(soa.getByLabel("Nama project")).toHaveValue("Old name fixed");
+    await expect(soa.getByText("Old name fixed").first()).toBeVisible();
     await soa.context().close();
   });
 

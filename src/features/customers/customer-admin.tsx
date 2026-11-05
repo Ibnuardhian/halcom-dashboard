@@ -27,7 +27,7 @@ export function CustomerAdmin({ customer, others }: { customer: { id: string; na
         <Label htmlFor={`rename-${customer.id}`}>Ubah nama customer</Label>
         <div className="flex gap-2">
           <Input id={`rename-${customer.id}`} name="name" defaultValue={customer.name} maxLength={120} required autoComplete="off" />
-          <Button type="submit" variant="outline" disabled={renaming}>
+          <Button type="submit" disabled={renaming}>
             <SaveText what="customer name" pending={renaming} />
           </Button>
         </div>

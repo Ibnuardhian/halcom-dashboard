@@ -44,6 +44,10 @@ export type TargetSummary = {
   year: number;
   quarters: QuarterFigures[];
   total: { revenue: Figures; grossProfit: Figures };
+  /** Closed Won projects with a won date in the year. */
+  wonCount: number;
+  /** Gross profit of open projects expected to close in the year, as entered: no probability applied, never part of won. */
+  openPipelineGp: number;
   /** Things that keep the numbers from being complete; shown to the person instead of being guessed. */
   notes: { wonWithoutDate: number; wonWithoutMargin: number; openWithoutTargetDate: number };
 };
@@ -67,6 +71,8 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
   const blank = (): Figures => ({ target: null, won: 0, forecast: 0 });
   const quarters: QuarterFigures[] = QUARTERS.map((quarter) => ({ quarter, revenue: blank(), grossProfit: blank() }));
   const at = (quarter: Quarter) => quarters[quarter - 1]!;
+  let wonCount = 0;
+  let openPipelineGp = 0;
   const notes = { wonWithoutDate: 0, wonWithoutMargin: 0, openWithoutTargetDate: 0 };
 
   for (const row of targets) {
@@ -86,6 +92,7 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
       const when = quarterOf(project.wonDate);
       if (when.year !== year) continue;
       at(when.quarter).revenue.won += value;
+      wonCount += 1;
       const profit = fixed ?? (percent === null ? null : (value * percent) / 100);
       if (profit === null) notes.wonWithoutMargin += 1;
       else at(when.quarter).grossProfit.won += profit;
@@ -96,6 +103,8 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
       }
       const when = quarterOf(project.targetDate);
       if (when.year !== year) continue;
+      const open = fixed ?? (percent === null || project.estimatedValue === null ? null : (project.estimatedValue * percent) / 100);
+      if (open !== null) openPipelineGp += open;
       const weighted = weightedValue(project.estimatedValue, project.progress);
       // The Gross Profit alone is enough for its forecast; the revenue forecast needs a value.
       if (weighted === null && fixed === null) continue;
@@ -117,5 +126,34 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
     won: round(quarters.reduce((sum, q) => sum + pick(q).won, 0)),
     forecast: round(quarters.reduce((sum, q) => sum + pick(q).forecast, 0)),
   });
-  return { year, quarters, total: { revenue: total((q) => q.revenue), grossProfit: total((q) => q.grossProfit) }, notes };
+  return { year, quarters, wonCount, openPipelineGp: round(openPipelineGp), total: { revenue: total((q) => q.revenue), grossProfit: total((q) => q.grossProfit) }, notes };
+}
+
+export type CumulativePoint = { quarter: Quarter; target: number | null; won: number };
+
+/**
+ * Running totals from Q1. The target line exists only when at least one quarter has a target; a quarter without one adds nothing to it
+ * (the chart says so), and the line is never spread evenly on the person's behalf.
+ */
+export function cumulate(quarters: readonly QuarterFigures[]): CumulativePoint[] {
+  const hasTargets = quarters.some((q) => q.grossProfit.target !== null);
+  let target = 0;
+  let won = 0;
+  return quarters.map((q) => {
+    target += q.grossProfit.target ?? 0;
+    won = Math.round((won + q.grossProfit.won) * 100) / 100;
+    return { quarter: q.quarter, target: hasTargets ? target : null, won };
+  });
+}
+
+/** The last quarter that is running or finished: 4 for a past year, 0 for a future one, the current quarter for this year. */
+export function quartersElapsed(year: number, today: { year: number; month: number }): number {
+  return year < today.year ? 4 : year > today.year ? 0 : Math.floor((today.month - 1) / 3) + 1;
+}
+
+/** Achieved against the target planned up to `asOf` (quarters elapsed); null when no quarter has a target or nothing has elapsed. */
+export function paceAt(points: readonly CumulativePoint[], asOf: number): { target: number; won: number; gap: number; percent: number | null } | null {
+  const point = points[asOf - 1];
+  if (!point || point.target === null) return null;
+  return { target: point.target, won: point.won, gap: Math.round((point.won - point.target) * 100) / 100, percent: percentOf(point.won, point.target) };
 }

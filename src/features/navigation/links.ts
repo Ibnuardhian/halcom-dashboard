@@ -33,6 +33,7 @@ export type NavIcon =
   | "sla"
   | "masterdata"
   | "pics"
+  | "lockouts"
   | "crosscheck";
 
 export type NavLinkItem = { href: string; label: string; group: NavGroup; icon: NavIcon };
@@ -46,6 +47,7 @@ export const BACKUPS_PATH = "/admin/backups";
 export const SETTINGS_PATH = "/admin/settings";
 export const MASTER_DATA_PATH = "/admin/master-data";
 export const PICS_PATH = "/admin/pics";
+export const LOCKOUTS_PATH = "/admin/lockouts";
 export const PROJECTS_PATH = "/projects";
 export const REQUESTS_PATH = "/requests";
 export const HANDOFFS_PATH = "/handoffs";
@@ -92,6 +94,7 @@ const MODULE_LINKS: readonly ModuleLink[] = [
   { href: `${SETTINGS_PATH}/ppn`, label: "Basis PPN", group: "administration", icon: "sla", permission: "settings.view" },
   { href: MASTER_DATA_PATH, label: "Master data", group: "administration", icon: "masterdata", permission: "masterdata.manage", labels: { SOA: "Principal & solution master data" } },
   { href: PICS_PATH, label: "PICs", group: "administration", icon: "pics", permission: "pics.manage" },
+  { href: LOCKOUTS_PATH, label: "Locked accounts", group: "administration", icon: "lockouts", permission: "logins.manage" },
   { href: AUDIT_PATH, label: "Audit logs", group: "administration", icon: "audit", permission: "audit.view" },
   { href: BACKUPS_PATH, label: "Backups", group: "administration", icon: "backups", permission: "system.backup" },
   { href: SYSTEM_PATH, label: "System", group: "administration", icon: "system", permission: "system.monitor" },
