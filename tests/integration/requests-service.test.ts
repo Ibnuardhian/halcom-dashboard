@@ -327,10 +327,26 @@ describe("handOverToPurchasing", () => {
       title: "Need a BOQ",
       description: "Spec",
     });
-    expect(rfq.requiredBy?.toISOString().slice(0, 10)).toBe("2026-11-05");
+    expect(rfq.requiredBy).toBeNull(); // D-075: the earlier step's Needed by is not copied to the continued request
     expect(rfq.statusHistory[0]?.reason).toBe(`Handed over from ${boq.code}`);
     const events = await db.auditEvent.findMany({ where: { entityId: rfq.id } });
     expect(events[0]).toMatchObject({ action: "request.handed_over", after: { sourceCode: boq.code, type: "RFQ" } });
+  });
+
+  it("gives the continued request its own Needed by when one is sent (D-075)", async () => {
+    const sales = await actorOf("SALES", "qa.hn");
+    const soa = await actorOf("SOA", "so.hn");
+    const project = await makeProject(sales);
+    const boq = await makeRequest(sales, project.id, "BOQ", { description: "Spec", requiredBy: "2026-11-05" });
+    await advance(soa, boq.id, "IN_PROGRESS");
+    await advance(soa, boq.id, "COMPLETED");
+
+    const result = await handOverToPurchasing(db, soa, { sourceId: boq.id, targetType: "RFQ", requiredBy: "2026-12-01" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const rfq = await db.request.findUniqueOrThrow({ where: { id: result.value.id } });
+    expect(rfq.requiredBy?.toISOString().slice(0, 10)).toBe("2026-12-01");
   });
 
   it("is idempotent: a repeated or concurrent click returns the same request", async () => {
