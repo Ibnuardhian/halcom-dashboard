@@ -20,7 +20,7 @@ type Row = (string | number | null)[];
 const sheet = (rows: Row[]) => ({ bytes: toXlsx("Pipeline", HEADERS, rows), mapping: suggestMapping(HEADERS) });
 
 async function setup() {
-  const [admin, owner, purchasing] = await Promise.all([makeUser("ADMIN"), makeUser("SALES"), makeUser("PURCHASING")]);
+  const [admin, owner, purchasing] = await Promise.all([makeUser("ADMIN"), makeUser("SALES"), makeUser("FINANCE")]);
   const tag = randomBytes(3).toString("hex");
   const created = await createProject(db, { id: owner.id, role: owner.role }, { endUserCompany: `Sync ${tag} old`, name: "Job old" });
   if (!created.ok) throw new Error(created.message);
@@ -103,26 +103,59 @@ describe("one upload that adds and updates projects", () => {
     expect((await db.project.findUniqueOrThrow({ where: { id: existing.id } })).progress).toBe(existing.progress);
   });
 
-  it("asks to confirm names it would create, and is refused to roles that may neither add nor update", async () => {
-    const { admin, purchasing, row, tag } = await setup();
+  it("is refused to roles that may neither add nor update (Finance)", async () => {
+    const { purchasing, row, tag } = await setup();
     const { bytes, mapping } = sheet([row("p", { Principals: `Brand ${tag}` })]);
-    expect(await commitProjectSync(db, admin, { bytes, mapping, fileName: "p.xlsx", mode: "atomic", confirmNew: false })).toMatchObject({ ok: false, code: "NEEDS_CONFIRMATION" });
     expect(await previewProjectSync(db, purchasing, { bytes, mapping })).toMatchObject({ ok: false, code: "FORBIDDEN" });
     expect(await commitProjectSync(db, purchasing, { bytes, mapping, fileName: "p.xlsx", mode: "atomic", confirmNew: true })).toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
-  it("lets a role that may only update change its projects, and marks a new row as not allowed", async () => {
-    const { owner, existing, row, ofExisting } = await setup();
-    // Sales hold the bulk update but not the import: their rows with a Project ID are updates, the others are refused.
+  it("creates a Principal that does not exist yet without asking, and only lists it as a notice", async () => {
+    const { admin, ofExisting, tag } = await setup();
+    const { bytes, mapping } = sheet([ofExisting({ Principals: `Fresh Brand ${tag}` })]);
+
+    const preview = await previewProjectSync(db, admin, { bytes, mapping });
+    expect(preview).toMatchObject({ ok: true, summary: { updated: 1, errors: 0, newPrincipals: [`Fresh Brand ${tag}`] } });
+    expect(await db.principal.count({ where: { name: `Fresh Brand ${tag}` } })).toBe(0); // a preview writes nothing
+
+    const done = await commitProjectSync(db, admin, { bytes, mapping, fileName: "brand.xlsx", mode: "atomic", confirmNew: false });
+    expect(done).toMatchObject({ ok: true, updated: [expect.objectContaining({})] });
+    expect(await db.principal.count({ where: { name: `Fresh Brand ${tag}` } })).toBe(1);
+  });
+
+  it("lets Sales add new projects (rows without a Project ID) and update their own in the same file", async () => {
+    const { owner, existing, row, ofExisting, tag } = await setup();
     const seller = { id: owner.id, role: owner.role };
     const { bytes, mapping } = sheet([ofExisting({ Progress: "30% - Propose" }), row("fresh")]);
+
     const result = await previewProjectSync(db, seller, { bytes, mapping });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.summary).toMatchObject({ created: 0, updated: 1, errors: 1 });
-    expect(result.summary.rows.find((r) => r.status === "error")?.messages[0]).toContain("tidak boleh menambah project baru");
-    const done = await commitProjectSync(db, seller, { bytes, mapping, fileName: "sales.xlsx", mode: "skip-invalid", confirmNew: true });
-    expect(done).toMatchObject({ ok: true, created: [], updated: [expect.objectContaining({ code: existing.code })] });
+    expect(result.summary).toMatchObject({ created: 1, updated: 1, errors: 0 });
+
+    const done = await commitProjectSync(db, seller, { bytes, mapping, fileName: "sales.xlsx", mode: "atomic", confirmNew: true });
+    expect(done).toMatchObject({ ok: true, created: [expect.objectContaining({ endUser: `Sync ${tag} fresh` })], updated: [expect.objectContaining({ code: existing.code })] });
+    const added = await db.project.findFirstOrThrow({ where: { endUserCompany: `Sync ${tag} fresh` } });
+    expect(added.salesOwnerId).toBe(owner.id);
+  });
+
+  it("keeps Sales from adding a project of another source or filling in the Solution, which are SOA's", async () => {
+    const { owner, tag } = await setup();
+    const seller = { id: owner.id, role: owner.role };
+    const headers = ["Project", "End user", "Source", "External sales name", "Solution"];
+    const rows = [
+      [`Job other ${tag}`, `Sync ${tag} other`, "Other", "Partner", null],
+      [`Job sol ${tag}`, `Sync ${tag} sol`, null, null, `Some Solution ${tag}`],
+      [`Job fine ${tag}`, `Sync ${tag} fine`, null, null, null],
+    ];
+
+    const result = await previewProjectSync(db, seller, { bytes: toXlsx("Pipeline", headers, rows), mapping: suggestMapping(headers) });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.summary).toMatchObject({ created: 1, errors: 2 });
+    expect(JSON.stringify(result.summary.rows)).toContain("didaftarkan SOA");
+    expect(JSON.stringify(result.summary.rows)).toContain("Solution diisi SOA");
   });
 
   it("gives a salesperson's new rows their own account as Sales PIC, whether the cell is empty or names someone else", async () => {

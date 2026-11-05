@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteProjectAction } from "./actions";
 
-/** Superadmin only (the page decides). A modal asks for the project number before anything is deleted. */
+/** Superadmin and Admin (the page decides). A modal asks for the project number before anything is deleted. */
 export function DeleteProject({ projectId, projectCode }: { projectId: string; projectCode: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, formAction, pending] = useActionState<FormState, FormData>(deleteProjectAction, null);

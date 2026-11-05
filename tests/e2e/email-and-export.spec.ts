@@ -117,7 +117,8 @@ test("the projects can be exported in the import template, with pick lists, and 
   const salesSheet = strFromU8(unzipSync(new Uint8Array(readFileSync("/tmp/sales-import-format.xlsx")))["xl/worksheets/sheet1.xml"]!);
   for (const header of ["Progress", "Gross Profit", "Industry"]) expect(salesSheet).toContain(header);
   expect(salesSheet).toContain("<dataValidations"); // Progress and Status are picked from a list in Excel
-  expect(salesSheet).not.toContain("Principals");
+  expect(salesSheet).toContain("Principals"); // Sales fill in Principals too
+  expect(salesSheet).not.toContain("Technical PIC");
   await sales.context().close();
 });
 
@@ -183,13 +184,13 @@ test("a salesperson updates the commercial part of their own project from a shee
   }).toPass({ timeout: 45_000 });
   const code = seller.url().split("/").pop()!;
 
-  // Sales has no way to add projects here: the dialog only updates, and offers their own projects.
+  // Sales add new projects (rows without a Project ID) and update their own: the dialog offers both downloads.
   await seller.goto("/projects");
   await expect(async () => {
     await seller.getByRole("button", { name: "Import / Export" }).click();
     await expect(seller.getByRole("dialog", { name: "Import / Export projects" })).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 30_000 });
-  await expect(seller.getByRole("link", { name: "Export data project Anda" })).toBeVisible();
+  await expect(seller.getByText("Unduh berkas")).toBeVisible();
   const xlsx = (headers: string[], values: Record<string, string>) => Buffer.from(toXlsx("Projects", headers, [headers.map((header) => values[header.replace(/ \*$/, "")] ?? null)]));
   const upload = async (page: Page, workbook: Buffer) => {
     await expect(async () => {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { salesActsOn } from "@/domain/projects/source";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { can } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
@@ -152,7 +153,11 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
     .refine((value) => value.principalId === undefined || value.principalIds === undefined, "Send either principalId or principalIds.")
     .safeParse(input);
   if (!parsed.success) return fail("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Pilih Principal dan Solution yang valid.");
-  if (!can(claimedActor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
+  // Principals are filled in by SOA, Sales and Purchasing; the Solution stays SOA's technical work.
+  const touchesPrincipals = parsed.data.principalIds !== undefined || parsed.data.principalId !== undefined;
+  const touchesSolution = parsed.data.solutionId !== undefined;
+  const allowedTo = (role: Actor["role"]) => (!touchesPrincipals || can(role, "projects.edit.principal")) && (!touchesSolution || can(role, "projects.edit.technical"));
+  if (!allowedTo(claimedActor.role)) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
   const { projectId } = parsed.data;
   // The wanted principals, once each, in the order given; undefined when the caller did not send any.
   const wantedPrincipals: string[] | undefined =
@@ -160,7 +165,7 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
 
   return db.$transaction(async (tx): Promise<MasterResult<{ changed: MasterKind[] }>> => {
     const actor = await loadActor(tx, claimedActor);
-    if (!actor || !can(actor.role, "projects.edit.technical")) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
+    if (!actor || !allowedTo(actor.role)) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
     await tx.$executeRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
     const project = await tx.project.findUnique({
       where: { id: projectId },
@@ -171,6 +176,8 @@ export async function setProjectMasterData(db: PrismaClient, claimedActor: Actor
       },
     });
     if (!project || project.deletedAt) return fail("NOT_FOUND", "Project tidak ditemukan.");
+    // A salesperson fills in the Principal only on a project they handle (the same rule as their other edits).
+    if (actor.role === "SALES" && !salesActsOn(project, actor.id)) return fail("FORBIDDEN", "Anda tidak diizinkan melakukan ini.");
 
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     const changes: { field: string; from: string | null; to: string | null }[] = [];

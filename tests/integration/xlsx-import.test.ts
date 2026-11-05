@@ -176,17 +176,17 @@ describe("project import from an Excel sheet", () => {
     expect(new Set(numbers).size).toBe(3);
   });
 
-  it("only SOA and administrators may import; Sales, Purchasing, a deactivated account and a forged role are refused", async () => {
-    const { soa, sales, purchasing, admin, actor, good } = await setup();
+  it("SOA, Sales and administrators may import; Purchasing, a deactivated account and a forged role are refused", async () => {
+    const { soa, purchasing, admin, actor, good } = await setup();
     const { bytes, mapping } = sheet([good("auth")]);
 
-    for (const user of [sales, purchasing]) {
+    for (const user of [purchasing]) {
       await expect(previewProjectImport(db, actor(user), { bytes, mapping })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
       await expect(commitProjectImport(db, actor(user), { bytes, mapping, fileName: "x.xlsx", mode: "atomic" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
     // A claimed role is checked against the stored account.
-    await expect(previewProjectImport(db, { id: sales.id, role: "SOA" }, { bytes, mapping })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
-    await expect(commitProjectImport(db, { id: sales.id, role: "SOA" }, { bytes, mapping, fileName: "x.xlsx", mode: "atomic" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(previewProjectImport(db, { id: purchasing.id, role: "SOA" }, { bytes, mapping })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(commitProjectImport(db, { id: purchasing.id, role: "SOA" }, { bytes, mapping, fileName: "x.xlsx", mode: "atomic" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await db.user.update({ where: { id: soa.id }, data: { isActive: false } });
     await expect(previewProjectImport(db, actor(soa), { bytes, mapping })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(previewProjectImport(db, actor(admin), { bytes, mapping })).resolves.toMatchObject({ ok: true });

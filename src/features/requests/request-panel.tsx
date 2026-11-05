@@ -46,7 +46,7 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
   const emailSetting = request.type === "PO" ? await getTeamSetting(getDb(), "SALES") : setting;
   // PICs are the people tickets are handed to; the shared SOA / Purchasing account only records who clicked.
   const [pics, assignments] = await Promise.all([mayWork ? listAssignablePics(getDb(), viewer, request.type) : [], listPicAssignments(getDb(), viewer, request.id)]);
-  // Only a superadmin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
+  // Only a superadmin or an admin corrects the requester, from the active accounts (the one now on the request is kept in the list even if it was deactivated).
   const people = can(viewer.role, "requests.edit-dates") ? await requesterChoices(request) : [];
   const sla = slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.statusHistory, range: setting.sla, now: new Date() });
   const email = canSeeEmail(viewer.role, request.type, request.source !== null)
@@ -300,7 +300,7 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
 
       {can(viewer.role, "requests.delete") ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4">
-          <p className="text-sm text-muted-foreground">Superadmin: hapus request ini. Riwayatnya tetap ada di audit log.</p>
+          <p className="text-sm text-muted-foreground">Hapus request ini (Superadmin dan Admin). Riwayatnya tetap ada di audit log.</p>
           <DeleteRequest requestId={request.id} requestCode={request.code} />
         </div>
       ) : null}
@@ -309,7 +309,7 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
 }
 
 /**
- * Who a superadmin can name as the requester: the active accounts, and the SOA PICs who raise requests through the shared SOA login.
+ * Who may be named as the requester: the active accounts, and the SOA PICs who raise requests through the shared SOA login.
  * The one now on the request stays in the list even if it was deactivated.
  */
 async function requesterChoices(request: RequestDetail): Promise<{ value: string; name: string; codePrefix: string | null }[]> {
