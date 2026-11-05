@@ -70,7 +70,10 @@ describe("a project with several principals", () => {
     await expect(setProjectMasterData(db, actor(soa), { projectId: project.id, principalIds: ["00000000-0000-4000-8000-000000000000"] })).resolves.toMatchObject({ ok: false, code: "NOT_FOUND" });
     await expect(setProjectMasterData(db, actor(soa), { projectId: project.id, principalIds: ["not-an-id"] })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
     await expect(setProjectMasterData(db, actor(soa), { projectId: project.id, principalId: "", principalIds: [] })).resolves.toMatchObject({ ok: false, code: "INVALID_INPUT" });
-    await expect(setProjectMasterData(db, actor(sales), { projectId: project.id, principalIds: [] })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    // Sales may fill in the Principals of a project they handle, but another salesperson may not.
+    const otherSales = await makeUser("SALES");
+    await expect(setProjectMasterData(db, actor(otherSales), { projectId: project.id, principalIds: [] })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(sales.id).not.toBe(otherSales.id);
     // The failed calls changed nothing.
     expect((await db.projectPrincipal.findMany({ where: { projectId: project.id } })).map((l) => l.principalId)).toEqual([principals[0]!.id]);
   });

@@ -5,7 +5,7 @@ import { normalizeEmail } from "./authenticate";
 
 /**
  * The counters behind the sign-in throttle (T-7). They live in the database, not in memory, because the application runs as several
- * server instances (and on Vercel as short-lived functions): a counter in memory would be reset by the next request.
+ * server instances (and a restart empties memory): a counter in memory would be reset by the next request.
  */
 
 type Db = Pick<PrismaClient, "loginAttempt">;
@@ -19,7 +19,7 @@ export function addressKey(address: string): string {
 }
 
 /**
- * The address of whoever is signing in, read from the proxy headers Vercel and a reverse proxy set. The leftmost entry of
+ * The address of whoever is signing in, read from the proxy header the reverse proxy (Caddy) sets. The leftmost entry of
  * `x-forwarded-for` is the client; the rest are proxies. Null when no header says (a direct call in development), and then only
  * the e-mail counter applies.
  */

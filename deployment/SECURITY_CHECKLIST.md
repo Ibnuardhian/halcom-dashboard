@@ -109,12 +109,12 @@ Fakta dari kode: kata sandi di-hash dengan scrypt (N=2^16), sesi di server dan c
 - [ ] **P1** Dependabot aktif (npm, Docker, Actions). Secret scanning dan push protection aktif di repo.
 - [ ] **P2** Anggota yang keluar dicabut dari org dan dari tim; tinjau akses tiap kuartal.
 
-## 10. Akun di luar kode (Hostinger, Neon, domain, Vercel)
+## 10. Akun di luar kode (Hostinger, Neon, domain)
 
 - [ ] **P0** Akun Hostinger, Neon, dan registrar domain terdaftar dengan **email grup perusahaan**, 2FA aktif, minimal dua orang bisa masuk.
 - [ ] **P0** Kata sandi dan kode pemulihan di pengelola kata sandi perusahaan, dengan prosedur darurat ("siapa membuka bila pemilik tidak ada") di runbook.
-- [ ] **P1** Token API Neon dan Vercel hanya berizin secukupnya, berpemilik jelas, dan masuk jadwal rotasi.
-- [ ] **P1** Selama Vercel masih hidup: Vercel memakai database Neon yang **berbeda** dari tujuan restore malam; setelah pindah, Vercel jadi demo (data contoh) atau dimatikan.
+- [ ] **P1** Token API Neon hanya berizin secukupnya, berpemilik jelas, dan masuk jadwal rotasi.
+- [ ] **P1** Proyek Vercel lama sudah dihapus atau diputus dari repo ini (tidak ada lagi yang menerbitkan aplikasi dari `main` di sana), dan token serta variabel lingkungannya dicabut.
 - [ ] **P2** Snapshot atau backup VPS dari panel Hostinger diaktifkan bila tersedia (cek apakah termasuk paket); anggap itu tambahan, bukan pengganti backup database.
 
 ## 11. Pemantauan dan jadwal berkala

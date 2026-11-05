@@ -324,9 +324,8 @@ Quality gates before a pull request: lint → type check → unit → integratio
 
 ## Production
 
-Two ways are prepared. **Vercel with the database on Neon** is the shorter one and has its own runbook:
-[deployment/VERCEL.md](deployment/VERCEL.md) (environment variables, migrations, the first superadmin, project settings, what to
-check after the first deploy, and what the platform cannot do). Everything below describes running it on your own Docker host.
+The live system runs on a Hostinger VPS with Docker: see [deploy/HOSTINGER-DOCKER-MANAGER.md](deploy/HOSTINGER-DOCKER-MANAGER.md) and
+[deployment/SECURITY_CHECKLIST.md](deployment/SECURITY_CHECKLIST.md). Everything below describes running it on your own Docker host.
 
 [compose.prod.yaml](compose.prod.yaml) defines:
 

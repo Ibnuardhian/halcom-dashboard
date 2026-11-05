@@ -7,7 +7,7 @@ import { formatDay } from "@/features/dashboards/format";
 import { BackupForm } from "@/features/system/backup-form";
 import { formatBytes } from "@/features/system/format";
 import { requirePermission } from "@/server/auth/current-user";
-import { backupsSupported, listBackups } from "@/server/system/backup";
+import { listBackups } from "@/server/system/backup";
 
 export default function BackupsPage() {
   return (
@@ -19,8 +19,6 @@ export default function BackupsPage() {
 
 async function Backups() {
   await requirePermission("system.backup");
-  // On a serverless platform there is no pg_dump and no disk that outlives the request; the database provider backs up instead.
-  const supported = backupsSupported();
   const state = await listBackups();
 
   return (
@@ -41,15 +39,7 @@ async function Backups() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {supported ? (
-              <BackupForm />
-            ) : (
-              <p role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
-                Versi live ini berjalan di Vercel, yang tidak punya <code>pg_dump</code> maupun disk permanen, jadi tombol backup tidak tersedia
-                di sini. Cadangan dipegang Neon (point-in-time restore dan branch). Untuk file dump, jalankan Backups dari aplikasi di komputer
-                lokal; lihat deployment/VERCEL.md.
-              </p>
-            )}
+            <BackupForm />
             <p className="text-xs text-muted-foreground">
               Restoring is a deliberate manual step that needs approval: see README, Backups. There is no restore button on purpose.
             </p>
@@ -65,11 +55,7 @@ async function Backups() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!supported ? (
-              <p role="status" className="text-sm text-muted-foreground">
-                Tidak ada folder cadangan di deployment ini.
-              </p>
-            ) : !state.ok ? (
+            {!state.ok ? (
               <p role="alert" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
                 {state.error}
               </p>

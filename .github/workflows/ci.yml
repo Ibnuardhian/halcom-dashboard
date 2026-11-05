@@ -57,6 +57,17 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # The backup tests run pg_dump against the PostgreSQL 18 service, and pg_dump refuses a server newer than itself: the runner
+      # only has version 16. Same repository and key check as docker/install-pg-client.sh.
+      - name: Install the PostgreSQL 18 client tools
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          gpg --show-keys --with-colons /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc | grep -q "^fpr:::::::::B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8:"
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          pg_dump --version
       - run: npm ci
       - run: npm run test:integration
 

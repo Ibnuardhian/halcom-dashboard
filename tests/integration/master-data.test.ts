@@ -176,7 +176,10 @@ describe("setProjectMasterData", () => {
     const principal = await createMasterRecord(db, actor(soa), { kind: "principal", name: unique("Allowed") });
     if (!principal.ok) throw new Error("setup");
 
-    await expect(setProjectMasterData(db, actor(sales), { projectId: project.id, principalId: principal.value.id })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    // Sales fills in the Principal only on a project they handle, and never the Solution (SOA's technical work).
+    const otherSales = await makeUser("SALES");
+    await expect(setProjectMasterData(db, actor(otherSales), { projectId: project.id, principalId: principal.value.id })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
+    await expect(setProjectMasterData(db, actor(sales), { projectId: project.id, solutionId: "" })).resolves.toMatchObject({ ok: false, code: "FORBIDDEN" });
     await expect(setProjectMasterData(db, actor(soa), { projectId: project.id, principalId: "00000000-0000-4000-8000-000000000000" })).resolves.toMatchObject({ ok: false, code: "NOT_FOUND" });
     await expect(setProjectMasterData(db, actor(soa), { projectId: "00000000-0000-4000-8000-000000000000", principalId: principal.value.id })).resolves.toMatchObject({ ok: false, code: "NOT_FOUND" });
     await expect(db.project.findUniqueOrThrow({ where: { id: project.id } })).resolves.toMatchObject({ principalId: null });

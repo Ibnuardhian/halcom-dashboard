@@ -469,14 +469,16 @@ describe("setRequestDates", () => {
     expect(event.after).toMatchObject({ createdAt: "2026-08-31T17:00:00.000Z", completedAt: "2026-09-03T17:00:00.000Z" });
   });
 
-  it("is for a superadmin only", async () => {
+  it("is for a superadmin and an admin only", async () => {
     const [sales, soa, admin] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("ADMIN")]);
     const project = await makeProject(sales);
     const boq = await completedBoq(sales, soa, project.id);
-    for (const actor of [sales, soa, admin]) {
+    for (const actor of [sales, soa]) {
       const result = await setRequestDates(db, actor, { requestId: boq.id, createdAt: "2026-09-01", completedAt: null });
       expect(result).toMatchObject({ ok: false, code: "FORBIDDEN" });
     }
+    const allowed = await setRequestDates(db, admin, { requestId: boq.id, createdAt: "2026-09-01", completedAt: null });
+    expect(allowed.ok).toBe(true);
   });
 
   it("refuses a completion date on an open request, one before the creation date, and one in the future", async () => {
