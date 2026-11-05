@@ -1,127 +1,101 @@
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { percentOf, QUARTER_MONTHS, type Figures, type TargetSummary } from "@/domain/targets/quarters";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cumulate, MONTH_NAMES, MONTH_SHORT, monthsElapsed, paceAt, percentOf, type TargetSummary } from "@/domain/targets/quarters";
 import { formatAmount, formatCompact } from "@/features/projects/format";
+import { CumulativeGpChart, MonthlyGpChart, type ChartMonth } from "@/features/targets/gp-charts";
 import { TargetForm } from "@/features/targets/target-form";
-import type { StoredTargets } from "@/server/targets/service";
+import type { SalesBreakdownRow, StoredTargets } from "@/server/targets/service";
 
-function Bar({ percent }: { percent: number | null }) {
-  if (percent === null) return <span className="text-muted-foreground">–</span>;
+const pct = (value: number | null) => (value === null ? "–" : `${value.toFixed(1)}%`);
+
+function Figure({ term, children, note }: { term: string; children: React.ReactNode; note?: string }) {
   return (
-    <div className="flex items-center justify-end gap-2">
-      <div className="hidden h-2 w-20 rounded-full bg-muted sm:block" aria-hidden>
-        <div className="h-2 rounded-full" style={{ width: `${Math.min(100, percent)}%`, background: "var(--viz-1)" }} />
-      </div>
-      <span className="w-14 text-right tabular-nums">{percent}%</span>
+    <div className="flex flex-col gap-0.5 border-t pt-3 first:border-t-0 first:pt-0">
+      <dt className="text-sm text-muted-foreground">{term}</dt>
+      <dd className="text-xl font-semibold tabular-nums">{children}</dd>
+      {note ? <dd className="text-xs text-muted-foreground">{note}</dd> : null}
     </div>
   );
 }
 
-function FiguresRow({ label, sub, figures, bold, withTarget = true }: { label: string; sub?: string; figures: Figures; bold?: boolean; withTarget?: boolean }) {
-  const reached = percentOf(figures.won, figures.target);
-  const outlook = percentOf(figures.won + figures.forecast, figures.target);
-  return (
-    <TableRow className={bold ? "font-semibold" : undefined}>
-      <TableCell className="whitespace-nowrap">
-        {label} {sub ? <span className="text-xs font-normal text-muted-foreground">{sub}</span> : null}
-      </TableCell>
-      {withTarget ? <TableCell className="text-right tabular-nums">{figures.target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(figures.target)}</TableCell> : null}
-      <TableCell className="text-right tabular-nums">{formatAmount(figures.won)}</TableCell>
-      {withTarget ? (
-        <TableCell>
-          <Bar percent={reached} />
-        </TableCell>
-      ) : null}
-      <TableCell className={withTarget ? "hidden text-right tabular-nums md:table-cell" : "text-right tabular-nums"}>{formatAmount(figures.forecast)}</TableCell>
-      {withTarget ? <TableCell className="hidden text-right tabular-nums lg:table-cell">{outlook === null ? "–" : `${outlook}%`}</TableCell> : <TableCell className="text-right tabular-nums">{formatAmount(figures.won + figures.forecast)}</TableCell>}
-    </TableRow>
-  );
-}
-
-function Section({ title, description, summary, pick, withTarget = true }: { title: string; description: string; summary: TargetSummary; pick: "revenue" | "grossProfit"; withTarget?: boolean }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          <h2>{title}</h2>
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Quarter</TableHead>
-              {withTarget ? <TableHead className="text-right">Target</TableHead> : null}
-              <TableHead className="text-right">{withTarget ? "Won so far" : "Revenue won (after PO)"}</TableHead>
-              {withTarget ? <TableHead className="text-right">Reached</TableHead> : null}
-              <TableHead className={withTarget ? "hidden text-right md:table-cell" : "text-right"}>Forecast (weighted)</TableHead>
-              <TableHead className={withTarget ? "hidden text-right lg:table-cell" : "text-right"}>Won + forecast</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {summary.quarters.map((q) => (
-              <FiguresRow key={q.quarter} label={`Q${q.quarter}`} sub={QUARTER_MONTHS[q.quarter]} figures={q[pick]} withTarget={withTarget} />
-            ))}
-          </TableBody>
-          <TableFooter>
-            <FiguresRow label={`${summary.year} total`} figures={summary.total[pick]} bold withTarget={withTarget} />
-          </TableFooter>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
 /**
- * Where a salesperson stands against their gross-profit target, quarter by quarter, and the form to enter
- * those targets. An admin opening the page sees everyone added together and no form.
+ * Where gross profit stands against the annual target for one year. Achieved is the gross profit of Closed Won projects by won date: the
+ * project value times its target margin, so it is an estimate until the application stores an actual margin ("Won GP (estimated)"). Open
+ * pipeline GP is shown apart and never added to achieved.
  */
 export function TargetTracking({
   summary,
   own,
-  years,
-  basePath,
+  breakdown,
+  today,
 }: {
   summary: TargetSummary;
   /** The salesperson's own stored targets; null when the viewer is not a salesperson. */
   own: StoredTargets | null;
-  years: number[];
-  basePath: string;
+  /** Everyone's figures for people who see the whole team; null for a salesperson, who sees only their own page. */
+  breakdown: SalesBreakdownRow[] | null;
+  today: { year: number; month: number };
 }) {
-  const { notes } = summary;
+  const { notes, year } = summary;
+  const gp = summary.total.grossProfit;
+  const target = gp.target;
+  const percent = percentOf(gp.won, target);
+  const remaining = target === null ? null : Math.max(target - gp.won, 0);
+  const over = target !== null && gp.won > target ? gp.won - target : 0;
+  const elapsed = monthsElapsed(year, today);
+  const cumulative = cumulate(summary.months);
+  const monthlySet = summary.months.some((m) => m.target !== null);
+  const pace = elapsed > 0 ? paceAt(cumulative, elapsed) : null;
+  const chartMonths: ChartMonth[] = summary.months.map((m, i) => ({ month: m.month, label: MONTH_SHORT[i]!, target: m.target, won: m.won, cumTarget: cumulative[i]!.target, cumWon: cumulative[i]!.won, reached: m.month <= elapsed }));
+  const scope = own ? "Target Anda sendiri" : "Gabungan target semua salesperson";
+
   return (
-    <section aria-label="Target tracking" className="mb-6 flex flex-col gap-4">
-      <nav aria-label="Year" className="inline-flex w-fit rounded-lg border p-0.5">
-        {years.map((year) => (
-          <Link
-            key={year}
-            href={`${basePath}?view=tracking&year=${year}`}
-            aria-current={year === summary.year ? "page" : undefined}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium ${year === summary.year ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-          >
-            {year}
-          </Link>
-        ))}
-      </nav>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          ["Gross profit target", summary.total.grossProfit.target],
-          ["Gross profit won", summary.total.grossProfit.won],
-          ["Revenue won (after PO)", summary.total.revenue.won],
-          ["Revenue forecast (weighted)", summary.total.revenue.forecast],
-        ].map(([label, value]) => (
-          <div key={label as string} className="rounded-xl p-4 ring-1 ring-foreground/10">
-            <span className="text-xs font-medium text-muted-foreground">{label as string}</span>
-            <span className="mt-1 block text-2xl font-semibold text-primary tabular-nums">{value === null ? "Not set" : formatCompact(value as number)}</span>
-          </div>
-        ))}
+    <section aria-label="Gross profit target tracking" className="flex flex-col gap-6">
+      <div className="grid gap-6 rounded-xl p-5 ring-1 ring-foreground/10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">Won GP (estimated), {year}</p>
+          <p className="text-4xl font-semibold tracking-tight text-primary tabular-nums">{formatAmount(gp.won)}</p>
+          {target === null ? (
+            <p className="text-sm text-muted-foreground">Belum ada target GP untuk {year}. {own ? "Isi target per bulan di bawah." : "Setiap salesperson mengisi targetnya sendiri."}</p>
+          ) : (
+            <>
+              <div
+                role="progressbar"
+                aria-label={`Achieved GP against the ${year} target`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.min(100, percent ?? 0)}
+                aria-valuetext={percent === null ? "No target to measure against" : `${pct(percent)} of the annual target`}
+                className="h-3 w-full rounded-sm bg-muted"
+              >
+                <div className="h-3 rounded-sm bg-primary" style={{ width: `${Math.min(100, percent ?? 0)}%` }} />
+              </div>
+              <p className="text-sm">
+                <span className="text-lg font-semibold tabular-nums">{pct(percent)}</span> <span className="text-muted-foreground">dari target tahunan {formatAmount(target)}</span>
+              </p>
+            </>
+          )}
+          {pace ? (
+            <p className="text-sm" data-testid="gp-pace">
+              <span className="font-medium">Sampai {MONTH_NAMES[elapsed - 1]}:</span> rencana {formatAmount(pace.target)}, tercapai {formatAmount(gp.won)}.{" "}
+              <span className={pace.gap < 0 ? "font-medium text-destructive" : "font-medium"}>{pace.gap < 0 ? `Tertinggal ${formatAmount(-pace.gap)}` : `Di atas rencana ${formatAmount(pace.gap)}`}.</span>
+            </p>
+          ) : elapsed > 0 && target !== null ? (
+            <p className="text-sm text-muted-foreground">Target per bulan belum diisi, jadi kecepatan capaian belum bisa dinilai.</p>
+          ) : null}
+        </div>
+        <dl className="flex flex-col gap-3 lg:border-l lg:pl-6">
+          <Figure term="Annual GP target" note={scope}>
+            {target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(target)}
+          </Figure>
+          <Figure term={over > 0 ? "Over target by" : "Remaining GP"} note={over > 0 ? "Target tahunan sudah terlampaui" : undefined}>
+            {target === null ? <span className="text-muted-foreground">–</span> : formatAmount(over > 0 ? over : remaining)}
+          </Figure>
+          <Figure term="Open pipeline GP" note={`Potensi, belum tercapai. Project terbuka dengan target closing di ${year}, tanpa pembobotan probabilitas.`}>
+            {formatAmount(summary.openPipelineGp)}
+          </Figure>
+        </dl>
       </div>
-
-      <Section title="Revenue" description="Target revenue tidak diatur. Won adalah final PO value proyek yang ditutup sebagai won pada kuartal itu (setelah PO). Forecast adalah estimated value × probabilitas tahap Progress, untuk open project yang diperkirakan ditutup pada kuartal itu." summary={summary} pick="revenue" withTarget={false} />
-      <Section title="Gross profit" description="Won adalah final value proyek yang ditutup sebagai won pada kuartal itu (memakai estimasi sampai nilai finalnya diisi) × target margin proyek. Forecast sama untuk open project yang diperkirakan ditutup pada kuartal itu, dibobot dengan probabilitas tahap Progress." summary={summary} pick="grossProfit" />
 
       {notes.wonWithoutDate + notes.wonWithoutMargin + notes.openWithoutTargetDate > 0 ? (
         <div role="status" className="rounded-md border border-warning bg-warning/15 px-3 py-2 text-sm">
@@ -134,16 +108,123 @@ export function TargetTracking({
         </div>
       ) : null}
 
+      {!monthlySet && target !== null ? (
+        <p role="status" className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+          Target tahunan ada, tetapi target per bulan belum diisi. Grafik menampilkan capaian saja; target bulanan tidak dibagi rata secara otomatis.
+        </p>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>Monthly GP Performance</h2>
+            </CardTitle>
+            <CardDescription>Target dan capaian GP tiap bulan, berdasarkan tanggal won.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MonthlyGpChart months={chartMonths} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>Cumulative GP Achievement</h2>
+            </CardTitle>
+            <CardDescription>Jumlah berjalan sejak Januari: apakah capaian mengikuti rencana target.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CumulativeGpChart months={chartMonths} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <details className="rounded-xl p-4 ring-1 ring-foreground/10">
+        <summary className="cursor-pointer text-sm font-medium">Show monthly figures as a table</summary>
+        <div className="mt-3 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Month</TableHead>
+                <TableHead className="text-right">Target GP</TableHead>
+                <TableHead className="text-right">Achieved GP</TableHead>
+                <TableHead className="text-right">Gap</TableHead>
+                <TableHead className="text-right">Cumulative target</TableHead>
+                <TableHead className="text-right">Cumulative achieved</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summary.months.map((m, i) => {
+                const reached = m.month <= elapsed;
+                return (
+                  <TableRow key={m.month}>
+                    <TableCell>{MONTH_NAMES[i]}</TableCell>
+                    <TableCell className="text-right tabular-nums">{m.target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(m.target)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{reached ? formatAmount(m.won) : <span className="text-muted-foreground">Not started</span>}</TableCell>
+                    <TableCell className="text-right tabular-nums">{reached && m.target !== null ? (m.won - m.target < 0 ? `▼ ${formatAmount(m.won - m.target)}` : `+${formatAmount(m.won - m.target)}`) : "–"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cumulative[i]!.target === null ? "–" : formatAmount(cumulative[i]!.target)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{reached ? formatAmount(cumulative[i]!.won) : "–"}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </details>
+
+      {breakdown ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <h2>Sales performance</h2>
+            </CardTitle>
+            <CardDescription>Target dan capaian GP tiap salesperson di {year}, urut dari capaian terbesar.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {breakdown.length === 0 ? (
+              <p role="status" className="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">Belum ada salesperson dengan target atau project won di {year}.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sales PIC</TableHead>
+                      <TableHead className="text-right">GP target</TableHead>
+                      <TableHead className="text-right">Achieved GP</TableHead>
+                      <TableHead className="text-right">Achievement</TableHead>
+                      <TableHead className="text-right">Remaining GP</TableHead>
+                      <TableHead className="text-right">Won projects</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {breakdown.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium">{row.name}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(row.target)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatAmount(row.won)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{pct(percentOf(row.won, row.target))}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.target === null ? "–" : formatAmount(Math.max(row.target - row.won, 0))}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.wonCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {own ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>My {summary.year} targets</h2>
+              <h2>My {year} targets</h2>
             </CardTitle>
-            <CardDescription>Isi target tiap kuartal. Tabel di atas menunjukkan capaian Anda.</CardDescription>
+            <CardDescription>Isi target GP tiap bulan. Total tahunan ({formatCompact(target)}) adalah jumlah kedua belas bulan.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TargetForm year={summary.year} values={own} formKey={`${summary.year}-${JSON.stringify(own)}`} />
+            <TargetForm year={year} stored={own} />
           </CardContent>
         </Card>
       ) : null}

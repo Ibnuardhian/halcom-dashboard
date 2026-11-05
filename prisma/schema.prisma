@@ -60,6 +60,7 @@ model User {
   projectActions    ProjectAction[]
   notifications     Notification[]
   salesTargets      SalesTarget[]
+  salesTargetMonths SalesTargetMonth[]
 
   @@map("users")
 }
@@ -618,6 +619,24 @@ model SalesTarget {
   @@unique([salesUserId, year, quarter])
   @@index([year])
   @@map("sales_targets")
+}
+
+// The gross-profit target of one salesperson for one calendar month. Saving the months also rewrites the quarter rows in sales_targets
+// (each quarter is the sum of its months), so the annual target is always the sum of the twelve months. A month with no row has no target set.
+model SalesTargetMonth {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  salesUserId       String   @map("sales_user_id") @db.Uuid
+  year              Int
+  month             Int
+  grossProfitTarget Decimal  @map("gross_profit_target") @db.Decimal(18, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  salesUser User @relation(fields: [salesUserId], references: [id], onDelete: Restrict)
+
+  @@unique([salesUserId, year, month])
+  @@index([year])
+  @@map("sales_target_months")
 }
 
 // What a superadmin changed in the permission editor: one row per role and permission whose state differs from the defaults in

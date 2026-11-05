@@ -161,3 +161,17 @@
     @apply font-sans;
   }
 }
+
+/* Sales Targets: the content of a year slides in from the side that year lies on (DESIGN.md, MOTION on the Sales Targets page). */
+@keyframes gp-slide-from-right {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes gp-slide-from-left {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gp-year-content[data-direction="next"] { animation: gp-slide-from-right 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .gp-year-content[data-direction="prev"] { animation: gp-slide-from-left 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+}
