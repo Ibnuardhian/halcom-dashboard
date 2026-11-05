@@ -368,9 +368,12 @@ curl -fsS http://127.0.0.1:3000/api/health
 **From the application (superadmin):** **Backups** in the sidebar writes a full `pg_dump` (custom format) to the
 folder mounted at `/backups`, which is the host folder `BACKUP_HOST_DIR` (default `./backups`, git-ignored). A file is
 written as `.partial`, checked with `pg_restore --list`, then renamed `halcom-YYYYMMDD-HHMMSSZ.dump` (UTC). The application
-never overwrites, deletes or restores a backup, and there is no download button, because the dump holds all business
-data. Retention and off-machine copies are not decided yet (OPEN_QUESTIONS T-11): copy the folder somewhere safe yourself.
-On Linux the host folder must be writable by uid 1000 (the `node` user in the image).
+never overwrites, deletes or restores a backup. Each file in the list has a **Download** link (superadmin only, the name is
+checked, every download is written to the audit log): the dump holds all business data, so keep the copy private and do not
+send it by e-mail or chat. On the VPS a daily job (`deploy/backup-daily.sh`, from cron) adds `halcom-auto-YYYYMMDD-HHMMSSZ.dump`
+files and removes its own files after 30 days, always keeping the newest 3; files made from the page are never removed.
+Copy the files off the machine as well (OPEN_QUESTIONS T-11). On Linux the host folder must be writable by uid 1000 (the `node`
+user in the image).
 
 **From the command line** (works without the application):
 

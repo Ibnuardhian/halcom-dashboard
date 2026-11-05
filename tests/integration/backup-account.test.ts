@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import { getDb } from "@/lib/db";
 import { changeOwnPassword } from "@/server/auth/account";
 import { authenticate } from "@/server/auth/authenticate";
 import { createSession, findSessionUser } from "@/server/auth/session-store";
-import { createBackup, listBackups, pgEnvFromUrl, type Exec } from "@/server/system/backup";
+import { createBackup, isAutomaticBackup, isBackupFileName, listBackups, pgEnvFromUrl, prepareBackupDownload, type Exec } from "@/server/system/backup";
 import { makeUser, TEST_PASSWORD } from "./helpers";
 
 const db = getDb();
@@ -110,6 +110,51 @@ describe("createBackup", () => {
     const missing = path.join(dir, "does-not-exist");
     expect(await listBackups(missing)).toMatchObject({ ok: false, error: expect.stringContaining("belum di-mount") });
     expect(pgEnvFromUrl("postgresql://u:pw@h/db")).toMatchObject({ PGPORT: "5432" });
+  });
+});
+
+describe("prepareBackupDownload", () => {
+  it("accepts the two backup name patterns and nothing else", () => {
+    expect(isBackupFileName("halcom-20261017-153000Z.dump")).toBe(true);
+    expect(isBackupFileName("halcom-auto-20261017-153000Z.dump")).toBe(true);
+    expect(isAutomaticBackup("halcom-auto-20261017-153000Z.dump")).toBe(true);
+    expect(isAutomaticBackup("halcom-20261017-153000Z.dump")).toBe(false);
+    for (const bad of ["../etc/passwd", "halcom-20261017-153000Z.dump/../x", "..%2Fx.dump", "halcom-auto-20261017-153000Z.dump.partial", "halcom-other-20261017-153000Z.dump", ""]) {
+      expect(isBackupFileName(bad)).toBe(false);
+    }
+  });
+
+  it("gives a superadmin the file, whether made by hand or by the daily job, and audits each download", async () => {
+    const superadmin = await actorOf("SUPERADMIN");
+    for (const name of ["halcom-20261101-010000Z.dump", "halcom-auto-20261101-020000Z.dump"]) {
+      await writeFile(path.join(dir, name), "PGDMP-fake-dump");
+      const result = await prepareBackupDownload(db, superadmin, name, { dir });
+      expect(result).toMatchObject({ ok: true, path: path.join(dir, name), file: { name, sizeBytes: 15 } });
+      const events = await db.auditEvent.findMany({ where: { entityType: "system", entityId: name, action: "system.backup_downloaded" } });
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ actorId: superadmin.id, after: { name, sizeBytes: 15 } });
+    }
+  });
+
+  it("refuses every other role and an inactive superadmin, without an audit event", async () => {
+    const name = "halcom-20261102-010000Z.dump";
+    await writeFile(path.join(dir, name), "PGDMP-fake-dump");
+    for (const role of ["ADMIN", "SALES", "SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) {
+      expect(await prepareBackupDownload(db, await actorOf(role), name, { dir })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    }
+    const gone = await makeUser("SUPERADMIN", { isActive: false });
+    expect(await prepareBackupDownload(db, { id: gone.id, role: "SUPERADMIN" }, name, { dir })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(await db.auditEvent.count({ where: { entityId: name, action: "system.backup_downloaded" } })).toBe(0);
+  });
+
+  it("says not found for a path, a partial file, a missing file and a folder, and audits nothing", async () => {
+    const superadmin = await actorOf("SUPERADMIN");
+    await writeFile(path.join(dir, "halcom-auto-20261103-020000Z.dump.partial"), "half");
+    await mkdir(path.join(dir, "halcom-20261103-030000Z.dump"));
+    for (const name of ["../package.json", "halcom-auto-20261103-020000Z.dump.partial", "halcom-20261103-040000Z.dump", "halcom-20261103-030000Z.dump"]) {
+      expect(await prepareBackupDownload(db, superadmin, name, { dir })).toMatchObject({ ok: false, code: "NOT_FOUND" });
+      expect(await db.auditEvent.count({ where: { entityId: name, action: "system.backup_downloaded" } })).toBe(0);
+    }
   });
 });
 

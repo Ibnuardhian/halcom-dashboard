@@ -974,3 +974,17 @@ The preview of each template (filled with sample data) is no longer a long block
 **Kept on purpose.** `postinstall: prisma generate` stays: `npm ci` in the Docker image and in CI needs the generated client. Neon stays as the nightly backup copy (`deploy/db-sync.sh`).
 
 **To do outside the repository.** Delete or disconnect the Vercel project, so that nothing deploys from `main` there, and revoke its tokens and environment variables.
+
+## D-079: Caddy reads a Caddyfile: security headers and the www redirect (2026-11-05)
+
+**Why.** The Caddy container ran `caddy reverse-proxy --from ${DOMAIN} --to app:3000`, which sets no response headers and does not serve `www`. `deploy/Caddyfile` (now for the container, with `{$DOMAIN}` from `/opt/halcom/.env`) sets HSTS (one year, this host only), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, drops `Server`, writes an access log to stdout, and redirects `www.<domain>` to the plain domain.
+
+**Safe to deploy.** The workflow copies the Caddyfile next to the compose file; `deploy-vps.sh` validates it with the `caddy:2` image before anything is replaced (a bad file would stop the proxy), then reloads Caddy after the app is healthy. X-Forwarded-For still comes from Caddy (it does not trust the one a client sends), which the sign-in throttle depends on. A CSP is not set yet: Next.js needs a nonce setup first (checklist P2).
+
+## D-080: A daily backup on the server, and a download link on the Backups page (2026-11-05)
+
+**Asked by the owner.** Backups were manual. `deploy/backup-daily.sh` (cron on the VPS, instructions in HOSTINGER-DOCKER-MANAGER.md) pipes `pg_dump` from the `db` container into the `app` container's `/backups` volume, so no password or dump touches the host disk, checks the file with `pg_restore --list` and only then gives it its name `halcom-auto-YYYYMMDD-HHMMSSZ.dump` (mode 600). It removes its own files older than 30 days, never the newest 3 and never a file made from the page; the application still never deletes a backup (D-068).
+
+**Download.** Each backup in the list has a plain link (not `next/link`, whose prefetch would be audited as a download) to `/admin/backups/download/<name>`: only `system.backup` (the superadmin), only the two backup name patterns (so `../x` never reaches the file system), the file is streamed with `Cache-Control: no-store`, and each download writes `system.backup_downloaded` to the audit log. `listBackups` lists both name patterns.
+
+**Not solved.** The daily dump sits on the same VPS as the database, so it does not protect against losing the server: the owner downloads copies, and the nightly Neon copy (`db-sync.sh`) continues.
