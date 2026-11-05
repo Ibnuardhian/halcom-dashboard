@@ -28,10 +28,11 @@ project=halcom-dashboard
 compose="docker compose -p ${project} -f compose.hostinger.yaml"
 [ -f .env ] || { echo "Missing /opt/halcom/.env." >&2; exit 1; }
 [ -f neon.env ] || { echo "Missing /opt/halcom/neon.env (NEON_URL, NEON_BACKUP_URL)." >&2; exit 1; }
-set -a
-# shellcheck disable=SC1091
-. ./neon.env
-set +a
+# neon.env is read as plain KEY=VALUE lines, never executed: a connection string contains & and other characters the shell would act on
+# (an unquoted ...?sslmode=require&channel_binding=require would be cut at the &). Surrounding quotes and a Windows line end are removed.
+env_value() { grep -E "^$1=" neon.env | head -n 1 | cut -d= -f2- | tr -d '\r' | sed -e "s/^'//" -e "s/'\$//" -e 's/^"//' -e 's/"$//'; }
+NEON_URL="$(env_value NEON_URL)"
+NEON_BACKUP_URL="$(env_value NEON_BACKUP_URL)"
 
 umask 077
 exec 9> sync/.lock
