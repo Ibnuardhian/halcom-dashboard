@@ -966,3 +966,11 @@ The preview of each template (filled with sample data) is no longer a long block
 **Asked by the owner.** The project page shows the name and the description as text; an Edit button (shown only to those who may edit) opens the form in a modal, and the modal closes by itself when the save succeeds (the toast says so). The two kinds of Save button (blue for big forms, white for small inline ones) had no meaning, so every button that saves a field is now the primary (blue) one. Buttons that do something else stay white (Reset password, Restore default template, Do not continue, Export, Move project). The Done chip in the Projects table is green like the dot on a phone.
 
 **Amended (2026-11-05): one form.** The name and the description are one block, a title with its explanation, with one Edit button and one modal with one Save (`saveProjectTitleAction`; each field still goes through its own service and permission, and a field the person may not change is not shown). SOA, who may rename but not describe, sees only the name in the modal.
+
+## D-078: Vercel is gone; the Hostinger VPS is the only deployment (2026-11-05)
+
+**Asked by the owner.** The application is live on the VPS at https://halcom-dashboard.site, so everything for Vercel was removed: `vercel.json` (including the temporary 307 redirect to the VPS), `deployment/VERCEL.md`, the Vercel check in `backupsSupported()` and the Backups page notice (the backup button is now always shown; the Docker image has `pg_dump` and a `/backups` volume), and the Vercel wording in the README, the security checklist and code comments. Earlier decisions that mention Vercel (D-039 and others) are left as they were: they are the record of what was decided then.
+
+**Kept on purpose.** `postinstall: prisma generate` stays: `npm ci` in the Docker image and in CI needs the generated client. Neon stays as the nightly backup copy (`deploy/db-sync.sh`).
+
+**To do outside the repository.** Delete or disconnect the Vercel project, so that nothing deploys from `main` there, and revoke its tokens and environment variables.

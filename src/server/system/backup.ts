@@ -32,14 +32,6 @@ export type BackupDirectoryState =
   | { ok: true; dir: string; files: BackupFile[] }
   | { ok: false; dir: string; error: string };
 
-/**
- * Whether this deployment can write backups at all. It needs pg_dump and a folder that outlives the request, which a serverless
- * platform (Vercel) has neither of; there the database's own point-in-time restore is the backup, and the page says so.
- */
-export function backupsSupported(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
-  return !env["VERCEL"];
-}
-
 export function backupDir(env: Readonly<Record<string, string | undefined>> = process.env): string {
   return env["BACKUP_DIR"] || DEFAULT_BACKUP_DIR;
 }
@@ -111,9 +103,6 @@ export async function createBackup(
     return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   }
   if (running) return { ok: false, code: "BUSY", message: "Backup sedang berjalan." };
-  if (!backupsSupported()) {
-    return { ok: false, code: "FAILED", message: "Deployment ini tidak bisa menulis backup: tidak ada pg_dump dan tidak ada disk permanen. Gunakan backup dan restore dari penyedia database." };
-  }
 
   const databaseUrl = options.databaseUrl ?? process.env["DATABASE_URL"];
   if (!databaseUrl) return { ok: false, code: "FAILED", message: "DATABASE_URL is not set." };
