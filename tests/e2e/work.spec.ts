@@ -410,17 +410,17 @@ test.describe("projects and requests", () => {
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Old naem");
     await page.goto(`/projects/${projectCode}`);
-    await expect(page.getByRole("button", { name: "Edit nama project" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit nama dan description" })).toHaveCount(0);
 
     const soa = await asRole(browser, "SOA");
     await soa.goto(`/projects/${projectCode}`);
     // The name is shown first; the form opens in a modal only after Edit.
     await expect(soa.getByLabel("Nama project", { exact: true })).toBeHidden();
     await expect(async () => {
-      if (!(await soa.getByRole("dialog").isVisible())) await soa.getByRole("button", { name: "Edit nama project" }).click();
+      if (!(await soa.getByRole("dialog").isVisible())) await soa.getByRole("button", { name: "Edit nama dan description" }).click();
       await soa.getByLabel("Nama project", { exact: true }).fill("Old name fixed");
-      await soa.getByRole("button", { name: "Save project name" }).click();
-      await expect(soa.getByRole("status").filter({ hasText: "Nama project diubah" })).toBeVisible({ timeout: 1500 });
+      await soa.getByRole("button", { name: "Save name and description" }).click();
+      await expect(soa.getByRole("status").filter({ hasText: "Tersimpan dan dicatat di change log: nama" })).toBeVisible({ timeout: 1500 });
     }).toPass();
     await expect(soa.getByText("Old name fixed").first()).toBeVisible();
     await soa.reload();

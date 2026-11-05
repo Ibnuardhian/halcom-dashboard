@@ -24,8 +24,7 @@ import { CommercialForm } from "@/features/projects/commercial-form";
 import { DeleteProject } from "@/features/projects/delete-project";
 import { FlowTracker } from "@/features/requests/flow-tracker";
 import { ReassignPics } from "@/features/projects/reassign-pics";
-import { DescriptionForm } from "@/features/projects/description-form";
-import { RenameProjectForm } from "@/features/projects/rename-form";
+import { ProjectTitleForm } from "@/features/projects/project-title-form";
 import { SourceForm } from "@/features/projects/source-form";
 import { ClassificationForm } from "@/features/masterdata/classification-form";
 import { ChangeLog } from "@/features/projects/change-log";
@@ -111,6 +110,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
   const mayPostUpdate = can(viewer.role, "projects.post-update");
   // Sales change their own projects; admins support any project (the service enforces the same rule).
   const mayEditCommercial = can(viewer.role, "projects.edit.commercial") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
+  const mayRename = can(viewer.role, "projects.rename");
   const mayEditDescription = can(viewer.role, "projects.edit.description") && (viewer.role !== "SALES" || salesActsOn(project, viewer.id));
   const estimated = project.estimatedValue?.toNumber() ?? null;
   const finalValue = project.finalValue?.toNumber() ?? null;
@@ -199,14 +199,9 @@ async function Project({ params, searchParams }: Pick<PageProps<"/projects/[code
           {project.lostReason ? <Fact label="Lost reason">{project.lostReason}</Fact> : null}
           <Fact label="Created">{formatDay(project.createdAt)}</Fact>
         </dl>
-        {can(viewer.role, "projects.rename") ? (
-          <div className="mt-4 max-w-xl border-t pt-4">
-            <RenameProjectForm projectId={project.id} projectCode={project.code} name={project.name} />
-          </div>
-        ) : null}
         <div className="mt-4 border-t pt-4">
-          {mayEditDescription ? (
-            <DescriptionForm projectId={project.id} projectCode={project.code} description={project.description} />
+          {mayRename || mayEditDescription ? (
+            <ProjectTitleForm projectId={project.id} projectCode={project.code} name={project.name} description={project.description} canRename={mayRename} canDescribe={mayEditDescription} />
           ) : (
             <>
               <Label>Description</Label>

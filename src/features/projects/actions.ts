@@ -162,3 +162,29 @@ export async function setDescriptionAction(_previous: FormState, formData: FormD
   if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
   return { ok: true, message: result.changed ? "Deskripsi disimpan dan dicatat di change log." : "Deskripsi tidak berubah." };
 }
+
+/**
+ * The name and the description of a project are one form (a title and its explanation). Each field goes through its own service, which
+ * checks its own permission (the name: Superadmin, Admin, SOA; the description: Superadmin, Admin, and Sales on their projects), so a
+ * field the person may not change is not sent and not saved. The first refusal is the answer.
+ */
+export async function saveProjectTitleAction(_previous: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const actor = { id: user.id, role: user.role };
+  const projectId = formData.get("projectId");
+  const done: string[] = [];
+  if (formData.has("name")) {
+    const result = await renameProject(getDb(), actor, { projectId, name: formData.get("name") });
+    if (!result.ok) return { ok: false, message: result.message };
+    if (result.changed) done.push("nama");
+  }
+  if (formData.has("description")) {
+    const result = await setProjectDescription(getDb(), actor, { projectId, description: formData.get("description") ?? "" });
+    if (!result.ok) return { ok: false, message: result.message };
+    if (result.changed) done.push("deskripsi");
+  }
+  const code = formData.get("projectCode");
+  if (typeof code === "string" && /^HIT-PROJ-\d{3,}$/.test(code)) revalidatePath(`${PROJECTS_PATH}/${code}`);
+  revalidatePath(PROJECTS_PATH);
+  return { ok: true, message: done.length > 0 ? `Tersimpan dan dicatat di change log: ${done.join(" dan ")}.` : "Tidak ada perubahan." };
+}
