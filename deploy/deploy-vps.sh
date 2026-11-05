@@ -20,6 +20,10 @@ docker info >/dev/null 2>&1 || { echo "User $(id -un) cannot use Docker. As root
 for v in DOMAIN POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB; do
   grep -Eq "^${v}=.+" .env || { echo "/opt/halcom/.env has no value for ${v}." >&2; exit 1; }
 done
+[ -f Caddyfile ] || { echo "Missing /opt/halcom/Caddyfile (the workflow copies it)." >&2; exit 1; }
+# A bad Caddyfile would stop the proxy and take the site down, so it is checked with the same image before anything is replaced.
+docker run --rm --env-file .env -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null \
+  || { echo "The Caddyfile is not valid (docker run caddy:2 caddy validate). Nothing was changed." >&2; exit 1; }
 [ -f src/Dockerfile ] || { echo "Missing /opt/halcom/src (the workflow copies the commit there)." >&2; exit 1; }
 # Never create an empty database by mistake: the stack made in Docker Manager must exist under the same project name.
 if ! docker volume inspect "${project}_postgres_data" >/dev/null 2>&1 && [ "${ALLOW_NEW_DB:-0}" != "1" ]; then
@@ -61,6 +65,8 @@ $compose run --rm --no-deps migrate
 echo "== Restarting the app"
 $compose up -d --no-deps --force-recreate app
 $compose up -d --no-deps caddy
+# The Caddyfile may have changed while the container stayed the same: load it without dropping connections.
+$compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
 echo "== Waiting for /api/health"
 cid="$($compose ps -q app)"

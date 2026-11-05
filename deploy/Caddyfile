@@ -1,13 +1,15 @@
-# Caddy on the VPS host (not a container). Install once, then:
-#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   (replace the domain first)
-#   sudo systemctl reload caddy
-# Caddy gets and renews the HTTPS certificate by itself. Port 3000 stays on 127.0.0.1, so everything from outside comes through here.
-# By default Caddy does not trust an X-Forwarded-For sent by the client and sets it to the real address, which the sign-in throttle reads.
+# Caddy in the `caddy` container of deploy/compose.hostinger.yaml. The workflow "Deploy to Hostinger" copies this file to /opt/halcom,
+# where the container reads it (read-only), and deploy-vps.sh reloads Caddy after every deploy.
+# DOMAIN comes from /opt/halcom/.env (for example halcom-dashboard.site, without https://).
+#
+# Caddy gets and renews the HTTPS certificate by itself (port 80 must be open for that) and redirects HTTP to HTTPS.
+# By default Caddy does not trust an X-Forwarded-For sent by the client: it sets it to the real address, which the sign-in throttle reads.
 
-halcom.example.com {
+{$DOMAIN} {
 	encode zstd gzip
 
 	header {
+		# One year, this host only. Add includeSubDomains or preload later, once every subdomain is HTTPS.
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
@@ -16,12 +18,13 @@ halcom.example.com {
 		-Server
 	}
 
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy app:3000
 
-	log {
-		output file /var/log/caddy/access.log {
-			roll_size 10mb
-			roll_keep 5
-		}
-	}
+	# Access log on stdout (Docker rotates it: 5 x 10 MB), read with `docker logs`.
+	log
+}
+
+# www goes to the plain domain. The DNS record (CNAME www) already points here, so Caddy can get a certificate for it.
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
 }

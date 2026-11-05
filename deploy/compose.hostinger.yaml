@@ -78,12 +78,15 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
-    # Reverse proxy with automatic HTTPS. It sets X-Forwarded-For to the real client address, which the sign-in throttle reads.
-    command: caddy reverse-proxy --from ${DOMAIN} --to app:3000
+    # Reverse proxy with automatic HTTPS, security headers and the www redirect: see deploy/Caddyfile. It sets X-Forwarded-For to
+    # the real client address, which the sign-in throttle reads. The file is copied next to this one by the deploy workflow.
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN (for example halcom.example.com)}
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
