@@ -10,7 +10,16 @@ cd "$(dirname "$0")"
 project=halcom-dashboard
 compose="docker compose -p ${project} -f compose.hostinger.yaml"
 
+# Keep Docker's client config next to the script: the home of the deploy user may not be writable.
+export DOCKER_CONFIG="$PWD/.docker"
+mkdir -p "$DOCKER_CONFIG"
+
+echo "== Preflight"
+docker info >/dev/null 2>&1 || { echo "User $(id -un) cannot use Docker. As root: usermod -aG docker $(id -un), then sign in again." >&2; exit 1; }
 [ -f .env ] || { echo "Missing /opt/halcom/.env (DOMAIN, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)." >&2; exit 1; }
+for v in DOMAIN POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB; do
+  grep -Eq "^${v}=.+" .env || { echo "/opt/halcom/.env has no value for ${v}." >&2; exit 1; }
+done
 [ -f src/Dockerfile ] || { echo "Missing /opt/halcom/src (the workflow copies the commit there)." >&2; exit 1; }
 # Never create an empty database by mistake: the stack made in Docker Manager must exist under the same project name.
 if ! docker volume inspect "${project}_postgres_data" >/dev/null 2>&1 && [ "${ALLOW_NEW_DB:-0}" != "1" ]; then

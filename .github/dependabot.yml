@@ -1,15 +1,36 @@
 version: 2
+
+# Updates are opened against `development`, not `main`: a merge into main deploys to production.
+# Minor and patch updates of one ecosystem arrive as a single pull request; major versions of TypeScript and ESLint are skipped
+# and are done by hand when the project is ready for them.
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: development
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /
+    target-branch: development
     schedule:
       interval: weekly
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
+    target-branch: development
     schedule:
       interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]

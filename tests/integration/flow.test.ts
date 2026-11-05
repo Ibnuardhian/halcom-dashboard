@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
+import { PO_NEEDS_RFQ } from "@/domain/requests/status";
 import { getDb } from "@/lib/db";
 import { listPendingDecisions } from "@/server/requests/queries";
 import { changeRequestStatus, createProject, createRequest, handOverToPurchasing, stopFlow } from "@/server/requests/service";
@@ -103,7 +104,7 @@ describe("a PO follows an RFQ", () => {
     const [sales, purchasing] = await Promise.all([actorOf("SALES"), actorOf("PURCHASING")]);
     const project = await makeProject(sales);
 
-    expect(await createRequest(db, sales, { projectId: project.id, type: "PO", title: "too early" })).toMatchObject({ ok: false, code: "INVALID_STATE", message: expect.stringContaining("completed RFQ") });
+    expect(await createRequest(db, sales, { projectId: project.id, type: "PO", title: "too early" })).toMatchObject({ ok: false, code: "INVALID_STATE", message: PO_NEEDS_RFQ });
     const rfq = await createRequest(db, sales, { projectId: project.id, type: "RFQ", title: "starts without a BOQ" }); // the BOQ is skipped
     if (!rfq.ok) throw new Error(rfq.message);
     expect(await createRequest(db, sales, { projectId: project.id, type: "PO", title: "RFQ still open" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
