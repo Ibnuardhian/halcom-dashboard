@@ -6,7 +6,7 @@
   "redirects": [
     {
       "source": "/:path*",
-      "destination": "https://srv2127418.hstgr.cloud/:path*",
+      "destination": "https://halcom-dashboard.site/:path*",
       "permanent": false
     }
   ]
