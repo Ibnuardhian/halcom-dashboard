@@ -293,16 +293,16 @@ export function RequestForm({
         </>
       ) : null}
       <Field id="request-project" label="Project *">
-        <NativeSelect id="request-project" name="projectId" required value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-          <option value="" disabled>
-            Select a project
-          </option>
-          {visible.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.code} · {project.endUserCompany}, {project.name}
-            </option>
-          ))}
-        </NativeSelect>
+        <SearchSelect
+          id="request-project"
+          name="projectId"
+          label="project"
+          options={visible.map((project) => ({ id: project.id, name: `${project.code} · ${project.endUserCompany}, ${project.name}` }))}
+          value={projectId}
+          onChange={setProjectId}
+          required
+          placeholder="Cari project: kode, perusahaan, atau nama"
+        />
       </Field>
       {picFilters ? (
         <div className="text-sm sm:self-end sm:pb-1.5" aria-live="polite" data-testid="request-project-pics">

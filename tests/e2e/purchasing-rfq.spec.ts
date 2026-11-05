@@ -34,15 +34,26 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
   const type = page.getByLabel("Request type");
   await expect(type).toHaveValue("RFQ");
   await expect(type.locator("option")).toHaveCount(1);
-  const projectOption = page.locator("#request-project option", { hasText: projectCode });
+  // The project is picked from a search box: typing the code lists the matching projects.
+  const project = page.getByLabel("Project *");
+  const projectOption = page.getByRole("listbox", { name: "project options" }).getByRole("option", { name: new RegExp(projectCode) });
+  const search = async () => {
+    await project.fill(projectCode);
+    await project.press("Escape");
+    await project.fill(projectCode);
+  };
+  await search();
   await expect(projectOption).toHaveCount(1);
 
   await page.getByLabel("Sales PIC").selectOption({ label: "No Sales PIC (project from another source)" });
+  await search();
   await expect(projectOption).toHaveCount(0);
   await page.getByLabel("Sales PIC").selectOption({ label: "Satrio" });
+  await search();
   await expect(projectOption).toHaveCount(1);
 
-  await page.getByLabel("Project *").selectOption((await projectOption.getAttribute("value"))!);
+  await projectOption.getByRole("button").click();
+  await expect(project).toHaveValue(new RegExp(projectCode));
   const pics = page.getByTestId("request-project-pics");
   await expect(pics).toContainText("Sales PIC: Satrio");
   await expect(pics).toContainText("SOA PIC: None yet");
