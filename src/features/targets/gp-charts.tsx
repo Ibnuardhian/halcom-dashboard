@@ -6,8 +6,8 @@ import { ChartEmpty } from "@/components/charts/chart-card";
 import { useWidth } from "@/features/dashboards/pipeline-growth";
 import { formatAmount, formatCompact } from "@/features/projects/format";
 
-/** One calendar month as the charts need it. `reached` is false for a month that has not started: it has no achieved figure yet. */
-export type ChartMonth = { month: number; label: string; target: number | null; won: number; cumTarget: number | null; cumWon: number; reached: boolean };
+/** One calendar quarter as the charts need it. `reached` is false for a quarter that has not started: it has no achieved figure yet. */
+export type ChartQuarter = { quarter: number; label: string; target: number | null; won: number; cumTarget: number | null; cumWon: number; reached: boolean };
 
 const HEIGHT = 260;
 const MARGIN = { top: 22, right: 12, bottom: 28, left: 52 };
@@ -15,7 +15,7 @@ const ACHIEVED = "var(--viz-1)";
 const TARGET = "var(--muted-foreground)";
 const SHORTFALL = "var(--destructive)";
 
-/** The full month for the tooltip and the amount without the currency (it is IDR, see format.ts). */
+/** The tooltip text and the amount without the currency (it is IDR, see format.ts). */
 function Tip({ left, children }: { left: number; children: React.ReactNode }) {
   return (
     <div role="status" className="pointer-events-none absolute top-1 z-10 w-52 -translate-x-1/2 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md" style={{ left }}>
@@ -54,24 +54,24 @@ const gapText = (won: number, target: number) => {
 };
 
 /**
- * Monthly GP Performance: for each month the target (outlined bar) beside what was won (solid bar). A month with no target set shows no
- * target bar and says so; a target of zero is a thin line. A month that has ended below its target carries a red triangle; the same
+ * Quarterly GP Performance: for each quarter the target (outlined bar) beside what was won (solid bar). A quarter with no target set shows no
+ * target bar and says so; a target of zero is a thin line. A quarter that has ended below its target carries a red triangle; the same
  * facts are in the table under the charts, so colour is never the only signal.
  */
-export function MonthlyGpChart({ months }: { months: ChartMonth[] }) {
+export function QuarterlyGpChart({ quarters }: { quarters: ChartQuarter[] }) {
   const [frame, width] = useWidth();
   const [active, setActive] = useState<number | null>(null);
   const inner = width - MARGIN.left - MARGIN.right;
   const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
-  const max = Math.max(0, ...months.flatMap((m) => [m.target ?? 0, m.won]));
+  const max = Math.max(0, ...quarters.flatMap((m) => [m.target ?? 0, m.won]));
   if (max === 0) return <ChartEmpty>Belum ada target atau capaian GP untuk tahun ini.</ChartEmpty>;
   const ticks = niceTicks(max);
   const top = ticks[ticks.length - 1]!;
   const y = (v: number) => MARGIN.top + innerHeight - (v / top) * innerHeight;
-  const slot = inner / months.length;
-  const bar = Math.min(18, (slot - 6) / 2);
+  const slot = inner / quarters.length;
+  const bar = Math.min(40, (slot - 6) / 2);
   const centre = (i: number) => MARGIN.left + slot * i + slot / 2;
-  const current = active === null ? null : months[active]!;
+  const current = active === null ? null : quarters[active]!;
 
   return (
     <div>
@@ -83,13 +83,13 @@ export function MonthlyGpChart({ months }: { months: ChartMonth[] }) {
         ]}
       />
       <div ref={frame} className="relative">
-        <svg width="100%" viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label="Monthly GP Performance: target and achieved gross profit for each month. The same numbers are in the table below." onPointerLeave={() => setActive(null)}>
+        <svg width="100%" viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label="Quarterly GP Performance: target and achieved gross profit for each quarter. The same numbers are in the table below." onPointerLeave={() => setActive(null)}>
           <Axis ticks={ticks} y={y} width={width} />
-          {months.map((m, i) => {
+          {quarters.map((m, i) => {
             const behind = m.reached && m.target !== null && m.won < m.target;
             const pair = m.target !== null && m.reached ? 2 : 1;
             return (
-              <g key={m.month}>
+              <g key={m.quarter}>
                 {m.target !== null ? (
                   <rect
                     x={centre(i) - (pair === 2 ? bar : bar / 2)}
@@ -135,7 +135,7 @@ export function MonthlyGpChart({ months }: { months: ChartMonth[] }) {
           <Tip left={Math.min(Math.max(centre(active!), 104), width - 104)}>
             <p className="mb-1 font-semibold">{current.label}</p>
             <p>Target: {current.target === null ? "not set" : formatAmount(current.target)}</p>
-            <p>Achieved: {current.reached ? formatAmount(current.won) : "month not started"}</p>
+            <p>Achieved: {current.reached ? formatAmount(current.won) : "quarter not started"}</p>
             {current.reached && current.target !== null ? <p className="mt-1 text-muted-foreground">{gapText(current.won, current.target)}</p> : null}
           </Tip>
         ) : null}
@@ -146,24 +146,24 @@ export function MonthlyGpChart({ months }: { months: ChartMonth[] }) {
 
 /**
  * Cumulative GP Achievement: running target (dashed) against running achieved (solid) from January. The achieved line stops at the last
- * month that has started; the target line is drawn only when at least one month has a target, and a month without one adds nothing to it.
+ * quarter that has started; the target line is drawn only when at least one quarter has a target, and a quarter without one adds nothing to it.
  */
-export function CumulativeGpChart({ months }: { months: ChartMonth[] }) {
+export function CumulativeGpChart({ quarters }: { quarters: ChartQuarter[] }) {
   const [frame, width] = useWidth();
   const [active, setActive] = useState<number | null>(null);
   const inner = width - MARGIN.left - MARGIN.right;
   const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
-  const max = Math.max(0, ...months.flatMap((m) => [m.cumTarget ?? 0, m.reached ? m.cumWon : 0]));
+  const max = Math.max(0, ...quarters.flatMap((m) => [m.cumTarget ?? 0, m.reached ? m.cumWon : 0]));
   if (max === 0) return <ChartEmpty>Belum ada target atau capaian GP untuk tahun ini.</ChartEmpty>;
   const ticks = niceTicks(max);
   const top = ticks[ticks.length - 1]!;
   const y = (v: number) => MARGIN.top + innerHeight - (v / top) * innerHeight;
-  const x = (i: number) => MARGIN.left + (inner / (months.length - 1)) * i;
-  const step = labelStep(months.length, 30, inner);
-  const targetLine: XY[] = months.flatMap((m, i) => (m.cumTarget === null ? [] : [{ x: x(i), y: y(m.cumTarget) }]));
-  const wonLine: XY[] = months.flatMap((m, i) => (m.reached ? [{ x: x(i), y: y(m.cumWon) }] : []));
-  const latest = months.reduce((found, m, i) => (m.reached ? i : found), -1);
-  const current = active === null ? null : months[active]!;
+  const x = (i: number) => MARGIN.left + (inner / (quarters.length - 1)) * i;
+  const step = labelStep(quarters.length, 30, inner);
+  const targetLine: XY[] = quarters.flatMap((m, i) => (m.cumTarget === null ? [] : [{ x: x(i), y: y(m.cumTarget) }]));
+  const wonLine: XY[] = quarters.flatMap((m, i) => (m.reached ? [{ x: x(i), y: y(m.cumWon) }] : []));
+  const latest = quarters.reduce((found, m, i) => (m.reached ? i : found), -1);
+  const current = active === null ? null : quarters[active]!;
 
   return (
     <div>
@@ -174,11 +174,11 @@ export function CumulativeGpChart({ months }: { months: ChartMonth[] }) {
         ]}
       />
       <div ref={frame} className="relative">
-        <svg width="100%" viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label="Cumulative GP Achievement: running target and running achieved gross profit from January. The same numbers are in the table below." onPointerLeave={() => setActive(null)}>
+        <svg width="100%" viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label="Cumulative GP Achievement: running target and running achieved gross profit from Q1. The same numbers are in the table below." onPointerLeave={() => setActive(null)}>
           <Axis ticks={ticks} y={y} width={width} />
-          {months.map((m, i) =>
-            i % step === 0 || i === months.length - 1 ? (
-              <text key={m.month} x={x(i)} y={HEIGHT - 9} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.7}>
+          {quarters.map((m, i) =>
+            i % step === 0 || i === quarters.length - 1 ? (
+              <text key={m.quarter} x={x(i)} y={HEIGHT - 9} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.7}>
                 {m.label}
               </text>
             ) : null,
@@ -186,19 +186,19 @@ export function CumulativeGpChart({ months }: { months: ChartMonth[] }) {
           {active !== null ? <line x1={x(active)} x2={x(active)} y1={MARGIN.top} y2={MARGIN.top + innerHeight} stroke="currentColor" strokeOpacity={0.25} strokeDasharray="3 3" /> : null}
           {targetLine.length > 0 ? <path d={monotonePath(targetLine)} fill="none" stroke={TARGET} strokeWidth={2} strokeDasharray="6 4" strokeLinecap="round" /> : null}
           {wonLine.length > 0 ? <path d={monotonePath(wonLine)} fill="none" stroke={ACHIEVED} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" /> : null}
-          {latest >= 0 ? <circle cx={x(latest)} cy={y(months[latest]!.cumWon)} r={5} fill={ACHIEVED} stroke="var(--card, #fff)" strokeWidth={2} /> : null}
-          {latest >= 0 && months[latest]!.cumTarget !== null ? <circle cx={x(latest)} cy={y(months[latest]!.cumTarget!)} r={4} fill="var(--card, #fff)" stroke={TARGET} strokeWidth={2} /> : null}
-          {months.map((m, i) => (
+          {latest >= 0 ? <circle cx={x(latest)} cy={y(quarters[latest]!.cumWon)} r={5} fill={ACHIEVED} stroke="var(--card, #fff)" strokeWidth={2} /> : null}
+          {latest >= 0 && quarters[latest]!.cumTarget !== null ? <circle cx={x(latest)} cy={y(quarters[latest]!.cumTarget!)} r={4} fill="var(--card, #fff)" stroke={TARGET} strokeWidth={2} /> : null}
+          {quarters.map((m, i) => (
             <rect
-              key={m.month}
-              x={i === 0 ? MARGIN.left : x(i) - inner / (months.length - 1) / 2}
+              key={m.quarter}
+              x={i === 0 ? MARGIN.left : x(i) - inner / (quarters.length - 1) / 2}
               y={MARGIN.top}
-              width={inner / (months.length - 1) / (i === 0 || i === months.length - 1 ? 2 : 1)}
+              width={inner / (quarters.length - 1) / (i === 0 || i === quarters.length - 1 ? 2 : 1)}
               height={innerHeight}
               fill="transparent"
               tabIndex={0}
               role="button"
-              aria-label={`Through ${m.label}: target ${m.cumTarget === null ? "not set" : formatAmount(m.cumTarget)}, achieved ${m.reached ? formatAmount(m.cumWon) : "month not started"}`}
+              aria-label={`Through ${m.label}: target ${m.cumTarget === null ? "not set" : formatAmount(m.cumTarget)}, achieved ${m.reached ? formatAmount(m.cumWon) : "quarter not started"}`}
               onPointerEnter={() => setActive(i)}
               onFocus={() => setActive(i)}
               onBlur={() => setActive(null)}
@@ -211,7 +211,7 @@ export function CumulativeGpChart({ months }: { months: ChartMonth[] }) {
           <Tip left={Math.min(Math.max(x(active!), 104), width - 104)}>
             <p className="mb-1 font-semibold">Through {current.label}</p>
             <p>Target: {current.cumTarget === null ? "not set" : formatAmount(current.cumTarget)}</p>
-            <p>Achieved: {current.reached ? formatAmount(current.cumWon) : "month not started"}</p>
+            <p>Achieved: {current.reached ? formatAmount(current.cumWon) : "quarter not started"}</p>
             {current.reached && current.cumTarget !== null ? <p className="mt-1 text-muted-foreground">{gapText(current.cumWon, current.cumTarget)}</p> : null}
           </Tip>
         ) : null}

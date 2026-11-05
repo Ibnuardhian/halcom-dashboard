@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cumulate, MONTH_NAMES, MONTH_SHORT, monthsElapsed, paceAt, percentOf, type TargetSummary } from "@/domain/targets/quarters";
+import { cumulate, paceAt, percentOf, QUARTER_MONTHS, quartersElapsed, type TargetSummary } from "@/domain/targets/quarters";
 import { formatAmount, formatCompact } from "@/features/projects/format";
-import { CumulativeGpChart, MonthlyGpChart, type ChartMonth } from "@/features/targets/gp-charts";
+import { CumulativeGpChart, QuarterlyGpChart, type ChartQuarter } from "@/features/targets/gp-charts";
 import { TargetForm } from "@/features/targets/target-form";
 import type { SalesBreakdownRow, StoredTargets } from "@/server/targets/service";
 
@@ -42,11 +42,11 @@ export function TargetTracking({
   const percent = percentOf(gp.won, target);
   const remaining = target === null ? null : Math.max(target - gp.won, 0);
   const over = target !== null && gp.won > target ? gp.won - target : 0;
-  const elapsed = monthsElapsed(year, today);
-  const cumulative = cumulate(summary.months);
-  const monthlySet = summary.months.some((m) => m.target !== null);
+  const elapsed = quartersElapsed(year, today);
+  const cumulative = cumulate(summary.quarters);
+  const quarterlySet = summary.quarters.some((q) => q.grossProfit.target !== null);
   const pace = elapsed > 0 ? paceAt(cumulative, elapsed) : null;
-  const chartMonths: ChartMonth[] = summary.months.map((m, i) => ({ month: m.month, label: MONTH_SHORT[i]!, target: m.target, won: m.won, cumTarget: cumulative[i]!.target, cumWon: cumulative[i]!.won, reached: m.month <= elapsed }));
+  const chartQuarters: ChartQuarter[] = summary.quarters.map((q, i) => ({ quarter: q.quarter, label: `Q${q.quarter}`, target: q.grossProfit.target, won: q.grossProfit.won, cumTarget: cumulative[i]!.target, cumWon: cumulative[i]!.won, reached: q.quarter <= elapsed }));
   const scope = own ? "Target Anda sendiri" : "Gabungan target semua salesperson";
 
   return (
@@ -56,7 +56,7 @@ export function TargetTracking({
           <p className="text-sm text-muted-foreground">Won GP (estimated), {year}</p>
           <p className="text-4xl font-semibold tracking-tight text-primary tabular-nums">{formatAmount(gp.won)}</p>
           {target === null ? (
-            <p className="text-sm text-muted-foreground">Belum ada target GP untuk {year}. {own ? "Isi target per bulan di bawah." : "Setiap salesperson mengisi targetnya sendiri."}</p>
+            <p className="text-sm text-muted-foreground">Belum ada target GP untuk {year}. {own ? "Isi target per kuartal di bawah." : "Setiap salesperson mengisi targetnya sendiri."}</p>
           ) : (
             <>
               <div
@@ -77,11 +77,11 @@ export function TargetTracking({
           )}
           {pace ? (
             <p className="text-sm" data-testid="gp-pace">
-              <span className="font-medium">Sampai {MONTH_NAMES[elapsed - 1]}:</span> rencana {formatAmount(pace.target)}, tercapai {formatAmount(gp.won)}.{" "}
+              <span className="font-medium">Sampai Q{elapsed}:</span> rencana {formatAmount(pace.target)}, tercapai {formatAmount(gp.won)}.{" "}
               <span className={pace.gap < 0 ? "font-medium text-destructive" : "font-medium"}>{pace.gap < 0 ? `Tertinggal ${formatAmount(-pace.gap)}` : `Di atas rencana ${formatAmount(pace.gap)}`}.</span>
             </p>
           ) : elapsed > 0 && target !== null ? (
-            <p className="text-sm text-muted-foreground">Target per bulan belum diisi, jadi kecepatan capaian belum bisa dinilai.</p>
+            <p className="text-sm text-muted-foreground">Target per kuartal belum diisi, jadi kecepatan capaian belum bisa dinilai.</p>
           ) : null}
         </div>
         <dl className="flex flex-col gap-3 lg:border-l lg:pl-6">
@@ -108,9 +108,9 @@ export function TargetTracking({
         </div>
       ) : null}
 
-      {!monthlySet && target !== null ? (
+      {!quarterlySet && target !== null ? (
         <p role="status" className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-          Target tahunan ada, tetapi target per bulan belum diisi. Grafik menampilkan capaian saja; target bulanan tidak dibagi rata secara otomatis.
+          Belum ada target per kuartal. Grafik menampilkan capaian saja; target tidak dibagi rata secara otomatis.
         </p>
       ) : null}
 
@@ -118,12 +118,12 @@ export function TargetTracking({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              <h2>Monthly GP Performance</h2>
+              <h2>Quarterly GP Performance</h2>
             </CardTitle>
-            <CardDescription>Target dan capaian GP tiap bulan, berdasarkan tanggal won.</CardDescription>
+            <CardDescription>Target dan capaian GP tiap kuartal, berdasarkan tanggal won.</CardDescription>
           </CardHeader>
           <CardContent>
-            <MonthlyGpChart months={chartMonths} />
+            <QuarterlyGpChart quarters={chartQuarters} />
           </CardContent>
         </Card>
         <Card>
@@ -131,21 +131,21 @@ export function TargetTracking({
             <CardTitle className="text-base">
               <h2>Cumulative GP Achievement</h2>
             </CardTitle>
-            <CardDescription>Jumlah berjalan sejak Januari: apakah capaian mengikuti rencana target.</CardDescription>
+            <CardDescription>Jumlah berjalan sejak Q1: apakah capaian mengikuti rencana target.</CardDescription>
           </CardHeader>
           <CardContent>
-            <CumulativeGpChart months={chartMonths} />
+            <CumulativeGpChart quarters={chartQuarters} />
           </CardContent>
         </Card>
       </div>
 
       <details className="rounded-xl p-4 ring-1 ring-foreground/10">
-        <summary className="cursor-pointer text-sm font-medium">Show monthly figures as a table</summary>
+        <summary className="cursor-pointer text-sm font-medium">Show quarterly figures as a table</summary>
         <div className="mt-3 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Month</TableHead>
+                <TableHead>Quarter</TableHead>
                 <TableHead className="text-right">Target GP</TableHead>
                 <TableHead className="text-right">Achieved GP</TableHead>
                 <TableHead className="text-right">Gap</TableHead>
@@ -154,14 +154,18 @@ export function TargetTracking({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {summary.months.map((m, i) => {
-                const reached = m.month <= elapsed;
+              {summary.quarters.map((q, i) => {
+                const reached = q.quarter <= elapsed;
+                const target = q.grossProfit.target;
+                const gap = q.grossProfit.won - (target ?? 0);
                 return (
-                  <TableRow key={m.month}>
-                    <TableCell>{MONTH_NAMES[i]}</TableCell>
-                    <TableCell className="text-right tabular-nums">{m.target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(m.target)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{reached ? formatAmount(m.won) : <span className="text-muted-foreground">Not started</span>}</TableCell>
-                    <TableCell className="text-right tabular-nums">{reached && m.target !== null ? (m.won - m.target < 0 ? `▼ ${formatAmount(m.won - m.target)}` : `+${formatAmount(m.won - m.target)}`) : "–"}</TableCell>
+                  <TableRow key={q.quarter}>
+                    <TableCell>
+                      Q{q.quarter} <span className="text-xs text-muted-foreground">{QUARTER_MONTHS[q.quarter]}</span>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{target === null ? <span className="text-muted-foreground">Not set</span> : formatAmount(target)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{reached ? formatAmount(q.grossProfit.won) : <span className="text-muted-foreground">Not started</span>}</TableCell>
+                    <TableCell className="text-right tabular-nums">{reached && target !== null ? (gap < 0 ? `▼ ${formatAmount(gap)}` : `+${formatAmount(gap)}`) : "–"}</TableCell>
                     <TableCell className="text-right tabular-nums">{cumulative[i]!.target === null ? "–" : formatAmount(cumulative[i]!.target)}</TableCell>
                     <TableCell className="text-right tabular-nums">{reached ? formatAmount(cumulative[i]!.won) : "–"}</TableCell>
                   </TableRow>
@@ -221,10 +225,10 @@ export function TargetTracking({
             <CardTitle className="text-base">
               <h2>My {year} targets</h2>
             </CardTitle>
-            <CardDescription>Isi target GP tiap bulan. Total tahunan ({formatCompact(target)}) adalah jumlah kedua belas bulan.</CardDescription>
+            <CardDescription>Isi target GP tiap kuartal. Total tahunan ({formatCompact(target)}) adalah jumlah keempat kuartal.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TargetForm year={year} stored={own} />
+            <TargetForm year={year} values={own} formKey={`${year}-${JSON.stringify(own)}`} />
           </CardContent>
         </Card>
       ) : null}

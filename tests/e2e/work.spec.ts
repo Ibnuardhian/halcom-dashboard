@@ -289,7 +289,7 @@ test.describe("projects and requests", () => {
     await expect(page.getByText("You are all caught up.")).toBeVisible();
   });
 
-  test("Sales enter monthly gross profit targets and see how far they have come", async ({ page }) => {
+  test("Sales enter quarterly gross profit targets and see how far they have come", async ({ page }) => {
     // The year is part of the data and the test database lives across runs, so each run uses its own year.
     const year = 2040 + Math.floor(Math.random() * 50);
     await signIn(page, "SALES");
@@ -308,13 +308,12 @@ test.describe("projects and requests", () => {
     await expect(page.getByRole("heading", { level: 2, name: `My ${year} targets` })).toBeVisible();
     await expect(async () => {
       // The boxes reset when the page becomes interactive, so they are filled again on every try.
-      await page.getByLabel("January", { exact: true }).fill("30");
-      await page.getByLabel("February", { exact: true }).fill("70");
+      await page.getByLabel("Q1 gross profit target").fill("100");
       await page.getByRole("button", { name: `Save my ${year} targets` }).click();
-      await expect(page.getByRole("status").filter({ hasText: /Saved targets for January, February|Tidak ada perubahan/ })).toBeVisible({ timeout: 8000 }); // a retry after a slow first save reports no change
+      await expect(page.getByRole("status").filter({ hasText: /Saved targets for Q1|Tidak ada perubahan/ })).toBeVisible({ timeout: 8000 }); // a retry after a slow first save reports no change
     }).toPass({ timeout: 20_000 });
 
-    // Gross profit is the only target: the annual target is the sum of the months, and the revenue scorecard is gone.
+    // Gross profit is the only target: the annual target is the sum of the quarters, and the revenue scorecard is gone.
     const summary = page.getByRole("region", { name: "Gross profit target tracking" });
     await expect(summary.getByText("Annual GP target")).toBeVisible();
     await expect(summary.locator("dd").filter({ hasText: /^100$/ }).first()).toBeVisible();
@@ -323,13 +322,13 @@ test.describe("projects and requests", () => {
     await expect(summary.getByText("Remaining GP")).toBeVisible();
     await expect(summary.getByText("Open pipeline GP")).toBeVisible();
     await expect(page.getByText("Revenue won (after PO)")).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 2, name: "Monthly GP Performance" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Quarterly GP Performance" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Cumulative GP Achievement" })).toBeVisible();
     await expect(page.getByLabel("Q1 revenue target")).toHaveCount(0);
 
     await page.reload(); // the saved target comes back into the form
-    await expect(page.getByLabel("January", { exact: true })).toHaveValue("30");
-    await expect(page.getByLabel("March", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Q1 gross profit target")).toHaveValue("100");
+    await expect(page.getByLabel("Q2 gross profit target")).toHaveValue("");
   });
 
   test("the year slider moves between years with the buttons, the arrow keys and the list, and the page follows", async ({ page }) => {

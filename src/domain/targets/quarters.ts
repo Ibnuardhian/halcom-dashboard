@@ -38,16 +38,12 @@ export type Figures = {
   forecast: number;
 };
 
-export type MonthFigures = { month: number; /** Null when no target is set for the month (not the same as a target of zero). */ target: number | null; /** Gross profit of Closed Won projects whose won date is in the month. */ won: number };
-
 export type QuarterFigures = { quarter: Quarter; revenue: Figures; grossProfit: Figures };
 
 export type TargetSummary = {
   year: number;
   quarters: QuarterFigures[];
   total: { revenue: Figures; grossProfit: Figures };
-  /** January to December, gross profit only. */
-  months: MonthFigures[];
   /** Closed Won projects with a won date in the year. */
   wonCount: number;
   /** Gross profit of open projects expected to close in the year, as entered: no probability applied, never part of won. */
@@ -71,12 +67,10 @@ const sumTargets = (values: (number | null)[]): number | null => (values.every((
  * Forecast uses the weighted value of open projects by their target closing date. A project missing a date or margin
  * adds nothing to the figure it needs and is counted in `notes` instead. A fixed margin amount is used as it is.
  */
-export function summariseTargets(year: number, projects: readonly TargetProject[], targets: readonly TargetRow[], monthTargets: readonly { month: number; grossProfitTarget: number }[] = []): TargetSummary {
+export function summariseTargets(year: number, projects: readonly TargetProject[], targets: readonly TargetRow[]): TargetSummary {
   const blank = (): Figures => ({ target: null, won: 0, forecast: 0 });
   const quarters: QuarterFigures[] = QUARTERS.map((quarter) => ({ quarter, revenue: blank(), grossProfit: blank() }));
   const at = (quarter: Quarter) => quarters[quarter - 1]!;
-  const months: MonthFigures[] = Array.from({ length: 12 }, (_, index) => ({ month: index + 1, target: null, won: 0 }));
-  for (const row of monthTargets) months[row.month - 1]!.target = row.grossProfitTarget;
   let wonCount = 0;
   let openPipelineGp = 0;
   const notes = { wonWithoutDate: 0, wonWithoutMargin: 0, openWithoutTargetDate: 0 };
@@ -101,10 +95,7 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
       wonCount += 1;
       const profit = fixed ?? (percent === null ? null : (value * percent) / 100);
       if (profit === null) notes.wonWithoutMargin += 1;
-      else {
-        at(when.quarter).grossProfit.won += profit;
-        months[project.wonDate.getUTCMonth()]!.won += profit;
-      }
+      else at(when.quarter).grossProfit.won += profit;
     } else if (isOpenProject(project)) {
       if (!project.targetDate) {
         if (value > 0 || fixed !== null) notes.openWithoutTargetDate += 1;
@@ -135,39 +126,32 @@ export function summariseTargets(year: number, projects: readonly TargetProject[
     won: round(quarters.reduce((sum, q) => sum + pick(q).won, 0)),
     forecast: round(quarters.reduce((sum, q) => sum + pick(q).forecast, 0)),
   });
-  for (const m of months) m.won = round(m.won);
-  return { year, quarters, months, wonCount, openPipelineGp: round(openPipelineGp), total: { revenue: total((q) => q.revenue), grossProfit: total((q) => q.grossProfit) }, notes };
+  return { year, quarters, wonCount, openPipelineGp: round(openPipelineGp), total: { revenue: total((q) => q.revenue), grossProfit: total((q) => q.grossProfit) }, notes };
 }
 
-export type CumulativePoint = { month: number; target: number | null; won: number };
+export type CumulativePoint = { quarter: Quarter; target: number | null; won: number };
 
 /**
- * Running totals from January. The target line exists only when at least one month has a target; months without one add nothing to it
+ * Running totals from Q1. The target line exists only when at least one quarter has a target; a quarter without one adds nothing to it
  * (the chart says so), and the line is never spread evenly on the person's behalf.
  */
-export function cumulate(months: readonly MonthFigures[]): CumulativePoint[] {
-  const hasTargets = months.some((m) => m.target !== null);
+export function cumulate(quarters: readonly QuarterFigures[]): CumulativePoint[] {
+  const hasTargets = quarters.some((q) => q.grossProfit.target !== null);
   let target = 0;
   let won = 0;
-  return months.map((m) => {
-    target += m.target ?? 0;
-    won = Math.round((won + m.won) * 100) / 100;
-    return { month: m.month, target: hasTargets ? target : null, won };
+  return quarters.map((q) => {
+    target += q.grossProfit.target ?? 0;
+    won = Math.round((won + q.grossProfit.won) * 100) / 100;
+    return { quarter: q.quarter, target: hasTargets ? target : null, won };
   });
 }
 
-export const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
-export const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
-export const MONTH_SHORT = MONTH_NAMES.map((name) => name.slice(0, 3));
-
-export const quarterOfMonth = (month: number): Quarter => (Math.floor((month - 1) / 3) + 1) as Quarter;
-
-/** The last month that counts as running or finished: 12 for a past year, 0 for a future one, the current month for this year. */
-export function monthsElapsed(year: number, today: { year: number; month: number }): number {
-  return year < today.year ? 12 : year > today.year ? 0 : today.month;
+/** The last quarter that is running or finished: 4 for a past year, 0 for a future one, the current quarter for this year. */
+export function quartersElapsed(year: number, today: { year: number; month: number }): number {
+  return year < today.year ? 4 : year > today.year ? 0 : Math.floor((today.month - 1) / 3) + 1;
 }
 
-/** Achieved against the target planned up to `asOf` (months elapsed); null when no month has a target or nothing has elapsed. */
+/** Achieved against the target planned up to `asOf` (quarters elapsed); null when no quarter has a target or nothing has elapsed. */
 export function paceAt(points: readonly CumulativePoint[], asOf: number): { target: number; won: number; gap: number; percent: number | null } | null {
   const point = points[asOf - 1];
   if (!point || point.target === null) return null;
