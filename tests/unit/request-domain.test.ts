@@ -4,6 +4,7 @@ import { canContinueFlow } from "@/domain/requests/access";
 import { flowSteps } from "@/domain/requests/flow";
 import { formatDateText, parseRecipients, resolveRecipients, sampleValues, singleLine, templateValues } from "@/domain/requests/email";
 import { buildRequestEmail } from "@/server/requests/email";
+import { computeTeamMetrics } from "@/domain/requests/metrics";
 import { addWorkingDays, formatSlaRange, isValidSlaRange, parseSlaRange, slaOf, waitingMs } from "@/domain/requests/sla";
 import { DEFAULT_TEMPLATES, renderBody, renderSubject, validateTemplate, variablesIn } from "@/domain/requests/template";
 import {
@@ -333,6 +334,18 @@ describe("SLA", () => {
     const again = slaOf({ ...base, status: "REVISION", completedAt, history: [...history, { toStatus: "COMPLETED" as const, changedAt: at("2026-10-22T01:00:00Z") }, { toStatus: "REVISION" as const, changedAt: at("2026-10-26T03:00:00Z") }], now: at("2026-10-26T04:00:00Z") });
     expect(again.revision?.startedAt.toISOString()).toBe("2026-10-26T03:00:00.000Z");
     expect(again.state).toBe("due_soon");
+  });
+
+  it("shows one SLA figure: the first completion and a finished revision are both scored", () => {
+    const base = { code: "BOQ-1", requiredBy: null, assigneeId: null, assigneeName: null, createdAt: at("2026-10-19T03:00:00Z"), completedAt: at("2026-10-20T01:00:00Z") };
+    const history = [
+      { toStatus: "COMPLETED" as const, changedAt: at("2026-10-20T01:00:00Z") },
+      { toStatus: "REVISION" as const, changedAt: at("2026-10-21T03:00:00Z") },
+      { toStatus: "COMPLETED" as const, changedAt: at("2026-10-23T01:00:00Z") }, // revision due Thu 22nd: late
+    ];
+    const metrics = computeTeamMetrics([{ ...base, status: "COMPLETED", history }], { minDays: 1, maxDays: 1 }, at("2026-10-26T00:00:00Z"));
+    expect([metrics.slaMet, metrics.slaLate]).toEqual([1, 1]);
+    expect(metrics.slaCompliancePct).toBe(50);
   });
 
   it("reads the SLA as one number or a range, up to 7 days, and writes it back the same way", () => {

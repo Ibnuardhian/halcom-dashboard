@@ -175,6 +175,13 @@ export function computeTeamMetrics(requests: readonly MetricRequest[], range: Sl
       continue;
     }
 
+    // One SLA figure: a finished revision is scored like a completion (kept apart per round in the data, see slaOf).
+    const revision = sla.revision;
+    if (request.status === "COMPLETED" && revision?.endedAt && revision.endedAt.getTime() >= since) {
+      if (revision.state === "met") metrics.slaMet += 1;
+      if (revision.state === "late") metrics.slaLate += 1;
+    }
+
     if (request.status === "COMPLETED" && request.completedAt && request.completedAt.getTime() >= since) {
       metrics.completedInWindow += 1;
       if (sla.state === "met") metrics.slaMet += 1;
@@ -236,6 +243,10 @@ export function monthlyReport(requests: readonly MetricRequest[], range: SlaRang
   for (const request of requests) {
     const created = rows.get(monthOf(request.createdAt));
     if (created) created.received += 1;
+    const revised = request.status === "COMPLETED" ? slaOf({ createdAt: request.createdAt, status: request.status, completedAt: request.completedAt, history: request.history, range, now }).revision : null;
+    const revisedIn = revised?.endedAt ? rows.get(monthOf(revised.endedAt)) : undefined;
+    if (revisedIn && revised?.state === "met") revisedIn.slaMet += 1;
+    if (revisedIn && revised?.state === "late") revisedIn.slaLate += 1;
     if (request.status !== "COMPLETED" || !request.completedAt) continue;
     const done = rows.get(monthOf(request.completedAt));
     if (!done) continue;

@@ -105,7 +105,7 @@ export type SlaInput = {
 };
 
 /** One revision round: the clock starts when the request was sent back (same range as the team's SLA) and has a result of its own. */
-export type RevisionSla = { startedAt: Date; targetAt: Date; dueAt: Date; state: SlaState };
+export type RevisionSla = { startedAt: Date; endedAt: Date | null; targetAt: Date; dueAt: Date; state: SlaState };
 
 /**
  * `targetAt` is when an answer is expected (the first number of the range); `dueAt` is the deadline (the last).
@@ -130,7 +130,7 @@ function latestRevision(history: readonly StatusEntry[], range: SlaRange, now: D
   const cancelled = ordered.some((entry) => entry.toStatus === "CANCELLED" && entry.changedAt.getTime() >= startedAt.getTime());
   const done = ordered.find((entry) => entry.toStatus === "COMPLETED" && entry.changedAt.getTime() >= startedAt.getTime());
   const state: SlaState = cancelled ? "none" : done ? (done.changedAt.getTime() > dueAt.getTime() ? "late" : "met") : runningState(now, targetAt, dueAt);
-  return { startedAt, targetAt, dueAt, state };
+  return { startedAt, endedAt: done?.changedAt ?? null, targetAt, dueAt, state };
 }
 
 /**
