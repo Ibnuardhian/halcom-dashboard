@@ -33,7 +33,7 @@ async function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      sections={navSectionsFor(user.role)}
+      sections={navSectionsFor(user.role, user.alsoManagement)}
       user={{ name: user.name, roleLabel: ROLE_LABELS[user.role] }}
       accountHref={ACCOUNT_PATH}
       notifications={{ href: NOTIFICATIONS_PATH, unread, urgent }}

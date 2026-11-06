@@ -31,6 +31,8 @@ model User {
   passwordHash String   @map("password_hash")
   // One role per user (assumption A-1 in docs/requirements/RBAC.md).
   role         Role
+  // Also sees what Management sees (read only), on top of the role above. Set by a superadmin; never for Admin, Superadmin or Management.
+  alsoManagement Boolean @default(false) @map("also_management")
   isActive     Boolean  @default(true) @map("is_active")
   // True while somebody else chose this password (an account an administrator created or reset, and the first superadmin):
   // the person is sent to the password page and can reach nothing else until they have chosen their own (T-9).

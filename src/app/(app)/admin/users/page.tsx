@@ -68,7 +68,10 @@ async function Users() {
                   {user.id === viewer.id ? <span className="text-muted-foreground"> (you)</span> : null}
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
-                <TableCell>{ROLE_LABELS[user.role]}</TableCell>
+                <TableCell>
+                  {ROLE_LABELS[user.role]}
+                  {user.alsoManagement ? <span className="text-muted-foreground"> + Management (lihat)</span> : null}
+                </TableCell>
                 <TableCell>
                   <Badge variant={user.isActive ? "secondary" : "outline"}>{user.isActive ? "Active" : "Inactive"}</Badge>
                 </TableCell>
@@ -76,7 +79,7 @@ async function Users() {
                 {mayManage ? (
                   <TableCell>
                     {editable ? (
-                      <UserEditDialog user={{ id: user.id, name: user.name, email: user.email, role: user.role, isActive: user.isActive }} roles={roles} canChangeEmail={can(viewer.role, "users.change-email")} />
+                      <UserEditDialog user={{ id: user.id, name: user.name, email: user.email, role: user.role, alsoManagement: user.alsoManagement, isActive: user.isActive }} roles={roles} canChangeEmail={can(viewer.role, "users.change-email")} canSetManagement={can(viewer.role, "users.manage-privileged")} />
                     ) : (
                       <span className="sr-only">Tidak ada aksi</span>
                     )}

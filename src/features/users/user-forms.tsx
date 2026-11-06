@@ -4,6 +4,7 @@ import { useActionState, useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ALSO_MANAGEMENT_ROLES } from "@/domain/access/permissions";
 import { ROLE_LABELS, type Role } from "@/domain/access/roles";
 import { SaveText } from "@/components/ui/save-text";
 import {
@@ -12,6 +13,7 @@ import {
   createUserAction,
   resetPasswordAction,
   setActiveAction,
+  setAlsoManagementAction,
   type ActionState,
 } from "./actions";
 
@@ -90,6 +92,26 @@ export function RoleForm({ userId, currentRole, roles, label }: { userId: string
   );
 }
 
+/** Lets the person also see what Management sees (read only). Superadmin only; the page decides who gets the form. */
+export function AlsoManagementForm({ userId, enabled, label }: { userId: string; enabled: boolean; label: string }) {
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(setAlsoManagementAction, null);
+  return (
+    <form action={formAction} className="flex flex-col gap-1">
+      <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="enabled" value={String(!enabled)} />
+      <p className="text-sm text-muted-foreground">
+        {enabled ? "Aktif: menu dan dashboard Management (hanya lihat) ada di samping peran ini." : "Mati. Aktifkan agar orang ini juga melihat yang dilihat Management, tanpa hak mengubah."}
+      </p>
+      <div>
+        <Button type="submit" size="sm" variant={enabled ? "outline" : "default"} disabled={pending} aria-label={`${enabled ? "Matikan" : "Aktifkan"} tampilan Management untuk ${label}`}>
+          {enabled ? "Matikan" : "Aktifkan"}
+        </Button>
+      </div>
+      <Status state={state} />
+    </form>
+  );
+}
+
 export function ActiveForm({ userId, isActive, label }: { userId: string; isActive: boolean; label: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(setActiveAction, null);
 
@@ -148,10 +170,12 @@ export function UserEditDialog({
   user,
   roles,
   canChangeEmail,
+  canSetManagement,
 }: {
-  user: { id: string; name: string; email: string; role: Role; isActive: boolean };
+  user: { id: string; name: string; email: string; role: Role; alsoManagement: boolean; isActive: boolean };
   roles: readonly Role[];
   canChangeEmail: boolean;
+  canSetManagement: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -186,6 +210,12 @@ export function UserEditDialog({
             <h3 className="text-sm font-semibold">Role</h3>
             <RoleForm userId={user.id} currentRole={user.role} roles={roles} label={user.email} />
           </section>
+          {canSetManagement && ALSO_MANAGEMENT_ROLES.includes(user.role) ? (
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-sm font-semibold">Tampilan Management</h3>
+              <AlsoManagementForm userId={user.id} enabled={user.alsoManagement} label={user.email} />
+            </section>
+          ) : null}
           <section className="flex flex-col gap-1.5">
             <h3 className="text-sm font-semibold">Password</h3>
             <ResetPasswordForm userId={user.id} label={user.email} />

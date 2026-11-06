@@ -1000,3 +1000,11 @@ The preview of each template (filled with sample data) is no longer a long block
 - **Not built:** an in-app "ask Sales" from SOA or Purchasing (questions stay in email); a separate dashboard figure for revision SLA.
 
 **Amended (2026-11-06): one SLA figure on the dashboards.** The SOA and Purchasing dashboards (and the monthly report) show a single SLA compliance figure. A completion and a finished revision are each scored once: the revision counts in the window where it ended (`RevisionSla.endedAt`). In the data the two stay apart: `slaOf` gives the first result (`state`) and the revision round (`revision`) separately, and the request page shows both.
+
+## D-082: A person can also see what Management sees (2026-11-10)
+
+**Asked by the owner** for the director, who is a salesperson and also wants the overview Management has, read only.
+
+- **One flag, not a second role.** `users.also_management` (default false, migration `20261111100000_user_also_management`). The working role stays the single `users.role`, so every role check in the code (ownership, scoping, notifications, the request code prefix) is unchanged. `canHold(person, permission)` is `can(role)` or, when the flag is on, `can("MANAGEMENT")`; `requirePermission`, the menu (`navLinksFor(role, alsoManagement)`) and the two Management-only queries (technical report, financial crosscheck) use it. The flag adds only what Management has and Sales lacks: the Management dashboard, technical reports and the crosscheck; nothing that changes data.
+- **Who and how.** Only a superadmin (`users.manage-privileged`) turns it on, in the user's Edit window ("Tampilan Management"); it is audited (`user.also_management_changed`). It is for Sales, SOA, Purchasing and Finance only; changing the role to Admin, Superadmin or Management clears it.
+- **Not done:** a general list of extra roles (a second working role such as Sales + SOA would need the identity checks of D-081's neighbours changed one by one, about thirty places); Admin functions for the director (not asked: view only).

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@/generated/prisma/client";
-import { can } from "@/domain/access/permissions";
+import { can, canHold } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { CROSSCHECK_FLAGS, crosscheckFlags, type CrosscheckFlag } from "@/domain/finance/crosscheck";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
@@ -8,7 +8,7 @@ import { salesSideName } from "@/domain/projects/source";
 import type { RequestStatus } from "@/domain/requests/status";
 import type { RequestType } from "@/domain/requests/types";
 
-type Viewer = { id: string; role: Role };
+type Viewer = { id: string; role: Role; alsoManagement?: boolean };
 
 export type CrosscheckRow = {
   code: string;
@@ -38,7 +38,7 @@ export const CROSSCHECK_LIMIT = 500;
  * afterwards, so a count shown elsewhere always matches the list it links to.
  */
 export async function listCrosscheck(db: PrismaClient, viewer: Viewer, filter: CrosscheckFilter = {}): Promise<{ rows: CrosscheckRow[]; flagCounts: Record<CrosscheckFlag, number>; total: number }> {
-  if (!can(viewer.role, "finance.crosscheck.view")) throw new Error("Forbidden: missing permission for this query.");
+  if (!canHold(viewer, "finance.crosscheck.view")) throw new Error("Forbidden: missing permission for this query.");
   const search = filter.search?.trim();
   const projects = await db.project.findMany({
     where: {

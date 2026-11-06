@@ -360,3 +360,33 @@ test.describe("importing projects from Excel, paging the table and drilling down
     await sales.context().close();
   });
 });
+
+test("a superadmin gives a Sales user the Management view; an admin has no such section", async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const email = `e2e-director-${Date.now()}@example.invalid`;
+
+  await signIn(page, "SUPERADMIN");
+  await page.goto("/admin/users");
+  await page.getByLabel("Name", { exact: true }).fill("E2E Director");
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Role", { exact: true }).selectOption("Sales");
+  await page.getByLabel("Initial password").fill("e2e-created-user-pass-1");
+  await page.getByRole("button", { name: "Create user" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "User created." })).toBeVisible();
+
+  await page.getByRole("button", { name: `Edit ${email}` }).click();
+  const section = page.getByRole("dialog").locator("section").filter({ hasText: "Tampilan Management" });
+  await expect(async () => {
+    await section.getByRole("button", { name: `Aktifkan tampilan Management untuk ${email}` }).click();
+    await expect(page.getByRole("cell", { name: /Sales\s*\+ Management \(lihat\)/ })).toBeVisible({ timeout: 4000 });
+  }).toPass({ timeout: 45_000 });
+
+  const adminContext = await browser.newContext();
+  const admin = await adminContext.newPage();
+  await signIn(admin, "ADMIN");
+  await admin.goto("/admin/users");
+  await admin.getByRole("button", { name: `Edit ${email}` }).click();
+  await expect(admin.getByRole("dialog").getByRole("heading", { name: "Role" })).toBeVisible();
+  await expect(admin.getByText("Tampilan Management", { exact: true })).toHaveCount(0);
+  await adminContext.close();
+});
