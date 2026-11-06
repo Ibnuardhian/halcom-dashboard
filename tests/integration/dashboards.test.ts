@@ -54,7 +54,7 @@ describe("the SOA dashboard numbers match the stored requests", () => {
     const d = await boq(sales, project.id); // completed
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: b.id, to: "IN_PROGRESS" });
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: c.id, to: "COMPLETED" });
-    await changeRequestStatus(db, as(soa, "SOA"), { requestId: c.id, to: "REVISION" });
+    await changeRequestStatus(db, as(soa, "SOA"), { requestId: c.id, to: "REVISION", reason: "Scope berubah" });
     await changeRequestStatus(db, as(soa, "SOA"), { requestId: d.id, to: "COMPLETED" });
     await assignRequestPic(db, as(soa, "SOA"), { requestId: b.id, picId: picOne.id });
     await assignRequestPic(db, as(soa, "SOA"), { requestId: c.id, picId: picTwo.id });

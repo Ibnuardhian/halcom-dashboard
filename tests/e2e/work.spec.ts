@@ -64,7 +64,7 @@ async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, co
     await card.dragTo(target);
     if (reason !== undefined) {
       await page.getByRole("dialog").getByLabel("Reason").fill(reason, { timeout: 3000 });
-      await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Reopen request)$/ }).click({ timeout: 3000 });
+      await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Request revision)$/ }).click({ timeout: 3000 });
     }
     await openColumn(page, column);
     await expect(target.locator(`[data-request="${code}"]`)).toBeVisible({ timeout: 4000 });
@@ -733,7 +733,7 @@ test.describe("projects and requests", () => {
     await soa.context().close();
   });
 
-  test("SOA revise a completed BOQ on the board; an RFQ has no Revision column", async ({ page, browser }) => {
+  test("SOA revise a completed BOQ on the board, with a reason; an RFQ has a Revision column too", async ({ page, browser }) => {
     test.setTimeout(180_000);
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Revision demo");
@@ -743,8 +743,7 @@ test.describe("projects and requests", () => {
     const soa = await asRole(browser, "SOA");
     // Revision exists only after Completed: a fresh card cannot be dropped on it, a completed one can.
     await moveCard(soa, "BOQ", boq, "COMPLETED");
-    await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
-    await expect(soa.getByRole("dialog")).toHaveCount(0);
+    await moveCard(soa, "BOQ", boq, "REVISION", "Customer minta tambah kamera");
     await soa.goto(`/projects/${projectCode}?request=${boq}#requests`);
     await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
@@ -762,7 +761,7 @@ test.describe("projects and requests", () => {
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);
     await expect(purchasing.locator(`[data-request="${rfq}"]`)).toBeVisible();
-    await expect(purchasing.locator('[data-column="REVISION"]')).toHaveCount(0);
+    await expect(purchasing.locator('[data-column="REVISION"]')).toHaveCount(1);
     await expect(purchasing.locator('[data-column="SUBMITTED"]')).toBeVisible();
     await soa.context().close();
     await purchasing.context().close();

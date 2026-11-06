@@ -988,3 +988,13 @@ The preview of each template (filled with sample data) is no longer a long block
 **Download.** Each backup in the list has a plain link (not `next/link`, whose prefetch would be audited as a download) to `/admin/backups/download/<name>`: only `system.backup` (the superadmin), only the two backup name patterns (so `../x` never reaches the file system), the file is streamed with `Cache-Control: no-store`, and each download writes `system.backup_downloaded` to the audit log. `listBackups` lists both name patterns.
 
 **Not solved.** The daily dump sits on the same VPS as the database, so it does not protect against losing the server: the owner downloads copies, and the nightly Neon copy (`db-sync.sh`) continues.
+
+## D-081: Every completed request can be sent back for revision, with a reason and a fresh SLA clock (2026-11-06)
+
+**Asked by the owner** (after a check showed revision was one-way, Sales to SOA, for a BOQ only).
+
+- **Revision for BOQ, RFQ and PO.** A Completed request goes to Revision only (the old "reopen to In progress" of an RFQ or PO is gone, since it made the request overdue at once: the clock still counted from the creation). Sales on their project, Admin and Superadmin send it back from the request page; the owning team (SOA for a BOQ, Purchasing for an RFQ or PO) can also drag the card to the Revision column, which every board now has. The owning team is notified, in red.
+- **A reason is always required** (`reasonRequired(_, "REVISION")`), on the request page and on the board. It is kept in the status history and the notification.
+- **SLA per round.** The first completion is scored once and never again. Each revision starts a new clock at the moment it was sent back, with the same range as the team's SLA (owner's choice); a second revision starts another. While the request is in Revision the SLA badge, the overdue counts and the "late completion needs a note" rule use that round; once it is completed again the badge shows the first result and a second line, "SLA revisi terakhir", shows the round's result (Met or Late). `slaOf` returns `revision` (`startedAt`, `targetAt`, `dueAt`, `state`) for this. No migration.
+- **Notes on a late revision.** An RFQ or PO that finishes its revision after the round's deadline needs a late note, like a first completion; the first completion's note is kept unless the revision's replaces it.
+- **Not built:** an in-app "ask Sales" from SOA or Purchasing (questions stay in email); a separate dashboard figure for revision SLA.

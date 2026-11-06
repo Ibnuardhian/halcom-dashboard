@@ -32,8 +32,8 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
 };
 
 /**
- * Where a request can be dragged to on the board. Revision exists for a BOQ only, and only after it was completed: the customer asked
- * for changes (agreed by email) and SOA reworks it. A request that still has the retired Waiting for Sales status can be moved on like
+ * Where a request can be dragged to on the board. Revision comes only after a request was completed: Sales (or the customer through
+ * Sales) asked for changes and the owning team reworks it, on a fresh SLA clock. A request that still has the retired Waiting for Sales status can be moved on like
  * one that is In progress.
  */
 function transitionsOf(type: RequestType): Record<RequestStatus, readonly RequestStatus[]> {
@@ -42,8 +42,8 @@ function transitionsOf(type: RequestType): Record<RequestStatus, readonly Reques
     SUBMITTED: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
     IN_PROGRESS: ["COMPLETED", "CANCELLED"],
     WAITING_FOR_SALES: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
-    // A BOQ is revised; an RFQ or PO is reopened, which keeps the earlier completion in the status history (brief §6.3).
-    COMPLETED: type === "BOQ" ? ["REVISION"] : ["IN_PROGRESS"],
+    // Every type is sent back through Revision (with a reason); the earlier completion stays in the status history (brief §6.3).
+    COMPLETED: ["REVISION"],
     REVISION: ["COMPLETED", "CANCELLED"],
     CANCELLED: [],
   };
@@ -57,18 +57,18 @@ export function canTransition(from: RequestStatus, to: RequestStatus, type: Requ
   return allowedTransitions(from, type).includes(to);
 }
 
-/** Cancelling and reopening must say why, so they cannot be hidden silently (brief §8.4). A revision is discussed by email. */
-export function reasonRequired(from: RequestStatus, to: RequestStatus): boolean {
-  return to === "CANCELLED" || (from === "COMPLETED" && to === "IN_PROGRESS");
+/** Cancelling and sending a completed request back for revision must say why, so they cannot be hidden silently (brief §8.4). */
+export function reasonRequired(_from: RequestStatus, to: RequestStatus): boolean {
+  return to === "CANCELLED" || to === "REVISION";
 }
 
 export function isOpen(status: RequestStatus): boolean {
   return status !== "COMPLETED" && status !== "CANCELLED";
 }
 
-/** The columns of the board for a type, in the order work moves through them. Revision is a BOQ column only. */
-export function boardColumns(type: RequestType | null): readonly RequestStatus[] {
-  return ACTIVE_STATUSES.filter((status) => status !== "REVISION" || type === null || type === "BOQ");
+/** The columns of the board, in the order work moves through them. */
+export function boardColumns(_type: RequestType | null): readonly RequestStatus[] {
+  return ACTIVE_STATUSES;
 }
 
 /** The board column a request sits in: a retired status is shown where the work is, In progress. */

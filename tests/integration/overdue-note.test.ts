@@ -55,9 +55,13 @@ describe("completing an overdue RFQ or PO", () => {
     const done = (await listOverdueRequests(db, purchasing, "PURCHASING")).find((r) => r.code === request.code);
     expect(done).toMatchObject({ completed: true, note: "Vendor terlambat kirim penawaran" });
 
-    // Reopening clears the note: it belongs to the completion.
-    expect((await changeRequestStatus(db, purchasing, { requestId: request.id, to: "IN_PROGRESS", reason: "Perlu revisi harga" })).ok).toBe(true);
-    expect((await db.request.findUniqueOrThrow({ where: { id: request.id } })).overdueNote).toBeNull();
+    // A revision starts a fresh clock: the first late note stays, and finishing the revision on time does not make the request late again.
+    expect((await changeRequestStatus(db, purchasing, { requestId: request.id, to: "REVISION", reason: "Perlu revisi harga" })).ok).toBe(true);
+    expect((await db.request.findUniqueOrThrow({ where: { id: request.id } })).overdueNote).toBe("Vendor terlambat kirim penawaran");
+    expect((await changeRequestStatus(db, purchasing, { requestId: request.id, to: "COMPLETED" })).ok).toBe(true);
+    const revised = await db.request.findUniqueOrThrow({ where: { id: request.id } });
+    expect(revised.overdueNote).toBe("Vendor terlambat kirim penawaran");
+    expect(revised.completedAt).toEqual(stored.completedAt);
   });
 
   it("needs no note when the request is on time, and never for a BOQ", async () => {

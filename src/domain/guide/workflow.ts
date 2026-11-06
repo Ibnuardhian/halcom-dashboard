@@ -164,7 +164,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     action: "Jika customer ingin mengubah BOQ yang sudah selesai, kembalikan dari halaman request. Tiket langsung masuk ke tahap Revision dan SOA menerima notifikasi merah.",
     input: "BOQ yang sudah Completed, dan perubahan yang diminta customer (wajib, maksimal 500 karakter).",
     output:
-      "BOQ berstatus Revision dengan alasan Anda tercatat di riwayatnya. SOA (tim dan technical PIC proyek) diberi tahu, dengan notifikasi dan lonceng berwarna merah. Hanya untuk BOQ: RFQ atau PO dibuka kembali oleh Purchasing.",
+      "BOQ berstatus Revision dengan alasan Anda tercatat di riwayatnya. SOA (tim dan technical PIC proyek) diberi tahu, dengan notifikasi dan lonceng berwarna merah. Berlaku juga untuk RFQ dan PO: yang diberi tahu adalah tim Purchasing. Setiap revisi punya jam SLA sendiri dari saat dikembalikan, dengan batas yang sama seperti SLA tim; hasil SLA penyelesaian pertama tidak berubah.",
     recipient: "SOA",
     guide: {
       where: "Open the completed BOQ → Request a revision",
@@ -462,7 +462,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
     col: 7,
     action:
       "Jaga status dan PIC RFQ tetap terbaru sampai quotation selesai. Pekerjaan quotation sendiri dilakukan di luar aplikasi; aplikasi mencatat request-nya.",
-    input: "Keadaan pekerjaan quotation. Membatalkan RFQ, atau membuka kembali RFQ yang sudah selesai, memerlukan alasan.",
+    input: "Keadaan pekerjaan quotation. Membatalkan RFQ, atau mengembalikan RFQ yang sudah selesai untuk direvisi, memerlukan alasan.",
     output: "RFQ berstatus Completed. Requester dan Sales PIC proyek diberi tahu, dan RFQ menjadi referensi quotation proyek untuk Finance.",
     recipient: "Sales, yang memutuskan apakah dilanjutkan ke PO",
     guide: {
@@ -472,7 +472,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
         "Buka RFQ board.",
         "Seret kartu ke In progress selama dikerjakan, dan ke Completed saat quotation selesai.",
         "Ganti PIC di halaman request jika pekerjaan berpindah ke orang lain.",
-        "Untuk menghentikan request, seret ke Cancelled dan isi alasannya. RFQ yang sudah selesai bisa dibuka kembali ke In progress, juga dengan alasan.",
+        "Untuk menghentikan request, seret ke Cancelled dan isi alasannya. RFQ yang sudah selesai bisa dikembalikan ke Revision, juga dengan alasan; jam SLA revisi mulai dari saat itu.",
       ],
       editable: ["Status request (dengan alasan untuk Cancelled dan pembukaan kembali)", "PIC"],
       handoff: "Sales yang memutuskan apakah RFQ yang selesai dilanjutkan ke PO. Purchasing tidak membuat PO sendiri.",
@@ -496,7 +496,7 @@ export const GUIDE_NODES: readonly GuideNode[] = [
       steps: [
         "Buka PO requests dan buka request baru tersebut.",
         "Tetapkan PIC di kartu PIC lalu pilih Save PIC.",
-        "Di PO board, seret kartu ke In progress, lalu ke Completed. PO yang sudah selesai bisa dibuka kembali ke In progress dengan alasan.",
+        "Di PO board, seret kartu ke In progress, lalu ke Completed. PO yang sudah selesai bisa dikembalikan ke Revision dengan alasan; jam SLA revisi mulai dari saat itu.",
       ],
       editable: ["PIC", "Status request (dengan alasan untuk Cancelled dan pembukaan kembali)"],
       handoff: "PO adalah langkah terakhir alur ini. Sales dan Finance membaca hasilnya.",

@@ -436,8 +436,9 @@ export async function changeRequestStatus(
       where: { id: request.id },
       data: {
         status: to,
-        // Completing a revised BOQ again keeps the first completion, so a revision does not make the SLA late; a revision keeps it too.
-        overdueNote: to === "COMPLETED" ? (completedLate ? reason : null) : request.status === "COMPLETED" ? null : request.overdueNote,
+        // Completing a revised request again keeps the first completion, so a revision does not make the first SLA late. A revision keeps the
+        // first late note unless the revision itself ends late (then its reason replaces it).
+        overdueNote: to === "COMPLETED" ? (completedLate ? reason : request.status === "REVISION" ? request.overdueNote : null) : request.overdueNote,
         completedAt: to === "COMPLETED" ? (request.status === "REVISION" ? (request.completedAt ?? now) : now) : to === "REVISION" ? request.completedAt : null,
       },
     });
@@ -481,11 +482,10 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
     });
     if (!request || request.deletedAt || request.project.deletedAt) return fail("NOT_FOUND", "Request tidak ditemukan.");
     if (actor.role === "SALES" && !salesActsOn(request.project, actor.id)) return fail("FORBIDDEN");
-    if (request.type !== "BOQ") return fail("INVALID_STATE", "Revisi hanya bisa diminta untuk BOQ.");
-    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Hanya BOQ yang sudah selesai yang bisa dikembalikan untuk direvisi.");
+    if (!canTransition(request.status, "REVISION", request.type)) return fail("INVALID_STATE", "Hanya request yang sudah selesai yang bisa dikembalikan untuk direvisi.");
 
     const now = new Date();
-    // The first completion stays (a revision does not make the SLA late), exactly as when SOA moves the card to Revision.
+    // The first completion stays (it is not scored again); the revision has its own SLA clock from this moment.
     await tx.request.update({ where: { id: request.id }, data: { status: "REVISION" } });
     await tx.requestStatusHistory.create({
       data: { requestId: request.id, fromStatus: request.status, toStatus: "REVISION", changedById: actor.id, changedAt: now, reason },
@@ -493,7 +493,7 @@ export async function requestRevision(db: PrismaClient, claimedActor: Actor, inp
     await audit(tx, actor.id, "request", "request.revision_requested", request.id, { status: request.status }, { status: "REVISION", reason });
     await notify(tx, {
       actorId: actor.id,
-      recipientIds: [...(await usersWithRole(tx, OWNING_ROLE.BOQ)), request.project.technicalPicId],
+      recipientIds: [...(await usersWithRole(tx, OWNING_ROLE[request.type])), ...(request.type === "BOQ" ? [request.project.technicalPicId] : [])],
       kind: REVISION_REQUESTED_KIND,
       title: `${request.code}: revision requested`,
       body: `${request.project.endUserCompany}, ${request.project.name}: ${reason}`,

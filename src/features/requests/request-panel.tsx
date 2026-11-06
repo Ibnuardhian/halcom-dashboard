@@ -38,8 +38,8 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
   const mayDecide = next !== null && !decided && canHandOver(request.type, request.status) && canContinueFlow(viewer.role, request.type, ownsProject);
   // The latest time this BOQ was sent back (by Sales from the request page, or by SOA on the board), with the reason that was given.
   const revisionEntry = [...request.statusHistory].reverse().find((row) => row.toStatus === "REVISION") ?? null;
-  // Sales (on a project they act on) and admins can send a completed BOQ back to SOA; it goes straight to the Revision stage.
-  const mayRevise = can(viewer.role, "requests.revise") && request.type === "BOQ" && request.status === "COMPLETED" && (viewer.role !== "SALES" || ownsProject);
+  // Sales (on a project they act on) and admins can send a completed request back to its team (SOA for a BOQ, Purchasing for an RFQ or PO); it goes straight to the Revision stage.
+  const mayRevise = can(viewer.role, "requests.revise") && request.status === "COMPLETED" && (viewer.role !== "SALES" || ownsProject);
   // The SLA and the email template belong to the team that receives this type of request (SOA for a BOQ, else Purchasing).
   const setting = await getTeamSetting(getDb(), request.type === "BOQ" ? "SOA" : "PURCHASING");
   // The PO is written by Sales to Purchasing (HITPO), so it has a template of its own; the other types use their receiving team's.
@@ -68,6 +68,11 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
             <Fact label={`SLA (${formatSlaRange(setting.sla)} working days)`}>
               <SlaBadge sla={sla} />
             </Fact>
+            {sla.revision && request.status !== "REVISION" ? (
+              <Fact label="SLA revisi terakhir">
+                <SlaBadge sla={{ ...sla.revision, revision: null }} />
+              </Fact>
+            ) : null}
             <Fact label="PIC">
               {request.pic ? (
                 <>
@@ -168,7 +173,8 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
           <p>
             {revisionEntry
               ? `Sent back on ${formatDay(revisionEntry.changedAt)} by ${revisionEntry.changedBy.name}${revisionEntry.reason ? `: ${revisionEntry.reason}` : "."}`
-              : "This BOQ was sent back for changes."}
+              : `This ${request.type} was sent back for changes.`}
+            {" "}Jam SLA revisi berjalan sejak itu; hasil SLA penyelesaian pertama tidak berubah.
           </p>
         </div>
       ) : null}
@@ -179,7 +185,9 @@ export async function RequestPanel({ request, viewer, inProject = false, openEma
             <CardTitle className="text-base">
               <h3>Request a revision</h3>
             </CardTitle>
-            <CardDescription>Tulis perubahan yang diminta customer. Tiket langsung masuk Revision dan SOA diberi tahu.</CardDescription>
+            <CardDescription>
+              Tulis perubahan yang diminta (wajib). Tiket langsung masuk Revision, {OWNING_TEAM_LABELS[request.type]} diberi tahu, dan jam SLA revisi dimulai dari sekarang.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <RevisionForm requestId={request.id} />

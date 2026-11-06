@@ -233,12 +233,14 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         >
           <div>
             <h2 id="board-reason-title" className="text-base font-semibold">
-              {pending?.to === "COMPLETED" ? `Selesaikan ${pending.card.code} yang overdue?` : `${pending?.to === "CANCELLED" ? "Cancel" : "Reopen"} ${pending?.card.code}?`}
+              {pending?.to === "COMPLETED" ? `Selesaikan ${pending.card.code} yang overdue?` : `${pending?.to === "CANCELLED" ? "Cancel" : "Revisi"} ${pending?.card.code}?`}
             </h2>
             <p className="text-sm text-muted-foreground">
               {pending?.to === "COMPLETED"
                 ? "Request ini melewati batas SLA. Tulis alasan keterlambatan: catatan ini bisa dilihat semua orang di daftar request dan di Purchasing dashboard."
-                : "Say why. It is kept in the status history."}
+                : pending?.to === "REVISION"
+                  ? "Tulis apa yang perlu diubah. Catatan masuk ke riwayat status, dan jam SLA revisi mulai dari sekarang."
+                  : "Say why. It is kept in the status history."}
             </p>
           </div>
           <Textarea aria-label={pending?.to === "COMPLETED" ? "Catatan keterlambatan" : "Reason"} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required className="min-h-24" />
@@ -247,7 +249,7 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
               Keep it as it is
             </Button>
             <Button type="submit" variant={pending?.to === "CANCELLED" ? "destructive" : "default"} disabled={reason.trim() === ""}>
-              {pending?.to === "COMPLETED" ? "Selesaikan request" : pending?.to === "CANCELLED" ? "Cancel request" : "Reopen request"}
+              {pending?.to === "COMPLETED" ? "Selesaikan request" : pending?.to === "CANCELLED" ? "Cancel request" : "Request revision"}
             </Button>
           </div>
         </form>
