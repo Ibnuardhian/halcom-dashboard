@@ -88,12 +88,12 @@ Fakta dari kode: kata sandi di-hash dengan scrypt (N=2^16), sesi di server dan c
 
 ## 8. Backup dan pemulihan
 
-- [ ] **P0** Backup malam berjalan (timer systemd) dan menghasilkan `halcom-YYYYMMDD-HHMMSSZ.dump` berizin 600. Cek: `ls -l /backups`, `systemctl list-timers`.
+- [ ] **P0** Backup harian berjalan (cron `deploy/backup-daily.sh`) dan menghasilkan `halcom-auto-YYYYMMDD-HHMMSSZ.dump` berizin 600. Cek: `docker compose -p halcom-dashboard -f /opt/halcom/compose.hostinger.yaml exec app ls -l /backups`, `crontab -l`, `tail /opt/halcom/backup.log`.
 - [ ] **P0** **Uji restore**: pulihkan dump terbaru ke database kosong, lalu bandingkan jumlah baris tabel utama (projects, requests, users, audit_events). Catat hasilnya.
 - [ ] **P0** Salinan Neon terisi tiap malam, ke database **terpisah** dari produksi mana pun. Cek: jumlah baris di Neon sama dengan VPS.
 - [ ] **P1** Peringatan jika backup lebih tua dari 26 jam atau restore ke Neon gagal, dikirim ke milis grup, bukan satu orang.
-- [ ] **P1** Retensi berjalan: dump disimpan 1 bulan (30 hari), yang lebih lama dihapus oleh job malam, bukan oleh aplikasi (D-068). Disk tidak terisi dump lama.
-- [ ] **P1** Tombol **Unduh** di halaman Backups hanya untuk pemegang `system.backup`, hanya menerima nama berkas yang valid, dan tiap unduhan masuk audit log **[kode]**.
+- [ ] **P1** Retensi berjalan: dump otomatis disimpan 30 hari (3 terbaru selalu tersisa), yang lebih lama dihapus oleh `backup-daily.sh`, bukan oleh aplikasi (D-068). Disk tidak terisi dump lama.
+- [ ] **P1** Tombol **Unduh** di halaman Backups hanya untuk pemegang `system.backup`, hanya menerima nama berkas yang valid, dan tiap unduhan masuk audit log **[kode: sudah ada, D-080]**. Cek: unduh satu berkas lalu cari `system.backup_downloaded` di Audit log.
 - [ ] **P1** Salinan di PC Superadmin (untuk OneDrive/SharePoint) tersimpan di folder terenkripsi, dan pengingat mingguan ada. Dump berisi data customer: jangan dikirim lewat email atau chat.
 - [ ] **P2** Dump dienkripsi (mis. `age`) sebelum keluar dari VPS, kuncinya disimpan terpisah.
 - [ ] **P2** RPO dan RTO tertulis (contoh: RPO 24 jam, RTO 2 jam) dan diuji sekali dalam latihan.
@@ -133,11 +133,11 @@ Fakta dari kode: kata sandi di-hash dengan scrypt (N=2^16), sesi di server dan c
 
 | Celah | Status |
 |---|---|
-| Header keamanan (HSTS, nosniff, referrer, frame, permissions) belum ada; baru `Cache-Control: no-store` | Belum |
+| Header keamanan (HSTS, nosniff, referrer, frame, permissions) | Dipasang oleh Caddy (`deploy/Caddyfile`, D-079), bukan oleh aplikasi; aplikasi sendiri hanya mengirim `Cache-Control: no-store`. Verifikasi dengan `curl -sI` setelah deploy |
 | CSP belum ada | Belum |
 | `serverActions.allowedOrigins` perlu memuat domain produksi di balik proxy | Cek saat deploy |
 | Pembatas login membaca nilai pertama `x-forwarded-for`; aman hanya jika port 3000 tertutup untuk umum dan Caddy menimpa header dari klien | Dijaga lewat bagian 3 |
-| Tombol Unduh backup untuk Superadmin | Belum dibuat |
+| Tombol Unduh backup untuk Superadmin | Ada (D-080) |
 | Sesi dan notifikasi lama tidak dibersihkan otomatis | Belum |
 | Satu endpoint `/api/health` untuk liveness dan readiness: gangguan DB menandai container tidak sehat | Diterima untuk satu VPS |
 | Log terstruktur dan pemantauan | Belum |

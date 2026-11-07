@@ -4,6 +4,7 @@ import { canContinueFlow } from "@/domain/requests/access";
 import { flowSteps } from "@/domain/requests/flow";
 import { formatDateText, parseRecipients, resolveRecipients, sampleValues, singleLine, templateValues } from "@/domain/requests/email";
 import { buildRequestEmail } from "@/server/requests/email";
+import { computeTeamMetrics } from "@/domain/requests/metrics";
 import { addWorkingDays, formatSlaRange, isValidSlaRange, parseSlaRange, slaOf, waitingMs } from "@/domain/requests/sla";
 import { DEFAULT_TEMPLATES, renderBody, renderSubject, validateTemplate, variablesIn } from "@/domain/requests/template";
 import {
@@ -96,13 +97,12 @@ describe("request statuses", () => {
     expect(columnOf("WAITING_FOR_SALES")).toBe("IN_PROGRESS");
   });
 
-  it("has Revision for a BOQ only, and only after it was completed", () => {
-    expect(allowedTransitions("COMPLETED", "BOQ")).toEqual(["REVISION"]);
-    expect(allowedTransitions("COMPLETED", "RFQ")).toEqual(["IN_PROGRESS"]); // an RFQ or PO is reopened, with a reason
-    expect(allowedTransitions("COMPLETED", "PO")).toEqual(["IN_PROGRESS"]);
-    expect(allowedTransitions("REVISION", "BOQ")).toEqual(["COMPLETED", "CANCELLED"]);
-    for (const from of ["SUBMITTED", "IN_PROGRESS"] as const) expect(canTransition(from, "REVISION", "BOQ")).toBe(false);
-    for (const type of ["RFQ", "PO"] as const) expect(canTransition("COMPLETED", "REVISION", type)).toBe(false);
+  it("has Revision for every type, and only after it was completed", () => {
+    for (const type of REQUEST_TYPES) {
+      expect(allowedTransitions("COMPLETED", type)).toEqual(["REVISION"]);
+      expect(allowedTransitions("REVISION", type)).toEqual(["COMPLETED", "CANCELLED"]);
+      for (const from of ["SUBMITTED", "IN_PROGRESS"] as const) expect(canTransition(from, "REVISION", type)).toBe(false);
+    }
   });
 
   it("treats cancelled as terminal and never allows a no-op transition", () => {
@@ -110,13 +110,12 @@ describe("request statuses", () => {
     for (const status of REQUEST_STATUSES) for (const type of REQUEST_TYPES) expect(canTransition(status, status, type)).toBe(false);
   });
 
-  it("requires a reason to cancel or reopen, not to start, complete or revise", () => {
+  it("requires a reason to cancel or send back for revision, not to start or complete", () => {
     expect(reasonRequired("SUBMITTED", "CANCELLED")).toBe(true);
     expect(reasonRequired("REVISION", "CANCELLED")).toBe(true);
-    expect(reasonRequired("COMPLETED", "IN_PROGRESS")).toBe(true);
+    expect(reasonRequired("COMPLETED", "REVISION")).toBe(true);
     expect(reasonRequired("SUBMITTED", "IN_PROGRESS")).toBe(false);
     expect(reasonRequired("IN_PROGRESS", "COMPLETED")).toBe(false);
-    expect(reasonRequired("COMPLETED", "REVISION")).toBe(false);
     expect(reasonRequired("REVISION", "COMPLETED")).toBe(false);
   });
 
@@ -124,10 +123,8 @@ describe("request statuses", () => {
     expect(REQUEST_STATUSES.filter(isOpen)).toEqual(["SUBMITTED", "IN_PROGRESS", "WAITING_FOR_SALES", "REVISION"]);
   });
 
-  it("shows the board columns of a type: Revision on the BOQ board only", () => {
-    expect(boardColumns("BOQ")).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "REVISION", "CANCELLED"]);
-    expect(boardColumns("RFQ")).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
-    expect(boardColumns("PO")).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+  it("shows Revision on the board of every type", () => {
+    for (const type of REQUEST_TYPES) expect(boardColumns(type)).toEqual(["SUBMITTED", "IN_PROGRESS", "COMPLETED", "REVISION", "CANCELLED"]);
     expect(boardColumns(null)).toContain("REVISION");
   });
 
@@ -313,6 +310,42 @@ describe("SLA", () => {
     expect(slaOf({ ...base, status: "COMPLETED", completedAt: at("2026-10-20T02:00:00Z"), now: at("2026-11-01T00:00:00Z") }).state).toBe("met");
     expect(slaOf({ ...base, status: "COMPLETED", completedAt: at("2026-10-21T02:00:00Z"), now: at("2026-11-01T00:00:00Z") }).state).toBe("late");
     expect(slaOf({ ...base, status: "CANCELLED", now: at("2026-11-01T00:00:00Z") }).state).toBe("none");
+  });
+
+  it("gives each revision its own clock (same range) and keeps the first result", () => {
+    const completedAt = at("2026-10-20T01:00:00Z"); // first completion, on time (due Tue 20th 03:00Z)
+    const sent = at("2026-10-21T03:00:00Z"); // Wednesday; one working day later is Thursday 22nd 03:00Z
+    const history = [
+      { toStatus: "COMPLETED" as const, changedAt: completedAt },
+      { toStatus: "REVISION" as const, changedAt: sent },
+    ];
+    const running = (now: string) => slaOf({ ...base, status: "REVISION", completedAt, history, now: at(now) });
+    expect(running("2026-10-21T04:00:00Z").state).toBe("due_soon"); // minDays = maxDays = 1: expected tomorrow, due tomorrow
+    expect(running("2026-10-22T04:00:00Z").state).toBe("overdue");
+    expect(running("2026-10-22T04:00:00Z").dueAt.toISOString()).toBe("2026-10-22T03:00:00.000Z");
+
+    // Finished on time: the revision is Met, and the top-level result is still the first completion's.
+    const done = slaOf({ ...base, status: "COMPLETED", completedAt, history: [...history, { toStatus: "COMPLETED" as const, changedAt: at("2026-10-22T01:00:00Z") }], now: at("2026-11-30T00:00:00Z") });
+    expect([done.state, done.revision?.state]).toEqual(["met", "met"]);
+    // Finished late: the revision is Late while the first completion stays Met.
+    const late = slaOf({ ...base, status: "COMPLETED", completedAt, history: [...history, { toStatus: "COMPLETED" as const, changedAt: at("2026-10-23T01:00:00Z") }], now: at("2026-11-30T00:00:00Z") });
+    expect([late.state, late.revision?.state]).toEqual(["met", "late"]);
+    // A second revision starts a new clock from its own start.
+    const again = slaOf({ ...base, status: "REVISION", completedAt, history: [...history, { toStatus: "COMPLETED" as const, changedAt: at("2026-10-22T01:00:00Z") }, { toStatus: "REVISION" as const, changedAt: at("2026-10-26T03:00:00Z") }], now: at("2026-10-26T04:00:00Z") });
+    expect(again.revision?.startedAt.toISOString()).toBe("2026-10-26T03:00:00.000Z");
+    expect(again.state).toBe("due_soon");
+  });
+
+  it("shows one SLA figure: the first completion and a finished revision are both scored", () => {
+    const base = { code: "BOQ-1", requiredBy: null, assigneeId: null, assigneeName: null, createdAt: at("2026-10-19T03:00:00Z"), completedAt: at("2026-10-20T01:00:00Z") };
+    const history = [
+      { toStatus: "COMPLETED" as const, changedAt: at("2026-10-20T01:00:00Z") },
+      { toStatus: "REVISION" as const, changedAt: at("2026-10-21T03:00:00Z") },
+      { toStatus: "COMPLETED" as const, changedAt: at("2026-10-23T01:00:00Z") }, // revision due Thu 22nd: late
+    ];
+    const metrics = computeTeamMetrics([{ ...base, status: "COMPLETED", history }], { minDays: 1, maxDays: 1 }, at("2026-10-26T00:00:00Z"));
+    expect([metrics.slaMet, metrics.slaLate]).toEqual([1, 1]);
+    expect(metrics.slaCompliancePct).toBe(50);
   });
 
   it("reads the SLA as one number or a range, up to 7 days, and writes it back the same way", () => {

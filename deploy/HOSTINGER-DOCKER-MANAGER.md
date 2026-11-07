@@ -76,6 +76,39 @@ Sekali di GitHub: Settings → Environments → `production` (Required reviewers
 
 Skrip berhenti bila volume `halcom-dashboard_postgres_data` tidak ada, supaya tidak membuat database kosong. Cek namanya dulu: `docker volume ls | grep postgres`.
 
+## Backup harian di VPS (`backup-daily.sh`)
+
+Skrip `deploy/backup-daily.sh` ikut disalin ke `/opt/halcom` oleh workflow deploy. Tiap hari ia membuat satu dump penuh ke volume `/backups` milik
+aplikasi, jadi berkasnya tampil di halaman **Backups** dan bisa diunduh dari sana (hanya Superadmin, tiap unduhan masuk audit log).
+
+- Nama berkas `halcom-auto-YYYYMMDD-HHMMSSZ.dump`, izin 600. Dump diperiksa dengan `pg_restore --list` sebelum diberi nama akhir.
+- Retensi: berkas `halcom-auto-` yang lebih tua dari 30 hari dihapus oleh skrip (bukan oleh aplikasi), tetapi 3 yang terbaru selalu disimpan. Berkas buatan tangan dari halaman Backups tidak pernah dihapus. Ubah dengan `KEEP_DAYS` dan `MIN_KEEP` di baris cron.
+- Dump ada di VPS yang sama dengan database: ini bukan pengganti salinan di luar server. Unduh secara berkala ke PC Anda (dan simpan di folder terenkripsi), dan salinan Neon malam tetap berjalan.
+
+Pasang cron sekali, sebagai user `deploy` (`crontab -e`; jam mengikuti zona waktu server, UTC secara bawaan, jadi 20:30 UTC adalah 03:30 WIB):
+
+```
+30 20 * * * /opt/halcom/backup-daily.sh >> /opt/halcom/backup.log 2>&1
+```
+
+Uji sekali dengan tangan setelah deploy berikutnya: `/opt/halcom/backup-daily.sh`, lalu buka halaman Backups. Lihat riwayatnya di `/opt/halcom/backup.log`.
+Cek tiap beberapa hari bahwa berkas `halcom-auto-` terbaru berumur kurang dari 26 jam.
+
+## Peringatan SLA (`sla-scan.sh`)
+
+Batas SLA yang mendekat atau terlewat bukan kejadian yang dilakukan seseorang, jadi sebuah cron memintanya diperiksa (D-083). Skrip `deploy/sla-scan.sh` ikut disalin ke `/opt/halcom` oleh workflow deploy. Ia memanggil `POST /api/internal/sla-scan` di dalam container `app` (port 3000 sendiri, tidak lewat Caddy) dengan secret `CRON_SECRET`. Aplikasi lalu menulis notifikasi **Warning** (mendekati batas) untuk tim yang menangani, dan **Danger** (melewati batas) untuk tim itu ditambah Admin dan Management. Memanggil ulang tidak menggandakan notifikasi.
+
+1. Buat secret sekali: `openssl rand -hex 24`, taruh di `/opt/halcom/.env` sebagai `CRON_SECRET=...` (minimal 16 karakter; kosong berarti endpoint mati dan tidak ada peringatan). Lalu deploy ulang atau `docker compose ... up -d app` agar container membacanya.
+2. Pasang cron sebagai user `deploy`. Tiap 30 menit pada hari kerja, 08:00 sampai 18:00 WIB (01:00 sampai 11:00 UTC):
+
+```
+*/30 1-11 * * 1-5 /opt/halcom/sla-scan.sh >> /opt/halcom/sla-scan.log 2>&1
+```
+
+3. Uji dengan tangan: `/opt/halcom/sla-scan.sh` harus mencetak `200` dan jumlah `checked`, `warnings`, `dangers`, `closed`. Jawaban `404` berarti `CRON_SECRET` kosong di container, `401` berarti secret salah.
+
+Peringatan terlambat paling lama selisih satu interval (30 menit) dari saat batas terlewat. Peringatan request yang sudah selesai atau dibatalkan otomatis ditandai terbaca.
+
 ## Data dari Neon ke VPS, perpindahan, dan cadangan malam (`db-sync.sh`)
 
 Skrip `deploy/db-sync.sh` ikut disalin ke `/opt/halcom` oleh workflow deploy. Rahasianya di `/opt/halcom/neon.env` (`chmod 600`, pemilik `deploy`, tidak masuk repo):

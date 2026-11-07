@@ -118,7 +118,15 @@ const OWN_DASHBOARD_LABELS: Partial<Record<Role, string>> = {
 const SAME_DASHBOARD_AS: Partial<Record<DashboardKey, DashboardKey>> = { superadmin: "admin" };
 
 /** Navigation shown to a role. Derived from the permission matrix, so the menu can never offer a page the role cannot open. */
-export function navLinksFor(role: Role): NavLinkItem[] {
+export function navLinksFor(role: Role, alsoManagement = false): NavLinkItem[] {
+  const own_ = ownLinksFor(role);
+  if (!alsoManagement) return own_;
+  // The Management menu on top of the person's own; an entry is never offered twice.
+  const extra = ownLinksFor("MANAGEMENT").filter((link) => !own_.some((mine) => mine.href === link.href));
+  return [...own_, ...extra];
+}
+
+function ownLinksFor(role: Role): NavLinkItem[] {
   const links: NavLinkItem[] = [];
   // Purchasing works from its own dashboard and the RFQ list only. Everything else stays reachable by address; it is just not offered.
   const focused = role === "PURCHASING";
@@ -147,8 +155,8 @@ export function navLinksFor(role: Role): NavLinkItem[] {
 export type NavSection = { group: NavGroup; label: string; links: NavLinkItem[] };
 
 /** The same links, split into the sidebar's labelled sections; empty sections are dropped. */
-export function navSectionsFor(role: Role): NavSection[] {
-  const links = navLinksFor(role);
+export function navSectionsFor(role: Role, alsoManagement = false): NavSection[] {
+  const links = navLinksFor(role, alsoManagement);
   return NAV_GROUPS.map((group) => ({
     group,
     label: NAV_GROUP_LABELS[group],

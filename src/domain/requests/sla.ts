@@ -104,8 +104,34 @@ export type SlaInput = {
   now: Date;
 };
 
-/** `targetAt` is when an answer is expected (the first number of the range); `dueAt` is the deadline (the last). */
-export type Sla = { targetAt: Date; dueAt: Date; state: SlaState };
+/** One revision round: the clock starts when the request was sent back (same range as the team's SLA) and has a result of its own. */
+export type RevisionSla = { startedAt: Date; endedAt: Date | null; targetAt: Date; dueAt: Date; state: SlaState };
+
+/**
+ * `targetAt` is when an answer is expected (the first number of the range); `dueAt` is the deadline (the last).
+ * `revision` is the latest revision round, or null when the request was never sent back. While the request is in Revision,
+ * `targetAt`, `dueAt` and `state` are those of that round; otherwise they stay those of the first completion.
+ */
+export type Sla = { targetAt: Date; dueAt: Date; state: SlaState; revision: RevisionSla | null };
+
+const runningState = (now: Date, targetAt: Date, dueAt: Date): SlaState => {
+  if (now.getTime() > dueAt.getTime()) return "overdue";
+  return now.getTime() >= targetAt.getTime() || dueAt.getTime() - now.getTime() < DAY_MS ? "due_soon" : "on_track";
+};
+
+/** The latest revision round: it ends at the first completion after it started. Each new revision starts a fresh clock; earlier rounds are not scored again. */
+function latestRevision(history: readonly StatusEntry[], range: SlaRange, now: Date): RevisionSla | null {
+  const ordered = [...history].sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime());
+  const start = ordered.findLast((entry) => entry.toStatus === "REVISION");
+  if (!start) return null;
+  const startedAt = start.changedAt;
+  const targetAt = addWorkingDays(startedAt, range.minDays);
+  const dueAt = addWorkingDays(startedAt, range.maxDays);
+  const cancelled = ordered.some((entry) => entry.toStatus === "CANCELLED" && entry.changedAt.getTime() >= startedAt.getTime());
+  const done = ordered.find((entry) => entry.toStatus === "COMPLETED" && entry.changedAt.getTime() >= startedAt.getTime());
+  const state: SlaState = cancelled ? "none" : done ? (done.changedAt.getTime() > dueAt.getTime() ? "late" : "met") : runningState(now, targetAt, dueAt);
+  return { startedAt, endedAt: done?.changedAt ?? null, targetAt, dueAt, state };
+}
 
 /**
  * When the team should answer, the deadline, and where the request stands against them. On track until the expected date,
@@ -115,12 +141,13 @@ export function slaOf({ createdAt, status, completedAt, history, range, now }: S
   const waited = waitingMs(history, now);
   const targetAt = new Date(addWorkingDays(createdAt, range.minDays).getTime() + waited);
   const dueAt = new Date(addWorkingDays(createdAt, range.maxDays).getTime() + waited);
-  if (status === "CANCELLED") return { targetAt, dueAt, state: "none" };
-  // A BOQ in Revision keeps the result of its first completion: the revision does not restart the clock.
-  if (status === "COMPLETED" || status === "REVISION") return { targetAt, dueAt, state: completedAt && completedAt.getTime() > dueAt.getTime() ? "late" : "met" };
-  if (status === "WAITING_FOR_SALES") return { targetAt, dueAt, state: "paused" };
-  if (now.getTime() > dueAt.getTime()) return { targetAt, dueAt, state: "overdue" };
-  return { targetAt, dueAt, state: now.getTime() >= targetAt.getTime() || dueAt.getTime() - now.getTime() < DAY_MS ? "due_soon" : "on_track" };
+  const revision = latestRevision(history, range, now);
+  if (status === "CANCELLED") return { targetAt, dueAt, state: "none", revision };
+  // In Revision the clock of that round runs; the first completion's result is kept (it is not scored again).
+  if (status === "REVISION" && revision) return { targetAt: revision.targetAt, dueAt: revision.dueAt, state: revision.state, revision };
+  if (status === "COMPLETED" || status === "REVISION") return { targetAt, dueAt, state: completedAt && completedAt.getTime() > dueAt.getTime() ? "late" : "met", revision };
+  if (status === "WAITING_FOR_SALES") return { targetAt, dueAt, state: "paused", revision };
+  return { targetAt, dueAt, state: runningState(now, targetAt, dueAt), revision };
 }
 
 /**

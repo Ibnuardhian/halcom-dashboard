@@ -58,7 +58,7 @@ jobs:
       - name: Copy the source, the compose file and the scripts
         run: |
           git archive --format=tar.gz HEAD | ssh vps "rm -rf /opt/halcom/src && mkdir -p /opt/halcom/src && tar -xz -C /opt/halcom/src"
-          scp deploy/compose.hostinger.yaml deploy/deploy-vps.sh deploy/db-sync.sh vps:/opt/halcom/
+          scp deploy/compose.hostinger.yaml deploy/Caddyfile deploy/deploy-vps.sh deploy/db-sync.sh deploy/backup-daily.sh deploy/sla-scan.sh vps:/opt/halcom/
       - name: Run the deploy script
         run: |
           tag="$(git rev-parse --short=12 HEAD)"

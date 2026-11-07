@@ -11,6 +11,7 @@ import { NEW_REQUEST_PATH } from "@/features/navigation/links";
 import { cn } from "@/lib/utils";
 import { getDb } from "@/lib/db";
 import type { SessionUser } from "@/server/auth/session-store";
+import { listAssignablePics } from "@/server/pics/service";
 import { REQUEST_SORTS, searchRequests, type RequestSort } from "@/server/requests/queries";
 import { RequestBoard } from "./request-board";
 import { RequestTable } from "./request-table";
@@ -103,6 +104,8 @@ export async function RequestList({
     pageSize: board ? BOARD_SIZE : undefined,
   });
   const { rows } = result;
+  // The board asks which Purchasing PIC takes an RFQ or PO that is started, so the people who may work on them need the list.
+  const pics = board && canWorkOn(viewer.role, "RFQ") ? await listAssignablePics(getDb(), { id: viewer.id, role: viewer.role }, "RFQ") : [];
   const statusValue = filter.kind === "open" ? "open" : filter.kind === "status" ? filter.status : undefined;
   /** A link to this list with some parts changed; `null` clears a part, an omitted part stays as it is. */
   const href = (next: { status?: string | null; q?: string | null; sort?: RequestSort; dir?: "asc" | "desc"; page?: number; view?: "board" | "list" }) => {
@@ -234,6 +237,7 @@ export async function RequestList({
           rows={rows}
           type={type ?? null}
           movable={Object.fromEntries(REQUEST_TYPES.map((t) => [t, canWorkOn(viewer.role, t)])) as Record<RequestType, boolean>}
+          pics={pics}
         />
       ) : (
       <RequestTable

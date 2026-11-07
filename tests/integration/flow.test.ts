@@ -158,14 +158,15 @@ describe("Waiting for Sales is retired", () => {
 });
 
 describe("Revision of a completed BOQ", () => {
-  it("moves a completed BOQ to Revision without a reason, keeps the first completion, and completes it again", async () => {
+  it("moves a completed BOQ to Revision with a reason, keeps the first completion, and completes it again", async () => {
     const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
     const project = await makeProject(sales);
     const boq = await completedRequest(sales, soa, project.id, "BOQ");
     const first = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
     expect(first.completedAt).toBeInstanceOf(Date);
 
-    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" })).toMatchObject({ ok: true, value: { status: "REVISION" } });
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION", reason: "Scope berubah" })).toMatchObject({ ok: true, value: { status: "REVISION" } });
     const revising = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
     expect(revising).toMatchObject({ status: "REVISION" });
     expect(revising.completedAt?.getTime()).toBe(first.completedAt?.getTime());
@@ -178,7 +179,7 @@ describe("Revision of a completed BOQ", () => {
     expect(history.slice(-2).map((row) => [row.fromStatus, row.toStatus])).toEqual([["COMPLETED", "REVISION"], ["REVISION", "COMPLETED"]]);
   });
 
-  it("exists for a BOQ only, only after completion, and a BOQ in revision cannot be continued yet", async () => {
+  it("exists for every type, only after completion, and a BOQ in revision cannot be continued yet", async () => {
     const [sales, soa, purchasing] = await Promise.all([actorOf("SALES"), actorOf("SOA"), actorOf("PURCHASING")]);
     const project = await makeProject(sales);
     const fresh = await createRequest(db, sales, { projectId: project.id, type: "BOQ", title: "fresh" });
@@ -187,19 +188,19 @@ describe("Revision of a completed BOQ", () => {
     if (!fresh.ok) throw new Error(fresh.message);
 
     expect(await changeRequestStatus(db, soa, { requestId: fresh.value.id, to: "REVISION" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
-    expect(await changeRequestStatus(db, purchasing, { requestId: rfq.id, to: "REVISION" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
-    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
+    expect(await changeRequestStatus(db, purchasing, { requestId: rfq.id, to: "REVISION", reason: "Harga baru" })).toMatchObject({ ok: true });
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION", reason: "Scope berubah" });
     expect(await handOverToPurchasing(db, sales, { sourceId: boq.id, targetType: "RFQ" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
     // Only SOA (and admins) revise a BOQ.
     expect(await changeRequestStatus(db, sales, { requestId: boq.id, to: "COMPLETED" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
     expect(await changeRequestStatus(db, purchasing, { requestId: boq.id, to: "COMPLETED" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
   });
 
-  it("a revision needs a reason only to be cancelled", async () => {
+  it("a revision needs a reason to start and to be cancelled", async () => {
     const [sales, soa] = await Promise.all([actorOf("SALES"), actorOf("SOA")]);
     const project = await makeProject(sales);
     const boq = await completedRequest(sales, soa, project.id, "BOQ");
-    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION", reason: "Scope berubah" });
 
     expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
     expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "CANCELLED", reason: "Customer dropped the project" })).toMatchObject({ ok: true });

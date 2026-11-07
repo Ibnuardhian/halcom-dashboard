@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { startAsksForPic, type PicOption } from "@/domain/pics/teams";
 import { allowedTransitions, boardColumns, columnOf, reasonRequired, REQUEST_STATUS_LABELS, type RequestStatus } from "@/domain/requests/status";
 import type { RequestType } from "@/domain/requests/types";
 import { cn } from "@/lib/utils";
@@ -15,6 +17,8 @@ import { formatDateOnly } from "./format";
 import { SlaBadge } from "./sla-badge";
 
 type Pending = { card: RequestRow; to: RequestStatus };
+/** An RFQ or PO that is being started: the team picks its PIC first. */
+type PendingStart = { card: RequestRow };
 
 /** An RFQ or PO moved to Completed after its SLA deadline: the team says why (the server asks for it too). */
 const lateCompletion = (card: RequestRow, to: RequestStatus) => to === "COMPLETED" && card.type !== "BOQ" && card.sla.state === "overdue";
@@ -28,7 +32,7 @@ const FOLDED: ReadonlySet<RequestStatus> = new Set<RequestStatus>(["REVISION", "
  * cancellation, or reopening a completed RFQ or PO, asks for a reason first. People who may not work on a request's type see its card
  * but cannot drag it. The server checks every move again. With the keyboard: focus a card and press Shift + Arrow Left or Right.
  */
-export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type: RequestType | null; movable: Readonly<Record<RequestType, boolean>> }) {
+export function RequestBoard({ rows, type, movable, pics }: { rows: RequestRow[]; type: RequestType | null; movable: Readonly<Record<RequestType, boolean>>; pics: readonly PicOption[] }) {
   const router = useRouter();
   const [cards, setCards] = useState(rows);
   const [dragging, setDragging] = useState<RequestRow | null>(null);
@@ -38,6 +42,9 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
   const [reason, setReason] = useState("");
   const [, startTransition] = useTransition();
   const dialog = useRef<HTMLDialogElement>(null);
+  const [starting, setStarting] = useState<PendingStart | null>(null);
+  const [startPic, setStartPic] = useState("");
+  const startDialog = useRef<HTMLDialogElement>(null);
   const columns = boardColumns(type);
   const mainColumns = columns.filter((status) => !FOLDED.has(status));
   const foldedColumns = columns.filter((status) => FOLDED.has(status));
@@ -46,11 +53,12 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
 
   const accepts = (card: RequestRow | null, to: RequestStatus) => card !== null && movable[card.type] && allowedTransitions(card.status, card.type).includes(to);
 
-  function move(card: RequestRow, to: RequestStatus, why?: string) {
-    setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: to, statusChangedAt: new Date() } : row)));
+  function move(card: RequestRow, to: RequestStatus, why?: string, picId?: string) {
+    const picName = picId ? (pics.find((pic) => pic.id === picId)?.name ?? card.assigneeName) : card.assigneeName;
+    setCards((current) => current.map((row) => (row.id === card.id ? { ...row, status: to, statusChangedAt: new Date(), assigneeId: picId ?? row.assigneeId, assigneeName: picName } : row)));
     setMessage(null);
     startTransition(async () => {
-      const result = await moveRequestAction(card.id, to, why);
+      const result = await moveRequestAction(card.id, to, why, picId);
       if (!result.ok) {
         setCards((current) => current.map((row) => (row.id === card.id ? card : row)));
         setMessage({ ok: false, text: result.message });
@@ -65,6 +73,12 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
     setOver(null);
     setDragging(null);
     if (!card || !accepts(card, to)) return;
+    if (startAsksForPic(card.type, card.status, to)) {
+      setStartPic(card.assigneeId ?? "");
+      setStarting({ card });
+      startDialog.current?.showModal();
+      return;
+    }
     if (reasonRequired(card.status, to) || lateCompletion(card, to)) {
       setReason("");
       setPending({ card, to });
@@ -80,6 +94,19 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
     setPending(null);
     dialog.current?.close();
     move(card, to, reason.trim());
+  }
+
+  function confirmStart() {
+    if (!starting || startPic === "") return;
+    const { card } = starting;
+    setStarting(null);
+    startDialog.current?.close();
+    move(card, "IN_PROGRESS", undefined, startPic);
+  }
+
+  function cancelStart() {
+    setStarting(null);
+    startDialog.current?.close();
   }
 
   function cancelDialog() {
@@ -219,6 +246,49 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         </div>
       ) : null}
       <dialog
+        ref={startDialog}
+        aria-labelledby="board-start-title"
+        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border bg-popover p-0 text-popover-foreground shadow-xl backdrop:bg-black/50"
+        onClose={() => setStarting(null)}
+      >
+        <form
+          className="flex flex-col gap-4 p-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            confirmStart();
+          }}
+        >
+          <div>
+            <h2 id="board-start-title" className="text-base font-semibold">
+              Siapa PIC untuk {starting?.card.code}?
+            </h2>
+            <p className="text-sm text-muted-foreground">Pilih PIC Purchasing yang mengerjakan request ini. Request pindah ke In progress setelah PIC disimpan.</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="board-start-pic" className="text-sm font-medium">
+              PIC
+            </label>
+            <NativeSelect id="board-start-pic" value={startPic} onChange={(event) => setStartPic(event.target.value)} required>
+              <option value="">Pilih PIC</option>
+              {pics.map((pic) => (
+                <option key={pic.id} value={pic.id}>
+                  {pic.name}
+                </option>
+              ))}
+            </NativeSelect>
+            {pics.length === 0 ? <p className="text-xs text-destructive">Belum ada PIC Purchasing yang aktif. Minta Admin menambahkannya di halaman PICs.</p> : null}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={cancelStart}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={startPic === ""}>
+              Mulai dikerjakan
+            </Button>
+          </div>
+        </form>
+      </dialog>
+      <dialog
         ref={dialog}
         aria-labelledby="board-reason-title"
         className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border bg-popover p-0 text-popover-foreground shadow-xl backdrop:bg-black/50"
@@ -233,12 +303,14 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
         >
           <div>
             <h2 id="board-reason-title" className="text-base font-semibold">
-              {pending?.to === "COMPLETED" ? `Selesaikan ${pending.card.code} yang overdue?` : `${pending?.to === "CANCELLED" ? "Cancel" : "Reopen"} ${pending?.card.code}?`}
+              {pending?.to === "COMPLETED" ? `Selesaikan ${pending.card.code} yang overdue?` : `${pending?.to === "CANCELLED" ? "Cancel" : "Revisi"} ${pending?.card.code}?`}
             </h2>
             <p className="text-sm text-muted-foreground">
               {pending?.to === "COMPLETED"
                 ? "Request ini melewati batas SLA. Tulis alasan keterlambatan: catatan ini bisa dilihat semua orang di daftar request dan di Purchasing dashboard."
-                : "Say why. It is kept in the status history."}
+                : pending?.to === "REVISION"
+                  ? "Tulis apa yang perlu diubah. Catatan masuk ke riwayat status, dan jam SLA revisi mulai dari sekarang."
+                  : "Say why. It is kept in the status history."}
             </p>
           </div>
           <Textarea aria-label={pending?.to === "COMPLETED" ? "Catatan keterlambatan" : "Reason"} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required className="min-h-24" />
@@ -247,7 +319,7 @@ export function RequestBoard({ rows, type, movable }: { rows: RequestRow[]; type
               Keep it as it is
             </Button>
             <Button type="submit" variant={pending?.to === "CANCELLED" ? "destructive" : "default"} disabled={reason.trim() === ""}>
-              {pending?.to === "COMPLETED" ? "Selesaikan request" : pending?.to === "CANCELLED" ? "Cancel request" : "Reopen request"}
+              {pending?.to === "COMPLETED" ? "Selesaikan request" : pending?.to === "CANCELLED" ? "Cancel request" : "Request revision"}
             </Button>
           </div>
         </form>

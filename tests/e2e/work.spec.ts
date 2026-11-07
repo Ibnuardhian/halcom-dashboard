@@ -64,7 +64,7 @@ async function moveCard(page: Page, type: "BOQ" | "RFQ" | "PO", code: string, co
     await card.dragTo(target);
     if (reason !== undefined) {
       await page.getByRole("dialog").getByLabel("Reason").fill(reason, { timeout: 3000 });
-      await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Reopen request)$/ }).click({ timeout: 3000 });
+      await page.getByRole("dialog").getByRole("button", { name: /^(Cancel request|Request revision)$/ }).click({ timeout: 3000 });
     }
     await openColumn(page, column);
     await expect(target.locator(`[data-request="${code}"]`)).toBeVisible({ timeout: 4000 });
@@ -213,11 +213,11 @@ test.describe("projects and requests", () => {
     await expect(page.locator("#commercial").getByLabel("Gross Profit")).toHaveValue("150.000");
     await expect(page.locator("#commercial").getByLabel("Progress")).toHaveValue("NEGOTIATE");
     await expect(page.getByText(/^Gross Profit \(/).locator("..")).toContainText("150.000");
-    await page.goto("/dashboard/sales");
+    await page.goto("/dashboard/sales?view=table");
     await expect(page.getByRole("link", { name: "Margin demo" }).first()).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Gross Profit" })).toBeVisible();
     await expect(page.getByText(projectCode).first()).toBeVisible();
-    await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Charts" }).click(); // the table is the default view
+    await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Charts" }).click(); // the charts are the default view; this keeps the test independent of it
     await expect(page).toHaveURL(/view=charts/);
     await expect(page.getByRole("heading", { level: 3, name: "Pipeline by progress" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 3, name: "Projects by principal" })).toHaveCount(0); // not in the Sales view
@@ -276,6 +276,13 @@ test.describe("projects and requests", () => {
     await soa.goto("/notifications");
     await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toBeVisible();
     await expect(soa.getByRole("link", { name: /^Notifications, \d+ unread/ })).toBeVisible();
+
+    // A new request is Info: it shows under Info and not under Danger, so it does not mix with SLA alerts.
+    await soa.getByRole("link", { name: /^Info/ }).click();
+    await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toBeVisible();
+    await soa.getByRole("link", { name: /^Danger/ }).click();
+    await expect(soa).toHaveURL(/level=danger/);
+    await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toHaveCount(0);
 
     await soa.goto(`/projects/${projectCode}#technical`);
     await soa.getByLabel("Phase").selectOption("SIZING");
@@ -733,7 +740,7 @@ test.describe("projects and requests", () => {
     await soa.context().close();
   });
 
-  test("SOA revise a completed BOQ on the board; an RFQ has no Revision column", async ({ page, browser }) => {
+  test("SOA revise a completed BOQ on the board, with a reason; an RFQ has a Revision column too", async ({ page, browser }) => {
     test.setTimeout(180_000);
     await signIn(page, "SALES");
     const projectCode = await createProject(page, "Revision demo");
@@ -743,8 +750,7 @@ test.describe("projects and requests", () => {
     const soa = await asRole(browser, "SOA");
     // Revision exists only after Completed: a fresh card cannot be dropped on it, a completed one can.
     await moveCard(soa, "BOQ", boq, "COMPLETED");
-    await moveCard(soa, "BOQ", boq, "REVISION"); // no reason is asked: revision details go by email
-    await expect(soa.getByRole("dialog")).toHaveCount(0);
+    await moveCard(soa, "BOQ", boq, "REVISION", "Customer minta tambah kamera");
     await soa.goto(`/projects/${projectCode}?request=${boq}#requests`);
     await expect(soa.getByText("Status saat ini Revision.")).toBeVisible();
     await expect(soa.getByRole("button", { name: /^Continue to/ })).toHaveCount(0); // continue once the revision is completed again
@@ -762,7 +768,7 @@ test.describe("projects and requests", () => {
     const purchasing = await asRole(browser, "PURCHASING");
     await purchasing.goto(`/requests/rfq?view=board&q=${rfq}`);
     await expect(purchasing.locator(`[data-request="${rfq}"]`)).toBeVisible();
-    await expect(purchasing.locator('[data-column="REVISION"]')).toHaveCount(0);
+    await expect(purchasing.locator('[data-column="REVISION"]')).toHaveCount(1);
     await expect(purchasing.locator('[data-column="SUBMITTED"]')).toBeVisible();
     await soa.context().close();
     await purchasing.context().close();

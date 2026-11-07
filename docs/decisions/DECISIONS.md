@@ -974,3 +974,73 @@ The preview of each template (filled with sample data) is no longer a long block
 **Kept on purpose.** `postinstall: prisma generate` stays: `npm ci` in the Docker image and in CI needs the generated client. Neon stays as the nightly backup copy (`deploy/db-sync.sh`).
 
 **To do outside the repository.** Delete or disconnect the Vercel project, so that nothing deploys from `main` there, and revoke its tokens and environment variables.
+
+## D-079: Caddy reads a Caddyfile: security headers and the www redirect (2026-11-05)
+
+**Why.** The Caddy container ran `caddy reverse-proxy --from ${DOMAIN} --to app:3000`, which sets no response headers and does not serve `www`. `deploy/Caddyfile` (now for the container, with `{$DOMAIN}` from `/opt/halcom/.env`) sets HSTS (one year, this host only), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, drops `Server`, writes an access log to stdout, and redirects `www.<domain>` to the plain domain.
+
+**Safe to deploy.** The workflow copies the Caddyfile next to the compose file; `deploy-vps.sh` validates it with the `caddy:2` image before anything is replaced (a bad file would stop the proxy), then reloads Caddy after the app is healthy. X-Forwarded-For still comes from Caddy (it does not trust the one a client sends), which the sign-in throttle depends on. A CSP is not set yet: Next.js needs a nonce setup first (checklist P2).
+
+## D-080: A daily backup on the server, and a download link on the Backups page (2026-11-05)
+
+**Asked by the owner.** Backups were manual. `deploy/backup-daily.sh` (cron on the VPS, instructions in HOSTINGER-DOCKER-MANAGER.md) pipes `pg_dump` from the `db` container into the `app` container's `/backups` volume, so no password or dump touches the host disk, checks the file with `pg_restore --list` and only then gives it its name `halcom-auto-YYYYMMDD-HHMMSSZ.dump` (mode 600). It removes its own files older than 30 days, never the newest 3 and never a file made from the page; the application still never deletes a backup (D-068).
+
+**Download.** Each backup in the list has a plain link (not `next/link`, whose prefetch would be audited as a download) to `/admin/backups/download/<name>`: only `system.backup` (the superadmin), only the two backup name patterns (so `../x` never reaches the file system), the file is streamed with `Cache-Control: no-store`, and each download writes `system.backup_downloaded` to the audit log. `listBackups` lists both name patterns.
+
+**Not solved.** The daily dump sits on the same VPS as the database, so it does not protect against losing the server: the owner downloads copies, and the nightly Neon copy (`db-sync.sh`) continues.
+
+## D-081: Every completed request can be sent back for revision, with a reason and a fresh SLA clock (2026-11-06)
+
+**Asked by the owner** (after a check showed revision was one-way, Sales to SOA, for a BOQ only).
+
+- **Revision for BOQ, RFQ and PO.** A Completed request goes to Revision only (the old "reopen to In progress" of an RFQ or PO is gone, since it made the request overdue at once: the clock still counted from the creation). Sales on their project, Admin and Superadmin send it back from the request page; the owning team (SOA for a BOQ, Purchasing for an RFQ or PO) can also drag the card to the Revision column, which every board now has. The owning team is notified, in red.
+- **A reason is always required** (`reasonRequired(_, "REVISION")`), on the request page and on the board. It is kept in the status history and the notification.
+- **SLA per round.** The first completion is scored once and never again. Each revision starts a new clock at the moment it was sent back, with the same range as the team's SLA (owner's choice); a second revision starts another. While the request is in Revision the SLA badge, the overdue counts and the "late completion needs a note" rule use that round; once it is completed again the badge shows the first result and a second line, "SLA revisi terakhir", shows the round's result (Met or Late). `slaOf` returns `revision` (`startedAt`, `targetAt`, `dueAt`, `state`) for this. No migration.
+- **Notes on a late revision.** An RFQ or PO that finishes its revision after the round's deadline needs a late note, like a first completion; the first completion's note is kept unless the revision's replaces it.
+- **Not built:** an in-app "ask Sales" from SOA or Purchasing (questions stay in email); a separate dashboard figure for revision SLA.
+
+**Amended (2026-11-06): one SLA figure on the dashboards.** The SOA and Purchasing dashboards (and the monthly report) show a single SLA compliance figure. A completion and a finished revision are each scored once: the revision counts in the window where it ended (`RevisionSla.endedAt`). In the data the two stay apart: `slaOf` gives the first result (`state`) and the revision round (`revision`) separately, and the request page shows both.
+
+## D-082: A person can also see what Management sees (2026-11-10)
+
+**Asked by the owner** for the director, who is a salesperson and also wants the overview Management has, read only.
+
+- **One flag, not a second role.** `users.also_management` (default false, migration `20261111100000_user_also_management`). The working role stays the single `users.role`, so every role check in the code (ownership, scoping, notifications, the request code prefix) is unchanged. `canHold(person, permission)` is `can(role)` or, when the flag is on, `can("MANAGEMENT")`; `requirePermission`, the menu (`navLinksFor(role, alsoManagement)`) and the two Management-only queries (technical report, financial crosscheck) use it. The flag adds only what Management has and Sales lacks: the Management dashboard, technical reports and the crosscheck; nothing that changes data.
+- **Who and how.** Only a superadmin (`users.manage-privileged`) turns it on, in the user's Edit window ("Tampilan Management"); it is audited (`user.also_management_changed`). It is for Sales, SOA, Purchasing and Finance only; changing the role to Admin, Superadmin or Management clears it.
+- **Not done:** a general list of extra roles (a second working role such as Sales + SOA would need the identity checks of D-081's neighbours changed one by one, about thirty places); Admin functions for the director (not asked: view only).
+
+## D-083: Notifications have three levels, and a scan warns the team before an SLA deadline and again after it (2026-11-07)
+
+**Asked by the owner:** the team that handles requests should be told when a request is close to its SLA and when it is past it, and those alerts must not mix with the news of a new request. Phase 2 of the same plan (the Management dashboard) is a separate decision.
+
+- **Levels.** `notifications.severity` (`INFO`, `WARNING`, `DANGER`; migration `20261112100000_notification_severity_sla_alerts`, additive). A writer that names no level gets it from the kind (`defaultSeverityFor`): a revision is Danger (it was already red), everything else Info, so the fifteen existing `notify()` callers did not change. Existing revision rows were back-filled to Danger.
+- **Rule.** The level is the SLA state that the badge shows (`slaOf`): Due now (past the expected date, or under a day to the deadline) is **Warning**, Overdue is **Danger**; paused, met, late, none and finished requests say nothing. A revision round has its own clock and its own alert. `slaAlertLevel` in `src/domain/notifications/sla-alerts.ts` is the only place that decides.
+- **Who.** Warning goes to the accounts of the team that works the request (SOA for a BOQ, Purchasing for an RFQ or PO; the PICs are not accounts). Danger goes to that team and to Admin and Management (owner's choice). Paused (Waiting for Sales, retired) requests are not alerted.
+- **Once per level.** `notifications.dedupe_key` = `sla:<request id>:<start of the SLA round>:<level>`, unique per recipient: running the scan again adds nothing, a revision starts a new round and may alert again, and a request first seen already overdue gets only the Danger. `notifications.request_id` ties an alert to its request (no foreign key, so a cleaned-up request does not block it).
+- **No flood on the first scan.** A deadline that passed more than 7 calendar days ago is not alerted (`SLA_ALERT_MAX_AGE_DAYS`, owner's choice): the first scan on the live database, or one after a long outage of the cron job, would otherwise send a Danger for every request that was ever late. Inside the week it alerts; a Warning is never affected.
+- **Closing.** Completing or cancelling a request reads its SLA alerts for every recipient (`closeSlaAlerts`, in the status transaction); the scan also reads the alerts of requests that are finished or deleted.
+- **The scan.** An SLA deadline passing is nobody's action, so `scanSlaAlerts` (`src/server/notifications/sla-alerts.ts`) runs from cron: `deploy/sla-scan.sh` posts to `/api/internal/sla-scan` inside the app container with `Authorization: Bearer $CRON_SECRET`. The production image has no `tsx` scripts and no curl, hence an HTTP route called with Node's fetch. No `CRON_SECRET` (or under 16 characters) answers 404, a wrong one 401 (constant-time comparison); the answer holds counts only. Schedule: every 30 minutes, 08:00 to 18:00 WIB on weekdays (owner's choice); instructions in `deploy/HOSTINGER-DOCKER-MANAGER.md`, the workflow copies the script. An alert can therefore be up to 30 minutes late.
+- **Screen.** `/notifications` has tabs Semua / Info / Warning / Danger with unread counts (`?level=`), the level written in words on each card (not colour alone) and "Mark all Danger as read" per tab. The bell takes its colour from the loudest unread level (blue, amber, red) and its accessible name lists the counts ("Notifications, 7 unread (2 danger, 1 warning, 4 info)"). `hasUnreadRevision` is gone (`countUnreadBySeverity`).
+- **Checks.** Unit: levels, round keys, weekends, texts. Integration: warning to the team only, no duplicate on a second run, Danger to team + Admin + Management after the Warning, closing on completion and on deletion, cancelled request silent, by-level listing and reading, and the route's 404/401/200. E2E: the Info and Danger tabs; the revision spec reads the new bell name.
+- **To do outside the repository.** Put `CRON_SECRET` (`openssl rand -hex 24`) in `/opt/halcom/.env` on the VPS, deploy, and install the cron line. Without them nothing is written.
+- **Not built:** e-mail or push alerts; alerting a request that is past its needed-by date (only the SLA is covered); a setting for the Warning window (it is the badge's "Due now").
+
+## D-084: Sales open on the charts, and Purchasing names a PIC when it starts an RFQ or PO on the board (2026-11-07)
+
+**Asked by the owner.**
+
+- **Sales pipeline opens on Charts.** `/dashboard/sales` shows the charts unless the address says `?view=table` (it was the other way round). The Table / Charts switch is unchanged and both views stay one click apart.
+- **PIC modal on the board.** Dragging an RFQ or PO card from Submitted to In progress (or Shift + arrow) opens a window "Siapa PIC untuk <code>?" with the active Purchasing PICs; nothing moves until one is chosen and "Mulai dikerjakan" is pressed, and "Batal" leaves the card where it was. The PIC is saved first (`assignRequestPic`, with its history and audit event), then the status changes, in one action (`moveRequestAction(…, picId)`). A card that already has a PIC starts with it chosen. Rule: `startAsksForPic(type, from, to)` in `src/domain/pics/teams.ts`. A BOQ does not ask: SOA still hands a BOQ to its PIC from the request page. A request that arrives In progress by itself (handed over from a BOQ) is not affected.
+- **Not enforced on the server:** the service still lets a request start without a PIC (the request page, imports and older flows do); only the board asks. Making a PIC mandatory for In progress everywhere would be a separate decision.
+
+## D-085: The Management dashboard shows what each team struggles with, ranked like the notifications (2026-11-07)
+
+**Asked by the owner** (phase 2 of the plan that began with D-083): a management view of the concerns of each team, such as bottlenecks. It replaces the four planned widgets (no data) and the plain "Open requests" list that `/dashboard/management` showed; read only, for Management, Admin and Superadmin, and for the people who hold the view of D-082.
+
+- **Perlu perhatian (on top).** A ranked list of concerns, Danger then Warning then Info, with the same words and colours as the notifications (`severity-style.ts` is shared with `/notifications`). Each links to the list behind it. The rules are plain functions with constants in `src/domain/management/concerns.ts`, covered by unit tests (changing a threshold is a code change with a test, not a setting):
+  - per team (SOA on BOQ, Purchasing on RFQ and PO): overdue (Danger); close to the deadline, oldest Submitted request waiting more than 72 hours, requests without a PIC, a PIC with 8 or more open requests, needed-by date passed (Warning); SLA compliance of the last 90 days under 90% (Warning) or under 70% (Danger);
+  - between teams: completed BOQs nobody continued or stopped, Info, Warning once the oldest has waited more than 3 days; open projects not touched for more than 30 days, Info, Warning from 5; projects Finance flags, Warning (only for a viewer who may read the crosscheck).
+- **A block per team** (open, backlog, overdue, due now, without PIC, past needed-by, SLA compliance, turnaround; bottleneck per status; load per PIC; the last six months; the late requests with the reason the team wrote), and a block "Antar tim" (handoffs waiting, stale projects, Finance flags). The numbers come from the same functions as the SOA and Purchasing dashboards (`getTeamDashboard`, `listOverdueRequests`; `getTeamMonthly` is new), so a figure here can be checked against the team's own page.
+- **Same words as the alerts.** The overdue and close-to-deadline concerns are the states that raise the Danger and Warning notifications (D-083), so Management sees on this page what the team was told.
+- **Removed:** `ROLE_DASHBOARDS` and `RoleQueue` (the placeholder and the plain list). No migration.
+- **Not built (asked for in the plan):** a weekly SLA compliance line (the six months table is the trend for now), Sales target attainment and pipeline conversion on this page (they stay on Sales pipeline and Targets), and thresholds that a superadmin can change.

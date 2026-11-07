@@ -57,6 +57,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       APP_BASE_URL: https://${DOMAIN:?Set DOMAIN (for example halcom.example.com)}
       BACKUP_DIR: /backups
+      # The secret of deploy/sla-scan.sh (cron). Empty keeps the scan endpoint switched off.
+      CRON_SECRET: ${CRON_SECRET:-}
       EMAIL_TO_HITBOQ: ${EMAIL_TO_HITBOQ:-}
       EMAIL_CC_HITBOQ: ${EMAIL_CC_HITBOQ:-}
       EMAIL_TO_HITRFQ: ${EMAIL_TO_HITRFQ:-}
@@ -78,12 +80,15 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
-    # Reverse proxy with automatic HTTPS. It sets X-Forwarded-For to the real client address, which the sign-in throttle reads.
-    command: caddy reverse-proxy --from ${DOMAIN} --to app:3000
+    # Reverse proxy with automatic HTTPS, security headers and the www redirect: see deploy/Caddyfile. It sets X-Forwarded-For to
+    # the real client address, which the sign-in throttle reads. The file is copied next to this one by the deploy workflow.
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN (for example halcom.example.com)}
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

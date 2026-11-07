@@ -8,6 +8,7 @@ export type UserRow = {
   name: string;
   email: string;
   role: Role;
+  alsoManagement: boolean;
   isActive: boolean;
   createdAt: Date;
 };
@@ -20,7 +21,7 @@ function assertPermitted(allowed: boolean): void {
 export async function listUsers(db: PrismaClient, actor: Actor): Promise<UserRow[]> {
   assertPermitted(can(actor.role, "users.view"));
   return db.user.findMany({
-    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, alsoManagement: true, isActive: true, createdAt: true },
     orderBy: [{ role: "asc" }, { name: "asc" }],
   });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, clearPermissionOverrides, setPermissionOverrides, type Permission } from "@/domain/access/permissions";
+import { can, canHold, clearPermissionOverrides, setPermissionOverrides, type Permission } from "@/domain/access/permissions";
 import { ROLES } from "@/domain/access/roles";
 import { navLinksFor, navSectionsFor } from "@/features/navigation/links";
 
@@ -156,6 +156,28 @@ describe("navSectionsFor", () => {
     for (const role of ROLES) {
       const fromSections = navSectionsFor(role).flatMap((s) => s.links.map((l) => l.href));
       expect(fromSections.sort()).toEqual(hrefsFor(role).sort());
+    }
+  });
+});
+
+describe("the Management view on top of another role (a director who is also Sales)", () => {
+  it("adds the Management menu to the Sales menu, once, and nothing else changes", () => {
+    const sales = navLinksFor("SALES").map((l) => l.href);
+    const both = navLinksFor("SALES", true).map((l) => l.href);
+    for (const href of sales) expect(both).toContain(href);
+    for (const href of ["/dashboard/management", "/reports/technical", "/finance/crosscheck"]) {
+      expect(sales).not.toContain(href);
+      expect(both).toContain(href);
+    }
+    expect(new Set(both).size).toBe(both.length);
+    expect(navLinksFor("SALES", false)).toEqual(navLinksFor("SALES"));
+  });
+
+  it("gives read access only: no Management permission lets the person change data", () => {
+    expect(canHold({ role: "SALES", alsoManagement: true }, "reports.technical.view")).toBe(true);
+    expect(canHold({ role: "SALES" }, "reports.technical.view")).toBe(false);
+    for (const permission of ["users.manage", "requests.delete", "settings.manage", "masterdata.manage"] as const) {
+      expect(canHold({ role: "SALES", alsoManagement: true }, permission), permission).toBe(false);
     }
   });
 });

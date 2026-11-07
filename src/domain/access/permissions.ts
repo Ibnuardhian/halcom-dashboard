@@ -276,6 +276,14 @@ export function can(role: Role, permission: Permission): boolean {
   return permissionsFor(role).has(permission);
 }
 
+/** Roles that may also see what Management sees (read only). Admin and Superadmin already can do more; Management already has it. */
+export const ALSO_MANAGEMENT_ROLES: readonly Role[] = ["SALES", "SOA", "PURCHASING", "FINANCE"];
+
+/** `can` for a person: their role, plus the Management view when a superadmin gave it to them. */
+export function canHold(holder: { role: Role; alsoManagement?: boolean }, permission: Permission): boolean {
+  return can(holder.role, permission) || (holder.alsoManagement === true && can("MANAGEMENT", permission));
+}
+
 /** May `actor` change an account whose current role is `target` (edit, deactivate, reset password)? */
 export function canManageUser(actor: Role, target: Role): boolean {
   if (!can(actor, "users.manage")) return false;

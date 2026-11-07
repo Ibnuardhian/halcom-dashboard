@@ -1,12 +1,12 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
-import { can } from "@/domain/access/permissions";
+import { can, canHold } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { METRICS_WINDOW_DAYS, computeTeamMetrics, monthlyReport, summariseRequests, summariseStatuses, type StatusSummary, type MonthlyRow, type MetricRequest, type RequesterSummary, type TeamMetrics } from "@/domain/requests/metrics";
 import { OWNING_ROLE, type RequestType } from "@/domain/requests/types";
 import { overdueWorkingDays, slaOf } from "@/domain/requests/sla";
 import { getTeamSettings } from "@/server/settings/team-settings";
 
-type Viewer = { id: string; role: Role };
+type Viewer = { id: string; role: Role; alsoManagement?: boolean };
 
 function assertPermitted(viewer: Viewer): void {
   // Pages check permissions first; this guards against a missed check. Request data is readable by every signed-in role (A-9).
@@ -69,14 +69,29 @@ export async function getTeamDashboard(db: PrismaClient, viewer: Viewer, team: "
 
 /** BOQ requests per month for the last six months: received, completed, SLA and turnaround. For SOA's Technical reports. */
 export async function getTechnicalReport(db: PrismaClient, viewer: Viewer, now: Date = new Date()): Promise<MonthlyRow[]> {
-  if (!can(viewer.role, "reports.technical.view")) throw new Error("Forbidden: missing permission for this query.");
+  if (!canHold(viewer, "reports.technical.view")) throw new Error("Forbidden: missing permission for this query.");
   const [requests, settings] = await Promise.all([load(db, { type: "BOQ" }), getTeamSettings(db)]);
   return monthlyReport(requests, settings.SOA.sla, now);
 }
 
+const AWAITING_HANDOFF = { type: "BOQ", status: "COMPLETED", flowStoppedAt: null, deletedAt: null, handovers: { none: { deletedAt: null } }, project: { deletedAt: null } } satisfies Prisma.RequestWhereInput;
+
 /** Completed BOQs that were neither continued as an RFQ nor marked "do not continue". */
 export function countAwaitingHandoff(db: PrismaClient): Promise<number> {
-  return db.request.count({ where: { type: "BOQ", status: "COMPLETED", flowStoppedAt: null, deletedAt: null, handovers: { none: { deletedAt: null } }, project: { deletedAt: null } } });
+  return db.request.count({ where: AWAITING_HANDOFF });
+}
+
+/** When the BOQ that has waited longest for the Sales decision was completed; null when none waits. */
+export async function oldestAwaitingHandoffAt(db: PrismaClient): Promise<Date | null> {
+  const oldest = await db.request.findFirst({ where: { ...AWAITING_HANDOFF, completedAt: { not: null } }, orderBy: { completedAt: "asc" }, select: { completedAt: true } });
+  return oldest?.completedAt ?? null;
+}
+
+/** The last six months of one team: received, completed, SLA and turnaround (the table of Technical reports, for either team). */
+export async function getTeamMonthly(db: PrismaClient, viewer: Viewer, team: "SOA" | "PURCHASING", now: Date = new Date()): Promise<MonthlyRow[]> {
+  assertPermitted(viewer);
+  const [requests, settings] = await Promise.all([load(db, { types: TEAM_TYPES[team] }), getTeamSettings(db)]);
+  return monthlyReport(requests, settings[team].sla, now);
 }
 
 /** The request picture of the projects one salesperson owns, or of every project when `ownerId` is omitted. */

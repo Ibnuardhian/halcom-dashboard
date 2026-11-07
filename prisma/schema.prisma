@@ -31,6 +31,8 @@ model User {
   passwordHash String   @map("password_hash")
   // One role per user (assumption A-1 in docs/requirements/RBAC.md).
   role         Role
+  // Also sees what Management sees (read only), on top of the role above. Set by a superadmin; never for Admin, Superadmin or Management.
+  alsoManagement Boolean @default(false) @map("also_management")
   isActive     Boolean  @default(true) @map("is_active")
   // True while somebody else chose this password (an account an administrator created or reset, and the first superadmin):
   // the person is sent to the password page and can reach nothing else until they have chosen their own (T-9).
@@ -561,22 +563,39 @@ model RequestPicAssignment {
   @@map("request_pic_assignments")
 }
 
+// How loud a notification is: INFO for news (a request that reached the team), WARNING for an SLA deadline that is near,
+// DANGER for an SLA deadline that has passed and for a revision. Keep in sync with src/domain/notifications/severity.ts.
+enum NotificationSeverity {
+  INFO
+  WARNING
+  DANGER
+}
+
 // Something a person should look at: a request that reached their team, or a project change made by another
-// division. Rows are written in the same transaction as the change they describe.
+// division. Rows are written in the same transaction as the change they describe. SLA alerts are the exception: the
+// scheduled scan (src/server/notifications/sla-alerts.ts) writes them when a deadline gets near or passes.
 model Notification {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  recipientId String    @map("recipient_id") @db.Uuid
-  // For example "request.created", "request.status_changed", "project.updated".
+  id          String               @id @default(uuid(7)) @db.Uuid
+  recipientId String               @map("recipient_id") @db.Uuid
+  // For example "request.created", "request.status_changed", "project.updated", "sla.due_soon".
   kind        String
+  severity    NotificationSeverity @default(INFO)
   title       String
   body        String?
   // Where the notification leads, a path inside the application.
   href        String
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+  // The request an SLA alert is about; null for the rest. No foreign key: an alert may outlive a cleaned-up request.
+  requestId   String?              @map("request_id") @db.Uuid
+  // "sla:<request id>:<start of the SLA round>:<level>": one alert per recipient, request, round and level. Null for the rest.
+  dedupeKey   String?              @map("dedupe_key")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt      DateTime?            @map("read_at") @db.Timestamptz(3)
 
   recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
+  @@unique([recipientId, dedupeKey])
+  @@index([requestId])
+  @@index([recipientId, severity, readAt])
   @@index([recipientId, readAt, createdAt])
   @@map("notifications")
 }

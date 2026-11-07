@@ -74,7 +74,7 @@ describe("requests reach the team that owns them", () => {
 
     await changeRequestStatus(db, soa, { requestId: boq.id, to: "IN_PROGRESS" });
     await changeRequestStatus(db, soa, { requestId: boq.id, to: "COMPLETED" });
-    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" });
+    await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION", reason: "Scope berubah" });
 
     const rows = await mine(sales.id, boq.code);
     expect(rows.map((n) => n.title)).toEqual([`${boq.code} is now In progress`, `${boq.code} is now Completed`, `${boq.code} is now Revision`]);

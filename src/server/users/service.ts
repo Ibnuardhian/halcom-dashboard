@@ -1,5 +1,5 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
-import { can, canAssignRole, canManageUser } from "@/domain/access/permissions";
+import { ALSO_MANAGEMENT_ROLES, can, canAssignRole, canManageUser } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { hashPassword } from "@/server/auth/password";
 import { revokeAllSessions } from "@/server/auth/session-store";
@@ -118,8 +118,28 @@ export async function changeUserRole(
     if (!canManageUser(actor.role, target.role) || !canAssignRole(actor.role, role.data)) return fail("FORBIDDEN");
     if (target.role === role.data) return succeed(undefined);
 
-    await tx.user.update({ where: { id: target.id }, data: { role: role.data } });
+    // The Management view only goes with the roles that may have it.
+    await tx.user.update({ where: { id: target.id }, data: { role: role.data, ...(ALSO_MANAGEMENT_ROLES.includes(role.data) ? {} : { alsoManagement: false }) } });
     await audit(tx, actor, "user.role_changed", target.id, { role: target.role }, { role: role.data });
+    return succeed(undefined);
+  });
+}
+
+/** A superadmin lets a Sales, SOA, Purchasing or Finance person also see what Management sees (read only), or takes it away again. */
+export async function setUserAlsoManagement(db: PrismaClient, claimedActor: Actor, userId: string, enabled: boolean): Promise<UserResult> {
+  const id = uuidSchema.safeParse(userId);
+  if (!id.success) return fail("INVALID_INPUT");
+  if (!can(claimedActor.role, "users.manage-privileged")) return fail("FORBIDDEN");
+
+  return db.$transaction(async (tx) => {
+    const actor = await beginAdministration(tx, claimedActor);
+    if (!actor || !can(actor.role, "users.manage-privileged")) return fail("FORBIDDEN");
+    const target = await tx.user.findUnique({ where: { id: id.data } });
+    if (!target) return fail("NOT_FOUND");
+    if (enabled && !ALSO_MANAGEMENT_ROLES.includes(target.role)) return fail("INVALID_INPUT", "Tampilan Management hanya untuk peran Sales, SOA, Purchasing, dan Finance.");
+    if (target.alsoManagement === enabled) return succeed(undefined);
+    await tx.user.update({ where: { id: target.id }, data: { alsoManagement: enabled } });
+    await audit(tx, actor, "user.also_management_changed", target.id, { alsoManagement: target.alsoManagement }, { alsoManagement: enabled });
     return succeed(undefined);
   });
 }

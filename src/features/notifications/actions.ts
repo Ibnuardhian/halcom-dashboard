@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isNotificationSeverity } from "@/domain/notifications/severity";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
 import { markAllRead, markRead } from "@/server/notifications/service";
@@ -12,8 +13,10 @@ export async function markReadAction(formData: FormData): Promise<void> {
   revalidatePath("/notifications");
 }
 
-export async function markAllReadAction(): Promise<void> {
+/** Reads every unread notification, or only those of one level when the form names it (the tab the person is on). */
+export async function markAllReadAction(formData?: FormData): Promise<void> {
   const user = await requireUser();
-  await markAllRead(getDb(), user.id);
+  const severity = formData?.get("severity");
+  await markAllRead(getDb(), user.id, isNotificationSeverity(severity) ? severity : undefined);
   revalidatePath("/notifications");
 }

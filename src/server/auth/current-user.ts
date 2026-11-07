@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { can, type Permission } from "@/domain/access/permissions";
+import { canHold, type Permission } from "@/domain/access/permissions";
 import { getDb } from "@/lib/db";
 import { PASSWORD_CHANGE_PATH } from "@/features/navigation/links";
 import { loadPermissionOverrides } from "@/server/permissions/service";
@@ -43,6 +43,6 @@ export async function requireUser(options: { allowPasswordChange?: boolean } = {
  */
 export async function requirePermission(permission: Permission): Promise<SessionUser> {
   const user = await requireUser();
-  if (!can(user.role, permission)) notFound();
+  if (!canHold(user, permission)) notFound();
   return user;
 }

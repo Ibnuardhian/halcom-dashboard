@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DashboardHeader } from "@/features/dashboards/dashboard-header";
 import { formatDay } from "@/features/dashboards/format";
+import { BACKUPS_PATH } from "@/features/navigation/links";
 import { BackupForm } from "@/features/system/backup-form";
 import { formatBytes } from "@/features/system/format";
 import { requirePermission } from "@/server/auth/current-user";
-import { listBackups } from "@/server/system/backup";
+import { isAutomaticBackup, listBackups } from "@/server/system/backup";
 
 export default function BackupsPage() {
   return (
@@ -35,7 +36,8 @@ async function Backups() {
             </CardTitle>
             <CardDescription>
               A full custom-format dump (<code>pg_dump</code>) of the application database. The file contains all business data, so keep the
-              folder private and copy it off the machine as well.
+              folder private and copy it off the machine as well: download it from the list, and every download is written to the audit log.
+              The server also makes one backup a day by itself (<code>halcom-auto-…</code>) and keeps them for 30 days.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -51,7 +53,7 @@ async function Backups() {
               <h2>Existing backups</h2>
             </CardTitle>
             <CardDescription>
-              Folder cadangan: <code>{state.dir}</code>. Berkas lama belum dihapus otomatis.
+              Folder cadangan: <code>{state.dir}</code>. Aplikasi tidak menghapus berkas; berkas otomatis dihapus oleh server setelah 30 hari, berkas buatan tangan tidak pernah.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -70,6 +72,8 @@ async function Backups() {
                     <TableHead>File</TableHead>
                     <TableHead className="text-right">Size</TableHead>
                     <TableHead>Written</TableHead>
+                    <TableHead>Made by</TableHead>
+                    <TableHead className="text-right">Download</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -78,6 +82,13 @@ async function Backups() {
                       <TableCell className="font-mono text-xs">{file.name}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatBytes(file.sizeBytes)}</TableCell>
                       <TableCell className="whitespace-nowrap">{formatDay(file.modifiedAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{isAutomaticBackup(file.name) ? "Daily job" : "Superadmin"}</TableCell>
+                      <TableCell className="text-right">
+                        {/* A plain link, not next/link: a prefetch would call the route and write a download to the audit log. */}
+                        <a className="text-primary underline-offset-4 hover:underline" href={`${BACKUPS_PATH}/download/${file.name}`} download>
+                          Download
+                        </a>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

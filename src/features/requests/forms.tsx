@@ -480,7 +480,7 @@ export function RevisionForm({ requestId }: { requestId: string }) {
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={requestId} />
-      <Field id={`revision-reason-${requestId}`} label="What needs to change? *" hint="Tiket langsung masuk ke Revision dan SOA diberi tahu. Maksimal 500 karakter.">
+      <Field id={`revision-reason-${requestId}`} label="What needs to change? *" hint="Tiket langsung masuk ke Revision dan tim terkait diberi tahu. Maksimal 500 karakter.">
         <Textarea id={`revision-reason-${requestId}`} name="reason" required maxLength={500} className="min-h-24" />
       </Field>
       <FormStatus state={state} />

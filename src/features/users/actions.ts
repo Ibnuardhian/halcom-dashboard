@@ -10,6 +10,7 @@ import {
   createUser,
   resetUserPassword,
   setUserActive,
+  setUserAlsoManagement,
   type UserResult,
 } from "@/server/users/service";
 
@@ -43,6 +44,14 @@ export async function createUserAction(_previous: ActionState, formData: FormDat
 export async function changeRoleAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const result = await changeUserRole(getDb(), await actor(), String(formData.get("userId")), formData.get("role"));
   return toState(result, "Role updated.");
+}
+
+/** Superadmin only: its own permission decides. */
+export async function setAlsoManagementAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requirePermission("users.manage-privileged");
+  const enabled = formData.get("enabled") === "true";
+  const result = await setUserAlsoManagement(getDb(), { id: user.id, role: user.role }, String(formData.get("userId")), enabled);
+  return toState(result, enabled ? "Tampilan Management diaktifkan." : "Tampilan Management dimatikan.");
 }
 
 export async function setActiveAction(_previous: ActionState, formData: FormData): Promise<ActionState> {

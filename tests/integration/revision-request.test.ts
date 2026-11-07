@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
 import { getDb } from "@/lib/db";
-import { hasUnreadRevision, markAllRead } from "@/server/notifications/service";
+import { countUnreadBySeverity, markAllRead } from "@/server/notifications/service";
 import { changeRequestStatus, createProject, createRequest, requestRevision, type Actor } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
@@ -59,13 +59,13 @@ describe("Sales ask for a revision of a completed BOQ", () => {
 
   it("makes the bell urgent until the revision notification is read", async () => {
     const { sales, technicalPic, boq } = await completedBoq();
-    expect(await hasUnreadRevision(db, technicalPic.id)).toBe(false);
+    expect((await countUnreadBySeverity(db, technicalPic.id)).DANGER > 0).toBe(false);
 
     await requestRevision(db, sales, { requestId: boq.id, reason: "More cameras" });
-    expect(await hasUnreadRevision(db, technicalPic.id)).toBe(true);
+    expect((await countUnreadBySeverity(db, technicalPic.id)).DANGER > 0).toBe(true);
 
     await markAllRead(db, technicalPic.id);
-    expect(await hasUnreadRevision(db, technicalPic.id)).toBe(false);
+    expect((await countUnreadBySeverity(db, technicalPic.id)).DANGER > 0).toBe(false);
   });
 
   it("is refused for anything but a completed BOQ, an empty reason, and a project that is not the salesperson's", async () => {
@@ -85,7 +85,9 @@ describe("Sales ask for a revision of a completed BOQ", () => {
     const rfq = await createRequest(db, sales, { projectId, type: "RFQ", title: "An RFQ" });
     if (!rfq.ok) throw new Error(rfq.message);
     expect((await changeRequestStatus(db, await actorOf("PURCHASING"), { requestId: rfq.value.id, to: "COMPLETED" })).ok).toBe(true);
-    expect(await requestRevision(db, sales, { requestId: rfq.value.id, reason: "x" })).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    // A completed RFQ goes back to Purchasing the same way, with its own revision clock.
+    expect(await requestRevision(db, sales, { requestId: rfq.value.id, reason: "Harga perlu diperbarui" })).toMatchObject({ ok: true });
+    expect((await db.request.findUniqueOrThrow({ where: { id: rfq.value.id } })).status).toBe("REVISION");
 
     // Once in Revision it cannot be asked for again, and SOA completes it as before.
     expect((await requestRevision(db, sales, { requestId: boq.id, reason: "ok" })).ok).toBe(true);
@@ -109,9 +111,10 @@ describe("Sales ask for a revision of a completed BOQ", () => {
   it("also marks the notification red when SOA moves a BOQ to Revision on the board", async () => {
     const { sales, soa, boq } = await completedBoq();
 
-    expect((await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" })).ok).toBe(true);
+    expect(await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION" })).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect((await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION", reason: "Customer minta perubahan" })).ok).toBe(true);
 
     expect((await about(sales.id, boq.code)).map((n) => n.kind)).toContain(REVISION_STARTED_KIND);
-    expect(await hasUnreadRevision(db, sales.id)).toBe(true);
+    expect((await countUnreadBySeverity(db, sales.id)).DANGER > 0).toBe(true);
   });
 });

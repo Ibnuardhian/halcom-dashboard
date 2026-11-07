@@ -223,22 +223,25 @@ describe("changeRequestStatus", () => {
     ]);
     expect(done.statusHistory[1]).toMatchObject({ reason: null, changedById: soa.id });
 
-    // A completed BOQ is not reopened: it goes to Revision, which needs no reason and keeps the completion time.
+    // A completed BOQ is not reopened: it goes to Revision, which needs a reason and keeps the completion time.
     expect(await advance(soa, boq.id, "IN_PROGRESS", "Customer changed the scope")).toMatchObject({ ok: false, code: "INVALID_STATE" });
-    expect((await advance(soa, boq.id, "REVISION")).ok).toBe(true);
+    expect(await advance(soa, boq.id, "REVISION")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect((await advance(soa, boq.id, "REVISION", "Customer changed the scope")).ok).toBe(true);
     const revising = await db.request.findUniqueOrThrow({ where: { id: boq.id } });
     expect(revising).toMatchObject({ status: "REVISION" });
     expect(revising.completedAt?.getTime()).toBe(done.completedAt?.getTime());
 
-    // An RFQ is reopened instead: it needs a reason, clears completed_at and keeps the earlier completion in the history.
+    // An RFQ is sent back the same way: it cannot be reopened to In progress, Revision needs a reason, and the first completion stays.
     const purchasing = await actorOf("PURCHASING", "purchasing.reopen");
     const rfq = await makeRequest(sales, project.id, "RFQ");
     await advance(purchasing, rfq.id, "COMPLETED");
-    expect(await advance(purchasing, rfq.id, "IN_PROGRESS")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
-    expect((await advance(purchasing, rfq.id, "IN_PROGRESS", "Vendor changed the price")).ok).toBe(true);
-    const reopened = await db.request.findUniqueOrThrow({ where: { id: rfq.id }, include: { statusHistory: true } });
-    expect(reopened).toMatchObject({ status: "IN_PROGRESS", completedAt: null });
-    expect(reopened.statusHistory.filter((row) => row.toStatus === "COMPLETED")).toHaveLength(1);
+    expect(await advance(purchasing, rfq.id, "IN_PROGRESS", "Vendor changed the price")).toMatchObject({ ok: false, code: "INVALID_STATE" });
+    expect(await advance(purchasing, rfq.id, "REVISION")).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+    expect((await advance(purchasing, rfq.id, "REVISION", "Vendor changed the price")).ok).toBe(true);
+    const revised = await db.request.findUniqueOrThrow({ where: { id: rfq.id }, include: { statusHistory: true } });
+    expect(revised.status).toBe("REVISION");
+    expect(revised.completedAt).not.toBeNull();
+    expect(revised.statusHistory.filter((row) => row.toStatus === "COMPLETED")).toHaveLength(1);
   });
 
   it("requires a reason to cancel, and refuses transitions that are not allowed", async () => {

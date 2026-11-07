@@ -120,7 +120,7 @@ async function Guide() {
             <h2>Request statuses</h2>
           </CardTitle>
           <CardDescription>
-            Status berikutnya yang boleh dipilih. SOA memindahkan BOQ, Purchasing memindahkan RFQ dan PO, dengan menyeret kartu di board. Membatalkan, atau membuka kembali RFQ atau PO yang selesai, perlu alasan.
+            Status berikutnya yang boleh dipilih. SOA memindahkan BOQ, Purchasing memindahkan RFQ dan PO, dengan menyeret kartu di board. Membatalkan, atau mengembalikan request yang selesai untuk direvisi, perlu alasan. Revisi memulai jam SLA baru.
           </CardDescription>
         </CardHeader>
         <CardContent>

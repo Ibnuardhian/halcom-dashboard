@@ -232,13 +232,13 @@ describe("the guide's statements match the application's rules", () => {
     for (const permission of ["permissions.manage", "system.backup", "system.monitor", "settings.manage", "users.manage-privileged"] as const) expect(can("SUPERADMIN", permission), permission).toBe(true);
   });
 
-  it("cancelling and reopening ask for a reason, a BOQ is revised, an RFQ or PO is reopened, and Waiting for Sales is retired", () => {
+  it("cancelling and sending back for revision ask for a reason, every completed type goes to Revision, and Waiting for Sales is retired", () => {
     expect(reasonRequired("IN_PROGRESS", "CANCELLED")).toBe(true);
-    expect(reasonRequired("COMPLETED", "IN_PROGRESS")).toBe(true);
+    expect(reasonRequired("COMPLETED", "REVISION")).toBe(true);
     expect(reasonRequired("SUBMITTED", "IN_PROGRESS")).toBe(false);
     expect(allowedTransitions("COMPLETED", "BOQ")).toEqual(["REVISION"]);
-    expect(allowedTransitions("COMPLETED", "RFQ")).toEqual(["IN_PROGRESS"]);
-    expect(allowedTransitions("COMPLETED", "PO")).toEqual(["IN_PROGRESS"]);
+    expect(allowedTransitions("COMPLETED", "RFQ")).toEqual(["REVISION"]);
+    expect(allowedTransitions("COMPLETED", "PO")).toEqual(["REVISION"]);
     expect(allowedTransitions("SUBMITTED", "BOQ")).toContain("COMPLETED");
     expect(allowedTransitions("CANCELLED", "BOQ")).toEqual([]);
     expect(REQUEST_STATUSES.filter(isRetired)).toEqual(["WAITING_FOR_SALES"]);
@@ -252,9 +252,9 @@ describe("the revision flow the guide describes", () => {
     for (const role of ["SOA", "PURCHASING", "FINANCE", "MANAGEMENT"] as const) expect(can(role, "requests.revise"), role).toBe(false);
   });
 
-  it("reaches Revision only from Completed, and for a BOQ only", () => {
+  it("reaches Revision only from Completed, for every type", () => {
     expect(allowedTransitions("COMPLETED", "BOQ")).toEqual(["REVISION"]);
-    expect(allowedTransitions("COMPLETED", "RFQ")).not.toContain("REVISION");
+    expect(allowedTransitions("COMPLETED", "RFQ")).toContain("REVISION");
     expect(allowedTransitions("SUBMITTED", "BOQ")).not.toContain("REVISION");
   });
 

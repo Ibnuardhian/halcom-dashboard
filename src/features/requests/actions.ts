@@ -76,9 +76,15 @@ export async function createRequestAction(_previous: FormState, formData: FormDa
  * Moves a request to another column of the board (the only place SOA and Purchasing change a status). The service re-checks who may
  * move this type of request, that the move is allowed from where the request is, and that a reason came with a cancellation or reopening.
  */
-export async function moveRequestAction(requestId: string, to: string, reason?: string): Promise<NonNullable<FormState>> {
+export async function moveRequestAction(requestId: string, to: string, reason?: string, picId?: string): Promise<NonNullable<FormState>> {
   const user = await requireUser();
-  const result = await changeRequestStatus(getDb(), { id: user.id, role: user.role }, { requestId, to, reason: reason ?? null });
+  const actor = { id: user.id, role: user.role };
+  // Starting an RFQ or PO on the board names the PIC first (the board asks for it); the service re-checks who may assign and that the PIC belongs to the team.
+  if (picId) {
+    const assigned = await assignRequestPic(getDb(), actor, { requestId, picId });
+    if (!assigned.ok) return { ok: false, message: assigned.message };
+  }
+  const result = await changeRequestStatus(getDb(), actor, { requestId, to, reason: reason ?? null });
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath(`/request/${result.value.code}`);
   revalidatePath(REQUESTS_PATH);

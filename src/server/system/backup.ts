@@ -14,8 +14,11 @@ const execFileAsync = promisify(execFile);
 export const DEFAULT_BACKUP_DIR = "/backups";
 const BACKUP_TIMEOUT_MS = 10 * 60 * 1000;
 
-/** `halcom-20261017-153000Z.dump`: UTC time, so names sort chronologically on any machine. */
-const BACKUP_NAME = /^halcom-\d{8}-\d{6}Z\.dump$/;
+/**
+ * `halcom-20261017-153000Z.dump` (made from this page) or `halcom-auto-20261017-153000Z.dump` (the daily job on the server,
+ * deploy/backup-daily.sh): UTC time, so names sort chronologically on any machine. Only these names are listed or downloaded.
+ */
+const BACKUP_NAME = /^halcom-(?:auto-)?\d{8}-\d{6}Z\.dump$/;
 
 export function backupFileName(now: Date): string {
   const iso = now.toISOString(); // 2026-10-17T15:30:00.000Z
@@ -24,6 +27,11 @@ export function backupFileName(now: Date): string {
 
 export function isBackupFileName(name: string): boolean {
   return BACKUP_NAME.test(name);
+}
+
+/** The daily job's files, which that job (not the application) removes after its retention period. */
+export function isAutomaticBackup(name: string): boolean {
+  return name.startsWith("halcom-auto-");
 }
 
 export type BackupFile = { name: string; sizeBytes: number; modifiedAt: Date };
@@ -86,6 +94,46 @@ export type BackupResult =
 
 let running = false;
 
+/** The stored, active user, when the claimed role may handle backups: the claim alone is not trusted. */
+async function backupActor(db: PrismaClient, claimedActor: { id: string; role: Role }): Promise<{ id: string; role: Role } | null> {
+  if (!can(claimedActor.role, "system.backup")) return null;
+  const actor = await db.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
+  return actor?.isActive && can(actor.role, "system.backup") ? { id: actor.id, role: actor.role } : null;
+}
+
+export type BackupDownload =
+  | { ok: true; file: BackupFile; path: string }
+  | { ok: false; code: "FORBIDDEN" | "NOT_FOUND"; message: string };
+
+/**
+ * Checks that this user may download this backup and that the file exists, and writes the download to the audit log. Only names
+ * of the two backup patterns are accepted, so a path such as `../x` never reaches the file system. The route streams `path`.
+ */
+export async function prepareBackupDownload(
+  db: PrismaClient,
+  claimedActor: { id: string; role: Role },
+  name: string,
+  options: { dir?: string } = {},
+): Promise<BackupDownload> {
+  const actor = await backupActor(db, claimedActor);
+  if (!actor) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
+  if (!isBackupFileName(name)) return { ok: false, code: "NOT_FOUND", message: "Backup tidak ditemukan." };
+  const filePath = path.join(/*turbopackIgnore: true*/ options.dir ?? backupDir(), name);
+  const info = await stat(/*turbopackIgnore: true*/ filePath).catch(() => null);
+  if (!info?.isFile()) return { ok: false, code: "NOT_FOUND", message: "Backup tidak ditemukan." };
+  await db.auditEvent.create({
+    data: {
+      actorId: actor.id,
+      action: "system.backup_downloaded",
+      entityType: "system",
+      entityId: name,
+      before: Prisma.JsonNull,
+      after: { name, sizeBytes: info.size },
+    },
+  });
+  return { ok: true, file: { name, sizeBytes: info.size, modifiedAt: info.mtime }, path: filePath };
+}
+
 /**
  * Writes a PostgreSQL custom-format dump to the host-mounted backup folder (decision T-11: a host
  * folder). The dump is written to a `.partial` file, checked with `pg_restore --list`, and only
@@ -97,11 +145,8 @@ export async function createBackup(
   claimedActor: { id: string; role: Role },
   options: BackupOptions = {},
 ): Promise<BackupResult> {
-  if (!can(claimedActor.role, "system.backup")) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
-  const actor = await db.user.findUnique({ where: { id: claimedActor.id }, select: { id: true, role: true, isActive: true } });
-  if (!actor?.isActive || !can(actor.role, "system.backup")) {
-    return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
-  }
+  const actor = await backupActor(db, claimedActor);
+  if (!actor) return { ok: false, code: "FORBIDDEN", message: "Anda tidak diizinkan melakukan ini." };
   if (running) return { ok: false, code: "BUSY", message: "Backup sedang berjalan." };
 
   const databaseUrl = options.databaseUrl ?? process.env["DATABASE_URL"];

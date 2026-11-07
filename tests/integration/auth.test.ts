@@ -49,7 +49,7 @@ describe("sessions", () => {
       name: user.name,
       email: user.email,
       role: "FINANCE",
-      // The session carries the flag, because it is what the first-sign-in gate redirects on (T-9).
+      alsoManagement: false,
       mustChangePassword: false,
     });
     const stored = await db.session.findMany({ where: { userId: user.id } });
