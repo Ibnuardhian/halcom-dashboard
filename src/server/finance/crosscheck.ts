@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@/generated/prisma/client";
-import { can, canHold } from "@/domain/access/permissions";
+import { canHold } from "@/domain/access/permissions";
 import type { Role } from "@/domain/access/roles";
 import { CROSSCHECK_FLAGS, crosscheckFlags, type CrosscheckFlag } from "@/domain/finance/crosscheck";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
