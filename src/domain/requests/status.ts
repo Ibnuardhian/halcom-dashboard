@@ -36,7 +36,7 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
  * Sales) asked for changes and the owning team reworks it, on a fresh SLA clock. A request that still has the retired Waiting for Sales status can be moved on like
  * one that is In progress.
  */
-function transitionsOf(type: RequestType): Record<RequestStatus, readonly RequestStatus[]> {
+function transitionsOf(): Record<RequestStatus, readonly RequestStatus[]> {
   return {
     // A request nobody has touched can be answered straight away: no manual "In progress" step in between.
     SUBMITTED: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
@@ -49,8 +49,10 @@ function transitionsOf(type: RequestType): Record<RequestStatus, readonly Reques
   };
 }
 
+// The type is kept so a type could get its own flow; every type shares the same one today.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function allowedTransitions(from: RequestStatus, type: RequestType): readonly RequestStatus[] {
-  return transitionsOf(type)[from];
+  return transitionsOf()[from];
 }
 
 export function canTransition(from: RequestStatus, to: RequestStatus, type: RequestType): boolean {
@@ -67,6 +69,8 @@ export function isOpen(status: RequestStatus): boolean {
 }
 
 /** The columns of the board, in the order work moves through them. */
+// The type is kept so a type could get its own columns; every type shares the same ones today.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function boardColumns(_type: RequestType | null): readonly RequestStatus[] {
   return ACTIVE_STATUSES;
 }
