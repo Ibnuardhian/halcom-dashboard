@@ -49,7 +49,6 @@ describe("sessions", () => {
       name: user.name,
       email: user.email,
       role: "FINANCE",
-      role: "FINANCE",
       alsoManagement: false,
       mustChangePassword: false,
     });

@@ -24,20 +24,3 @@ export const SHARED_DASHBOARD: DashboardDefinition = {
     { title: "Handover SOA → Purchasing", description: "Berapa lama BOQ yang sudah selesai menunggu sebelum sampai ke Purchasing sebagai RFQ." },
   ],
 };
-
-/**
- * Planned widgets of the dashboards that have no data source yet. Sales, SOA, Purchasing, Finance, Admin and Superadmin show real
- * numbers (D-023, D-026), so only Management is still here.
- */
-export const ROLE_DASHBOARDS: Record<"management", DashboardDefinition> = {
-  management: {
-    title: "Management dashboard",
-    summary: "Kesehatan operasional di semua tim.",
-    widgets: [
-      { title: "Open tickets by team", description: "Beban kerja per tim dan per penanggung jawab." },
-      { title: "SLA at risk and overdue", description: "Tiket yang perlu perhatian, dengan drill-down. Menampilkan “belum diatur” sampai target ditetapkan." },
-      { title: "Bottlenecks", description: "Waktu yang dihabiskan per status, dan alasan keterlambatan." },
-      { title: "Delayed or blocked projects", description: "Proyek dengan pekerjaan yang masih menunggu seseorang." },
-    ],
-  },
-};

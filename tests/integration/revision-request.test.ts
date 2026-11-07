@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Role } from "@/domain/access/roles";
 import { REVISION_REQUESTED_KIND, REVISION_STARTED_KIND } from "@/domain/notifications/kinds";
 import { getDb } from "@/lib/db";
-import { hasUnreadRevision, markAllRead } from "@/server/notifications/service";
+import { countUnreadBySeverity, markAllRead } from "@/server/notifications/service";
 import { changeRequestStatus, createProject, createRequest, requestRevision, type Actor } from "@/server/requests/service";
 import { makeUser } from "./helpers";
 
@@ -59,13 +59,13 @@ describe("Sales ask for a revision of a completed BOQ", () => {
 
   it("makes the bell urgent until the revision notification is read", async () => {
     const { sales, technicalPic, boq } = await completedBoq();
-    expect(await hasUnreadRevision(db, technicalPic.id)).toBe(false);
+    expect((await countUnreadBySeverity(db, technicalPic.id)).DANGER > 0).toBe(false);
 
     await requestRevision(db, sales, { requestId: boq.id, reason: "More cameras" });
-    expect(await hasUnreadRevision(db, technicalPic.id)).toBe(true);
+    expect((await countUnreadBySeverity(db, technicalPic.id)).DANGER > 0).toBe(true);
 
     await markAllRead(db, technicalPic.id);
-    expect(await hasUnreadRevision(db, technicalPic.id)).toBe(false);
+    expect((await countUnreadBySeverity(db, technicalPic.id)).DANGER > 0).toBe(false);
   });
 
   it("is refused for anything but a completed BOQ, an empty reason, and a project that is not the salesperson's", async () => {
@@ -115,6 +115,6 @@ describe("Sales ask for a revision of a completed BOQ", () => {
     expect((await changeRequestStatus(db, soa, { requestId: boq.id, to: "REVISION", reason: "Customer minta perubahan" })).ok).toBe(true);
 
     expect((await about(sales.id, boq.code)).map((n) => n.kind)).toContain(REVISION_STARTED_KIND);
-    expect(await hasUnreadRevision(db, sales.id)).toBe(true);
+    expect((await countUnreadBySeverity(db, sales.id)).DANGER > 0).toBe(true);
   });
 });

@@ -66,6 +66,27 @@ test("Purchasing raises an RFQ for a project by its Sales PIC, and the Sales PIC
   }).toPass({ timeout: 45_000 });
   const code = new URL(page.url()).searchParams.get("request")!;
   await expect(page.getByText("48-port, managed.").first()).toBeVisible(); // the details; the title is the project name (no Summary field)
+
+  // Starting the RFQ on the board (Submitted to In progress) asks which PIC takes it.
+  await page.goto(`/requests/rfq?view=board&q=${code}`);
+  const card = page.locator(`[data-request="${code}"]`);
+  await expect(card).toBeVisible();
+  const inProgress = page.locator('[data-column="IN_PROGRESS"]');
+  const picDialog = page.getByRole("dialog", { name: new RegExp(`PIC untuk ${code}`) });
+  await expect(async () => {
+    await card.dragTo(inProgress);
+    await expect(picDialog).toBeVisible({ timeout: 4000 });
+  }).toPass({ timeout: 120_000 });
+  await expect(page.locator(`[data-column="SUBMITTED"] [data-request="${code}"]`)).toBeVisible(); // nothing moved yet
+  const start = picDialog.getByRole("button", { name: "Mulai dikerjakan" });
+  await expect(start).toBeDisabled(); // a PIC has to be chosen
+  await picDialog.getByLabel("PIC").selectOption({ index: 1 });
+  const picName = (await picDialog.getByLabel("PIC").evaluate((select: HTMLSelectElement) => select.selectedOptions[0]?.textContent)) ?? "";
+  await start.click();
+  await expect(inProgress.locator(`[data-request="${code}"]`)).toContainText(picName, { timeout: 20_000 });
+  await expect(page.getByText(`${code} is now In progress.`)).toBeVisible({ timeout: 20_000 }); // the server has answered: only then is a reload safe
+  await page.reload();
+  await expect(page.locator('[data-column="IN_PROGRESS"]').locator(`[data-request="${code}"]`)).toContainText(picName);
   await signOut(page);
 
   // The Sales PIC was told, and the RFQ is in their Request center (requests are counted by the project's owner).

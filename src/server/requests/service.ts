@@ -12,7 +12,7 @@ import { z } from "zod";
 import { canCreateProjectWithSource, canRaiseRequestOn, canRaiseWithNewProject, normaliseSource, salesActsOn } from "@/domain/projects/source";
 import type { ProjectProgress, TrackStatus } from "@/domain/projects/progress";
 import type { RequestType } from "@/domain/requests/types";
-import { notify, projectAudience, usersWithRole } from "@/server/notifications/service";
+import { closeSlaAlerts, notify, projectAudience, usersWithRole } from "@/server/notifications/service";
 import { OWNING_ROLE } from "@/domain/requests/types";
 import { jakartaDay } from "@/domain/requests/metrics";
 import { codePrefixFor, codePrefixForPic, nextProjectCode, nextRequestCode, recodeFor } from "./codes";
@@ -446,6 +446,8 @@ export async function changeRequestStatus(
       data: { requestId: request.id, fromStatus: request.status, toStatus: to, changedById: actor.id, changedAt: now, reason },
     });
     await audit(tx, actor.id, "request", "request.status_changed", request.id, { status: request.status }, { status: to, reason });
+    // A finished request asks nothing more of the team: its SLA warnings and dangers are read.
+    if (to === "COMPLETED" || to === "CANCELLED") await closeSlaAlerts(tx, request.id);
     await notify(tx, {
       actorId: actor.id,
       recipientIds: [request.requesterId, ...(project ? [project.salesOwnerId] : [])],

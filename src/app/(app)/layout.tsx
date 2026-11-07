@@ -9,7 +9,7 @@ import { ACCOUNT_PATH, GUIDE_PATH, NOTIFICATIONS_PATH, navSectionsFor } from "@/
 import { ThemeSwitcher } from "@/features/theme/theme-switcher";
 import { getDb } from "@/lib/db";
 import { requireUser } from "@/server/auth/current-user";
-import { countUnread, hasUnreadRevision } from "@/server/notifications/service";
+import { countUnreadBySeverity } from "@/server/notifications/service";
 
 // Every page under (app) is per-user and needs a live session check (a deactivated
 // user must lose access immediately, so the session cannot be cached ahead of time).
@@ -29,14 +29,15 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
 
 async function AuthenticatedShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [unread, urgent] = await Promise.all([countUnread(getDb(), user.id), hasUnreadRevision(getDb(), user.id)]);
+  const unreadBySeverity = await countUnreadBySeverity(getDb(), user.id);
+  const unread = unreadBySeverity.INFO + unreadBySeverity.WARNING + unreadBySeverity.DANGER;
 
   return (
     <AppShell
       sections={navSectionsFor(user.role, user.alsoManagement)}
       user={{ name: user.name, roleLabel: ROLE_LABELS[user.role] }}
       accountHref={ACCOUNT_PATH}
-      notifications={{ href: NOTIFICATIONS_PATH, unread, urgent }}
+      notifications={{ href: NOTIFICATIONS_PATH, unread, bySeverity: unreadBySeverity }}
       guideHref={GUIDE_PATH}
       controls={can(user.role, "theme.switch") ? <ThemeSwitcher /> : null}
       signOut={

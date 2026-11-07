@@ -71,7 +71,7 @@ test("Sales send a completed BOQ back for a revision: it goes straight to Revisi
 
   // SOA: the BOQ sits in the Revision column, the bell is red and the notification says Revision in words.
   await signIn(page, "SOA");
-  const bell = page.getByRole("link", { name: /including a revision request/ });
+  const bell = page.getByRole("link", { name: /^Notifications, \d+ unread \(.*\d+ danger/ });
   await expect(bell).toBeVisible();
   await expect(bell.locator("span")).toHaveClass(/bg-destructive/);
   await page.goto("/notifications");

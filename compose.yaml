@@ -58,6 +58,8 @@ services:
       ALLOWED_DEV_ORIGINS: ${ALLOWED_DEV_ORIGINS:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${APP_HOST_PORT:-3000}}
       BACKUP_DIR: /backups
+      # Secret of the SLA alert scan endpoint (/api/internal/sla-scan); empty keeps it off.
+      CRON_SECRET: ${CRON_SECRET:-}
       EMAIL_TO_HITBOQ: ${EMAIL_TO_HITBOQ:-}
       EMAIL_CC_HITBOQ: ${EMAIL_CC_HITBOQ:-}
       EMAIL_TO_HITRFQ: ${EMAIL_TO_HITRFQ:-}
@@ -108,6 +110,8 @@ services:
       # The test server never needs hot reload, and polling made Next dev restart-loop under Docker Desktop.
       NEXT_DEV_POLL_INTERVAL_MS: ""
       APP_BASE_URL: http://localhost:3000
+      # A fixed fake secret for the SLA scan endpoint, so a test can call it.
+      CRON_SECRET: test-cron-secret-0123456789
       # Fixed fake distribution lists, so E2E tests never depend on the developer's .env.
       EMAIL_TO_HITBOQ: soa-group@example.invalid
       EMAIL_CC_HITBOQ: soa-cc@example.invalid

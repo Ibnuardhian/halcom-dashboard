@@ -57,6 +57,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       APP_BASE_URL: https://${DOMAIN:?Set DOMAIN (for example halcom.example.com)}
       BACKUP_DIR: /backups
+      # The secret of deploy/sla-scan.sh (cron). Empty keeps the scan endpoint switched off.
+      CRON_SECRET: ${CRON_SECRET:-}
       EMAIL_TO_HITBOQ: ${EMAIL_TO_HITBOQ:-}
       EMAIL_CC_HITBOQ: ${EMAIL_CC_HITBOQ:-}
       EMAIL_TO_HITRFQ: ${EMAIL_TO_HITRFQ:-}

@@ -403,6 +403,8 @@ export type RequestRow = {
   principalName: string | null;
   solutionName: string | null;
   requesterName: string;
+  /** The PIC the request is handed to (see assigneeName); null while unassigned. */
+  assigneeId: string | null;
   assigneeName: string | null;
   requiredBy: Date | null;
   createdAt: Date;
@@ -511,6 +513,7 @@ function toRow(request: RequestWithRelations, settings: Awaited<ReturnType<typeo
     principalName: principalNamesOf(request.project).join(", ") || null,
     solutionName: request.project.solutionCategory?.name ?? null,
     requesterName: request.requester.name,
+    assigneeId: request.picId,
     assigneeName: request.pic?.name ?? null,
     requiredBy: request.requiredBy,
     createdAt: request.createdAt,

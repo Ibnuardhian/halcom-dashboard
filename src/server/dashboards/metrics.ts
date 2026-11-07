@@ -74,9 +74,24 @@ export async function getTechnicalReport(db: PrismaClient, viewer: Viewer, now: 
   return monthlyReport(requests, settings.SOA.sla, now);
 }
 
+const AWAITING_HANDOFF = { type: "BOQ", status: "COMPLETED", flowStoppedAt: null, deletedAt: null, handovers: { none: { deletedAt: null } }, project: { deletedAt: null } } satisfies Prisma.RequestWhereInput;
+
 /** Completed BOQs that were neither continued as an RFQ nor marked "do not continue". */
 export function countAwaitingHandoff(db: PrismaClient): Promise<number> {
-  return db.request.count({ where: { type: "BOQ", status: "COMPLETED", flowStoppedAt: null, deletedAt: null, handovers: { none: { deletedAt: null } }, project: { deletedAt: null } } });
+  return db.request.count({ where: AWAITING_HANDOFF });
+}
+
+/** When the BOQ that has waited longest for the Sales decision was completed; null when none waits. */
+export async function oldestAwaitingHandoffAt(db: PrismaClient): Promise<Date | null> {
+  const oldest = await db.request.findFirst({ where: { ...AWAITING_HANDOFF, completedAt: { not: null } }, orderBy: { completedAt: "asc" }, select: { completedAt: true } });
+  return oldest?.completedAt ?? null;
+}
+
+/** The last six months of one team: received, completed, SLA and turnaround (the table of Technical reports, for either team). */
+export async function getTeamMonthly(db: PrismaClient, viewer: Viewer, team: "SOA" | "PURCHASING", now: Date = new Date()): Promise<MonthlyRow[]> {
+  assertPermitted(viewer);
+  const [requests, settings] = await Promise.all([load(db, { types: TEAM_TYPES[team] }), getTeamSettings(db)]);
+  return monthlyReport(requests, settings[team].sla, now);
 }
 
 /** The request picture of the projects one salesperson owns, or of every project when `ownerId` is omitted. */

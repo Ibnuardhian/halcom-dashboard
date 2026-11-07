@@ -213,11 +213,11 @@ test.describe("projects and requests", () => {
     await expect(page.locator("#commercial").getByLabel("Gross Profit")).toHaveValue("150.000");
     await expect(page.locator("#commercial").getByLabel("Progress")).toHaveValue("NEGOTIATE");
     await expect(page.getByText(/^Gross Profit \(/).locator("..")).toContainText("150.000");
-    await page.goto("/dashboard/sales");
+    await page.goto("/dashboard/sales?view=table");
     await expect(page.getByRole("link", { name: "Margin demo" }).first()).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Gross Profit" })).toBeVisible();
     await expect(page.getByText(projectCode).first()).toBeVisible();
-    await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Charts" }).click(); // the table is the default view
+    await page.getByRole("navigation", { name: "View" }).getByRole("link", { name: "Charts" }).click(); // the charts are the default view; this keeps the test independent of it
     await expect(page).toHaveURL(/view=charts/);
     await expect(page.getByRole("heading", { level: 3, name: "Pipeline by progress" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 3, name: "Projects by principal" })).toHaveCount(0); // not in the Sales view
@@ -276,6 +276,13 @@ test.describe("projects and requests", () => {
     await soa.goto("/notifications");
     await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toBeVisible();
     await expect(soa.getByRole("link", { name: /^Notifications, \d+ unread/ })).toBeVisible();
+
+    // A new request is Info: it shows under Info and not under Danger, so it does not mix with SLA alerts.
+    await soa.getByRole("link", { name: /^Info/ }).click();
+    await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toBeVisible();
+    await soa.getByRole("link", { name: /^Danger/ }).click();
+    await expect(soa).toHaveURL(/level=danger/);
+    await expect(soa.getByRole("link", { name: `New BOQ request ${boq}` })).toHaveCount(0);
 
     await soa.goto(`/projects/${projectCode}#technical`);
     await soa.getByLabel("Phase").selectOption("SIZING");
